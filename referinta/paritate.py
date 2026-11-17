@@ -296,12 +296,19 @@ def scrie_raport(r, csv_dif):
     if not r["js_disponibil"] and any(x["camp"] == "rezumat" for x in r["regresii"]):
         print("ATENTIE: node lipseste, rezumatele diferite nu au putut fi arbitrate")
     print(f"\ncorecturi (rezumat diferit, JS confirma Rust-ul): {len(r['corecturi'])}")
-    for x in r["corecturi"]:
+    for x in r["corecturi"][:MAX_AFISATE]:
         print(f"  {x['obiect']} @ {x['baza']}: Python {x['python']!r} -> Rust {x['rust']!r}")
+    _restul(r["corecturi"])
     print(f"\nregresii: {len(r['regresii'])}")
+    pe_camp = {}
     for x in r["regresii"]:
+        pe_camp[x["camp"]] = pe_camp.get(x["camp"], 0) + 1
+    for camp, n in sorted(pe_camp.items(), key=lambda p: -p[1]):
+        print(f"  {n:6}  {camp}")
+    for x in r["regresii"][:MAX_AFISATE]:
         extra = f", JS {x['js']!r}" if "js" in x else ""
         print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r}, Rust {x['rust']!r}{extra}")
+    _restul(r["regresii"])
     if csv_dif is not None:
         print(f"\nexport CSV contra instantaneu: {len(csv_dif)} diferente")
         for x in csv_dif[:50]:
@@ -313,7 +320,22 @@ def scrie_raport(r, csv_dif):
     return ok
 
 
+MAX_AFISATE = 40
+
+
+def _restul(lista):
+    if len(lista) > MAX_AFISATE:
+        print(f"  ... si inca {len(lista) - MAX_AFISATE} (lista completa: --json)")
+
+
 def main(argv=None):
+    # Consola Windows, sau ieșirea redirectata intr-un fisier, nu e neaparat
+    # UTF-8; un nume de obiect neobisnuit n-are voie sa opreasca raportul.
+    for flux in (sys.stdout, sys.stderr):
+        try:
+            flux.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("instantaneu", nargs="?")
     ap.add_argument("--din-cazuri", action="store_true",
