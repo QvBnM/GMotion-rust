@@ -52,7 +52,9 @@ titlu "teste"
 if command -v cargo >/dev/null; then
   ies="$(cargo test --manifest-path rust/Cargo.toml --all 2>&1)"
   if [ $? -eq 0 ]; then
-    pas "cargo test ($(printf '%s' "$ies" | grep -cE '^test .* \.\.\. ok$') teste)"
+    # Din rezumatele `test result:`, nu din randurile `test ... ok`: jurnalul
+    # testelor se poate intercala pe acelasi rand si numaratoarea ar varia.
+    pas "cargo test ($(printf '%s' "$ies" | sed -nE 's/^test result: ok\. ([0-9]+) passed.*/\1/p' | awk '{s+=$1} END {print s+0}') teste)"
   else
     cade "cargo test"; printf '%s\n' "$ies" | grep -E '^(test |error|---- )' | sed 's/^/      /' | head -40
   fi
