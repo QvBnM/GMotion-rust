@@ -111,6 +111,12 @@ enum Comanda {
         /// Bazele de comparat. Lipsa lor inseamna toate celelalte.
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
+
+        /// In ce difera fiecare obiect (cod / siruri / comentariu / setari) si
+        /// cate linii se misca. Cere alinierea fiecarui obiect diferit, deci
+        /// dureaza mai mult decat compararea simpla.
+        #[arg(long)]
+        detalii: bool,
     },
 
     /// Arata diferentele unui singur obiect, linie cu linie.
@@ -194,7 +200,8 @@ fn main() -> std::process::ExitCode {
             sursa,
             referinta,
             baze,
-        } => comenzi::compara(sursa, referinta, baze.as_deref(), format),
+            detalii,
+        } => comenzi::compara(sursa, referinta, baze.as_deref(), *detalii, format),
         Comanda::Diferente {
             sursa,
             referinta,

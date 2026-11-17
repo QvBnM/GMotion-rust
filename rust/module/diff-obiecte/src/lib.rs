@@ -24,9 +24,11 @@ pub mod eroare;
 pub mod export;
 mod modul;
 
-pub use comparare::{compara, pregateste, Baza, Categorie, Comparare, Numaratoare, Progres, Rand};
+pub use comparare::{
+    compara, pregateste, setari_diferite, Baza, Categorie, Comparare, Numaratoare, Progres, Rand,
+};
 pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, Raport};
-pub use diferente::{diferente_obiect, Bucata, Diferenta, Fel, Marcaj};
+pub use diferente::{detalii_obiect, diferente_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj};
 pub use eroare::{Eroare, Rezultat};
 pub use export::{scrie_csv, Stare};
 pub use modul::ModulDiffObiecte;

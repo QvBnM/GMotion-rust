@@ -110,8 +110,14 @@ fn clasifica_bloc(text: &str, c: &mut Clasificare) {
 /// (`pregateste_afisare`), adica acelasi text pe care se face si diff-ul din
 /// editor: un singur motor, aceleasi granite de bloc.
 pub fn clasifica_diferente(text_referinta: &str, text_curent: &str) -> Clasificare {
+    clasifica_randuri(&diff_aliniat(text_referinta, text_curent))
+}
+
+/// Acelasi lucru, pe randuri deja calculate: cine are nevoie si de diff, si de
+/// clasificare (lista), nu plateste a doua aliniere.
+pub fn clasifica_randuri(randuri: &[crate::diff::RandDiff]) -> Clasificare {
     let mut c = Clasificare::default();
-    for r in diff_aliniat(text_referinta, text_curent) {
+    for r in randuri {
         match r.tip {
             TipDiferenta::Egal => {}
             TipDiferenta::Modificat => {
@@ -157,12 +163,14 @@ pub fn eticheta(c: Clasificare, setari: &[&str]) -> String {
         parti.push(if singur { "un șir" } else { "șiruri" }.to_string());
     }
     if c.comentarii > 0 {
-        parti.push(if c.comentarii == 1 {
-            "comentariu"
-        } else {
-            "comentarii"
-        }
-        .to_string());
+        parti.push(
+            if c.comentarii == 1 {
+                "comentariu"
+            } else {
+                "comentarii"
+            }
+            .to_string(),
+        );
     }
     parti.extend(setari.iter().map(|s| s.to_string()));
     if parti.is_empty() {

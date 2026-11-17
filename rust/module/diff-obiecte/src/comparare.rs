@@ -114,6 +114,26 @@ impl ObiectPregatit {
     }
 }
 
+/// Setarile de sesiune care difera intre doua versiuni ale aceluiasi obiect.
+///
+/// Nu se vad in text, dar schimba comportamentul la executie: pe serverul
+/// real, ~21% din obiecte aveau `QUOTED_IDENTIFIER OFF`, iar un deploy rulat
+/// din SSMS le-ar fi schimbat. Daca setarile unei parti nu se stiu
+/// (instantaneu vechi), nu se afirma nimic: lista goala.
+pub fn setari_diferite(a: Option<Setari>, b: Option<Setari>) -> Vec<&'static str> {
+    let (Some(a), Some(b)) = (a, b) else {
+        return Vec::new();
+    };
+    let mut v = Vec::new();
+    if a.quoted_identifier != b.quoted_identifier {
+        v.push("QUOTED_IDENTIFIER");
+    }
+    if a.ansi_nulls != b.ansi_nulls {
+        v.push("ANSI_NULLS");
+    }
+    v
+}
+
 /// Obiectele unei baze, indexate pe `schema.nume`.
 pub type Baza = BTreeMap<String, ObiectPregatit>;
 
@@ -449,5 +469,35 @@ mod teste {
         let c = compara("Ref", &r, &[], fara_progres());
         assert!(c.randuri.is_empty());
         assert_eq!(c.numaratoare.total_referinta, 1);
+    }
+
+    #[test]
+    fn setarile_diferite_se_spun_pe_nume_si_doar_cand_se_stiu() {
+        let on = Setari {
+            ansi_nulls: true,
+            quoted_identifier: true,
+        };
+        let qi_off = Setari {
+            quoted_identifier: false,
+            ..on
+        };
+        assert!(setari_diferite(Some(on), Some(on)).is_empty());
+        assert_eq!(
+            setari_diferite(Some(on), Some(qi_off)),
+            ["QUOTED_IDENTIFIER"]
+        );
+        assert_eq!(
+            setari_diferite(
+                Some(on),
+                Some(Setari {
+                    ansi_nulls: false,
+                    quoted_identifier: false
+                })
+            ),
+            ["QUOTED_IDENTIFIER", "ANSI_NULLS"]
+        );
+        // instantaneu vechi, fara setari: nu se afirma nimic
+        assert!(setari_diferite(None, Some(qi_off)).is_empty());
+        assert!(setari_diferite(Some(on), None).is_empty());
     }
 }

@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: be76bd7c9cdae430 -->
+<!-- api-hash: cd5830605ecc124f -->
 
 ## Rol
 
@@ -29,7 +29,7 @@ Doua lucruri trebuie sa rămână adevarate:
 | `servere` | descoperire prin SQL Browser (UDP 1434) |
 | `baze` | bazele disponibile |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
-| `compara` | lista de diferente |
+| `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
 | `deploy` | scripturile, cu codul din referinta |
 | `export` | CSV pentru Excel |

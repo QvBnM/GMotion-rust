@@ -106,7 +106,11 @@ fn scor_text(s: Option<f64>) -> String {
 }
 
 /// Lista de rezultate, pentru om.
-pub fn comparare_text(c: &Comparare) -> String {
+/// Detaliile unui rand („difera in", `+N −M`), pe id de rand. Se calculeaza
+/// doar la cerere (`--detalii`): alinierea fiecarui obiect e scumpa.
+pub type Detalii = std::collections::BTreeMap<usize, gmotion_modul_diff_obiecte::Detalii>;
+
+pub fn comparare_text(c: &Comparare, detalii: &Detalii) -> String {
     let n = c.numaratoare;
     let mut out = format!(
         "Referinta: {}\nBaze comparate: {}\n\n\
@@ -137,7 +141,7 @@ pub fn comparare_text(c: &Comparare) -> String {
         .randuri
         .iter()
         .map(|r| {
-            vec![
+            let mut v = vec![
                 r.id.to_string(),
                 r.baza.clone(),
                 r.obiect.clone(),
@@ -145,22 +149,32 @@ pub fn comparare_text(c: &Comparare) -> String {
                 r.categorie.eticheta().to_string(),
                 scor_text(r.scor),
                 r.rezumat.clone(),
-            ]
+            ];
+            if !detalii.is_empty() {
+                let d = detalii.get(&r.id);
+                v.push(d.map_or_else(|| "—".to_string(), |d| d.difera_in.clone()));
+                v.push(d.map_or_else(String::new, |d| {
+                    format!("+{} -{}", d.linii_plus, d.linii_minus)
+                }));
+            }
+            v
         })
         .collect();
+    let mut antet = vec![
+        "ID",
+        "BAZA",
+        "OBIECT",
+        "TIP",
+        "CATEGORIE",
+        "SCOR",
+        "DIFERENTE",
+    ];
+    if !detalii.is_empty() {
+        antet.push("DIFERA IN");
+        antet.push("LINII");
+    }
     out.push('\n');
-    out.push_str(&tabel(
-        &[
-            "ID",
-            "BAZA",
-            "OBIECT",
-            "TIP",
-            "CATEGORIE",
-            "SCOR",
-            "DIFERENTE",
-        ],
-        &randuri,
-    ));
+    out.push_str(&tabel(&antet, &randuri));
     out
 }
 
@@ -178,9 +192,23 @@ pub struct CompararJson<'a> {
     pub extra: usize,
     pub criptate: usize,
     pub randuri: &'a [Rand],
+    /// Doar cu `--detalii`: in ce difera fiecare obiect si cate linii se misca.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detalii: Option<Vec<RandDetaliat<'a>>>,
 }
 
-pub fn comparare_json(c: &Comparare) -> CompararJson<'_> {
+/// Detaliile unui rand, in JSON, legate de rand prin `id`.
+#[derive(serde::Serialize)]
+pub struct RandDetaliat<'a> {
+    pub id: usize,
+    pub obiect: &'a str,
+    pub baza: &'a str,
+    pub difera_in: &'a str,
+    pub linii_plus: usize,
+    pub linii_minus: usize,
+}
+
+pub fn comparare_json<'a>(c: &'a Comparare, detalii: &'a Detalii) -> CompararJson<'a> {
     CompararJson {
         referinta: &c.referinta,
         baze: &c.baze,
@@ -191,6 +219,21 @@ pub fn comparare_json(c: &Comparare) -> CompararJson<'_> {
         extra: c.numaratoare.extra,
         criptate: c.numaratoare.criptate,
         randuri: &c.randuri,
+        detalii: (!detalii.is_empty()).then(|| {
+            c.randuri
+                .iter()
+                .filter_map(|r| {
+                    detalii.get(&r.id).map(|d| RandDetaliat {
+                        id: r.id,
+                        obiect: &r.obiect,
+                        baza: &r.baza,
+                        difera_in: &d.difera_in,
+                        linii_plus: d.linii_plus,
+                        linii_minus: d.linii_minus,
+                    })
+                })
+                .collect()
+        }),
     }
 }
 
@@ -293,7 +336,7 @@ mod teste {
 
     #[test]
     fn textul_arata_numaratoarea_si_toate_randurile() {
-        let t = comparare_text(&comparare_exemplu());
+        let t = comparare_text(&comparare_exemplu(), &Detalii::new());
         assert!(t.contains("Referinta: Ref"));
         assert!(t.contains("5 obiecte in referinta: 3 identice, 1 diferite, 1 lipsa"));
         assert!(t.contains("dbo.pLung"));
@@ -306,7 +349,7 @@ mod teste {
     fn baze_identice_spun_asta_in_loc_de_tabel_gol() {
         let mut c = comparare_exemplu();
         c.randuri.clear();
-        let t = comparare_text(&c);
+        let t = comparare_text(&c, &Detalii::new());
         assert!(t.contains("Nimic de raportat"), "{t}");
         assert!(
             !t.contains("OBIECT"),
@@ -317,7 +360,7 @@ mod teste {
     #[test]
     fn jsonul_se_parseaza_si_are_campurile_asteptate() {
         let c = comparare_exemplu();
-        let text = serde_json::to_string(&comparare_json(&c)).unwrap();
+        let text = serde_json::to_string(&comparare_json(&c, &Detalii::new())).unwrap();
         let v: serde_json::Value = serde_json::from_str(&text).unwrap();
         assert_eq!(v["referinta"], "Ref");
         assert_eq!(v["identice"], 3);
@@ -325,5 +368,51 @@ mod teste {
         assert_eq!(v["randuri"][0]["obiect"], "dbo.pLung");
         assert_eq!(v["randuri"][0]["categorie"], "diferit");
         assert_eq!(v["randuri"][1]["scor"], serde_json::Value::Null);
+    }
+
+    fn detalii_exemplu() -> Detalii {
+        Detalii::from([(
+            0,
+            gmotion_modul_diff_obiecte::Detalii {
+                difera_in: "un șir".into(),
+                linii_plus: 2,
+                linii_minus: 1,
+            },
+        )])
+    }
+
+    #[test]
+    fn cu_detalii_tabelul_capata_doua_coloane_in_plus() {
+        let c = comparare_exemplu();
+        let fara = comparare_text(&c, &Detalii::new());
+        assert!(!fara.contains("DIFERA IN"));
+        let cu = comparare_text(&c, &detalii_exemplu());
+        assert!(cu.contains("DIFERA IN") && cu.contains("LINII"), "{cu}");
+        assert!(cu.contains("un șir") && cu.contains("+2 -1"), "{cu}");
+        // randul fara detalii (lipsa din baza) nu ramane cu coloana goala
+        assert!(cu.contains("—"), "{cu}");
+    }
+
+    #[test]
+    fn jsonul_cu_detalii_le_leaga_de_rand_prin_id() {
+        let c = comparare_exemplu();
+        let fara: serde_json::Value = serde_json::from_str(
+            &serde_json::to_string(&comparare_json(&c, &Detalii::new())).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            fara.get("detalii").is_none(),
+            "fara --detalii, campul lipseste"
+        );
+        let cu: serde_json::Value = serde_json::from_str(
+            &serde_json::to_string(&comparare_json(&c, &detalii_exemplu())).unwrap(),
+        )
+        .unwrap();
+        let d = cu["detalii"].as_array().unwrap();
+        assert_eq!(d.len(), 1);
+        assert_eq!(d[0]["id"], 0);
+        assert_eq!(d[0]["obiect"], "dbo.pLung");
+        assert_eq!(d[0]["difera_in"], "un șir");
+        assert_eq!(d[0]["linii_plus"], 2);
     }
 }

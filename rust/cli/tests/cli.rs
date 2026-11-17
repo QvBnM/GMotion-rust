@@ -463,3 +463,67 @@ fn deploy_scrie_definitia_originala_octet_cu_octet() {
         "definitia s-a schimbat:\n{text:?}"
     );
 }
+
+/// `--detalii` pe binarul adevarat: in ce difera obiectul, nu doar cat de
+/// mult. Pe instantaneul de proba, `pClienti` difera intr-o cifra din cod
+/// (`activ = 1` fata de `activ = 0`).
+#[test]
+fn compara_cu_detalii_spune_in_ce_difera_obiectul() {
+    let d = dir("detalii");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+
+    let o = ruleaza(&[
+        "compara",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--detalii",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let t = out(&o);
+    assert!(t.contains("DIFERA IN"), "lipseste coloana:\n{t}");
+    assert!(t.contains("cod"), "pClienti difera in cod:\n{t}");
+
+    // JSON: detaliile sunt legate de rand prin id, si numai cu --detalii
+    let o = ruleaza(&[
+        "compara",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--detalii",
+        "--json",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o))
+        .unwrap_or_else(|e| panic!("ieșirea standard nu e JSON curat ({e}):\n{}", out(&o)));
+    let det = v["detalii"].as_array().expect("campul detalii");
+    assert_eq!(det.len(), 1, "doar obiectul diferit are detalii: {det:?}");
+    assert_eq!(det[0]["obiect"], "dbo.pClienti");
+    assert_eq!(det[0]["difera_in"], "cod");
+    assert_eq!(det[0]["linii_plus"], 1);
+    assert_eq!(det[0]["linii_minus"], 1);
+    let id = det[0]["id"].as_u64().unwrap();
+    let rand = v["randuri"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["id"].as_u64() == Some(id))
+        .expect("id-ul din detalii exista intre randuri");
+    assert_eq!(rand["obiect"], "dbo.pClienti");
+
+    // fara --detalii, nici campul, nici coloana
+    let o = ruleaza(&[
+        "compara",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--json",
+    ]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert!(v.get("detalii").is_none(), "{v}");
+}

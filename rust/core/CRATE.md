@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: ecd3a4d57ee7f3e0 -->
+<!-- api-hash: 54214bead4dc57f1 -->
 
 ## Rol
 
@@ -61,7 +61,7 @@ proiectul.
 `autojunk=False`. `ratio`, `opcodes`, `matching_blocks`, `find_longest_match`.
 
 ### `clasificare`
-`clasifica_diferente(ref, tinta) -> Clasificare` — in ce difera doua versiuni:
+`clasifica_diferente(ref, tinta) -> Clasificare` (sau `clasifica_randuri` pe randuri deja aliniate) — in ce difera doua versiuni:
 `cod` / `siruri` / `comentarii` (bucati schimbate, nu caractere), prin `lexer`.
 `eticheta(c, setari)` — textul din coloana „Difera in" al machetelor:
 „cod, șiruri", „un șir", „comentariu", „QUOTED_IDENTIFIER", „—".

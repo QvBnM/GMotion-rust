@@ -129,6 +129,44 @@ pub fn diferente_obiect(referinta: &str, curent: &str) -> (Vec<Diferenta>, Strin
     (randuri.iter().map(Diferenta::din).collect(), rezumat)
 }
 
+/// Ce arata lista despre un obiect diferit, dincolo de scor: in ce difera si
+/// cate linii se adauga / se scot daca se deployeaza.
+///
+/// La cerere, ca si diff-ul: pe o comparare cu zeci de mii de obiecte,
+/// alinierea fiecarui obiect ar fi scumpa si aproape toata aruncata. Lista o
+/// cere pentru randurile pe care chiar le arata.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Detalii {
+    /// „cod, șiruri", „un șir", „comentariu", „QUOTED_IDENTIFIER", „—".
+    pub difera_in: String,
+    /// Linii care ar intra in baza (sunt in sursa, nu si in baza).
+    pub linii_plus: usize,
+    /// Linii care ar iesi din baza.
+    pub linii_minus: usize,
+}
+
+/// `setari` sunt numele setarilor de sesiune care difera intre cele doua
+/// versiuni (`QUOTED_IDENTIFIER`, `ANSI_NULLS`): nu se vad in text, dar
+/// schimba comportamentul la executie, deci intra in „Difera in".
+pub fn detalii_obiect(referinta: &str, curent: &str, setari: &[&str]) -> Detalii {
+    let randuri = diff_aliniat(referinta, curent);
+    let clasificare = gmotion_core::clasificare::clasifica_randuri(&randuri);
+    let linii = |t: &Option<String>| t.as_deref().map_or(0, |x| x.lines().count());
+    let (mut plus, mut minus) = (0usize, 0usize);
+    for r in &randuri {
+        if r.tip == TipDiferenta::Egal {
+            continue;
+        }
+        plus += linii(&r.stanga);
+        minus += linii(&r.dreapta);
+    }
+    Detalii {
+        difera_in: gmotion_core::clasificare::eticheta(clasificare, setari),
+        linii_plus: plus,
+        linii_minus: minus,
+    }
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
@@ -213,5 +251,34 @@ mod teste {
         for (a, b) in [("", ""), ("", "SELECT 1"), ("SELECT 1", ""), ("\n\n", "  ")] {
             let _ = diferente_obiect(a, b);
         }
+    }
+
+    #[test]
+    fn detaliile_spun_in_ce_difera_si_cate_linii_se_misca() {
+        let d = detalii_obiect(
+            "SELECT 1\n\nUPDATE t SET a = 1\nWHERE x = 1",
+            "SELECT 1\n\nUPDATE t SET a = 2",
+            &[],
+        );
+        assert_eq!(d.difera_in, "cod");
+        assert_eq!((d.linii_plus, d.linii_minus), (2, 1));
+    }
+
+    #[test]
+    fn un_obiect_care_difera_doar_in_setari_nu_are_linii_mutate() {
+        let cod = "CREATE PROC dbo.p AS\nSELECT 1";
+        let d = detalii_obiect(cod, cod, &["QUOTED_IDENTIFIER"]);
+        assert_eq!(d.difera_in, "QUOTED_IDENTIFIER");
+        assert_eq!((d.linii_plus, d.linii_minus), (0, 0));
+    }
+
+    #[test]
+    fn un_mesaj_schimbat_e_un_sir_nu_cod() {
+        let d = detalii_obiect(
+            "RAISERROR('nu s-au gasit date', 16, 1);",
+            "RAISERROR('Nu s-au gasit date', 16, 1);",
+            &[],
+        );
+        assert_eq!(d.difera_in, "un șir");
     }
 }

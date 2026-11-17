@@ -235,6 +235,8 @@ pub fn instantaneu(
 struct Rulare {
     comparare: modul::Comparare,
     referinta: modul::Baza,
+    /// Bazele comparate, pastrate pentru detaliile cerute cu `--detalii`.
+    altele: Vec<(String, modul::Baza)>,
 }
 
 fn ruleaza_comparare(
@@ -304,6 +306,7 @@ fn ruleaza_comparare(
     Ok(Rulare {
         comparare,
         referinta: ref_obiecte,
+        altele,
     })
 }
 
@@ -311,18 +314,50 @@ pub fn compara(
     args: &ArgumenteSursa,
     referinta: &str,
     baze_cerute: Option<&str>,
+    detalii: bool,
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
+    let detalii = if detalii {
+        format.progres("Calculez in ce difera fiecare obiect...");
+        detalii_randuri(&r)
+    } else {
+        afisare::Detalii::new()
+    };
     match format {
-        Format::Json => {
-            afisare::scrie_json(&afisare::comparare_json(&r.comparare)).map_err(|e| e.to_string())
-        }
+        Format::Json => afisare::scrie_json(&afisare::comparare_json(&r.comparare, &detalii))
+            .map_err(|e| e.to_string()),
         Format::Text => {
-            print!("{}", afisare::comparare_text(&r.comparare));
+            print!("{}", afisare::comparare_text(&r.comparare, &detalii));
             Ok(())
         }
     }
+}
+
+/// In ce difera fiecare obiect **diferit** si cate linii se misca. Numai
+/// pentru `Diferit`: la `Lipsa` / `Extra` / `Criptat` nu exista cu ce compara.
+fn detalii_randuri(r: &Rulare) -> afisare::Detalii {
+    let mut rez = afisare::Detalii::new();
+    for rand in &r.comparare.randuri {
+        if rand.categorie != modul::Categorie::Diferit {
+            continue;
+        }
+        let (Some(a), Some(b)) = (
+            r.referinta.get(&rand.obiect),
+            r.altele
+                .iter()
+                .find(|(nume, _)| *nume == rand.baza)
+                .and_then(|(_, baza)| baza.get(&rand.obiect)),
+        ) else {
+            continue;
+        };
+        let setari = modul::setari_diferite(a.setari, b.setari);
+        rez.insert(
+            rand.id,
+            modul::detalii_obiect(&a.afisare, &b.afisare, &setari),
+        );
+    }
+    rez
 }
 
 pub fn export(
