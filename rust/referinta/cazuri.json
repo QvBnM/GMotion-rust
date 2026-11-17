@@ -1,0 +1,122 @@
+[
+  {
+    "nume": "header_simplu",
+    "ref": "CREATE PROCEDURE dbo.p_Test\n    @id INT\nAS\nBEGIN\n    SELECT * FROM Clienti WHERE id = @id\nEND",
+    "cur": "CREATE PROCEDURE dbo.p_Test\n    @id INT,\n    @nume VARCHAR(50)\nAS\nBEGIN\n    SELECT * FROM Clienti WHERE id = @id\nEND"
+  },
+  {
+    "nume": "declare_in_header",
+    "ref": "CREATE PROCEDURE p AS\nBEGIN\nDECLARE @x INT\nDECLARE @y INT\nSELECT @x = 1\nEND",
+    "cur": "CREATE PROCEDURE p AS\nBEGIN\nDECLARE @x INT\nSELECT @x = 1\nEND"
+  },
+  {
+    "nume": "hint_lock_cosmetic",
+    "ref": "SELECT a FROM t WITH (NOLOCK) WHERE x = 1",
+    "cur": "SELECT a FROM [dbo].[t] WHERE x = 1"
+  },
+  {
+    "nume": "collate_si_paranteze",
+    "ref": "SELECT CAST(a AS char(24) ) COLLATE database_default FROM [dbo].[t]",
+    "cur": "SELECT CAST(a AS char(24)) FROM t"
+  },
+  {
+    "nume": "case_cu_blank_inauntru",
+    "ref": "SELECT\n  CASE\n    WHEN a = 1 THEN 'x'\n\n    WHEN a = 2 THEN 'y'\n  END AS v\nFROM t",
+    "cur": "SELECT\n  CASE\n    WHEN a = 1 THEN 'x'\n\n    WHEN a = 3 THEN 'y'\n  END AS v\nFROM t"
+  },
+  {
+    "nume": "string_cu_cuvinte_cheie",
+    "ref": "SELECT 'INSERT INTO fake SELECT 1' AS s\nFROM t",
+    "cur": "SELECT 'UPDATE fake SET x=1' AS s\nFROM t"
+  },
+  {
+    "nume": "comentariu_bloc_multiline",
+    "ref": "/* comentariu\n   SELECT 1\n   pe mai multe linii */\nSELECT a FROM t",
+    "cur": "SELECT a FROM t"
+  },
+  {
+    "nume": "if_cu_corp",
+    "ref": "IF @x = 1\n    SELECT 1\nELSE\n    SELECT 2",
+    "cur": "IF @x = 1\n    SELECT 10\nELSE\n    SELECT 2"
+  },
+  {
+    "nume": "if_begin_end_compus",
+    "ref": "IF @x = 1\nBEGIN\n    SELECT 1\n    UPDATE t SET a = 1\nEND\nSELECT 'dupa'",
+    "cur": "IF @x = 1\nBEGIN\n    SELECT 2\n    UPDATE t SET a = 1\nEND\nSELECT 'dupa'"
+  },
+  {
+    "nume": "union_lipit",
+    "ref": "SELECT a FROM t1\nUNION ALL\nSELECT a FROM t2",
+    "cur": "SELECT a FROM t1\nUNION ALL\nSELECT b FROM t2"
+  },
+  {
+    "nume": "insert_select",
+    "ref": "INSERT INTO #tmp (a, b)\nSELECT a, b\nFROM t\n\nSELECT * FROM #tmp",
+    "cur": "INSERT INTO @tmp (a, b)\nSELECT a, b\nFROM t\n\nSELECT * FROM @tmp"
+  },
+  {
+    "nume": "cursor_complet",
+    "ref": "DECLARE c CURSOR FOR\n    SELECT a FROM t\nOPEN c\nFETCH NEXT FROM c\nWHILE @@FETCH_STATUS = 0\nBEGIN\n    FETCH NEXT FROM c\nEND\nCLOSE c\nDEALLOCATE c",
+    "cur": "DECLARE c CURSOR FOR\n    SELECT b FROM t\nOPEN c\nFETCH NEXT FROM c\nWHILE @@FETCH_STATUS = 0\nBEGIN\n    FETCH NEXT FROM c\nEND\nCLOSE c\nDEALLOCATE c"
+  },
+  {
+    "nume": "bloc_sters_complet",
+    "ref": "SELECT 1\n\nUPDATE t SET a = 1\n\nSELECT 2",
+    "cur": "SELECT 1\n\nSELECT 2"
+  },
+  {
+    "nume": "bloc_adaugat",
+    "ref": "SELECT 1\n\nSELECT 2",
+    "cur": "SELECT 1\n\nEXEC dbo.p_Nou\n\nSELECT 2"
+  },
+  {
+    "nume": "reordonare_blocuri",
+    "ref": "UPDATE t SET a = 1\n\nUPDATE t SET b = 2\n\nUPDATE t SET c = 3",
+    "cur": "UPDATE t SET c = 3\n\nUPDATE t SET a = 1\n\nUPDATE t SET b = 2"
+  },
+  {
+    "nume": "update_aproape_identice",
+    "ref": "UPDATE Stoc SET cantitate = 1 WHERE id = 1\n\nUPDATE Stoc SET cantitate = 2 WHERE id = 2",
+    "cur": "UPDATE Stoc SET cantitate = 1 WHERE id = 1\n\nUPDATE Stoc SET cantitate = 9 WHERE id = 2"
+  },
+  {
+    "nume": "identice",
+    "ref": "SELECT a FROM t WHERE x = 1",
+    "cur": "SELECT a FROM t WHERE x = 1"
+  },
+  {
+    "nume": "gol_vs_plin",
+    "ref": "",
+    "cur": "SELECT 1"
+  },
+  {
+    "nume": "ambele_goale",
+    "ref": "",
+    "cur": ""
+  },
+  {
+    "nume": "rotunjire_bancara",
+    "ref": "a b c d e f g h",
+    "cur": "a b c d e f g x"
+  },
+  {
+    "nume": "paranteze_multilinie",
+    "ref": "INSERT INTO t (\n    a,\n    b\n)\nVALUES (\n    1,\n    2\n)",
+    "cur": "INSERT INTO t (\n    a,\n    c\n)\nVALUES (\n    1,\n    2\n)"
+  },
+  {
+    "nume": "end_singur",
+    "ref": "BEGIN\nSELECT 1\nEND",
+    "cur": "BEGIN\nSELECT 2\nEND"
+  },
+  {
+    "nume": "comentariu_linie_dupa_cod",
+    "ref": "SELECT a FROM t -- comentariu vechi",
+    "cur": "SELECT a FROM t -- comentariu nou"
+  },
+  {
+    "nume": "diacritice_si_unicode",
+    "ref": "SELECT N'Mărfuri în stoc' AS descriere FROM t",
+    "cur": "SELECT N'Mărfuri în depozit' AS descriere FROM t"
+  }
+]

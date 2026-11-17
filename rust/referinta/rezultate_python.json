@@ -1,0 +1,495 @@
+[
+ {
+  "blocuri_cur": [
+   "CREATE PROCEDURE dbo.p_Test\n    @id INT,\n    @nume VARCHAR(50)\nAS\nBEGIN",
+   "    SELECT * FROM Clienti WHERE id = @id",
+   "END"
+  ],
+  "blocuri_ref": [
+   "CREATE PROCEDURE dbo.p_Test\n    @id INT\nAS\nBEGIN",
+   "    SELECT * FROM Clienti WHERE id = @id",
+   "END"
+  ],
+  "norm_cur": "create procedure p_test @id int, @nume varchar(50) as begin select * from clienti where id = @id end",
+  "norm_ref": "create procedure p_test @id int as begin select * from clienti where id = @id end",
+  "nume": "header_simplu",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 88.24,
+  "tipuri": [
+   "modificat",
+   "egal",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "CREATE PROCEDURE p AS\nBEGIN\nDECLARE @x INT",
+   "SELECT @x = 1",
+   "END"
+  ],
+  "blocuri_ref": [
+   "CREATE PROCEDURE p AS\nBEGIN\nDECLARE @x INT\nDECLARE @y INT",
+   "SELECT @x = 1",
+   "END"
+  ],
+  "norm_cur": "create procedure p as begin declare @x int select @x = 1 end",
+  "norm_ref": "create procedure p as begin declare @x int declare @y int select @x = 1 end",
+  "nume": "declare_in_header",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 89.66,
+  "tipuri": [
+   "modificat",
+   "egal",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT a FROM [dbo].[t] WHERE x = 1"
+  ],
+  "blocuri_ref": [
+   "SELECT a FROM t WITH (NOLOCK) WHERE x = 1"
+  ],
+  "norm_cur": "select a from t where x = 1",
+  "norm_ref": "select a from t where x = 1",
+  "nume": "hint_lock_cosmetic",
+  "rezumat_diff": "diferente minore",
+  "rezumat_rapid": "diferente minore",
+  "scor": 100.0,
+  "tipuri": [
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT CAST(a AS char(24)) FROM t"
+  ],
+  "blocuri_ref": [
+   "SELECT CAST(a AS char(24) ) COLLATE database_default FROM [dbo].[t]"
+  ],
+  "norm_cur": "select cast(a as char(24)) from t",
+  "norm_ref": "select cast(a as char(24)) from t",
+  "nume": "collate_si_paranteze",
+  "rezumat_diff": "diferente minore",
+  "rezumat_rapid": "diferente minore",
+  "scor": 100.0,
+  "tipuri": [
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT\n  CASE\n    WHEN a = 1 THEN 'x'",
+   "    WHEN a = 3 THEN 'y'\n  END AS v\nFROM t"
+  ],
+  "blocuri_ref": [
+   "SELECT\n  CASE\n    WHEN a = 1 THEN 'x'",
+   "    WHEN a = 2 THEN 'y'\n  END AS v\nFROM t"
+  ],
+  "norm_cur": "select case when a = 1 then 'x' when a = 3 then 'y' end as v from t",
+  "norm_ref": "select case when a = 1 then 'x' when a = 2 then 'y' end as v from t",
+  "nume": "case_cu_blank_inauntru",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 94.74,
+  "tipuri": [
+   "egal",
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT 'UPDATE fake SET x=1' AS s\nFROM t"
+  ],
+  "blocuri_ref": [
+   "SELECT 'INSERT INTO fake SELECT 1' AS s\nFROM t"
+  ],
+  "norm_cur": "select 'update fake set x=1' as s from t",
+  "norm_ref": "select 'insert into fake select 1' as s from t",
+  "nume": "string_cu_cuvinte_cheie",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 63.16,
+  "tipuri": [
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT a FROM t"
+  ],
+  "blocuri_ref": [
+   "/* comentariu",
+   "   SELECT 1\n   pe mai multe linii */",
+   "SELECT a FROM t"
+  ],
+  "norm_cur": "select a from t",
+  "norm_ref": "select a from t",
+  "nume": "comentariu_bloc_multiline",
+  "rezumat_diff": "2 sterse",
+  "rezumat_rapid": "2 sterse",
+  "scor": 100.0,
+  "tipuri": [
+   "sters",
+   "sters",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "IF @x = 1\n    SELECT 10",
+   "ELSE\n    SELECT 2"
+  ],
+  "blocuri_ref": [
+   "IF @x = 1\n    SELECT 1",
+   "ELSE\n    SELECT 2"
+  ],
+  "norm_cur": "if @x = 1 select 10 else select 2",
+  "norm_ref": "if @x = 1 select 1 else select 2",
+  "nume": "if_cu_corp",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 88.89,
+  "tipuri": [
+   "modificat",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "IF @x = 1\nBEGIN",
+   "    SELECT 2",
+   "    UPDATE t SET a = 1",
+   "END",
+   "SELECT 'dupa'"
+  ],
+  "blocuri_ref": [
+   "IF @x = 1\nBEGIN",
+   "    SELECT 1",
+   "    UPDATE t SET a = 1",
+   "END",
+   "SELECT 'dupa'"
+  ],
+  "norm_cur": "if @x = 1 begin select 2 update t set a = 1 end select 'dupa'",
+  "norm_ref": "if @x = 1 begin select 1 update t set a = 1 end select 'dupa'",
+  "nume": "if_begin_end_compus",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 93.75,
+  "tipuri": [
+   "egal",
+   "modificat",
+   "egal",
+   "egal",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT a FROM t1",
+   "UNION ALL\nSELECT b FROM t2"
+  ],
+  "blocuri_ref": [
+   "SELECT a FROM t1",
+   "UNION ALL\nSELECT a FROM t2"
+  ],
+  "norm_cur": "select a from t1 union all select b from t2",
+  "norm_ref": "select a from t1 union all select a from t2",
+  "nume": "union_lipit",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 90.0,
+  "tipuri": [
+   "egal",
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "INSERT INTO @tmp (a, b)",
+   "SELECT a, b\nFROM t",
+   "SELECT * FROM @tmp"
+  ],
+  "blocuri_ref": [
+   "INSERT INTO #tmp (a, b)",
+   "SELECT a, b\nFROM t",
+   "SELECT * FROM #tmp"
+  ],
+  "norm_cur": "insert into @tmp (a, b) select a, b from t select * from @tmp",
+  "norm_ref": "insert into #tmp (a, b) select a, b from t select * from #tmp",
+  "nume": "insert_select",
+  "rezumat_diff": "2 modificate",
+  "rezumat_rapid": "2 modificate",
+  "scor": 85.71,
+  "tipuri": [
+   "modificat",
+   "egal",
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "DECLARE c CURSOR FOR",
+   "    SELECT b FROM t",
+   "OPEN c",
+   "FETCH NEXT FROM c",
+   "WHILE @@FETCH_STATUS = 0\nBEGIN",
+   "    FETCH NEXT FROM c",
+   "END",
+   "CLOSE c",
+   "DEALLOCATE c"
+  ],
+  "blocuri_ref": [
+   "DECLARE c CURSOR FOR",
+   "    SELECT a FROM t",
+   "OPEN c",
+   "FETCH NEXT FROM c",
+   "WHILE @@FETCH_STATUS = 0\nBEGIN",
+   "    FETCH NEXT FROM c",
+   "END",
+   "CLOSE c",
+   "DEALLOCATE c"
+  ],
+  "norm_cur": "declare c cursor for select b from t open c fetch next from c while @@fetch_status = 0 begin fetch next from c end close c deallocate c",
+  "norm_ref": "declare c cursor for select a from t open c fetch next from c while @@fetch_status = 0 begin fetch next from c end close c deallocate c",
+  "nume": "cursor_complet",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 96.43,
+  "tipuri": [
+   "egal",
+   "modificat",
+   "egal",
+   "egal",
+   "egal",
+   "egal",
+   "egal",
+   "egal",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT 1",
+   "SELECT 2"
+  ],
+  "blocuri_ref": [
+   "SELECT 1",
+   "UPDATE t SET a = 1",
+   "SELECT 2"
+  ],
+  "norm_cur": "select 1 select 2",
+  "norm_ref": "select 1 update t set a = 1 select 2",
+  "nume": "bloc_sters_complet",
+  "rezumat_diff": "1 sterse",
+  "rezumat_rapid": "1 sterse",
+  "scor": 57.14,
+  "tipuri": [
+   "egal",
+   "sters",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT 1",
+   "EXEC dbo.p_Nou",
+   "SELECT 2"
+  ],
+  "blocuri_ref": [
+   "SELECT 1",
+   "SELECT 2"
+  ],
+  "norm_cur": "select 1 exec p_nou select 2",
+  "norm_ref": "select 1 select 2",
+  "nume": "bloc_adaugat",
+  "rezumat_diff": "1 adaugate",
+  "rezumat_rapid": "1 adaugate",
+  "scor": 80.0,
+  "tipuri": [
+   "egal",
+   "adaugat",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "UPDATE t SET c = 3",
+   "UPDATE t SET a = 1",
+   "UPDATE t SET b = 2"
+  ],
+  "blocuri_ref": [
+   "UPDATE t SET a = 1",
+   "UPDATE t SET b = 2",
+   "UPDATE t SET c = 3"
+  ],
+  "norm_cur": "update t set c = 3 update t set a = 1 update t set b = 2",
+  "norm_ref": "update t set a = 1 update t set b = 2 update t set c = 3",
+  "nume": "reordonare_blocuri",
+  "rezumat_diff": "1 adaugate, 1 sterse",
+  "rezumat_rapid": "1 adaugate, 1 sterse",
+  "scor": 66.67,
+  "tipuri": [
+   "adaugat",
+   "egal",
+   "egal",
+   "sters"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "UPDATE Stoc SET cantitate = 1 WHERE id = 1",
+   "UPDATE Stoc SET cantitate = 9 WHERE id = 2"
+  ],
+  "blocuri_ref": [
+   "UPDATE Stoc SET cantitate = 1 WHERE id = 1",
+   "UPDATE Stoc SET cantitate = 2 WHERE id = 2"
+  ],
+  "norm_cur": "update stoc set cantitate = 1 where id = 1 update stoc set cantitate = 9 where id = 2",
+  "norm_ref": "update stoc set cantitate = 1 where id = 1 update stoc set cantitate = 2 where id = 2",
+  "nume": "update_aproape_identice",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 95.0,
+  "tipuri": [
+   "egal",
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT a FROM t WHERE x = 1"
+  ],
+  "blocuri_ref": [
+   "SELECT a FROM t WHERE x = 1"
+  ],
+  "norm_cur": "select a from t where x = 1",
+  "norm_ref": "select a from t where x = 1",
+  "nume": "identice",
+  "rezumat_diff": "diferente minore",
+  "rezumat_rapid": "diferente minore",
+  "scor": 100.0,
+  "tipuri": [
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT 1"
+  ],
+  "blocuri_ref": [],
+  "norm_cur": "select 1",
+  "norm_ref": "",
+  "nume": "gol_vs_plin",
+  "rezumat_diff": "1 adaugate",
+  "rezumat_rapid": "1 adaugate",
+  "scor": 0.0,
+  "tipuri": [
+   "adaugat"
+  ]
+ },
+ {
+  "blocuri_cur": [],
+  "blocuri_ref": [],
+  "norm_cur": "",
+  "norm_ref": "",
+  "nume": "ambele_goale",
+  "rezumat_diff": "diferente minore",
+  "rezumat_rapid": "diferente minore",
+  "scor": 100.0,
+  "tipuri": []
+ },
+ {
+  "blocuri_cur": [
+   "a b c d e f g x"
+  ],
+  "blocuri_ref": [
+   "a b c d e f g h"
+  ],
+  "norm_cur": "a b c d e f g x",
+  "norm_ref": "a b c d e f g h",
+  "nume": "rotunjire_bancara",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 87.5,
+  "tipuri": [
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "INSERT INTO t (\n    a,\n    c\n)\nVALUES (\n    1,\n    2\n)"
+  ],
+  "blocuri_ref": [
+   "INSERT INTO t (\n    a,\n    b\n)\nVALUES (\n    1,\n    2\n)"
+  ],
+  "norm_cur": "insert into t ( a, c) values ( 1, 2)",
+  "norm_ref": "insert into t ( a, b) values ( 1, 2)",
+  "nume": "paranteze_multilinie",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 90.0,
+  "tipuri": [
+   "modificat"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "BEGIN",
+   "SELECT 2",
+   "END"
+  ],
+  "blocuri_ref": [
+   "BEGIN",
+   "SELECT 1",
+   "END"
+  ],
+  "norm_cur": "begin select 2 end",
+  "norm_ref": "begin select 1 end",
+  "nume": "end_singur",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 75.0,
+  "tipuri": [
+   "egal",
+   "modificat",
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT a FROM t -- comentariu nou"
+  ],
+  "blocuri_ref": [
+   "SELECT a FROM t -- comentariu vechi"
+  ],
+  "norm_cur": "select a from t",
+  "norm_ref": "select a from t",
+  "nume": "comentariu_linie_dupa_cod",
+  "rezumat_diff": "diferente minore",
+  "rezumat_rapid": "diferente minore",
+  "scor": 100.0,
+  "tipuri": [
+   "egal"
+  ]
+ },
+ {
+  "blocuri_cur": [
+   "SELECT N'Mărfuri în depozit' AS descriere FROM t"
+  ],
+  "blocuri_ref": [
+   "SELECT N'Mărfuri în stoc' AS descriere FROM t"
+  ],
+  "norm_cur": "select n'mărfuri în depozit' as descriere from t",
+  "norm_ref": "select n'mărfuri în stoc' as descriere from t",
+  "nume": "diacritice_si_unicode",
+  "rezumat_diff": "1 modificate",
+  "rezumat_rapid": "1 modificate",
+  "scor": 87.5,
+  "tipuri": [
+   "modificat"
+  ]
+ }
+]

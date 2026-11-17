@@ -26,3 +26,11 @@ sqldiff_export_*.csv
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Rust
+target/
+Cargo.lock
+pkg/
+
+# Corpus de bench generat (vezi rust/referinta/genereaza_corpus.py)
+rust/referinta/corpus_bench.json
