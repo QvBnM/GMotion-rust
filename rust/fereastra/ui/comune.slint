@@ -208,3 +208,136 @@ export component Bifa inherits Rectangle {
         }
     }
 }
+
+// --- randurile unui diff: aceleasi in editor si in previzualizarea din lista
+
+export struct BucataUi {
+    text: string,
+    // 0 text, 1 cuvant cheie, 2 variabila, 3 numar, 4 sir, 5 comentariu
+    sintaxa: int,
+    schimbat: bool,
+}
+
+export struct RandUi {
+    // 0 linie, 1 pliere („22 de linii identice, 24-45")
+    fel: int,
+    pliere: string,
+    st-nr: string,
+    st: [BucataUi],
+    dr-nr: string,
+    dr: [BucataUi],
+    // 0 egal, 1 modificat, 2 doar in sursa, 3 doar in baza
+    stare: int,
+    // a cata diferenta e randul, -1 pe context (bara e mai lata pe cea curenta)
+    diferenta: int,
+}
+
+export struct MarcajUi {
+    // pozitia si inaltimea in obiect, 0..1
+    pozitie: float,
+    inaltime: float,
+    stare: int,
+}
+
+// Hasura de 135° a partii fara linii: tigla se deseneaza in Rust din jetoane
+// (`hasura-a` / `hasura-b`) si se repeta.
+export component Hasura inherits Rectangle {
+    in property <image> tigla;
+    clip: true;
+    background: Tema.hasura-a;
+    Image {
+        source: root.tigla;
+        width: 100%;
+        height: 100%;
+        horizontal-tiling: repeat;
+        vertical-tiling: repeat;
+        image-rendering: pixelated;
+    }
+}
+
+export component Bucati inherits HorizontalLayout {
+    in property <[BucataUi]> bucati;
+    in property <int> stare;
+    spacing: 0px;
+    alignment: start;
+    for b in bucati: Rectangle {
+        background: b.schimbat ? Tema.inlinie-stare(root.stare) : transparent;
+        width: t.preferred-width;
+        t := Text {
+            text: b.text;
+            font-family: Tema.font-mono;
+            font-size: 12.5px;
+            font-italic: b.sintaxa == 5;
+            color: b.sintaxa == 1 ? Tema.s-cuvant
+                 : b.sintaxa == 2 ? Tema.s-variabila
+                 : b.sintaxa == 3 ? Tema.s-numar
+                 : b.sintaxa == 4 ? Tema.s-sir
+                 : b.sintaxa == 5 ? Tema.s-comentariu
+                 : Tema.text;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// O jumatate de rand: bara din jgheab, numarul de linie real, textul colorat.
+// Fara numar de linie = partea nu are linia: hasura, nu fundal gol.
+export component Jumatate inherits Rectangle {
+    in property <string> nr;
+    // unificat: al doilea jgheab de numere (sursa | baza), ca sa se vada din
+    // ce parte vine linia fara sa apara vreun semn nou
+    in property <string> nr-baza;
+    in property <bool> doua-numere: false;
+    in property <[BucataUi]> bucati;
+    in property <int> stare;
+    in property <bool> curenta;
+    in property <bool> margine;
+    // partea nu are linia (blocul e mai scurt aici): hasura, nu fundal gol
+    in property <bool> fara-linie;
+    in property <image> tigla;
+    clip: true;
+    min-width: 0px;
+    background: root.fara-linie ? transparent
+              : root.stare == 0 ? Tema.cod-fundal
+              : Tema.fundal-stare(root.stare);
+    if root.fara-linie && root.stare != 0: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
+    HorizontalLayout {
+        spacing: 0px;
+        alignment: start;
+        // jgheabul: bara de 3 px a blocului diferit, 5 px pe diferenta curenta
+        Rectangle {
+            width: 3px;
+            background: root.fara-linie || root.stare == 0 ? transparent : Tema.bara-stare(root.stare);
+            if root.curenta && !root.fara-linie: Rectangle {
+                x: 0px;
+                width: 5px;
+                background: Tema.bara-stare(root.stare);
+            }
+        }
+        Text {
+            width: 44px;
+            text: root.nr;
+            font-family: Tema.font-mono;
+            font-size: 12.5px;
+            color: Tema.numar-stare(root.stare);
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+        if root.doua-numere: Text {
+            width: 44px;
+            text: root.nr-baza;
+            font-family: Tema.font-mono;
+            font-size: 12.5px;
+            color: Tema.numar-stare(root.stare);
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+        Rectangle { width: 10px; }
+        Bucati { bucati: root.bucati; stare: root.stare; }
+    }
+    if root.margine: Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Tema.linie;
+    }
+}
+
