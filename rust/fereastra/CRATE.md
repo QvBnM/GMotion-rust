@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 12f7ecb5c3818e43 -->
+<!-- api-hash: 897d5a5cef4e2f6e -->
 
 ## Rol
 
@@ -12,8 +12,8 @@ Aspectul e cel aprobat in `cercetare/design-aprobat.md`, cu machetele din
 `cercetare/machete/`. Jetoanele si fonturile (IBM Plex, incorporate in binar)
 stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
 
-Stare: **prototip** — editorul de diferente (etapa 8) si ecranul listei cu
-previzualizare (etapa 9).
+Stare: **prototip** — conectarea (etapa 11), lista cu previzualizare (etapa 9)
+si editorul de diferente (etapa 8).
 
 ## Nu face
 
@@ -25,6 +25,10 @@ previzualizare (etapa 9).
 
 | Element | Ce face |
 |---|---|
+| `model_conectare::Conectare` | ecranul de conectare: campuri, validari, stari, comparari recente |
+| `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta}` | modelul lui; `Acreditari` **nu are `Debug` derivat** |
+| `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare |
+| `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
 | `model_lista::Lista` | lista: filtre, cautare, sortare, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru}` | modelul listei |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
@@ -93,7 +97,8 @@ cargo run --release -p gmotion-fereastra --example captura -- \
 Cu `--font-mono UnNumeInexistent` iese alt PNG: asa se vede ca fonturile
 incorporate chiar se folosesc, nu rezerva de sistem.
 
-Ecranul listei: `--example captura_lista`.
+Ecranul listei: `--example captura_lista`; conectarea:
+`--example captura_conectare`.
 
 Pe obiecte uriase: `cargo run --release -p gmotion-fereastra --example masura`
 (implicit 200 / 2.000 / 20.000 de linii, pliat si nepliat); pe liste uriase:

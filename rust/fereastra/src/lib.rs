@@ -10,6 +10,7 @@
 //! globalul `Tema` cu [`aplica_tema`] — in `.slint` nu se scrie nicio culoare.
 
 pub mod jetoane;
+pub mod model_conectare;
 pub mod model_editor;
 pub mod model_lista;
 
@@ -492,6 +493,78 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
     ui.set_previzualizare(ModelRc::new(VecModel::from(Vec::<RandUi>::new())));
 }
 
+/// Umple ecranul de conectare din modelul lui.
+pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare) {
+    use model_conectare::StareConexiune;
+    let fel = |s: &StareConexiune| match s {
+        StareConexiune::Neincercat => 0,
+        StareConexiune::SeConecteaza => 1,
+        StareConexiune::Conectat(_) => 2,
+        StareConexiune::Eroare(_) => 3,
+    };
+    let parte = |p: &model_conectare::Parte, eticheta: &str, rol: &str, mediu: Mediu| ParteUi {
+        eticheta: eticheta.into(),
+        rol: rol.into(),
+        mediu: mediu.eticheta().into(),
+        cod_mediu: mediu.cod(),
+        server: p.server.as_str().into(),
+        auth_windows: p.auth_windows,
+        utilizator: p.acreditari.utilizator.as_str().into(),
+        // campul de parola arata doar cat de lunga e, niciodata continutul
+        parola: "•"
+            .repeat(if p.acreditari.are_parola() { 10 } else { 0 })
+            .into(),
+        baza: p.baza.as_str().into(),
+        baze: ModelRc::new(VecModel::from(
+            p.baze
+                .iter()
+                .map(|b| SharedString::from(b.as_str()))
+                .collect::<Vec<_>>(),
+        )),
+        stare: p.stare.text().into(),
+        fel_stare: fel(&p.stare),
+    };
+    let recente: Vec<RecentaUi> = c
+        .recente
+        .iter()
+        .map(|r| RecentaUi {
+            sursa: r.sursa.as_str().into(),
+            baza: r.baza.as_str().into(),
+            mediu: r.mediu.as_str().into(),
+            cod_mediu: mediu_dupa_nume(&r.baza).cod(),
+            cand: r.cand.as_str().into(),
+            progres: r.progres.as_str().into(),
+        })
+        .collect();
+    let mediu_tinta = mediu_dupa_nume(&c.baza.baza);
+    ui.set_sursa(parte(
+        &c.sursa,
+        "Sursa",
+        "de unde vine codul",
+        mediu_dupa_nume(&c.sursa.baza),
+    ));
+    ui.set_baza(parte(&c.baza, "Baza", "unde ajunge", mediu_tinta));
+    ui.set_mediu(mediu_tinta.cod());
+    ui.set_certificat(c.certificat.as_str().into());
+    ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
+    ui.set_recente(ModelRc::new(VecModel::from(recente)));
+    ui.set_ce_lipseste(c.ce_lipseste().unwrap_or_default().into());
+}
+
+/// Mediul ghicit din numele bazei: `...Prod` e productie, `...Test` e test,
+/// restul dev. Banda de sus si eticheta nu au alta sursa de adevar pana cand
+/// mediul nu se configureaza explicit (decizie de luat cu Mihai).
+pub fn mediu_dupa_nume(baza: &str) -> Mediu {
+    let b = baza.to_lowercase();
+    if b.contains("prod") {
+        Mediu::Prod
+    } else if b.contains("test") || b.contains("uat") {
+        Mediu::Test
+    } else {
+        Mediu::Dev
+    }
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
@@ -886,5 +959,61 @@ mod teste {
             .unwrap();
         assert_eq!((r.plus.as_str(), r.minus.as_str()), ("+1", "−1"));
         assert_eq!(r.difera_in, "un șir");
+    }
+
+    fn fereastra_conectare() -> FereastraConectare {
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w)));
+        let ui = FereastraConectare::new().expect("fereastra de test");
+        aplica_tema(&ui);
+        ui
+    }
+
+    #[test]
+    fn ecranul_de_conectare_spune_ce_lipseste_si_nu_arata_parola() {
+        use model_conectare::{Acreditari, Conectare, Parte, StareConexiune};
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        incarca_conectare(&ui, &c);
+        assert_eq!(ui.get_ce_lipseste(), "completează serverul pentru sursă");
+
+        c.sursa = Parte {
+            server: "SRV-DEV".into(),
+            acreditari: Acreditari::noi("deploy_ro", "parola-secreta"),
+            baza: "CharismaDev".into(),
+            baze: vec!["CharismaDev".into(), "Altceva".into()],
+            stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
+            auth_windows: false,
+        };
+        c.baza = Parte {
+            server: "SRV-PROD".into(),
+            baza: "CharismaProd".into(),
+            baze: vec!["CharismaProd".into()],
+            stare: StareConexiune::Conectat("conectat".into()),
+            auth_windows: true,
+            ..Parte::default()
+        };
+        incarca_conectare(&ui, &c);
+        assert_eq!(ui.get_ce_lipseste(), "", "se poate compara");
+        assert_eq!(ui.get_sursa().utilizator, "deploy_ro");
+        assert!(
+            !ui.get_sursa().parola.contains("parola-secreta"),
+            "parola nu ajunge in fereastra"
+        );
+        assert_eq!(ui.get_sursa().fel_stare, 2);
+        assert_eq!(ui.get_baza().baza, "CharismaProd");
+        // mediul tintei da banda si eticheta
+        assert_eq!(ui.get_mediu(), 2);
+        assert_eq!(ui.get_baza().mediu, "PROD");
+        assert_eq!(ui.get_sursa().mediu, "DEV");
+    }
+
+    #[test]
+    fn mediul_se_ghiceste_din_numele_bazei() {
+        assert_eq!(mediu_dupa_nume("CharismaProd").eticheta(), "PROD");
+        assert_eq!(mediu_dupa_nume("charisma_test").eticheta(), "TEST");
+        assert_eq!(mediu_dupa_nume("CharismaUAT").eticheta(), "TEST");
+        assert_eq!(mediu_dupa_nume("CharismaDev").eticheta(), "DEV");
+        assert_eq!(mediu_dupa_nume("").eticheta(), "DEV");
     }
 }

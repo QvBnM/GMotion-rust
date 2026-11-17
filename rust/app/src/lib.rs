@@ -5,6 +5,7 @@
 //! De-aia starea si rutarea stau in `rutare`, fara Slint, si se testeaza acolo;
 //! binarul doar deseneaza si trimite comenzi.
 
+pub mod pornire;
 pub mod rutare;
 
 pub use rutare::{Aplicatie, Comanda, Ecran};

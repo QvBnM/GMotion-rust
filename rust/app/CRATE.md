@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 41d6c8d45dd3d1aa -->
+<!-- api-hash: 4f535b912dd1c894 -->
 
 ## Rol
 
@@ -17,8 +17,10 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
   `gmotion-modul-diff-obiecte` si `gmotion-core`.
 - Nu tine secrete si nu salveaza acreditari: progresul merge prin sesiunile
   din `gmotion-platforma`, care nu au camp de parola.
-- Nu are inca ecran de conectare: pana la etapa urmatoare, sursa se da in
-  linia de comanda si numai ca instantaneu.
+- Nu are inca selector de fisiere pentru instantaneu: calea se da la pornire
+  (`--sursa`). Vezi `STARE.md`.
+- Nu arata progresul unei comparari lungi: pe server real, compararea blocheaza
+  fereastra pana se termina. De rezolvat cand apare ecranul de progres.
 
 ## API public
 
@@ -30,6 +32,9 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Ecran` | `Lista` sau `Editor` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
+| `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
+| `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
+| `pornire::compara(c) -> Comparata` | citeste ambele baze si compara |
 
 ## Invariante
 
@@ -43,6 +48,9 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
    integral.
 4. **Un obiect care exista doar intr-o parte nu deschide editorul:** nu are cu
    ce fi comparat. `ObiectUrmator` sare peste el.
+5. **Parola iese din `Acreditari` intr-un singur loc:** `pornire::deschide`.
+   Nu ajunge in starea afisata, in sesiuni sau in mesajele de eroare — exista
+   test.
 
 ## Erori tipice
 
@@ -65,6 +73,9 @@ cargo run --release -p gmotion-app --example captura_flux -- \
 
 `captura_flux` trece chiar prin `Comanda::Deschide`, deci fotografiaza drumul
 adevarat din lista in editor, nu un editor deschis de mana.
+
+`tests/flux.rs` face acelasi drum fara fereastra, de la ecranul de conectare
+pana in editor: acolo se prinde cand bucatile merg separat, dar nu si legate.
 
 ## Depanare
 

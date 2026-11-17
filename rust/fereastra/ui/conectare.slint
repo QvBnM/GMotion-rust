@@ -1,0 +1,632 @@
+// Ecranul de conectare: ce se compara cu ce. Macheta:
+// `cercetare/machete/Conectare.dc.html`.
+//
+// Se strica astfel: butonul „Compară" pare apasabil cand lipseste ceva (si
+// omul afla abia dupa ce asteapta conectarea), sau parola ajunge unde nu
+// trebuie. Primul se decide in `src/model_conectare.rs` (testat fara
+// fereastra); al doilea tine de tipul care o pastreaza, fara `Debug` derivat.
+
+import { ListView } from "std-widgets.slint";
+import { Tema, Despartitor, Chevron, Buton, ButonPrincipal } from "comune.slint";
+
+export struct ParteUi {
+    eticheta: string,
+    rol: string,
+    mediu: string,
+    cod-mediu: int,
+    server: string,
+    auth-windows: bool,
+    utilizator: string,
+    parola: string,
+    baza: string,
+    baze: [string],
+    stare: string,
+    // 0 neincercat, 1 se conecteaza, 2 conectat, 3 eroare
+    fel-stare: int,
+}
+
+export struct RecentaUi {
+    sursa: string,
+    baza: string,
+    mediu: string,
+    cod-mediu: int,
+    cand: string,
+    progres: string,
+}
+
+component Eticheta inherits Text {
+    font-size: 13px;
+    color: Tema.text-secundar;
+    vertical-alignment: center;
+}
+
+component Camp inherits Rectangle {
+    in property <string> text;
+    in property <bool> mono: false;
+    in property <bool> ascuns: false;
+    in property <string> gol;
+    callback schimbat(string);
+    height: 30px;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: intrare.has-focus ? Tema.text : Tema.linie;
+    background: Tema.cod-fundal;
+    forward-focus: intrare;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        intrare := TextInput {
+            text: root.text;
+            font-family: root.mono ? Tema.font-mono : Tema.font-ui;
+            font-size: 13px;
+            color: Tema.text;
+            vertical-alignment: center;
+            single-line: true;
+            input-type: root.ascuns ? InputType.password : InputType.text;
+            edited => { root.schimbat(self.text); }
+        }
+    }
+    if root.text == "" && !intrare.has-focus && root.gol != "": Text {
+        x: 8px;
+        text: root.gol;
+        font-size: 13px;
+        color: Tema.text-tert;
+        vertical-alignment: center;
+    }
+}
+
+// Alegerea dintr-o lista scurta (bazele). Deschisa, arata optiunile sub camp.
+component Alegere inherits Rectangle {
+    in property <string> ales;
+    in property <[string]> optiuni;
+    in property <string> gol: "—";
+    callback schimbat(string);
+    /// Lista e goala: cineva trebuie sa o umple (adica sa se conecteze).
+    callback cerut();
+    property <bool> deschis: false;
+    height: 30px;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: Tema.linie;
+    background: zona.has-hover ? Tema.fundal : Tema.cod-fundal;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 8px;
+        Text {
+            horizontal-stretch: 1;
+            text: root.ales == "" ? root.gol : root.ales;
+            font-size: 13px;
+            color: root.ales == "" ? Tema.text-tert : Tema.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        VerticalLayout {
+            alignment: center;
+            Chevron { drum: "M 3 6 L 8 11 L 13 6"; culoare: Tema.text-secundar; }
+        }
+    }
+    zona := TouchArea {
+        clicked => {
+            if (root.optiuni.length == 0) {
+                root.cerut();
+            } else {
+                root.deschis = !root.deschis;
+            }
+        }
+    }
+    if root.deschis: Rectangle {
+        y: parent.height + 2px;
+        height: Math.min(200px, root.optiuni.length * 26px + 2px);
+        border-radius: 3px;
+        border-width: 1px;
+        border-color: Tema.linie;
+        background: Tema.cod-fundal;
+        lista := ListView {
+            x: 1px;
+            y: 1px;
+            width: parent.width - 2px;
+            height: parent.height - 2px;
+            for o in root.optiuni: Rectangle {
+                height: 26px;
+                background: optiune.has-hover ? Tema.fundal : transparent;
+                HorizontalLayout {
+                    padding-left: 8px;
+                    Text {
+                        text: o;
+                        font-size: 13px;
+                        color: Tema.text;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+                optiune := TouchArea {
+                    clicked => {
+                        root.schimbat(o);
+                        root.deschis = false;
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Radio inherits Rectangle {
+    in property <string> text;
+    in property <bool> ales;
+    callback apasat();
+    height: 20px;
+    min-width: 14px + 6px + eticheta.preferred-width;
+    HorizontalLayout {
+        spacing: 6px;
+        alignment: start;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 13px;
+                height: 13px;
+                border-radius: 7px;
+                border-width: 1px;
+                border-color: root.ales ? Tema.text : Tema.linie;
+                background: Tema.cod-fundal;
+                if root.ales: Rectangle {
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 4px;
+                    background: Tema.text;
+                }
+            }
+        }
+        eticheta := Text {
+            text: root.text;
+            font-size: 13px;
+            color: Tema.text;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea { clicked => { root.apasat(); } }
+}
+
+component Rand inherits HorizontalLayout {
+    in property <string> eticheta;
+    vertical-stretch: 0;
+    height: 30px;
+    spacing: 10px;
+    Eticheta { width: 96px; text: root.eticheta; }
+    @children
+}
+
+// O parte (Sursa sau Baza), cu campurile ei.
+component PanouParte inherits VerticalLayout {
+    in property <ParteUi> p;
+    in property <bool> fara-servere;
+    callback server-schimbat(string);
+    callback auth-schimbat(bool);
+    callback utilizator-schimbat(string);
+    callback parola-schimbata(string);
+    callback baza-schimbata(string);
+    callback cere-bazele();
+    spacing: 12px;
+    alignment: start;
+
+    // antetul partii
+    Rectangle {
+        height: 32px;
+        vertical-stretch: 0;
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text {
+                text: p.eticheta;
+                font-size: 16px;
+                font-weight: 600;
+                color: Tema.text;
+                vertical-alignment: center;
+            }
+            Text {
+                text: p.rol;
+                font-size: 13px;
+                color: Tema.text-secundar;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: p.mediu;
+                font-family: Tema.font-mono;
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.6px;
+                color: Tema.culoare-mediu(p.cod-mediu);
+                vertical-alignment: center;
+            }
+        }
+        Rectangle {
+            y: parent.height - 1px;
+            height: 1px;
+            background: Tema.text;
+        }
+    }
+
+    if !root.fara-servere: Rand {
+        eticheta: "Server";
+        Camp {
+            text: p.server;
+            mono: true;
+            gol: "SRV\\INSTANTA sau srv.domeniu.local,1433";
+            schimbat(t) => { root.server-schimbat(t); }
+        }
+    }
+    if !root.fara-servere: Rand {
+        eticheta: "Autentificare";
+        HorizontalLayout {
+            spacing: 16px;
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                Radio {
+                    text: "Windows";
+                    ales: p.auth-windows;
+                    apasat => { root.auth-schimbat(true); }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                Radio {
+                    text: "SQL Server";
+                    ales: !p.auth-windows;
+                    apasat => { root.auth-schimbat(false); }
+                }
+            }
+        }
+    }
+    if !root.fara-servere && !p.auth-windows: Rand {
+        eticheta: "Utilizator";
+        Camp {
+            text: p.utilizator;
+            schimbat(t) => { root.utilizator-schimbat(t); }
+        }
+    }
+    if !root.fara-servere && !p.auth-windows: Rand {
+        eticheta: "Parolă";
+        Camp {
+            text: p.parola;
+            ascuns: true;
+            schimbat(t) => { root.parola-schimbata(t); }
+        }
+    }
+    Rand {
+        eticheta: "Baza";
+        Alegere {
+            ales: p.baza;
+            optiuni: p.baze;
+            gol: root.fara-servere ? "alege baza" : "conectează-te întâi";
+            schimbat(t) => { root.baza-schimbata(t); }
+            cerut => { root.cere-bazele(); }
+        }
+    }
+    Rand {
+        eticheta: "";
+        Text {
+            text: p.stare;
+            font-size: 12px;
+            color: p.fel-stare == 3 ? Tema.del-text
+                 : p.fel-stare == 2 ? Tema.add-text
+                 : Tema.text-secundar;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+export component FereastraConectare inherits Window {
+    title: "gmotion";
+    preferred-width: 1440px;
+    preferred-height: 900px;
+    background: Tema.fundal;
+    default-font-family: Tema.font-ui;
+    default-font-size: 13px;
+
+    in property <ParteUi> sursa;
+    in property <ParteUi> baza;
+    in property <string> certificat;
+    in property <string> instantaneu;
+    in property <[RecentaUi]> recente;
+    /// Ce lipseste ca sa se poata compara; gol = se poate.
+    in property <string> ce-lipseste;
+    in property <int> mediu: 0;
+
+    callback server-schimbat(bool, string);
+    callback auth-schimbat(bool, bool);
+    callback utilizator-schimbat(bool, string);
+    callback parola-schimbata(bool, string);
+    callback baza-schimbata(bool, string);
+    callback cere-bazele(bool);
+    callback inverseaza();
+    callback schimba-certificatul();
+    callback deschide-instantaneu();
+    callback compara();
+    callback reia(int);
+
+    VerticalLayout {
+        Rectangle {
+            height: 3px;
+            background: Tema.culoare-mediu(root.mediu);
+        }
+        // antetul
+        Rectangle {
+            height: 48px;
+            background: Tema.suprafata;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 18px;
+                VerticalLayout {
+                    horizontal-stretch: 0;
+                    alignment: center;
+                    Text {
+                        text: "gmotion";
+                        font-family: Tema.font-mono;
+                        font-size: 13px;
+                        font-weight: 600;
+                        letter-spacing: -0.2px;
+                        color: Tema.text;
+                        vertical-alignment: center;
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout {
+                    horizontal-stretch: 0;
+                    alignment: center;
+                    Rectangle {
+                        height: 20px;
+                        min-width: inst.preferred-width;
+                        inst := Text {
+                            text: root.instantaneu == ""
+                                ? "Deschide un instantaneu…"
+                                : root.instantaneu;
+                            font-size: 13px;
+                            color: Tema.selectie;
+                            vertical-alignment: center;
+                        }
+                        TouchArea { clicked => { root.deschide-instantaneu(); } }
+                    }
+                }
+            }
+            Rectangle {
+                y: parent.height - 1px;
+                height: 1px;
+                background: Tema.linie;
+            }
+        }
+
+        // corpul, centrat pe 920 px ca in macheta
+        Rectangle {
+            vertical-stretch: 1;
+            VerticalLayout {
+                x: (parent.width - 920px) / 2;
+                width: 920px;
+                padding-top: 56px;
+                spacing: 40px;
+
+                // cele doua parti
+                HorizontalLayout {
+                    vertical-stretch: 0;
+                    spacing: 0px;
+                    PanouParte {
+                        horizontal-stretch: 1;
+                        p: root.sursa;
+                        fara-servere: root.instantaneu != "";
+                        server-schimbat(t) => { root.server-schimbat(true, t); }
+                        auth-schimbat(w) => { root.auth-schimbat(true, w); }
+                        utilizator-schimbat(t) => { root.utilizator-schimbat(true, t); }
+                        parola-schimbata(t) => { root.parola-schimbata(true, t); }
+                        baza-schimbata(t) => { root.baza-schimbata(true, t); }
+                        cere-bazele => { root.cere-bazele(true); }
+                    }
+                    // butonul de inversare, intre coloane
+                    Rectangle {
+                        width: 48px;
+                        VerticalLayout {
+                            padding-top: 34px;
+                            alignment: start;
+                            Rectangle {
+                                width: 28px;
+                                height: 28px;
+                                x: 10px;
+                                border-radius: 3px;
+                                border-width: 1px;
+                                border-color: Tema.linie;
+                                background: inv.has-hover ? Tema.fundal : Tema.suprafata;
+                                Path {
+                                    width: 14px;
+                                    height: 14px;
+                                    viewbox-width: 16;
+                                    viewbox-height: 16;
+                                    commands: "M 2 5 L 13 5 M 10 2 L 13 5 L 10 8 M 14 11 L 3 11 M 6 8 L 3 11 L 6 14";
+                                    stroke: Tema.text-secundar;
+                                    stroke-width: 1.5px;
+                                    fill: transparent;
+                                }
+                                inv := TouchArea { clicked => { root.inverseaza(); } }
+                            }
+                        }
+                    }
+                    PanouParte {
+                        horizontal-stretch: 1;
+                        p: root.baza;
+                        fara-servere: root.instantaneu != "";
+                        server-schimbat(t) => { root.server-schimbat(false, t); }
+                        auth-schimbat(w) => { root.auth-schimbat(false, w); }
+                        utilizator-schimbat(t) => { root.utilizator-schimbat(false, t); }
+                        parola-schimbata(t) => { root.parola-schimbata(false, t); }
+                        baza-schimbata(t) => { root.baza-schimbata(false, t); }
+                        cere-bazele => { root.cere-bazele(false); }
+                    }
+                }
+
+                // certificatul si butonul
+                Rectangle {
+                    height: 48px;
+                    vertical-stretch: 0;
+                    Rectangle {
+                        height: 1px;
+                        background: Tema.linie;
+                    }
+                    HorizontalLayout {
+                        padding-top: 16px;
+                        spacing: 14px;
+                        VerticalLayout {
+                            horizontal-stretch: 0;
+                            alignment: center;
+                            Text {
+                                text: root.certificat;
+                                font-size: 13px;
+                                color: Tema.text-secundar;
+                                vertical-alignment: center;
+                            }
+                        }
+                        VerticalLayout {
+                            horizontal-stretch: 0;
+                            alignment: center;
+                            Rectangle {
+                                height: 20px;
+                                min-width: schimba.preferred-width;
+                                schimba := Text {
+                                    text: "Schimbă";
+                                    font-size: 13px;
+                                    color: Tema.selectie;
+                                    vertical-alignment: center;
+                                }
+                                TouchArea { clicked => { root.schimba-certificatul(); } }
+                            }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        VerticalLayout {
+                            horizontal-stretch: 0;
+                            alignment: center;
+                            Text {
+                                text: root.ce-lipseste == ""
+                                    ? "Se citește, nu se scrie nimic."
+                                    : root.ce-lipseste;
+                                font-size: 12px;
+                                color: root.ce-lipseste == "" ? Tema.text-secundar : Tema.mod-text;
+                                vertical-alignment: center;
+                            }
+                        }
+                        VerticalLayout {
+                            horizontal-stretch: 0;
+                            alignment: center;
+                            if root.ce-lipseste == "": ButonPrincipal {
+                                text: "Compară";
+                                height: 32px;
+                                apasat => { root.compara(); }
+                            }
+                            if root.ce-lipseste != "": Buton {
+                                text: "Compară";
+                                inalt: 32px;
+                                apasabil: false;
+                            }
+                        }
+                    }
+                }
+
+                // compararile recente
+                VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: 0px;
+                    Rectangle {
+                        height: 28px;
+                        Text {
+                            x: 0px;
+                            text: "Recente";
+                            font-size: 13px;
+                            font-weight: 600;
+                            color: Tema.text;
+                            vertical-alignment: center;
+                            height: parent.height;
+                        }
+                        Rectangle {
+                            y: parent.height - 1px;
+                            height: 1px;
+                            background: Tema.text;
+                        }
+                    }
+                    ListView {
+                        vertical-stretch: 1;
+                        for s[i] in root.recente: Rectangle {
+                            height: 38px;
+                            background: rand.has-hover ? Tema.suprafata : transparent;
+                            HorizontalLayout {
+                                spacing: 12px;
+                                HorizontalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 6px;
+                                    alignment: start;
+                                    Text {
+                                        text: s.sursa;
+                                        font-size: 13px;
+                                        font-weight: 500;
+                                        color: Tema.text;
+                                        vertical-alignment: center;
+                                    }
+                                    Text {
+                                        text: "→";
+                                        color: Tema.text-secundar;
+                                        vertical-alignment: center;
+                                    }
+                                    Text {
+                                        text: s.baza;
+                                        font-size: 13px;
+                                        font-weight: 500;
+                                        color: Tema.text;
+                                        vertical-alignment: center;
+                                    }
+                                    Text {
+                                        text: s.mediu;
+                                        font-family: Tema.font-mono;
+                                        font-size: 11px;
+                                        font-weight: 600;
+                                        letter-spacing: 0.6px;
+                                        color: Tema.culoare-mediu(s.cod-mediu);
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    width: 150px;
+                                    text: s.cand;
+                                    font-size: 13px;
+                                    color: Tema.text-secundar;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    width: 200px;
+                                    text: s.progres;
+                                    font-size: 13px;
+                                    color: Tema.text-secundar;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    width: 90px;
+                                    text: "Continuă";
+                                    font-size: 13px;
+                                    color: Tema.selectie;
+                                    horizontal-alignment: right;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            Rectangle {
+                                y: parent.height - 1px;
+                                height: 1px;
+                                background: Tema.linie-slaba;
+                            }
+                            rand := TouchArea {
+                                clicked => { root.reia(i); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
