@@ -378,11 +378,11 @@ def scrie_raport(r, csv_dif, strict=False):
     if r["deliberate"]:
         print(f"\ndiferente deliberate (asteptate explicit): {len(r['deliberate'])}")
         for x in r["deliberate"][:MAX_AFISATE]:
-            print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r} -> Rust {x['rust']!r} — {x['motiv']}")
+            print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r} -> Rust {x['rust']!r} - {x['motiv']}")
         _restul(r["deliberate"])
     print(f"\nde verificat (pot veni din corecturile v4; vezi `gmotion diferente`): {len(r['de_verificat'])}")
     for x in r["de_verificat"][:MAX_AFISATE]:
-        print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r}, Rust {x['rust']!r} — {x['motiv']}")
+        print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r}, Rust {x['rust']!r} - {x['motiv']}")
     _restul(r["de_verificat"])
     print(f"\nregresii: {len(r['regresii'])}")
     pe_camp = {}

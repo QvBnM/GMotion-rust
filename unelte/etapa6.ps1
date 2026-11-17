@@ -14,8 +14,9 @@
 #   4. instantaneu proaspat (timp Rust) si paritatea logicii Python/Rust pe el
 #   5. aplicatia Python cu pyodbc-ul ei pe aceleasi baze (timp Python) si
 #      comparatia obiect cu obiect cu ce a adus tiberius
-#   6. fixture-ul TESTSIMILITUDINE extras si verificat; ramane local pana
-#      decide Mihai daca intra in repo
+#   6. fixture-ul TESTSIMILITUDINE extras si verificat
+#   7. garda de versiune din scripturile de deploy, rulata pe server
+#   8. cate obiecte au ANSI_NULLS / QUOTED_IDENTIFIER OFF
 
 param(
   [string]$Server = 'TS2409\MIHAIG',
@@ -91,6 +92,18 @@ function Ruleaza([scriptblock]$bloc) {
     "marime: $([math]::Round((Get-Item $fixture).Length / 1KB, 1)) KB"
     Ruleaza { & py -3 -I referinta\paritate.py $fixture --referinta $Referinta --gmotion $gm }
   }
+
+  Pas "7. garda de versiune din deploy, rulata pe server (doar master, doar citire)"
+  $dirGarda = Join-Path $env:TEMP ("gmotion-garda-" + [guid]::NewGuid())
+  Ruleaza { & $gm deploy --sursa $fixture --referinta $Referinta -d $dirGarda --mod-fisiere unul }
+  $fGarda = Get-ChildItem $dirGarda -Filter *.sql -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($fGarda) {
+    Ruleaza { & py -3 -I referinta\proba_garda.py $fGarda.FullName --server $Server --utilizator $Utilizator }
+    Remove-Item -Recurse -Force $dirGarda
+  }
+
+  Pas "8. setarile de creare (ANSI_NULLS / QUOTED_IDENTIFIER) citite din baze"
+  Ruleaza { & py -3 -I referinta\rezumat_setari.py $inst }
 
   Pas "gata"
   "Trimite fisierul: $rezultat"
