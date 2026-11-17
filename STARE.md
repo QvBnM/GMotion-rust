@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (171 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
+**Poarta:** verde (176 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
 
 ---
 
@@ -19,7 +19,7 @@ interfata grafica: binarul `gmotion`.
 | Crate | Stare |
 |---|---|
 | `rust/core` | gata, 37 teste, fuzz pe invariante |
-| `rust/db` | gata functional, **neverificat pe tinta**, 30 teste |
+| `rust/db` | gata functional, prima conectare reala in curs, 35 teste |
 | `rust/platforma` | gata functional, DPAPI dus-intors verificat pe Windows, 35 teste |
 | `rust/module/diff-obiecte` | gata, 42 teste |
 | `rust/cli` | gata, 27 teste, din care 10 pe binarul adevarat |

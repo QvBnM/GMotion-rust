@@ -37,6 +37,13 @@ lipsea.
 | Paritatea raporteaza o regresie | intai `rust/module/diff-obiecte/src/comparare.rs`, apoi motorul din `core`; o `regresie` pe `rezumat` arata si ce zice JS |
 | Exportul CSV nu se potriveste cu instantaneul | export facut cu filtru activ in interfata, sau driverele aduc obiecte diferite (`rust/db/src/sqlserver.rs`) |
 
+## Conectare
+
+| Simptom | Cauza probabila | Fisier |
+|---|---|---|
+| `GM-DB-001` „No such host is known” pe `SRV\INSTANTA` | instanta numita nerezolvata prin SQL Browser | `rust/db/src/sqlserver.rs`, `interpreteaza_server` |
+| `GM-DB-001` „SQL browser timeout” | SQL Browser oprit / UDP 1434 blocat; ocolire cu `--port` | `rust/db/src/sqlserver.rs`, `deschide_tcp` |
+
 ## Platforma
 
 | Simptom | Cauza probabila | Fisier |

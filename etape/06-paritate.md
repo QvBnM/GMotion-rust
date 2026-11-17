@@ -98,6 +98,18 @@ Partea care are nevoie de rulari pe Windows:
   se amesteca uneori cu jurnalul (se vede si in ieșirea de pe Windows), deci
   numarul afisat varia (167/168). Numara acum din `test result:`.
 
+- **2026-11-17** Pe Windows: `pe_windows_datele_nu_apar_in_clar` trece —
+  DPAPI cripteaza de-adevaratelea. Prima conectare reala:
+  `instantaneu --server TS2409\MIHAIG` -> `GM-DB-001 No such host is known`.
+  **Regresie fata de Python**: numele intreg ajungea la DNS; ODBC rezolva
+  singur instantele numite prin SQL Browser, iar feature-ul
+  `sql-browser-tokio` era activat in `Cargo.toml` dar nefolosit. Corectat
+  (`interpreteaza_server` + `connect_named`), acceptand si `GAZDA,PORT` ca
+  Python-ul. Testat pe Linux cu un SQL Browser fals pe UDP; vazut cazand pe
+  codul vechi cu exact simptomul de pe Windows (1433 in loc de Browser).
+  Lectia: niciun test nu folosea un nume de server cu `\`, deși e forma cea
+  mai comuna in productie — si chiar `servere` o produce.
+
 ## Ce a ieșit altfel decat planul
 
 (se completeaza la incheiere)
