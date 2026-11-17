@@ -63,7 +63,7 @@ explicatia sunt in `referinta/README.md`.
 | `rust/core` — `gmotion-core`, motorul de comparare | **gata, 37 teste** |
 | `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata functional, neverificat pe tinta** (29 teste) |
 | `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata functional, DPAPI neverificat pe tinta** (32 teste) |
-| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | de scris |
+| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 42 teste** |
 | `rust/cli` — binarul headless | de scris |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
 | `rust/app` — binarul cu interfata | de scris |
@@ -199,7 +199,7 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 | 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
 | 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decis `tiberius`. *(facut; verificarea pe server real rămâne)* |
 | 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix. *(facut)* |
-| 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture |
+| 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture. *(facut)* |
 | 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila** |
 | 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python |
 | 7 | **Prototip editor diff** | doar editorul, in toolkitul candidat. Scop: aflat costul real al partii grele |

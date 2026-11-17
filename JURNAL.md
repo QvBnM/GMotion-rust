@@ -215,6 +215,36 @@ din `protejare.rs` trebuie sa **refuze**, nu sa scrie in clar. Scris in
 
 ---
 
+## 2026-11-17 — Id-ul de rand de diff e cel stabil din `core`, nu indexul
+
+**Context.** `Diferenta` din modul expune randurile de diff catre interfata si
+catre linia de comanda. Prima versiune folosea indexul din lista.
+
+**Motiv.** `gmotion_core::RandDiff` are deja un `id` stabil intre recalculari:
+poziția blocului in referinta pentru randurile ancorate, numere negative unice
+pentru cele doar-adaugate. Deciziile utilizatorului din editor („linia asta o
+iau in deploy, asta nu") se tin minte pe acel id. Cu indexul din lista, orice
+schimbare in tinta le-ar muta pe alte linii.
+
+**Consecinte.** Scris ca invariant in `rust/module/diff-obiecte/CRATE.md`. Cand
+apare editorul, cheia de override e `id`, niciodata poziția.
+
+---
+
+## 2026-11-17 — Citirea bazelor rămâne secventiala, deocamdata
+
+**Context.** `aduce_obiecte` din versiunea Python citea bazele cu 4 conexiuni
+simultane (`ThreadPoolExecutor`).
+
+**Motiv.** Nu am portat paralelismul: nu am cu ce masura daca merita, si ar
+aduce anulare, erori parțiale si un runtime in plus in `platforma`.
+
+**Consecinte.** De masurat la etapa de paritate, pe baze reale. Daca citirea
+dureaza inacceptabil, se adauga in `db::obiecte_multe`, nu in modul — ca sa
+rămână un singur loc. Notat ca neacoperit in `CRATE.md`.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
@@ -225,7 +255,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | `GM-CORE-*` | motorul de comparare |
 | `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-010**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
-| `GM-MOD-*` | module |
+| `GM-MOD-*` | module — **diff-obiecte: 001-007**, vezi `rust/module/diff-obiecte/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
 `core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide

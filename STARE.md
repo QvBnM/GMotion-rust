@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (98 teste; `core` pe wasm32, tot codul si pe windows-msvc)
+**Poarta:** verde (140 teste; `core` pe wasm32, tot codul si pe windows-msvc)
 
 ---
 
@@ -20,36 +20,48 @@ Etapele 0-3 incheiate. Vezi `etape/`.
 | `rust/core` | gata, 37 teste, fuzz pe invariante |
 | `rust/db` | gata functional, **neverificat pe tinta**, 29 teste |
 | `rust/platforma` | gata functional, **DPAPI neverificat pe tinta**, 32 teste |
+| `rust/module/diff-obiecte` | **gata**, 42 teste, flux complet pe instantaneu |
 
 Poarta verifica si `cargo check --target x86_64-pc-windows-msvc`, deci codul
 `cfg(windows)` (DPAPI, auth integrata) e corect la compilare, nu scris orb.
 
-**Etapa activa:** niciuna. Urmatoarea la rand e etapa 4,
-`module/diff-obiecte` ca biblioteca, fara interfata.
+Modulul 1 e functional cap-coada ca biblioteca: comparare, diff, deploy,
+export. Ce lipseste e un **binar** care sa-l cheme.
+
+**Etapa activa:** niciuna. Urmatoarea la rand e etapa 5, `cli` — si la finalul
+ei exista o aplicatie completa si utilizabila.
 
 ---
 
 ## Urmatorul pas concret
 
-Etapa 4 — `rust/module/diff-obiecte`, **ca biblioteca, fara nicio interfata**.
-Orchestrarea completa a modulului 1, portata din `mostenire/app.py`:
+Etapa 5 — `rust/cli`. **La finalul ei exista o aplicatie completa si
+utilizabila**, fara interfata grafica.
 
-1. **compararea** — pentru fiecare baza fata de referinta: obiecte lipsa, in
-   plus, identice, modificate; scor si rezumat per obiect (`_comparatie`);
-2. **rezultatele** — lista pentru ecran, plus diff-ul la cerere
-   (`rezultate`, `elemente`);
-3. **export CSV** (`exporta_csv`);
-4. **generatorul de deploy** (`genereaza_deployer`, `_scrie_deployer`,
-   `_aplica_create_or_alter`) — partea cu cel mai mare risc de a produce ceva
-   greșit si de a se observa tarziu, deci cea cu cele mai multe teste;
-5. implementarea `Modul` pentru registru.
+Comenzi:
 
-Testat integral pe instantanee, fara baza de date. Atentie: modulul poate
-depinde de `core`, `db`, `platforma` — **de niciun alt modul**. Poarta verifica.
+| Comanda | Ce face |
+|---|---|
+| `gmotion diagnostic` | ce vede GMotion: versiune, cai, configurare, conexiune daca se da un server |
+| `gmotion servere` | descoperirea instantelor in retea |
+| `gmotion baze --server S` | bazele de pe un server |
+| `gmotion instantaneu --server S --baze A,B -o f.json` | obiectele brute intr-un fisier |
+| `gmotion compara --sursa f.json --referinta R --baze A,B` | compararea; sursa poate fi un instantaneu **sau** un server |
+| `gmotion deploy ...` | scripturile de deploy |
+| `gmotion export ...` | CSV |
+
+Doua lucruri de respectat:
+
+1. **Parola nu se da ca argument de linie de comanda** — ar ajunge in istoricul
+   shell-ului si in lista de procese. Se citeste din `GMOTION_PAROLA` sau de la
+   terminal.
+2. Fiecare comanda trebuie sa mearga si cu `--sursa <instantaneu>`, nu doar cu
+   un server. Altfel se pierde exact proprietatea pentru care s-a facut
+   `SursaObiecte`.
 
 ```
 unelte/verifica.sh
-cp etape/SABLON.md etape/04-diff-obiecte.md     # si pune Stare: ACTIVA
+cp etape/SABLON.md etape/05-cli.md      # si pune Stare: ACTIVA
 ```
 
 ---
@@ -60,8 +72,8 @@ cp etape/SABLON.md etape/04-diff-obiecte.md     # si pune Stare: ACTIVA
 pe fixture. Valideaza etapa 2 — conectarea, auth integrata si descoperirea sunt
 scrise si compilate, dar netestate pe tinta, fiindca aici nu exista SQL Server.
 
-Comanda exacta o pregatesc la etapa 5, cand exista binarul de linie de comanda.
-Pana atunci nu ai nimic de facut.
+Comanda exacta o pregatesc la finalul etapei 5, care urmeaza acum. Pana atunci
+nu ai nimic de facut.
 
 La etapa 6 (paritate) va fi nevoie de: aceleasi baze comparate cu versiunea
 Python si cu `gmotion`, plus un `gmotion instantaneu` trimis incoace ca sa am
