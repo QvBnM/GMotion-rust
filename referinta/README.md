@@ -3,19 +3,19 @@
 Harness care ruleaza acelasi set de cazuri prin ambele motoare existente si
 raporteaza divergentele. Serveste la doua lucruri:
 
-1. **dovada** ca `motor.py` si portul JS din `ui.py` nu mai sunt echivalente;
+1. **dovada** ca `mostenire/motor.py` si portul JS din `mostenire/ui.py` nu mai sunt echivalente;
 2. **referinta** contra careia se valideaza portul in Rust.
 
 ## Rulare
 
 ```
-python3 -I rust/referinta/genereaza.py     # -> rezultate_python.json
-node     rust/referinta/genereaza.mjs      # -> rezultate_js.json
-python3 -I rust/referinta/compara.py       # raport de divergente
+python3 -I referinta/genereaza.py     # -> rezultate_python.json
+node     referinta/genereaza.mjs      # -> rezultate_js.json
+python3 -I referinta/compara.py       # raport de divergente
 ```
 
-`motor_js.mjs` e extras MECANIC din `ui.py` (liniile 2593-3106, plus `_tokenize`
-si `_normLinie`), ca sa nu existe risc de a-l rescrie din greseala. Daca `ui.py`
+`motor_js.mjs` e extras MECANIC din `mostenire/ui.py` (liniile 2593-3106, plus `_tokenize`
+si `_normLinie`), ca sa nu existe risc de a-l rescrie din greseala. Daca `mostenire/ui.py`
 se schimba, se re-extrage.
 
 ## Rezultat la `v0-baseline`
@@ -35,7 +35,7 @@ se schimba, se re-extrage.
 Normalizarea si scorul de similaritate sunt identice. Toata divergenta vine din
 **segmentarea in blocuri**, si de acolo se propaga in tipurile de diferenta.
 
-Cauza: portul JS a fost dezvoltat mai departe decat `motor.py` si a primit
+Cauza: portul JS a fost dezvoltat mai departe decat `mostenire/motor.py` si a primit
 lucruri care nu au fost aduse niciodata inapoi:
 
 - splituieste si pe `CREATE` si `DECLARE`
@@ -48,20 +48,20 @@ lucruri care nu au fost aduse niciodata inapoi:
 
 ### Doua divergente vizibile direct utilizatorului
 
-| Caz | Lista (`motor.py`) | Editor (JS) |
+| Caz | Lista (`mostenire/motor.py`) | Editor (JS) |
 |---|---|---|
 | `declare_in_header` | `1 modificate` | `1 sterse` |
 | `comentariu_bloc_multiline` | `2 sterse` | `diferente minore` |
 
-In al doilea caz, un comentariu bloc pe mai multe linii face `motor.py` sa
+In al doilea caz, un comentariu bloc pe mai multe linii face `mostenire/motor.py` sa
 raporteze doua blocuri sterse care **nu exista** - un fals pozitiv in lista,
 care dispare cand deschizi obiectul. Exact genul de bug greu de urmarit, fiindca
 simptomul si cauza sunt in fisiere diferite.
 
 ## Consecinta pentru portul Rust
 
-Se porteaza **semantica JS**, nu `motor.py`. Motorul JS e cel mai nou si cel
-corect; `motor.py` a rams in urma. Fixture-ul de referinta e
+Se porteaza **semantica JS**, nu `mostenire/motor.py`. Motorul JS e cel mai nou si cel
+corect; `mostenire/motor.py` a rams in urma. Fixture-ul de referinta e
 `rezultate_js.json`.
 
 ---
@@ -72,7 +72,7 @@ Corpus sintetic: 400 perechi de proceduri, ~51 linii fiecare (~20.500 linii in
 total). Generat cu `genereaza_corpus.py`, rulat cu `bench.py` si
 `cargo run --release --example bench`.
 
-| Operatie | `motor.py` | `gmotion-core` |
+| Operatie | `mostenire/motor.py` | `gmotion-core` |
 |---|---:|---:|
 | `scor_similaritate` + `rezumat_rapid` | 887 ms | **210 ms** |
 | `diff_aliniat` | 63 ms | 90 ms |
@@ -89,7 +89,7 @@ La `diff_aliniat` cifrele **nu sunt comparabile**: cele doua implementari fac
 munca diferita. Se vede direct in numarul de randuri produse - 8424 pentru
 Python, 6934 pentru Rust. Varianta Rust ruleaza alinierea prin programare
 dinamica (`perechi_replace`), care compara fiecare bloc din referinta cu
-fiecare bloc din tinta; `motor.py` imperecheaza pozitional, mai ieftin si mai
+fiecare bloc din tinta; `mostenire/motor.py` imperecheaza pozitional, mai ieftin si mai
 greșit. Rust face deci substantial mai mult, in timp apropiat.
 
 Castigul real al migrarii nu e deci viteza bruta, ci:

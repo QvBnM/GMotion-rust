@@ -1,6 +1,6 @@
 """Compara rezultatele celor doua motoare (Python vs JS) si raporteaza divergentele.
 
-    python3 -I rust/referinta/compara.py
+    python3 -I referinta/compara.py
 """
 import json
 import os

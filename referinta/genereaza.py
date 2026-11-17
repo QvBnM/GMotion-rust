@@ -1,13 +1,13 @@
 """Ruleaza cazurile de test prin motorul PYTHON (motor.py) si scrie rezultatele.
 
 Se ruleaza din radacina repo-ului:
-    python3 -I rust/referinta/genereaza.py
+    python3 -I referinta/genereaza.py
 """
 import json
 import os
 import sys
 
-RADACINA = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RADACINA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mostenire")
 sys.path.insert(0, RADACINA)
 
 import motor  # noqa: E402

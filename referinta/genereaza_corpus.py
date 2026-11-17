@@ -5,7 +5,7 @@ atribuiri in variabile - adica exact formele pe care segmentarea trebuie sa le
 trateze. Fiecare pereche are o varianta modificata ușor, ca sa existe diferente
 reale de aliniat.
 
-    python3 -I rust/referinta/genereaza_corpus.py
+    python3 -I referinta/genereaza_corpus.py
 """
 import json
 import os

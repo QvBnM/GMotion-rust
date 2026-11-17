@@ -1,6 +1,6 @@
 // Ruleaza cazurile de test prin motorul JS extras din ui.py si scrie rezultatele.
 // Se ruleaza din radacina repo-ului:
-//     node rust/referinta/genereaza.mjs
+//     node referinta/genereaza.mjs
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

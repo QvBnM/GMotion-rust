@@ -1,6 +1,6 @@
-"""Acelasi corpus, prin motor.py. python3 -I rust/referinta/bench.py"""
+"""Acelasi corpus, prin motor.py. python3 -I referinta/bench.py"""
 import json, os, sys, time
-R = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+R = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mostenire")
 sys.path.insert(0, R)
 import motor
 A = os.path.dirname(os.path.abspath(__file__))

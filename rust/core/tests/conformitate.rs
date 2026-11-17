@@ -1,11 +1,11 @@
 //! Conformitate cu motorul JS din `ui.py`.
 //!
-//! Fixture-ul `rust/referinta/rezultate_js.json` e produs de motorul JS extras
+//! Fixture-ul `referinta/rezultate_js.json` e produs de motorul JS extras
 //! mecanic din `ui.py`. Portul Rust trebuie sa dea exact aceleasi rezultate -
 //! altfel migrarea ar schimba in liniste ce vede utilizatorul.
 //!
 //! De regenerat fixture-ul cand se schimba `ui.py`:
-//!     node rust/referinta/genereaza.mjs
+//!     node referinta/genereaza.mjs
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -38,10 +38,12 @@ struct Asteptat {
 }
 
 fn dir_referinta() -> PathBuf {
-    // CARGO_MANIFEST_DIR = rust/core
+    // CARGO_MANIFEST_DIR = <radacina>/rust/core, iar harness-ul sta in
+    // <radacina>/referinta - deci doua niveluri in sus, nu unul.
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("rust/core are mereu un parinte")
+        .ancestors()
+        .nth(2)
+        .expect("rust/core are mereu doi stramosi")
         .join("referinta")
 }
 

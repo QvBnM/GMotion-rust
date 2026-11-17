@@ -32,5 +32,5 @@ target/
 Cargo.lock
 pkg/
 
-# Corpus de bench generat (vezi rust/referinta/genereaza_corpus.py)
-rust/referinta/corpus_bench.json
+# Corpus de bench generat (vezi referinta/genereaza_corpus.py)
+referinta/corpus_bench.json

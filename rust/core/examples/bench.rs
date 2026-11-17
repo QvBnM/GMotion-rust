@@ -1,13 +1,13 @@
 //! Masoara motorul Rust pe acelasi corpus ca echivalentul Python.
 //!
 //!     cargo run --release --example bench
-//!     python3 -I ../referinta/bench.py
+//!     python3 -I referinta/bench.py
 use std::time::Instant;
 
 fn main() {
     let cale = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../referinta/corpus_bench.json"
+        "/../../referinta/corpus_bench.json"
     );
     let text = std::fs::read_to_string(cale).expect("corpus_bench.json lipseste");
     let perechi: Vec<serde_json::Value> = serde_json::from_str(&text).unwrap();
