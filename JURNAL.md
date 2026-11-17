@@ -595,6 +595,24 @@ simpla ramane la fel de rapida ca pana acum (hash, apoi scor).
 
 ---
 
+## 2026-11-17 — Ecranul de conectare: cand se conecteaza, si ce nu stim inca
+
+**Decizie.** Bazele se citesc **cand le ceri** (clic pe „Baza"), nu dupa
+fiecare tasta. Starea „conectat" se scrie numai dupa ce s-a citit ceva de pe
+server: altfel ar fi o promisiune, nu un fapt.
+
+**Parola.** Iese din `Acreditari` intr-un singur loc (`pornire::deschide`), si
+`Acreditari` n-are `Debug` derivat. Exista test ca nu apare nici in mesajul de
+eroare al unei conectari esuate, nici in campul din fereastra (care arata doar
+puncte).
+
+**Ramase de decis cu Mihai** (notate si in `STARE.md`): selectorul de fisiere
+pentru instantaneu (ar fi dependinta `rfd`), de unde se ia mediul PROD / TEST
+/ DEV (acum se ghiceste din numele bazei), si daca e nevoie de un ecran de
+progres cat dureaza compararea pe server real (acum fereastra sta).
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

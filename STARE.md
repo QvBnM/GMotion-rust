@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (301 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (316 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -24,24 +24,24 @@ interfata grafica: binarul `gmotion`.
 | `rust/module/diff-obiecte` | gata, 59 teste |
 | `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
 | `rust/fereastra` | editorul si lista: gata (etapele 8-9), 32 teste; conectarea, deploy-ul si paleta, de scris |
-| `rust/app` | `gmotion-ui`: lista ↔ editor, revizuirea (etapa 10), 8 teste de rutare |
+| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea (etapele 10-11), 14 teste |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/11-conectare.md` — ecranul de conectare, ca sa nu
-mai primeasca `gmotion-ui` sursa in linia de comanda.
+**Etapa activa:** `etape/12-plan-de-deploy.md` — planul de deploy, cu garda
+si scriptul de revenire.
 
-**Etapele 8-10 sunt incheiate.** Exista o aplicatie cu interfata,
-`gmotion-ui`: lista de diferente, editorul alaturat / unificat, si bifa de
-revizuit care se tine minte intre sesiuni (si cade singura cand obiectul s-a
-schimbat pe server). Capturi, langa machete: `cercetare/machete/capturi/`.
+**Etapele 8-11 sunt incheiate.** `gmotion-ui` porneste din ecranul de
+conectare, compara, arata lista cu previzualizare, deschide editorul si tine
+minte ce ai revizuit. Capturi, langa machete: `cercetare/machete/capturi/`.
 
 ```
-cd rust && cargo run --release -p gmotion-app -- \
-    --sursa ../referinta/instantanee/testsimilitudine.json \
+cd rust && cargo run --release -p gmotion-app
+# sau direct pe un instantaneu:
+cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimilitudine.json \
     --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy
 ```
 
@@ -49,13 +49,10 @@ cd rust && cargo run --release -p gmotion-app -- \
 
 ## Urmatorul pas concret
 
-**Etapa 11, pasul 1: modelul ecranului de conectare** (campuri, validari,
-stari), apoi ecranul in Slint dupa `cercetare/machete/Conectare.dc.html`, si
-legarea de `db` (test de conexiune, lista bazelor) si de sesiunile salvate
-(compararile recente, reluabile). Criteriile complete: `etape/11-conectare.md`.
-
-Atentie la parola: nu intra in sesiuni, in jurnal sau in mesaje de eroare, iar
-tipul care o tine nu are `Debug` derivat.
+**Etapa 12, pasul 1: garda „baza n-a mai fost atinsa"** — inainte de deploy se
+recitesc obiectele din plan si se compara amprentele cu cele de la comparare.
+Apoi scriptul de revenire, amandoua in `cli`, si ecranul din
+`cercetare/machete/Deploy.dc.html`. Criteriile: `etape/12-plan-de-deploy.md`.
 
 Rulari pe Windows: nimic de cerut acum.
 
@@ -75,6 +72,18 @@ Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
 unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
 filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
 nefolosit.
+
+**Trei intrebari din etapa 11** (niciuna nu blocheaza etapa 12):
+
+1. **Selector de fisiere pentru „Deschide un instantaneu…"?** Ar fi o
+   dependinta noua (`rfd`, dialogul nativ) si nu o pot proba pe Linux fara
+   ecran. Pana atunci, calea se da la pornire: `gmotion-ui --sursa f.json`.
+2. **Mediul (PROD / TEST / DEV) de unde se ia?** Acum se ghiceste din numele
+   bazei (`...Prod` → PROD). Ghicitul poate fi gresit exact unde conteaza. Ar
+   trebui configurat explicit, pe server sau pe baza?
+3. **Compararea pe server real blocheaza fereastra** pana se termina (12 s pe
+   baza ta, din masuratori). Machetele n-au ecran de progres; v3.4 avea. Il
+   facem, sau e acceptabil asa?
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
@@ -152,6 +161,10 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   in model. Incrucisarea e doar in `cod_stare` din `fereastra/src/lib.rs`.
   Daca o muti sau o dublezi, culorile se inverseaza fara ca vreun test de
   motor sa cada.
+- **Doua teste care folosesc acelasi director temporar se strica unul pe
+  altul.** `cargo test` ruleaza in paralel; un test care sterge directorul la
+  final il sterge de sub celalalt. Numele directorului primeste si o eticheta
+  a testului, nu doar PID-ul. Pacalit o data la `app/tests/flux.rs`.
 - **Un fuzz care trece nu e un fuzz care functioneaza.** Cand adaugi un test de
   invariante, strica deliberat codul si uita-te daca il prinde. Prima versiune a
   fuzz-ului de segmentare trecea si cu urmarirea literalelor scoasa complet.
