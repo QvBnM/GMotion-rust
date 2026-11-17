@@ -11,8 +11,12 @@ use gmotion_fereastra::model_conectare::Conectare;
 use gmotion_fereastra::model_lista::Stare;
 use gmotion_modul_diff_obiecte as modul;
 
-fn instantaneu() -> std::path::PathBuf {
-    let d = std::env::temp_dir().join(format!("gmotion-flux-{}", std::process::id()));
+/// Un instantaneu propriu fiecarui test: `cargo test` ruleaza testele in
+/// paralel, iar un director comun ar fi sters de sub celalalt test — exact
+/// genul de test care trece azi si cade aleator peste o luna.
+fn instantaneu(eticheta: &str) -> std::path::PathBuf {
+    let d = std::env::temp_dir().join(format!("gmotion-flux-{eticheta}-{}", std::process::id()));
+    std::fs::remove_dir_all(&d).ok();
     std::fs::create_dir_all(&d).unwrap();
     let cale = d.join("inst.json");
     std::fs::write(
@@ -32,7 +36,7 @@ fn instantaneu() -> std::path::PathBuf {
 
 #[test]
 fn din_conectare_pana_in_editor() {
-    let cale = instantaneu();
+    let cale = instantaneu("conectare-editor");
     let mut c = Conectare::noua();
 
     // 1. instantaneu deschis: nu se cer servere, dar se cer bazele
@@ -115,7 +119,7 @@ fn din_conectare_pana_in_editor() {
 
 #[test]
 fn o_baza_lipsa_din_instantaneu_nu_duce_in_lista() {
-    let cale = instantaneu();
+    let cale = instantaneu("baza-lipsa");
     let mut c = Conectare::noua();
     c.instantaneu = Some(cale.to_string_lossy().to_string());
     c.sursa.baza = "CharismaDev".into();
