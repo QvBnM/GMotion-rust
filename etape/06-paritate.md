@@ -38,7 +38,8 @@ Partea care are nevoie de rulari pe Windows:
       cu incarcarea din aplicatia Python (citirea Rust e secventiala, Python
       foloseste 4 conexiuni — vezi `JURNAL.md`, „Citirea bazelor rămâne
       secventiala"); daca e inacceptabil, paralelismul intra in `db`
-- [ ] instantaneul real (sau o forma anonimizata) e fixture de regresie in repo
+- [ ] obiectele relevante din instantaneul real (extrase, anonimizate daca
+      trebuie) sunt fixture de regresie in repo — instantaneul intreg are 202 MB
 - [ ] poarta verde: `unelte/verifica.sh`
 - [ ] `STARE.md` actualizat
 - [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
@@ -109,6 +110,16 @@ Partea care are nevoie de rulari pe Windows:
   codul vechi cu exact simptomul de pe Windows (1433 in loc de Browser).
   Lectia: niciun test nu folosea un nume de server cu `\`, deși e forma cea
   mai comuna in productie — si chiar `servere` o produce.
+
+- **2026-11-17** Instantaneul real merge: `TS2409\MIHAIG`, doua baze,
+  42.427 obiecte, 26,5 s (~13 s/baza, secvential). **202 MB** — planul de a-l
+  aduce in repo nu tine (limita GitHub de 100 MB, si e cod CharismaERP).
+  Schimbat: `paritate.py` ruleaza pe masina lui Mihai, vine doar raportul.
+  Pentru asta: raportul se scurteaza la 40 de cazuri pe categorie (complet in
+  `--json`) si ieșirea e fortata UTF-8 (consola Windows). Probat pe un
+  instantaneu sintetic de 45.000 obiecte: 2,6 s. Tot de aici: `tiberius`
+  scria ~8 linii INFO la fiecare conexiune si acoperea progresul; filtrul
+  implicit e acum `info,tiberius=warn`.
 
 ## Ce a ieșit altfel decat planul
 

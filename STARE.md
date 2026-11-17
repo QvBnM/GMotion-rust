@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (176 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
+**Poarta:** verde (177 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
 
 ---
 
@@ -41,70 +41,44 @@ incepe — nu se deschide etapa 7 fara discutia asta.
 
 ## Urmatorul pas concret
 
-Cand vine `instantaneu.json` de la Mihai:
+Instantaneul real exista (`TS2409\MIHAIG`, `CharismaERP_GetsBet` si
+`CharismaERP_GetsBet_Copy`, 42.427 obiecte, 202 MB, 26,5 s), dar **ramane pe
+masina lui Mihai**: e prea mare pentru GitHub (100 MB pe fisier) si e cod
+CharismaERP. Deci `paritate.py` se ruleaza **acolo**, iar incoace vine doar
+raportul. Fiecare `regresie` se repara in Rust (intai `comparare.rs`, apoi
+`core`); `corectura` = JS confirma Rust-ul, se noteaza doar.
 
-```
-cd rust && cargo build --release -p gmotion-cli && cd ..
-python3 -I referinta/paritate.py instantaneu.json --referinta <Ref> --gmotion rust/target/release/gmotion --csv export.csv --json raport.json
-```
+Fixture de regresie: nu instantaneul intreg, ci obiectele pe care paritatea le
+gaseste interesante, extrase si anonimizate — de discutat cu Mihai.
 
-Fiecare `regresie` se repara in Rust (intai `comparare.rs`, apoi `core`).
-`corectura` = JS confirma Rust-ul, se noteaza doar. Apoi fixture de regresie
-din instantaneu (anonimizat daca Mihai cere) si timpul de citire comparat cu
-Python-ul (criteriu in etapa).
-
-**Nu se trece la interfata inainte de paritate.**
+**Nu se trece la interfata inainte de paritate**, si nu se deschide etapa 7
+fara discutia despre GUI ceruta de Mihai.
 
 ---
 
 ## Ce aștept de la Mihai
 
-Lista Python nu mai trebuie produsa pe Windows: o produce `paritate.py` din
-instantaneu, cu codul vechi. Pe Windows mai e nevoie de **instantaneu**, plus
-dovezi pe care nu le pot face de aici. In PowerShell, cu Rust instalat:
+Din radacina repo-ului (`C:\Users\mihai.georgescu\GMotion-rust`), cu Python 3
+(cel al aplicatiei vechi) si, ideal, node:
 
 ```
-git clone --branch claude/upbeat-ramanujan-dm6j8c https://github.com/QvBnM/GMotion-rust.git
-cd GMotion-rust\rust
-cargo test --all
-cargo build --release -p gmotion-cli
-cd target\release
+node --version
 ```
 
 ```
-.\gmotion.exe diagnostic --json
+py -3 -I referinta\paritate.py rust\target\release\instantaneu.json --referinta CharismaERP_GetsBet --gmotion rust\target\release\gmotion.exe --json raport.json
 ```
 
-```
-$c = Get-Credential -UserName sa -Message "SQL Server"
-$env:GMOTION_PAROLA = $c.GetNetworkCredential().Password
-.\gmotion.exe baze --server SRV01 --utilizator sa
-```
+Incoace: tot ce afiseaza (e scurtat la 40 de cazuri pe categorie) si codul de
+iesire. `raport.json` doar daca cer, fiindca poate contine fragmente de cod.
 
-(Pentru autentificare integrata Windows, lasa `--utilizator` afara de tot si
-nu seta parola. Daca poti, ruleaza `baze` o data in fiecare fel.)
+Mai sunt deschise: autentificarea integrata Windows (aceeasi comanda
+`instantaneu` fara `--utilizator`), timpul aplicatiei Python pe aceleasi doua
+baze, si **daca `_Copy` e o copie identica**: daca da, paritatea pe ea spune
+putin si trebuie o baza care difera de-adevaratelea (un client).
 
-```
-Measure-Command { .\gmotion.exe instantaneu --server SRV01 --utilizator sa --baze Referinta,Client1,Client2 -o instantaneu.json --nota "paritate" } | Select-Object TotalSeconds
-```
-
-Trimite incoace:
-
-1. ultimele ~20 de randuri din `cargo test --all` (pe Windows e singura proba
-   ca DPAPI cripteaza si decripteaza; daca pica ceva, tot textul testului);
-2. ieșirea lui `diagnostic --json` si a lui `baze`;
-3. `instantaneu.json` si numarul de secunde din `Measure-Command`;
-4. **optional, dar util:** in aplicatia Python, aceleasi baze si aceeasi
-   referinta, export CSV **fara niciun filtru activ** in lista, plus cat a
-   durat incarcarea (ora din primul si ultimul rand de jurnal). Asta dovedeste
-   ca driverul Rust aduce aceleasi obiecte ca `pyodbc`, si da comparatia de
-   viteza.
-
-**Daca o comanda cade, trimite mesajul exact.** Are un cod de forma
-`GM-DB-001`, si din el ajung direct la cauza.
-
-Daca `instantaneu.json` conține cod pe care nu vrei sa-l pui in repo, spune si
-fac un fixture anonimizat din el, ori il folosesc doar pentru verificare.
+Comenzile se dau **fara parola in ele**; parola prin `Get-Credential`. Daca o
+comanda cade, mesajul exact (are un cod `GM-...`).
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
