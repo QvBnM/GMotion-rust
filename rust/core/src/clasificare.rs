@@ -180,6 +180,80 @@ pub fn eticheta(c: Clasificare, setari: &[&str]) -> String {
     }
 }
 
+/// O propozitie despre ce difera, pentru previzualizarea din lista:
+/// „un singur caracter, într-un șir: Nu → nu" cand chiar atat e, altfel
+/// „diferă în cod, șiruri".
+///
+/// Rostul ei e sa raspunda la intrebarea pusa inainte de a deschide editorul:
+/// merita deschis? Un mesaj cu o majuscula schimbata, nu; o conditie, da.
+pub fn propozitie(text_referinta: &str, text_curent: &str, setari: &[&str]) -> String {
+    let randuri = diff_aliniat(text_referinta, text_curent);
+    let c = clasifica_randuri(&randuri);
+    let general = || {
+        if c.nimic() && setari.is_empty() {
+            "fără diferențe".to_string()
+        } else {
+            format!("diferă în {}", eticheta(c, setari))
+        }
+    };
+    if !setari.is_empty() {
+        return general();
+    }
+    // o singura bucata schimbata, pe fiecare parte: atunci se poate spune
+    // exact ce s-a schimbat
+    let mut schimbate: Vec<(String, String)> = Vec::new();
+    for r in &randuri {
+        if r.tip != TipDiferenta::Modificat {
+            if r.tip != TipDiferenta::Egal {
+                return general();
+            }
+            continue;
+        }
+        let bucati = |seg: &Option<Vec<Segment>>| -> Vec<String> {
+            seg.as_ref().map_or_else(Vec::new, |v| {
+                v.iter()
+                    .filter(|s| s.schimbat.is_some())
+                    .map(|s| s.text.clone())
+                    .collect()
+            })
+        };
+        let (st, dr) = (bucati(&r.seg_stanga), bucati(&r.seg_dreapta));
+        if st.len() > 1 || dr.len() > 1 || schimbate.len() == 1 {
+            return general();
+        }
+        if let (Some(a), Some(b)) = (st.first(), dr.first()) {
+            schimbate.push((a.clone(), b.clone()));
+        } else {
+            return general();
+        }
+    }
+    let [(a, b)] = schimbate.as_slice() else {
+        return general();
+    };
+    const LUNGIME_MAXIMA: usize = 24;
+    if a.chars().count() > LUNGIME_MAXIMA || b.chars().count() > LUNGIME_MAXIMA {
+        return general();
+    }
+    let unde = if c.doar_siruri() {
+        "într-un șir"
+    } else if c.doar_comentarii() {
+        "într-un comentariu"
+    } else {
+        "în cod"
+    };
+    // „un singur caracter" se refera la cat s-a schimbat, nu la cat se arata:
+    // in machete scrie „un singur caracter, într-un șir: Nu → nu", unde se
+    // arata cuvantul din jur (asa il recunoaste omul in cod).
+    let un_caracter = a.chars().count() == b.chars().count()
+        && a.chars().zip(b.chars()).filter(|(x, y)| x != y).count() == 1;
+    let cat = if un_caracter {
+        "un singur caracter"
+    } else {
+        "o singură bucată"
+    };
+    format!("{cat}, {unde}: {a} → {b}")
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
@@ -298,5 +372,44 @@ mod teste {
         let b = "PRINT 'linia unu\nlinia trei'";
         let c = clasifica(a, b);
         assert!(c.doar_siruri(), "{c:?}");
+    }
+
+    #[test]
+    fn propozitia_spune_exact_ce_s_a_schimbat_cand_e_un_singur_lucru() {
+        // cazul din machete: „un singur caracter, într-un șir: Nu → nu"
+        let a = pregateste_afisare("RAISERROR('Nu s-au gasit date', 16, 1);");
+        let b = pregateste_afisare("RAISERROR('nu s-au gasit date', 16, 1);");
+        assert_eq!(
+            propozitie(&a, &b, &[]),
+            "un singur caracter, într-un șir: Nu → nu"
+        );
+    }
+
+    #[test]
+    fn propozitia_cade_pe_forma_scurta_cand_sunt_mai_multe_diferente() {
+        let a = pregateste_afisare("SELECT 1 FROM t\n\nPRINT 'a'");
+        let b = pregateste_afisare("SELECT 2 FROM t\n\nPRINT 'b'");
+        let p = propozitie(&a, &b, &[]);
+        assert!(p.starts_with("diferă în "), "{p}");
+    }
+
+    #[test]
+    fn propozitia_nu_insira_un_bloc_intreg() {
+        let a = pregateste_afisare("SELECT 1");
+        let b = pregateste_afisare(
+            "SELECT 1\n\nUPDATE dbo.Tabel SET Coloana = 'o valoare destul de lunga' WHERE Id = 1",
+        );
+        let p = propozitie(&a, &b, &[]);
+        assert!(p.starts_with("diferă în "), "{p}");
+    }
+
+    #[test]
+    fn propozitia_pomeneste_setarile_cand_doar_ele_difera() {
+        let t = pregateste_afisare("CREATE PROC dbo.p AS\nSELECT 1");
+        assert_eq!(
+            propozitie(&t, &t, &["QUOTED_IDENTIFIER"]),
+            "diferă în QUOTED_IDENTIFIER"
+        );
+        assert_eq!(propozitie(&t, &t, &[]), "fără diferențe");
     }
 }

@@ -259,10 +259,7 @@ impl Lista {
     /// Cate obiecte care difera au fost revizuite, din cate.
     pub fn progres_revizuire(&self) -> (usize, usize) {
         let difera: Vec<&Obiect> = self.obiecte.iter().filter(|o| o.stare.difera()).collect();
-        (
-            difera.iter().filter(|o| o.revizuit).count(),
-            difera.len(),
-        )
+        (difera.iter().filter(|o| o.revizuit).count(), difera.len())
     }
 
     /// „212 nerevizuite din 312 modificate" — despre ce se vede acum.
@@ -314,7 +311,11 @@ impl Lista {
                 .vizibile
                 .iter()
                 .position(|&i| self.obiecte[i].id() == id)
-                .or(if self.vizibile.is_empty() { None } else { Some(0) }),
+                .or(if self.vizibile.is_empty() {
+                    None
+                } else {
+                    Some(0)
+                }),
             None if self.vizibile.is_empty() => None,
             None => self.selectat.map(|p| p.min(self.vizibile.len() - 1)),
         };
@@ -375,7 +376,11 @@ mod teste {
         let l = lista_proba();
         assert_eq!(
             l.contoare_tipuri(),
-            vec![("P".to_string(), 2), ("FN".to_string(), 1), ("V".to_string(), 1)],
+            vec![
+                ("P".to_string(), 2),
+                ("FN".to_string(), 1),
+                ("V".to_string(), 1)
+            ],
             "obiectul identic si cel criptat nu intra"
         );
     }
@@ -384,7 +389,11 @@ mod teste {
     fn progresul_revizuirii_numara_doar_obiectele_care_difera() {
         let mut l = lista_proba();
         assert_eq!(l.progres_revizuire(), (0, 4));
-        let p = l.vizibile().iter().position(|&i| l.obiecte()[i].nume == "usp_Stoc").unwrap();
+        let p = l
+            .vizibile()
+            .iter()
+            .position(|&i| l.obiecte()[i].nume == "usp_Stoc")
+            .unwrap();
         l.comuta_revizuit(p);
         assert_eq!(l.progres_revizuire(), (1, 4));
         l.comuta_revizuit(p);

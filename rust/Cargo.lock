@@ -1653,6 +1653,8 @@ name = "gmotion-fereastra"
 version = "0.1.0"
 dependencies = [
  "gmotion-core",
+ "gmotion-db",
+ "gmotion-modul-diff-obiecte",
  "image",
  "serde_json",
  "slint",

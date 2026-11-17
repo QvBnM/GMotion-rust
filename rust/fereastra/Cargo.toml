@@ -15,5 +15,9 @@ slint = { version = "1.19", default-features = false, features = ["std", "compat
 slint-build = "1.19"
 
 [dev-dependencies]
+# doar exemplele: capturile pornesc de la o comparare adevarata. Crate-ul in
+# sine nu depinde de niciun modul (vezi CRATE.md).
+gmotion-db = { path = "../db" }
+gmotion-modul-diff-obiecte = { path = "../module/diff-obiecte" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 serde_json = "1"

@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 54214bead4dc57f1 -->
+<!-- api-hash: dd6699882594c467 -->
 
 ## Rol
 
@@ -63,6 +63,8 @@ proiectul.
 ### `clasificare`
 `clasifica_diferente(ref, tinta) -> Clasificare` (sau `clasifica_randuri` pe randuri deja aliniate) — in ce difera doua versiuni:
 `cod` / `siruri` / `comentarii` (bucati schimbate, nu caractere), prin `lexer`.
+`propozitie(ref, tinta, setari)` — propozitia din previzualizare:
+„un singur caracter, într-un șir: Nu → nu", altfel „diferă în ...".
 `eticheta(c, setari)` — textul din coloana „Difera in" al machetelor:
 „cod, șiruri", „un șir", „comentariu", „QUOTED_IDENTIFIER", „—".
 

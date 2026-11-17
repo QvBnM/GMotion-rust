@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: ee75187dc81a9543 -->
+<!-- api-hash: 12f7ecb5c3818e43 -->
 
 ## Rol
 
@@ -12,7 +12,8 @@ Aspectul e cel aprobat in `cercetare/design-aprobat.md`, cu machetele din
 `cercetare/machete/`. Jetoanele si fonturile (IBM Plex, incorporate in binar)
 stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
 
-Stare: **prototip** (etapa 8) — editorul de diferente alaturat / unificat.
+Stare: **prototip** — editorul de diferente (etapa 8) si ecranul listei cu
+previzualizare (etapa 9).
 
 ## Nu face
 
@@ -24,6 +25,10 @@ Stare: **prototip** (etapa 8) — editorul de diferente alaturat / unificat.
 
 | Element | Ce face |
 |---|---|
+| `model_lista::Lista` | lista: filtre, cautare, sortare, contoare, selectie, detalii la cerere |
+| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru}` | modelul listei |
+| `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
+| `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate, numerotate, colorate |
 | `model_editor::plieaza(model, context) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
 | `model_editor::diferenta_fiecarui_rand(model)` | a cata diferenta e fiecare rand (bara mai lata pe cea curenta) |
@@ -57,7 +62,10 @@ Stare: **prototip** (etapa 8) — editorul de diferente alaturat / unificat.
 8. **In modul unificat, numerele spun din ce parte vine linia:** doua
    jgheaburi (sursa | baza), fara vreun semn nou — decizia lui Mihai,
    2026-11-17.
-9. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
+9. **Fereastra nu depinde de niciun modul.** Modelul listei primeste randuri
+   gata clasificate; `diff-obiecte` apare doar ca dependinta de dezvoltare, in
+   exemplele care fac capturi dintr-o comparare adevarata.
+10. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
    modelului: plierea scoate randuri, iar navigarea deruleaza lista.
 
 ## Erori tipice
@@ -85,8 +93,11 @@ cargo run --release -p gmotion-fereastra --example captura -- \
 Cu `--font-mono UnNumeInexistent` iese alt PNG: asa se vede ca fonturile
 incorporate chiar se folosesc, nu rezerva de sistem.
 
+Ecranul listei: `--example captura_lista`.
+
 Pe obiecte uriase: `cargo run --release -p gmotion-fereastra --example masura`
-(implicit 200 / 2.000 / 20.000 de linii, pliat si nepliat). Capturi si cifre:
+(implicit 200 / 2.000 / 20.000 de linii, pliat si nepliat); pe liste uriase:
+`--example masura_lista` (1.000 / 10.000 / 50.000 de obiecte). Capturi si cifre:
 `cercetare/machete/capturi/`, `etape/08-prototip-editor.md`.
 
 Referinta v3.4 (continut, nu aspect): `referinta/captura_v34/`.

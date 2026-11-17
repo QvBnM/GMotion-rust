@@ -1,0 +1,871 @@
+// Ecranul principal: lista obiectelor care difera, cu filtrele din stanga si
+// previzualizarea obiectului selectat dedesubt. Macheta:
+// `cercetare/machete/Main.dc.html`.
+//
+// Se strica astfel: contorul din bara laterala spune altceva decat tabelul,
+// randul selectat nu mai corespunde previzualizarii, sau lista se misca greu
+// pe zeci de mii de obiecte. Primele doua se decid in `src/model_lista.rs`
+// (testat fara fereastra); a treia tine de `ListView`, care deseneaza doar
+// randurile vizibile.
+//
+// Culorile nu se scriu aici: jetoanele vin din `src/jetoane.rs`.
+
+import { ListView } from "std-widgets.slint";
+import { Tema, Despartitor, Chevron, Buton, ButonPrincipal, Jumatate, RandUi } from "comune.slint";
+
+export struct RandListaUi {
+    schema: string,
+    nume: string,
+    // numele tipului pentru utilizator („procedură")
+    tip: string,
+    litera: string,
+    // 0 modificat, 1 doar in sursa, 2 doar in baza, 3 identic, 4 criptat
+    stare: int,
+    // „+48" / „−31"; goale cand nu se stiu inca
+    plus: string,
+    minus: string,
+    difera-in: string,
+    revizuit: bool,
+}
+
+export struct CategorieUi {
+    litera: string,
+    nume: string,
+    numar: string,
+    stare: int,
+}
+
+export struct TipUi {
+    nume: string,
+    numar: string,
+}
+
+// Culoarea literei de stare: M chihlimbar, S verde, B rosu, = / # gri.
+global Stari {
+    public pure function culoare(stare: int) -> color {
+        return stare == 0 ? Tema.mod-text
+             : stare == 1 ? Tema.add-text
+             : stare == 2 ? Tema.del-text
+             : Tema.text-secundar;
+    }
+}
+
+component Litera inherits Text {
+    in property <int> stare;
+    in property <bool> selectat;
+    font-family: Tema.font-mono;
+    font-size: 12px;
+    font-weight: 600;
+    color: root.selectat ? Tema.cod-fundal : Stari.culoare(root.stare);
+    vertical-alignment: center;
+}
+
+// Un rand din tabel. Coloanele au latimi fixe, ca antetul si randurile sa fie
+// pe aceeasi grila.
+component RandTabel inherits Rectangle {
+    in property <RandListaUi> r;
+    in property <bool> selectat;
+    callback apasat();
+    callback comuta-revizuit();
+    height: 29px;
+    background: root.selectat ? Tema.selectie : transparent;
+    property <color> culoare-text: root.selectat
+        ? Tema.cod-fundal
+        : (r.revizuit ? Tema.text-secundar : Tema.text);
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 0px;
+        Litera {
+            width: 28px;
+            text: r.litera;
+            stare: r.stare;
+            selectat: root.selectat;
+        }
+        // obiectul: schema estompata, numele in mono
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            spacing: 0px;
+            alignment: start;
+            Text {
+                text: r.schema + ".";
+                font-family: Tema.font-mono;
+                font-size: 12.5px;
+                color: root.selectat ? Tema.linie : Tema.text-tert;
+                vertical-alignment: center;
+            }
+            Text {
+                text: r.nume;
+                font-family: Tema.font-mono;
+                font-size: 12.5px;
+                color: root.culoare-text;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+        Text {
+            width: 96px;
+            text: r.tip;
+            font-size: 12.5px;
+            color: root.selectat ? Tema.linie : Tema.text-secundar;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        HorizontalLayout {
+            width: 96px;
+            spacing: 8px;
+            alignment: start;
+            Text {
+                text: r.plus;
+                font-family: Tema.font-mono;
+                font-size: 12px;
+                color: root.selectat ? Tema.add-inlinie : Tema.add-text;
+                vertical-alignment: center;
+            }
+            Text {
+                text: r.minus;
+                font-family: Tema.font-mono;
+                font-size: 12px;
+                color: root.selectat ? Tema.del-inlinie : Tema.del-text;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            width: 200px;
+            text: r.difera-in;
+            font-size: 12.5px;
+            color: root.selectat ? Tema.linie : Tema.text-secundar;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Rectangle {
+            width: 40px;
+            if r.revizuit: Path {
+                width: 14px;
+                height: 14px;
+                viewbox-width: 16;
+                viewbox-height: 16;
+                commands: "M 3 8.5 L 6 11.5 L 13 4.5";
+                stroke: root.selectat ? Tema.cod-fundal : Tema.add-text;
+                stroke-width: 2px;
+                fill: transparent;
+            }
+            TouchArea {
+                clicked => {
+                    root.apasat();
+                    root.comuta-revizuit();
+                }
+            }
+        }
+    }
+    // linia dintre randuri
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: root.selectat ? Tema.selectie : Tema.linie-slaba;
+    }
+    TouchArea {
+        clicked => { root.apasat(); }
+    }
+}
+
+component Categorie inherits Rectangle {
+    in property <CategorieUi> c;
+    in property <bool> activa;
+    callback apasat();
+    height: 28px;
+    background: root.activa ? Tema.linie-slaba : (zona.has-hover ? Tema.fundal : transparent);
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 8px;
+        Litera {
+            width: 14px;
+            text: c.litera;
+            stare: c.stare;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: c.nume;
+            font-size: 13px;
+            font-weight: root.activa ? 600 : 400;
+            color: Tema.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: c.numar;
+            font-family: Tema.font-mono;
+            font-size: 12px;
+            color: Tema.text-secundar;
+            vertical-alignment: center;
+        }
+    }
+    zona := TouchArea {
+        clicked => { root.apasat(); }
+    }
+}
+
+export component FereastraLista inherits Window {
+    title: "gmotion";
+    preferred-width: 1440px;
+    preferred-height: 900px;
+    background: Tema.fundal;
+    default-font-family: Tema.font-ui;
+    default-font-size: 13px;
+
+    // antet
+    in property <string> sursa-baza;
+    in property <string> tinta-baza;
+    in property <string> servere;          // „srv-dev → srv-prod · comparat la 14:32"
+    in property <string> eticheta-mediu;
+    in property <int> mediu: 0;
+    in-out property <string> cautare;
+    in property <string> numar-deploy;
+    // bara laterala
+    in property <string> progres-revizuite;   // „124/336"
+    in property <float> progres-fractie;      // 0..1
+    in property <[CategorieUi]> categorii;
+    in property <[TipUi]> tipuri;
+    in property <int> categorie-activa: -1;   // indice in `categorii`, -1 = toate
+    in property <int> tip-activ: -1;
+    // tabel
+    in property <string> rezumat-lista;       // „212 nerevizuite din 312"
+    in property <bool> sortat-dupa-linii;
+    in property <[RandListaUi]> randuri;
+    in-out property <int> selectat: 0;
+    // previzualizare
+    in property <string> obiect-schema;
+    in property <string> obiect-nume;
+    in property <string> ce-difera;           // „un singur caracter, într-un șir: Nu → nu"
+    in property <bool> obiect-revizuit;
+    in property <[RandUi]> previzualizare;
+    in property <image> tigla-hasura;
+
+    callback recompara();
+    callback deschide-deploy();
+    callback alege-categoria(int);
+    callback alege-tipul(int);
+    callback alege-randul(int);
+    callback comuta-revizuit(int);
+    callback deschide-obiectul();
+    callback adauga-in-plan();
+    callback cauta(string);
+    callback sorteaza-dupa-linii();
+
+    public function muta-selectia(pas: int) {
+        if (root.randuri.length == 0) { return; }
+        root.selectat = Math.max(0, Math.min(root.randuri.length - 1, root.selectat + pas));
+        root.alege-randul(root.selectat);
+        tabel.content-y = -Math.max(0, root.selectat - 6) * 29px;
+    }
+
+    taste := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow || e.text == "j") { root.muta-selectia(1); return accept; }
+            if (e.text == Key.UpArrow || e.text == "k") { root.muta-selectia(-1); return accept; }
+            if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
+            if (e.text == "r") { root.comuta-revizuit(root.selectat); return accept; }
+            return reject;
+        }
+
+        VerticalLayout {
+            // banda mediului tintei
+            Rectangle {
+                height: 3px;
+                background: Tema.culoare-mediu(root.mediu);
+            }
+
+            // ---- antetul
+            Rectangle {
+                height: 48px;
+                background: Tema.suprafata;
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 18px;
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        Text {
+                            text: "gmotion";
+                            font-family: Tema.font-mono;
+                            font-size: 13px;
+                            font-weight: 600;
+                            letter-spacing: -0.2px;
+                            color: Tema.text;
+                            vertical-alignment: center;
+                        }
+                    }
+                    VerticalLayout { horizontal-stretch: 0; alignment: center; Despartitor {} }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+                            Text {
+                                text: root.sursa-baza;
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: Tema.text;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "→";
+                                color: Tema.text-secundar;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.tinta-baza;
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: Tema.text;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.eticheta-mediu;
+                                font-family: Tema.font-mono;
+                                font-size: 11px;
+                                font-weight: 600;
+                                letter-spacing: 0.6px;
+                                color: Tema.culoare-mediu(root.mediu);
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        max-width: 340px;
+                        alignment: center;
+                        Text {
+                            text: root.servere;
+                            font-size: 12px;
+                            color: Tema.text-secundar;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    // cautarea
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        Rectangle {
+                            width: 260px;
+                            height: 28px;
+                            border-radius: 3px;
+                            border-width: 1px;
+                            border-color: camp.has-focus ? Tema.text : Tema.linie;
+                            background: Tema.cod-fundal;
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                camp := TextInput {
+                                    horizontal-stretch: 1;
+                                    text <=> root.cautare;
+                                    font-size: 13px;
+                                    color: Tema.text;
+                                    vertical-alignment: center;
+                                    single-line: true;
+                                    edited => { root.cauta(self.text); }
+                                }
+                                Text {
+                                    text: "Ctrl K";
+                                    font-family: Tema.font-mono;
+                                    font-size: 11px;
+                                    color: Tema.text-secundar;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            if root.cautare == "" && !camp.has-focus: Text {
+                                x: 8px;
+                                text: "Caută";
+                                font-size: 13px;
+                                color: Tema.text-secundar;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        Buton {
+                            text: "Recompară";
+                            apasat => { root.recompara(); }
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        Rectangle {
+                            height: 28px;
+                            border-radius: 3px;
+                            background: deploy-zona.has-hover ? Tema.selectie : Tema.text;
+                            min-width: deploy-et.preferred-width + deploy-nr.preferred-width + 32px;
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 8px;
+                                alignment: center;
+                                deploy-et := Text {
+                                    text: "Deploy";
+                                    font-size: 13px;
+                                    font-weight: 500;
+                                    color: Tema.suprafata;
+                                    vertical-alignment: center;
+                                }
+                                deploy-nr := Text {
+                                    text: root.numar-deploy;
+                                    font-family: Tema.font-mono;
+                                    font-size: 13px;
+                                    color: Tema.linie;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            deploy-zona := TouchArea {
+                                clicked => { root.deschide-deploy(); }
+                            }
+                        }
+                    }
+                }
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: Tema.linie;
+                }
+            }
+
+            // ---- corpul
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 0px;
+                // bara laterala
+                Rectangle {
+                    width: 200px;
+                    background: Tema.fundal;
+                    VerticalLayout {
+                        padding-top: 16px;
+                        padding-bottom: 16px;
+                        spacing: 22px;
+                        // progresul revizuirii
+                        VerticalLayout {
+                            vertical-stretch: 0;
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 6px;
+                            HorizontalLayout {
+                                height: 20px;
+                                Text {
+                                    text: "Revizuite";
+                                    color: Tema.text-secundar;
+                                    font-size: 13px;
+                                }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text {
+                                    text: root.progres-revizuite;
+                                    font-family: Tema.font-mono;
+                                    font-size: 12px;
+                                    color: Tema.text;
+                                }
+                            }
+                            Rectangle {
+                                height: 2px;
+                                background: Tema.linie;
+                                Rectangle {
+                                    x: 0px;
+                                    width: parent.width * root.progres-fractie;
+                                    height: 2px;
+                                    background: Tema.text;
+                                }
+                            }
+                        }
+                        // categoriile
+                        VerticalLayout {
+                            vertical-stretch: 0;
+                            spacing: 0px;
+                            for c[i] in root.categorii: Categorie {
+                                c: c;
+                                activa: i == root.categorie-activa;
+                                apasat => { root.alege-categoria(i == root.categorie-activa ? -1 : i); }
+                            }
+                        }
+                        // tipurile
+                        VerticalLayout {
+                            vertical-stretch: 0;
+                            spacing: 0px;
+                            Text {
+                                text: "Tip";
+                                font-size: 12px;
+                                color: Tema.text-secundar;
+                                horizontal-alignment: left;
+                                vertical-alignment: center;
+                                height: 22px;
+                                x: 16px;
+                            }
+                            for t[i] in root.tipuri: Rectangle {
+                                height: 24px;
+                                background: i == root.tip-activ ? Tema.linie-slaba : transparent;
+                                HorizontalLayout {
+                                    padding-left: 16px;
+                                    padding-right: 16px;
+                                    Text {
+                                        text: t.nume;
+                                        font-size: 13px;
+                                        font-weight: i == root.tip-activ ? 600 : 400;
+                                        color: Tema.text;
+                                        vertical-alignment: center;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Text {
+                                        text: t.numar;
+                                        font-family: Tema.font-mono;
+                                        font-size: 12px;
+                                        color: Tema.text-secundar;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                TouchArea {
+                                    clicked => { root.alege-tipul(i == root.tip-activ ? -1 : i); }
+                                }
+                            }
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                    Rectangle {
+                        x: parent.width - 1px;
+                        width: 1px;
+                        background: Tema.linie;
+                    }
+                }
+
+                // tabelul si previzualizarea
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: Tema.suprafata;
+                    VerticalLayout {
+                        spacing: 0px;
+                        // capul de tabel
+                        Rectangle {
+                            height: 30px;
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+                                spacing: 0px;
+                                Rectangle { width: 28px; }
+                                HorizontalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 6px;
+                                    alignment: start;
+                                    Text {
+                                        text: "Obiect";
+                                        font-size: 12px;
+                                        color: Tema.text-secundar;
+                                        vertical-alignment: center;
+                                    }
+                                    Text {
+                                        text: "· " + root.rezumat-lista;
+                                        font-size: 12px;
+                                        color: Tema.text-tert;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Text {
+                                    width: 96px;
+                                    text: "Tip";
+                                    font-size: 12px;
+                                    color: Tema.text-secundar;
+                                    vertical-alignment: center;
+                                }
+                                Rectangle {
+                                    width: 96px;
+                                    Text {
+                                        x: 0px;
+                                        text: root.sortat-dupa-linii ? "Linii ↓" : "Linii";
+                                        font-size: 12px;
+                                        color: root.sortat-dupa-linii ? Tema.text : Tema.text-secundar;
+                                        vertical-alignment: center;
+                                        height: parent.height;
+                                    }
+                                    TouchArea {
+                                        clicked => { root.sorteaza-dupa-linii(); }
+                                    }
+                                }
+                                Text {
+                                    width: 200px;
+                                    text: "Diferă în";
+                                    font-size: 12px;
+                                    color: Tema.text-secundar;
+                                    vertical-alignment: center;
+                                }
+                                Rectangle { width: 40px; }
+                            }
+                            Rectangle {
+                                y: parent.height - 1px;
+                                height: 1px;
+                                background: Tema.linie;
+                            }
+                        }
+                        // randurile
+                        tabel := ListView {
+                            vertical-stretch: 1;
+                            for r[i] in root.randuri: RandTabel {
+                                r: r;
+                                selectat: i == root.selectat;
+                                apasat => {
+                                    root.selectat = i;
+                                    root.alege-randul(i);
+                                }
+                                comuta-revizuit => { root.comuta-revizuit(i); }
+                            }
+                        }
+
+                        // ---- previzualizarea obiectului selectat
+                        Rectangle {
+                            height: 320px;
+                            background: Tema.suprafata;
+                            // linia groasa de 1 px in `text`, ca in macheta:
+                            // previzualizarea e alt lucru, nu inca un rand
+                            Rectangle {
+                                height: 1px;
+                                background: Tema.text;
+                            }
+                            VerticalLayout {
+                                padding-top: 1px;
+                                spacing: 0px;
+                                Rectangle {
+                                    height: 40px;
+                                    HorizontalLayout {
+                                        padding-left: 16px;
+                                        padding-right: 16px;
+                                        spacing: 14px;
+                                        VerticalLayout {
+                                            horizontal-stretch: 0;
+                                            alignment: center;
+                                            HorizontalLayout {
+                                                spacing: 0px;
+                                                Text {
+                                                    text: root.obiect-schema + ".";
+                                                    font-family: Tema.font-mono;
+                                                    font-size: 12.5px;
+                                                    color: Tema.text-tert;
+                                                    vertical-alignment: center;
+                                                }
+                                                Text {
+                                                    text: root.obiect-nume;
+                                                    font-family: Tema.font-mono;
+                                                    font-size: 12.5px;
+                                                    font-weight: 600;
+                                                    color: Tema.text;
+                                                    vertical-alignment: center;
+                                                }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            horizontal-stretch: 0;
+                                            alignment: center;
+                                            Text {
+                                                text: root.ce-difera;
+                                                font-size: 13px;
+                                                color: Tema.mod-text;
+                                                vertical-alignment: center;
+                                                overflow: elide;
+                                            }
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        VerticalLayout {
+                                            horizontal-stretch: 0;
+                                            alignment: center;
+                                            Buton {
+                                                inalt: 26px;
+                                                text: root.obiect-revizuit ? "Revizuit ✓" : "Revizuit";
+                                                apasat => { root.comuta-revizuit(root.selectat); }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            horizontal-stretch: 0;
+                                            alignment: center;
+                                            Buton {
+                                                inalt: 26px;
+                                                text: "În plan";
+                                                apasat => { root.adauga-in-plan(); }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            horizontal-stretch: 0;
+                                            alignment: center;
+                                            Rectangle {
+                                                height: 26px;
+                                                border-radius: 3px;
+                                                border-width: 1px;
+                                                border-color: Tema.text;
+                                                background: Tema.cod-fundal;
+                                                min-width: deschide-et.preferred-width + 20px;
+                                                deschide-et := Text {
+                                                    text: "Deschide";
+                                                    font-size: 12.5px;
+                                                    color: Tema.text;
+                                                    vertical-alignment: center;
+                                                    horizontal-alignment: center;
+                                                }
+                                                TouchArea {
+                                                    clicked => { root.deschide-obiectul(); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        y: parent.height - 1px;
+                                        height: 1px;
+                                        background: Tema.linie;
+                                    }
+                                }
+                                // antetele celor doua panouri
+                                Rectangle {
+                                    height: 24px;
+                                    Text {
+                                        x: 47px;
+                                        text: root.sursa-baza;
+                                        font-size: 12px;
+                                        color: Tema.text-secundar;
+                                        vertical-alignment: center;
+                                        height: parent.height;
+                                    }
+                                    Text {
+                                        x: parent.width / 2 + 47px;
+                                        text: root.tinta-baza;
+                                        font-size: 12px;
+                                        color: Tema.text-secundar;
+                                        vertical-alignment: center;
+                                        height: parent.height;
+                                    }
+                                    Rectangle {
+                                        x: parent.width / 2;
+                                        width: 1px;
+                                        background: Tema.linie;
+                                    }
+                                    Rectangle {
+                                        y: parent.height - 1px;
+                                        height: 1px;
+                                        background: Tema.linie;
+                                    }
+                                }
+                                // diferenta, aceleasi randuri ca in editor
+                                Rectangle {
+                                    vertical-stretch: 1;
+                                    background: Tema.cod-fundal;
+                                    if root.previzualizare.length > 0: Rectangle {
+                                        x: previz.visible-width / 2;
+                                        width: 1px;
+                                        background: Tema.linie;
+                                    }
+                                    previz := ListView {
+                                        for r in root.previzualizare: Rectangle {
+                                            height: 20px;
+                                            if r.fel == 1: Rectangle {
+                                                background: Tema.fundal;
+                                                Text {
+                                                    x: 47px;
+                                                    text: r.pliere;
+                                                    font-size: 11.5px;
+                                                    color: Tema.text-secundar;
+                                                    vertical-alignment: center;
+                                                    height: parent.height;
+                                                }
+                                            }
+                                            if r.fel == 0: Rectangle {
+                                                Jumatate {
+                                                    x: 0px;
+                                                    width: parent.width / 2;
+                                                    nr: r.st-nr;
+                                                    bucati: r.st;
+                                                    stare: r.stare;
+                                                    fara-linie: r.st-nr == "";
+                                                    margine: true;
+                                                    tigla: root.tigla-hasura;
+                                                }
+                                                Jumatate {
+                                                    x: parent.width / 2;
+                                                    width: parent.width / 2;
+                                                    nr: r.dr-nr;
+                                                    bucati: r.dr;
+                                                    stare: r.stare;
+                                                    fara-linie: r.dr-nr == "";
+                                                    tigla: root.tigla-hasura;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if root.previzualizare.length == 0: Text {
+                                        x: 16px;
+                                        y: 12px;
+                                        text: "Selectează un obiect ca să vezi diferența.";
+                                        font-size: 12.5px;
+                                        color: Tema.text-secundar;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---- bara de jos
+            Rectangle {
+                height: 24px;
+                background: Tema.fundal;
+                Rectangle {
+                    height: 1px;
+                    background: Tema.linie;
+                }
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 16px;
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        HorizontalLayout {
+                            spacing: 5px;
+                            Text { text: "j k"; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                            Text { text: "obiect"; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        HorizontalLayout {
+                            spacing: 5px;
+                            Text { text: "enter"; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                            Text { text: "deschide"; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        HorizontalLayout {
+                            spacing: 5px;
+                            Text { text: "r"; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                            Text { text: "revizuit"; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        Text {
+                            text: root.progres-revizuite + " revizuite";
+                            font-size: 11.5px;
+                            color: Tema.text-secundar;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    init => { taste.focus(); }
+}

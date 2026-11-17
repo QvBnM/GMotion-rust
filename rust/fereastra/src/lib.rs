@@ -56,7 +56,11 @@ fn culoare(c: jetoane::Culoare) -> Color {
 /// Pune jetoanele aprobate in globalul `Tema`. De apelat o data, inainte de
 /// orice afisare: in `.slint` culorile nu au valori implicite, tocmai ca sa nu
 /// existe o a doua lista de culori pe care nu o verifica nimeni.
-pub fn aplica_tema(ui: &EditorDiferente) {
+pub fn aplica_tema<'a, T>(ui: &'a T)
+where
+    T: slint::ComponentHandle,
+    Tema<'a>: slint::Global<'a, T>,
+{
     use jetoane as j;
     let t = ui.global::<Tema>();
     t.set_font_ui(j::FONT_UI.into());
@@ -92,7 +96,6 @@ pub fn aplica_tema(ui: &EditorDiferente) {
     t.set_s_numar(culoare(j::S_NUMAR));
     t.set_s_variabila(culoare(j::S_VARIABILA));
     t.set_s_comentariu(culoare(j::S_COMENTARIU));
-    ui.set_tigla_hasura(tigla_hasura());
 }
 
 /// Tigla hasurii de pe partea fara linii: dungi la 135°, din jetoane.
@@ -311,6 +314,7 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
             .count()
     };
 
+    ui.set_tigla_hasura(tigla_hasura());
     ui.set_obiect_schema(antet.schema.into());
     ui.set_obiect_nume(antet.nume.into());
     ui.set_tip_obiect(antet.tip.into());
@@ -328,6 +332,164 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_total_diferente(model.diferente.len() as i32);
     ui.set_start_diferente(ModelRc::new(VecModel::from(start)));
     ui.set_diferenta_curenta(0);
+}
+
+/// Datele din antetul listei.
+pub struct AntetLista<'a> {
+    pub sursa_baza: &'a str,
+    pub tinta_baza: &'a str,
+    /// „srv-dev → srv-prod · comparat la 14:32"
+    pub servere: &'a str,
+    pub mediu: Mediu,
+    /// Cate obiecte sunt in planul de deploy.
+    pub in_plan: usize,
+}
+
+/// Umple ecranul listei din modelul ei. Nu calculeaza nimic: filtrele,
+/// contoarele si selectia sunt deja decise in `model_lista`.
+pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_lista::Lista) {
+    use model_lista::Stare;
+    let cod_stare = |s: Stare| match s {
+        Stare::Modificat => 0,
+        Stare::DoarSursa => 1,
+        Stare::DoarBaza => 2,
+        Stare::Identic => 3,
+        Stare::Criptat => 4,
+    };
+    let randuri: Vec<RandListaUi> = lista
+        .vizibile()
+        .iter()
+        .map(|&i| {
+            let o = &lista.obiecte()[i];
+            let (plus, minus) = match &o.detalii {
+                Some(d) => (format!("+{}", d.linii_plus), format!("−{}", d.linii_minus)),
+                None => (String::new(), String::new()),
+            };
+            RandListaUi {
+                schema: o.schema.as_str().into(),
+                nume: o.nume.as_str().into(),
+                tip: gmotion_core::nume_tip(&o.tip).into(),
+                litera: o.stare.litera().into(),
+                stare: cod_stare(o.stare),
+                plus: plus.into(),
+                minus: minus.into(),
+                difera_in: o
+                    .detalii
+                    .as_ref()
+                    .map_or("", |d| d.difera_in.as_str())
+                    .into(),
+                revizuit: o.revizuit,
+            }
+        })
+        .collect();
+    let categorii: Vec<CategorieUi> = lista
+        .contoare_stari()
+        .into_iter()
+        .map(|(s, n)| CategorieUi {
+            litera: s.litera().into(),
+            nume: s.categorie().into(),
+            numar: n.to_string().into(),
+            stare: cod_stare(s),
+        })
+        .collect();
+    let tipuri: Vec<TipUi> = lista
+        .contoare_tipuri()
+        .into_iter()
+        .map(|(t, n)| TipUi {
+            nume: nume_tip_plural(&t).into(),
+            numar: n.to_string().into(),
+        })
+        .collect();
+    let (revizuite, total) = lista.progres_revizuire();
+
+    ui.set_tigla_hasura(tigla_hasura());
+    ui.set_sursa_baza(antet.sursa_baza.into());
+    ui.set_tinta_baza(antet.tinta_baza.into());
+    ui.set_servere(antet.servere.into());
+    ui.set_mediu(antet.mediu.cod());
+    ui.set_eticheta_mediu(antet.mediu.eticheta().into());
+    ui.set_numar_deploy(antet.in_plan.to_string().into());
+    ui.set_progres_revizuite(format!("{revizuite}/{total}").into());
+    ui.set_progres_fractie(if total == 0 {
+        0.0
+    } else {
+        revizuite as f32 / total as f32
+    });
+    ui.set_categorie_activa(
+        lista
+            .filtru()
+            .stare
+            .and_then(|s| model_lista::Stare::TOATE.iter().position(|&x| x == s))
+            .map_or(-1, |i| i as i32),
+    );
+    ui.set_tip_activ(
+        lista
+            .filtru()
+            .tip
+            .as_deref()
+            .and_then(|t| lista.contoare_tipuri().iter().position(|(x, _)| x == t))
+            .map_or(-1, |i| i as i32),
+    );
+    ui.set_rezumat_lista(lista.rezumat_vizibile().into());
+    ui.set_sortat_dupa_linii(lista.ordine() == model_lista::Ordine::LiniiDesc);
+    ui.set_selectat(lista.selectat().map_or(0, |p| p as i32));
+    ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
+    ui.set_categorii(ModelRc::new(VecModel::from(categorii)));
+    ui.set_tipuri(ModelRc::new(VecModel::from(tipuri)));
+
+    match lista.obiect_selectat() {
+        Some(o) => {
+            ui.set_obiect_schema(o.schema.as_str().into());
+            ui.set_obiect_nume(o.nume.as_str().into());
+            ui.set_obiect_revizuit(o.revizuit);
+            ui.set_ce_difera(
+                o.detalii
+                    .as_ref()
+                    .map_or(String::new(), |d| format!("diferă în {}", d.difera_in))
+                    .into(),
+            );
+        }
+        None => {
+            ui.set_obiect_schema(SharedString::new());
+            ui.set_obiect_nume(SharedString::new());
+            ui.set_ce_difera(SharedString::new());
+            ui.set_obiect_revizuit(false);
+        }
+    }
+}
+
+/// Numele tipului la plural, pentru bara laterala („Proceduri"), ca in
+/// machete. Singularul vine din `gmotion_core::nume_tip`.
+fn nume_tip_plural(tip: &str) -> &'static str {
+    match gmotion_core::nume_tip(tip) {
+        "procedură" => "Proceduri",
+        "view" => "View-uri",
+        "funcție" => "Funcții",
+        "trigger" => "Triggere",
+        _ => "Alte obiecte",
+    }
+}
+
+/// Pune in previzualizare diferenta obiectului selectat: aceleasi randuri ca
+/// in editor (un singur motor), pliate, plus propozitia care spune ce s-a
+/// schimbat („un singur caracter, într-un șir: Nu → nu").
+///
+/// Textele sunt cele pregatite pentru afisare (`pregateste_afisare`).
+pub fn incarca_previzualizare(
+    ui: &FereastraLista,
+    text_sursa: &str,
+    text_baza: &str,
+    setari: &[&str],
+) {
+    let model = model_editor::construieste(text_sursa, text_baza);
+    let (randuri, _) = randuri_ui(&model, true, false);
+    ui.set_previzualizare(ModelRc::new(VecModel::from(randuri)));
+    ui.set_ce_difera(gmotion_core::clasificare::propozitie(text_sursa, text_baza, setari).into());
+}
+
+/// Goleste previzualizarea (niciun obiect selectat).
+pub fn goleste_previzualizarea(ui: &FereastraLista) {
+    ui.set_previzualizare(ModelRc::new(VecModel::from(Vec::<RandUi>::new())));
 }
 
 #[cfg(test)]
@@ -577,5 +739,152 @@ mod teste {
         assert_eq!(cod_stare(Stare::Adaugat), 3);
         assert_eq!(cod_stare(Stare::Modificat), 1);
         assert_eq!(cod_stare(Stare::Egal), 0);
+    }
+
+    fn fereastra_lista() -> FereastraLista {
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w)));
+        let ui = FereastraLista::new().expect("fereastra de test");
+        aplica_tema(&ui);
+        ui
+    }
+
+    fn lista_de_proba() -> model_lista::Lista {
+        use model_lista::{Obiect, Stare};
+        let o = |nume: &str, tip: &str, stare: Stare| Obiect {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: tip.into(),
+            stare,
+            detalii: None,
+            revizuit: false,
+        };
+        model_lista::Lista::noua(vec![
+            o("usp_Stoc", "P", Stare::Modificat),
+            o("usp_Import", "P", Stare::DoarSursa),
+            o("vw_Facturi", "V", Stare::Identic),
+        ])
+    }
+
+    fn antet_lista() -> AntetLista<'static> {
+        AntetLista {
+            sursa_baza: "CharismaDev",
+            tinta_baza: "CharismaProd",
+            servere: "srv-dev → srv-prod",
+            mediu: Mediu::Prod,
+            in_plan: 2,
+        }
+    }
+
+    #[test]
+    fn lista_arata_aceleasi_cifre_ca_modelul() {
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        lista.selecteaza(0);
+        incarca_lista(&ui, &antet_lista(), &lista);
+
+        assert_eq!(ui.get_randuri().row_count(), 3);
+        assert_eq!(ui.get_eticheta_mediu(), "PROD");
+        assert_eq!(ui.get_numar_deploy(), "2");
+        assert_eq!(ui.get_progres_revizuite(), "0/2");
+        // categoriile sunt toate cinci, in ordinea din machete
+        let categorii: Vec<String> = ui
+            .get_categorii()
+            .iter()
+            .map(|c| c.nume.to_string())
+            .collect();
+        assert_eq!(
+            categorii,
+            [
+                "Modificate",
+                "Doar în sursă",
+                "Doar în bază",
+                "Identice",
+                "Criptate"
+            ]
+        );
+        assert_eq!(ui.get_categorii().row_data(0).unwrap().numar, "1");
+        // tipurile numara doar ce difera: o procedura modificata, una doar in sursa
+        let tipuri: Vec<(String, String)> = ui
+            .get_tipuri()
+            .iter()
+            .map(|t| (t.nume.to_string(), t.numar.to_string()))
+            .collect();
+        assert_eq!(tipuri, [("Proceduri".to_string(), "2".to_string())]);
+        // numele tipului e cel pentru utilizator, nu codul din sys.objects
+        let r = ui
+            .get_randuri()
+            .iter()
+            .find(|r| r.nume == "usp_Stoc")
+            .expect("randul obiectului modificat");
+        assert_eq!(r.tip, "procedură");
+        assert_eq!(r.litera, "M");
+        // lista e sortata alfabetic, deci primul rand e altul
+        assert_eq!(ui.get_randuri().row_data(0).unwrap().nume, "usp_Import");
+    }
+
+    #[test]
+    fn filtrul_din_model_se_vede_in_bara_laterala() {
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(ui.get_categorie_activa(), -1, "fara filtru");
+        lista.filtreaza_stare(Some(model_lista::Stare::DoarSursa));
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(ui.get_categorie_activa(), 1);
+        assert_eq!(ui.get_randuri().row_count(), 1);
+        assert_eq!(ui.get_randuri().row_data(0).unwrap().nume, "usp_Import");
+    }
+
+    #[test]
+    fn previzualizarea_spune_ce_s_a_schimbat() {
+        let ui = fereastra_lista();
+        let a = gmotion_core::pregateste_afisare("RAISERROR('Nu s-au gasit date', 16, 1);");
+        let b = gmotion_core::pregateste_afisare("RAISERROR('nu s-au gasit date', 16, 1);");
+        incarca_previzualizare(&ui, &a, &b, &[]);
+        assert_eq!(
+            ui.get_ce_difera(),
+            "un singur caracter, într-un șir: Nu → nu"
+        );
+        assert!(ui.get_previzualizare().row_count() > 0);
+        goleste_previzualizarea(&ui);
+        assert_eq!(ui.get_previzualizare().row_count(), 0);
+    }
+
+    #[test]
+    fn randurile_fara_detalii_calculate_au_coloanele_goale_nu_zerouri() {
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let r = ui
+            .get_randuri()
+            .iter()
+            .find(|r| r.nume == "usp_Stoc")
+            .expect("randul obiectului modificat");
+        assert_eq!(
+            (r.plus.as_str(), r.minus.as_str(), r.difera_in.as_str()),
+            ("", "", "")
+        );
+        let p = lista
+            .vizibile()
+            .iter()
+            .position(|&i| lista.obiecte()[i].nume == "usp_Stoc")
+            .unwrap();
+        lista.pune_detalii(
+            p,
+            model_lista::Detalii {
+                difera_in: "un șir".into(),
+                linii_plus: 1,
+                linii_minus: 1,
+            },
+        );
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let r = ui
+            .get_randuri()
+            .iter()
+            .find(|r| r.nume == "usp_Stoc")
+            .unwrap();
+        assert_eq!((r.plus.as_str(), r.minus.as_str()), ("+1", "−1"));
+        assert_eq!(r.difera_in, "un șir");
     }
 }
