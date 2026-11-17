@@ -1,8 +1,8 @@
 # Etapa 6 — paritate pe baze reale
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-17 · **Incheiata:** —
+**Deschisa:** 2026-11-17 · **Incheiata:** 2026-11-17
 
 ## Scop
 
@@ -39,11 +39,11 @@ Partea care are nevoie de rulari pe Windows:
       cu incarcarea din aplicatia Python (citirea Rust e secventiala, Python
       foloseste 4 conexiuni — vezi `JURNAL.md`, „Citirea bazelor rămâne
       secventiala"); daca e inacceptabil, paralelismul intra in `db`
-- [ ] obiectele relevante din instantaneul real (extrase, anonimizate daca
+- [x] obiectele relevante din instantaneul real (extrase, anonimizate daca
       trebuie) sunt fixture de regresie in repo — instantaneul intreg are 202 MB
-- [ ] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
+- [x] poarta verde: `unelte/verifica.sh`
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat, daca s-a luat vreo decizie
 
 ## Pasi
 
@@ -155,6 +155,44 @@ Partea care are nevoie de rulari pe Windows:
   si in ieșire redirectata (fisierul de rezultat era plin de `[2m`); corectat
   cu `IsTerminal`, test pe binar vazut cazand.
 
+- **2026-11-17** Fixture-ul `TESTSIMILITUDINE` (18+18 obiecte) e in repo,
+  commitat de Mihai, si poarta ruleaza `paritate.py` pe el (18 randuri, 10
+  corecturi, 0 regresii, la fel ca pe Windows); vazut cazand pe o regresie
+  introdusa in `core`. **In fixture, campul `server` continea lungimea
+  parolei** (`parola (N caractere, ascuns)`): `instantaneu` scria acolo
+  descrierea pentru jurnal. Corectat in cod (`eticheta_server`), in
+  `Redactat` (nu mai spune lungimea), si in fixture (doar acel camp). Ramane
+  in istoricul branch-ului.
+
 ## Ce a ieșit altfel decat planul
 
-(se completeaza la incheiere)
+**Motorul nu a avut nicio regresie; toate defectele au fost la granite.** 0
+regresii pe 21.193 de obiecte reale. In schimb, la prima atingere a tintei
+reale au iesit: instantele numite nu se puteau conecta deloc (`SRV\INST` mergea
+la DNS), jurnalul afisat ar fi inghetat dupa 2000 de linii, coduri ANSI in
+fisiere, lungimea parolei intr-un fisier commitat. Niciunul nu era in logica
+testata cu conformitate si fuzz; toate erau in I/O, in mediul Windows, sau in
+ce ajunge in fisiere. Testele unitare si de conformitate acopera o clasa de
+bug; tinta reala gaseste alta, si nu se substituie una cu alta.
+
+**Lista Python nu a trebuit exportata din interfata.** Planul cerea un CSV.
+`Api._comparatie` s-a putut rula neatins, intai pe instantaneu (pyodbc fals),
+apoi cu pyodbc real — mai strict decat CSV-ul (obiect cu obiect, nu doar
+perechi), si fara interfata.
+
+**Instantaneul real nu a putut veni incoace.** 202 MB si cod CharismaERP. Deci
+uneltele au trebuit sa ruleze la Mihai (`etapa6.ps1`, nerulat de mine
+niciodata, a mers din prima), iar in repo a intrat doar un extras.
+
+**Doua teste treceau fara sa dovedeasca nimic.** `dus_intors` din DPAPI ar fi
+trecut si fara criptare; numaratoarea de teste din poarta varia cu
+intercalarea jurnalului. „Trece" nu e „dovedeste"; de aici regula de a vedea
+fiecare verificare cazand, aplicata de opt ori in etapa asta.
+
+**Instructiunile mele pentru Windows au fost primul lucru stricat.** `<repo>`
+ca loc de completat (PowerShell il citeste ca redirectare), parola scrisa in
+comanda (ar intra in istoric). O comanda data utilizatorului e cod si se
+verifica la fel.
+
+**Rust e mai rapid decat se presupunea**: 19 s fata de 29,6 s, fara
+paralelism. Decizia de a-l amana a ramas valabila.

@@ -319,6 +319,27 @@ compara multe baze odata si timpul devine o plangere.
 
 ---
 
+## 2026-11-17 — Parola nu-si arata nici lungimea, iar instantaneul retine doar serverul
+
+**Context.** `Redactat` afisa „(N caractere, ascuns)", ca utilizatorul sa
+vada ca s-a citit parola potrivita. `gmotion instantaneu` scria in campul
+`server` descrierea pentru jurnal, cu tot cu acest text. Primul fixture de pe
+o baza reala a ajuns in repo cu lungimea parolei `sa`.
+
+**Alternative.** (a) pastrat lungimea in jurnal, scos doar din instantaneu;
+(b) scos de peste tot; (c) si rescrierea istoricului.
+
+**Motiv.** (b). Jurnalele ajung lipite in conversatii si rapoarte de bug, ca
+azi; lungimea scurteaza o cautare prin forta bruta si nu ajuta la depanare
+mai mult decat „data / goala". Istoricul nu se rescrie: branch-ul e comun cu
+Mihai si informatia e de risc mic; Mihai decide daca schimba parola.
+
+**Consecinte.** `Redactat` spune „(data, ascunsa)" sau „(goala)", cu test
+care cade pe orice cifra. Instantaneul primeste `ArgumenteSursa::eticheta_server`
+(`SRV\INST` / `SRV,PORT`). Invariant in `rust/cli/CRATE.md`.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

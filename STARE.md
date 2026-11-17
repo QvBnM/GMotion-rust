@@ -7,13 +7,13 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (178 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
+**Poarta:** verde (179 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
 ## Unde suntem
 
-Etapele 0-5 incheiate. **Exista o aplicatie completa si utilizabila**, fara
+Etapele 0-6 incheiate. **Exista o aplicatie completa si utilizabila**, fara
 interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
@@ -22,64 +22,52 @@ interfata grafica: binarul `gmotion`.
 | `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), 35 teste |
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 35 teste |
 | `rust/module/diff-obiecte` | gata, 42 teste |
-| `rust/cli` | gata, 28 teste, din care 11 pe binarul adevarat |
+| `rust/cli` | gata, 29 teste, din care 11 pe binarul adevarat |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/06-paritate.md` — **paritate pe baze reale**. Partea
-care se putea face fara Windows e gata: `referinta/paritate.py` ruleaza codul
-Python v3.4 **neatins** (`Api._comparatie` din `mostenire/app.py`) pe un
-instantaneu si compara cu `gmotion compara`; poarta il ruleaza pe un
-instantaneu sintetic. Restul asteapta rulari de la Mihai. Dupa etapa 6 urmeaza
-interfata, despre care Mihai a cerut explicit sa vorbim **inainte** de a
-incepe — nu se deschide etapa 7 fara discutia asta.
+**Etapa activa:** niciuna. Etapa 6 (paritate pe baze reale) e
+**incheiata**: 0 regresii pe 21.193 obiecte reale, pyodbc si tiberius aduc
+aceleasi 42.427 obiecte, auth SQL si Windows verificate, Rust mai rapid
+(19 s fata de 29,6 s). Versiunea Python poate fi retrasa din punctul de
+vedere al motorului si al accesului la date. Detalii si lectii:
+`etape/06-paritate.md`.
 
 ---
 
 ## Urmatorul pas concret
 
-Etapa 6 e aproape inchisa. Verificat pe masina lui Mihai (`TS2409\MIHAIG`,
-SQL Server 17): auth SQL si integrata, 0 regresii de paritate, **pyodbc si
-tiberius aduc aceleasi 42.427 obiecte**, Rust citeste mai repede (19 s fata de
-29,6 s). Detalii in `etape/06-paritate.md`.
+**Discutia despre GUI cu Mihai, inainte de orice cod pentru etapa 7.** Mihai a
+cerut-o explicit. Nu se deschide `etape/07-*.md` si nu se alege tehnologia de
+interfata fara ea.
 
-Ramane un singur criteriu: **fixture-ul `TESTSIMILITUDINE`** (18+18 obiecte,
-48,5 KB, extras deja la Mihai in `referinta\instantanee\testsimilitudine.json`)
-intra in repo **daca Mihai confirma** ca obiectele pot fi publice in repo.
-Atunci: commit-ul il face Mihai (fisierul e doar la el), iar poarta primeste un
-pas care ruleaza `paritate.py` si pe el (asteptat: 18 randuri, 10 corecturi,
-0 regresii). Daca nu poate intra: criteriul se inchide ca „refuzat", cu
-motivul, si ramane doar instantaneul sintetic.
+De adus la discutie, din ce s-a invatat pana acum:
 
-Apoi: etapa se inchide (`Stare: INCHEIATA`, „Ce a iesit altfel"). **Etapa 7
-(interfata) nu se deschide fara discutia despre GUI ceruta de Mihai.**
+- `core` compileaza pe wasm32 tocmai ca editorul live sa foloseasca acelasi
+  motor — deci o interfata web (WebView2 / Tauri) poate rula motorul in
+  pagina, fara al doilea motor in JS. Asta era cauza bug-ului din v3.4.
+- Tot ce face aplicatia e accesibil din `cli` si din metodele platformei; GUI-ul
+  e un consumator, nu locul logicii.
+- `jurnal::linii` are acum index absolut — gata pentru un panou de jurnal.
+- Capcana din `STARE` despre ancorele de scroll (`linii_start_blocuri`)
+  conteaza la editor.
+- Pe Windows exista RDP fara GPU (v3.4 forteaza randare software in
+  WebView2) — orice tehnologie aleasa trebuie probata pe server prin RDP.
 
 ---
 
 ## Ce aștept de la Mihai
 
-1. Da sau nu: pot intra `TESTSIMILITUDINE_*` in repo? Daca da:
-
-```
-git add referinta\instantanee\testsimilitudine.json
-```
-
-```
-git commit -m "Fixture TESTSIMILITUDINE din CharismaERP_GetsBet"
-```
-
-```
-git push
-```
-
-2. Optional: in editorul aplicatiei v3.4, `TESTSIMILITUDINE_CaseB_Imbricat` ar
-   trebui sa arate `1 modificate`, iar `Payment_BankAccountListAllBanks`
-   `1 modificate, 5 adaugate` — confirma ca `motor_js.mjs` e egal cu ce
-   ruleaza in aplicatie.
-3. Discutia despre GUI.
+1. Discutia despre GUI: ce vrei sa pastrezi din interfata v3.4, ce te-a
+   deranjat, unde ruleaza (statie, server prin RDP), cine o foloseste.
+2. Optional, nu mai blocheaza nimic: in editorul v3.4,
+   `TESTSIMILITUDINE_CaseB_Imbricat` -> `1 modificate`,
+   `Payment_BankAccountListAllBanks` -> `1 modificate, 5 adaugate`.
+3. Lungimea parolei `sa` a ramas in istoricul branch-ului (vezi `JURNAL.md`).
+   Daca instanta e accesibila si altora, schimbarea parolei inchide subiectul.
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
