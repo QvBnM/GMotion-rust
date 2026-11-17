@@ -253,13 +253,18 @@ elif ! command -v python3 >/dev/null || ! command -v node >/dev/null; then
 elif ! cargo build -q --manifest-path rust/Cargo.toml -p gmotion-cli 2>/dev/null; then
   cade "paritate: binarul gmotion nu se construieste"
 else
+  # --strict: si diferentele „de verificat" cad. Diferentele deliberate fata
+  # de v3.4 stau in <fixture>.asteptari.json, fiecare cu motivul ei, si
+  # fiecare trebuie sa apara (o asteptare care nu mai apare cade si ea).
   ruleaza "paritate pe instantaneul din cazuri" \
-    python3 -I referinta/paritate.py --din-cazuri --gmotion rust/target/debug/gmotion
+    python3 -I referinta/paritate.py --din-cazuri --strict --gmotion rust/target/debug/gmotion
   # Fixture-uri extrase de pe baze reale (referinta/extrage.py). Fiecare cu
   # baza lui de referinta: instantaneul nu o retine.
   while read -r fisier referinta; do
+    asteptari=()
+    [ -f "${fisier%.json}.asteptari.json" ] && asteptari=(--asteptari "${fisier%.json}.asteptari.json")
     ruleaza "paritate pe $(basename "$fisier")" \
-      python3 -I referinta/paritate.py "$fisier" --referinta "$referinta" --gmotion rust/target/debug/gmotion
+      python3 -I referinta/paritate.py "$fisier" --referinta "$referinta" --strict "${asteptari[@]}" --gmotion rust/target/debug/gmotion
   done <<'FIXTURI'
 referinta/instantanee/testsimilitudine.json CharismaERP_GetsBet
 FIXTURI

@@ -29,12 +29,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 6 (paritate pe baze reale) e
-**incheiata**: 0 regresii pe 21.193 obiecte reale, pyodbc si tiberius aduc
-aceleasi 42.427 obiecte, auth SQL si Windows verificate, Rust mai rapid
-(19 s fata de 29,6 s). Versiunea Python poate fi retrasa din punctul de
-vedere al motorului si al accesului la date. Detalii si lectii:
-`etape/06-paritate.md`.
+**Etapa activa:** `etape/07-remediere-audit.md` — remedierea constatarilor din
+auditul de la `f561bf9` (Mihai: „ocupa-te tu de ce trebuie facut"). GUI-ul
+ramane la final. Etapa 6 (paritate pe baze reale) e incheiata.
 
 ---
 

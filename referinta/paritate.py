@@ -194,7 +194,37 @@ def rezumate_js(perechi):
 # ------------------------------------------------------------------ comparatie
 
 
-def compara(inst, referinta, meta_py, lista_py, rust):
+# Constructiile pe care normalizarea din v4 le trateaza deliberat altfel decat
+# v3.4 si motorul JS (auditul din 2026-11-17, JURNAL „Normalizarea nu mai
+# atinge string-urile"): string-uri, identificatori in ghilimele sau in
+# paranteze cu caractere ne-simple, comentarii bloc (imbricare), BOM, `dbo.`
+# care nu e prefix. Pe un obiect fara ele, normalizarea e aceeasi ca in v3.4.
+RE_ATINS_DE_NORMALIZARE = re.compile(
+    r"""'|"|\[[^\]]*[^\w\]@#$][^\]]*\]|/\*|\ufeff|\.\s*(?:\[dbo\]|dbo)\s*\.""",
+    re.IGNORECASE,
+)
+# Peste atatea token-uri, v3.4 rotunjea un scor de 99,995 la 100 si declara
+# „identic" o modificare reala (decizia „identic" din v4 nu mai foloseste scorul).
+PRAG_TOKENI_ROTUNJIRE = 10_000
+
+
+def explicat_de_v4(definitii_obiect):
+    """Diferenta poate veni din corecturile deliberate din v4 (nu e neaparat
+    regresie): obiectul contine constructii tratate altfel, sau e destul de
+    mare ca rotunjirea din v3.4 sa fi ascuns o modificare."""
+    import motor  # cel din mostenire/, deja incarcat de lista_python
+
+    for d in definitii_obiect:
+        if d is None:
+            continue
+        if RE_ATINS_DE_NORMALIZARE.search(d):
+            return "constructii tratate altfel de normalizarea v4"
+        if len(motor.normalizeaza(d).split()) >= PRAG_TOKENI_ROTUNJIRE:
+            return "obiect mare: v3.4 rotunjea scorul la 100"
+    return None
+
+
+def compara(inst, referinta, meta_py, lista_py, rust, asteptari=()):
     definitii = {
         (b, f"{o['schema']}.{o['nume']}"): o["definitie"]
         for b, obs in inst["baze"].items()
@@ -205,35 +235,54 @@ def compara(inst, referinta, meta_py, lista_py, rust):
     if len(py) != len(lista_py) or len(rs) != len(rust["randuri"]):
         raise EroareIntrare("perechi (obiect, baza) duplicate intr-una din liste")
 
-    regresii, corecturi, de_arbitrat = [], [], []
+    regresii, corecturi, de_arbitrat, de_verificat, deliberate = [], [], [], [], []
+    asteptari = list(asteptari)
+    folosite = set()
 
-    def regresie(obiect, baza, camp, v_py, v_rs):
-        regresii.append({"obiect": obiect, "baza": baza, "camp": camp, "python": v_py, "rust": v_rs})
+    def diferenta(obiect, baza, camp, v_py, v_rs):
+        """O diferenta care nu e confirmata de JS: asteptata explicit, explicata
+        de corecturile din v4 (de verificat), sau regresie."""
+        intrare = {"obiect": obiect, "baza": baza, "camp": camp, "python": v_py, "rust": v_rs}
+        for i, a in enumerate(asteptari):
+            if (a["obiect"], a["baza"], a["camp"]) == (obiect, baza, camp) \
+                    and a["python"] == v_py and a["rust"] == v_rs:
+                folosite.add(i)
+                deliberate.append({**intrare, "motiv": a["motiv"]})
+                return
+        motiv = explicat_de_v4([definitii.get((referinta, obiect)), definitii.get((baza, obiect))]) \
+            if obiect != "*" else None
+        if motiv:
+            de_verificat.append({**intrare, "motiv": motiv})
+        else:
+            regresii.append(intrare)
 
     for cheie in sorted(set(py) | set(rs)):
         obiect, baza = cheie
         a, b = py.get(cheie), rs.get(cheie)
         if a is None:
-            regresie(obiect, baza, "rand", None, b["categorie"])
+            # v3.4 nu raporteaza obiectul (il considera identic)
+            diferenta(obiect, baza, "rand", None, b["categorie"])
             continue
         if b is None:
-            regresie(obiect, baza, "rand", CATEGORII[a["cat"]], None)
+            diferenta(obiect, baza, "rand", CATEGORII[a["cat"]], None)
             continue
         if CATEGORII[a["cat"]] != b["categorie"]:
-            regresie(obiect, baza, "categorie", CATEGORII[a["cat"]], b["categorie"])
+            diferenta(obiect, baza, "categorie", CATEGORII[a["cat"]], b["categorie"])
             continue
         if (a["tip"] or "").strip() != b["tip"]:
-            regresie(obiect, baza, "tip", a["tip"], b["tip"])
+            regresii.append({"obiect": obiect, "baza": baza, "camp": "tip",
+                             "python": a["tip"], "rust": b["tip"]})
         sa, sb = a["scor"], b["scor"]
         if (sa is None) != (sb is None) or (sa is not None and abs(sa - sb) > 0.005):
-            regresie(obiect, baza, "scor", sa, sb)
+            diferenta(obiect, baza, "scor", sa, sb)
         if a["rezumat"] == b["rezumat"]:
             continue
         if b["categorie"] == "diferit":
             de_arbitrat.append((obiect, baza, a["rezumat"], b["rezumat"]))
         else:
             # `lipsa` / `extra` au un text fix, iar JS nu are ce compara.
-            regresie(obiect, baza, "rezumat", a["rezumat"], b["rezumat"])
+            regresii.append({"obiect": obiect, "baza": baza, "camp": "rezumat",
+                             "python": a["rezumat"], "rust": b["rezumat"]})
 
     perechi = [[definitii[(referinta, o)], definitii[(bz, o)]] for o, bz, _, _ in de_arbitrat]
     js = rezumate_js(perechi)
@@ -241,7 +290,14 @@ def compara(inst, referinta, meta_py, lista_py, rust):
         r_js = None if js is None else js[i]
         intrare = {"obiect": obiect, "baza": baza, "camp": "rezumat",
                    "python": r_py, "rust": r_rs, "js": r_js}
-        (corecturi if r_js == r_rs else regresii).append(intrare)
+        if r_js == r_rs:
+            corecturi.append(intrare)
+        else:
+            diferenta(obiect, baza, "rezumat", r_py, r_rs)
+            if js is not None:
+                for lista in (regresii, de_verificat, deliberate):
+                    if lista and lista[-1]["obiect"] == obiect and lista[-1]["camp"] == "rezumat":
+                        lista[-1]["js"] = r_js
 
     numaratoare = {
         "identice": (meta_py["ident"], rust["identice"]),
@@ -250,8 +306,20 @@ def compara(inst, referinta, meta_py, lista_py, rust):
         "total_referinta": (meta_py["total"], rust["total_referinta"]),
     }
     for camp, (v_py, v_rs) in numaratoare.items():
-        if v_py != v_rs:
-            regresie("*", "*", f"numar {camp}", v_py, v_rs)
+        if v_py == v_rs:
+            continue
+        intrare = {"obiect": "*", "baza": "*", "camp": f"numar {camp}", "python": v_py, "rust": v_rs}
+        # O numaratoare diferita e explicata doar daca fiecare rand diferit e
+        # explicat; altfel e regresie.
+        if camp == "identice" and not regresii:
+            de_verificat.append({**intrare, "motiv": "urmeaza randurile de mai sus"})
+        else:
+            regresii.append(intrare)
+    for i, a in enumerate(asteptari):
+        if i not in folosite:
+            regresii.append({"obiect": a["obiect"], "baza": a["baza"],
+                             "camp": f"asteptare neindeplinita: {a['camp']}",
+                             "python": a["python"], "rust": a["rust"]})
 
     return {
         "randuri_python": len(py),
@@ -259,6 +327,8 @@ def compara(inst, referinta, meta_py, lista_py, rust):
         "numaratoare": {k: {"python": a, "rust": b} for k, (a, b) in numaratoare.items()},
         "regresii": regresii,
         "corecturi": corecturi,
+        "deliberate": deliberate,
+        "de_verificat": de_verificat,
         "js_disponibil": js is not None,
     }
 
@@ -288,7 +358,7 @@ def compara_csv(cale, lista_py):
 # ------------------------------------------------------------------ raport
 
 
-def scrie_raport(r, csv_dif):
+def scrie_raport(r, csv_dif, strict=False):
     print(f"randuri: Python {r['randuri_python']}, Rust {r['randuri_rust']}")
     for camp, v in r["numaratoare"].items():
         semn = "  " if v["python"] == v["rust"] else "!!"
@@ -299,6 +369,15 @@ def scrie_raport(r, csv_dif):
     for x in r["corecturi"][:MAX_AFISATE]:
         print(f"  {x['obiect']} @ {x['baza']}: Python {x['python']!r} -> Rust {x['rust']!r}")
     _restul(r["corecturi"])
+    if r["deliberate"]:
+        print(f"\ndiferente deliberate (asteptate explicit): {len(r['deliberate'])}")
+        for x in r["deliberate"][:MAX_AFISATE]:
+            print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r} -> Rust {x['rust']!r} — {x['motiv']}")
+        _restul(r["deliberate"])
+    print(f"\nde verificat (pot veni din corecturile v4; vezi `gmotion diferente`): {len(r['de_verificat'])}")
+    for x in r["de_verificat"][:MAX_AFISATE]:
+        print(f"  {x['obiect']} @ {x['baza']} [{x['camp']}]: Python {x['python']!r}, Rust {x['rust']!r} — {x['motiv']}")
+    _restul(r["de_verificat"])
     print(f"\nregresii: {len(r['regresii'])}")
     pe_camp = {}
     for x in r["regresii"]:
@@ -315,8 +394,11 @@ def scrie_raport(r, csv_dif):
             print(f"  {x['obiect']} @ {x['baza']}: CSV {x['csv']}, instantaneu {x['instantaneu']}")
         if len(csv_dif) > 50:
             print(f"  ... si inca {len(csv_dif) - 50}")
-    ok = not r["regresii"] and not csv_dif
-    print("\nPARITATE" if ok else "\nFARA PARITATE")
+    ok = not r["regresii"] and not csv_dif and not (strict and r["de_verificat"])
+    if ok and r["de_verificat"]:
+        print("\nPARITATE, cu diferente de verificat")
+    else:
+        print("\nPARITATE" if ok else "\nFARA PARITATE")
     return ok
 
 
@@ -346,6 +428,10 @@ def main(argv=None):
     sursa.add_argument("--gmotion", help="binarul gmotion, rulat pe instantaneu")
     ap.add_argument("--csv", help="exportul CSV al aplicatiei Python, pe aceleasi baze")
     ap.add_argument("--json", help="scrie raportul si ca JSON")
+    ap.add_argument("--asteptari", help="JSON cu diferentele deliberate: "
+                    "[{obiect, baza, camp, python, rust, motiv}]; fiecare trebuie sa apara")
+    ap.add_argument("--strict", action="store_true",
+                    help="si diferentele „de verificat\" fac rularea sa cada (poarta)")
     args = ap.parse_args(argv)
 
     try:
@@ -370,13 +456,20 @@ def main(argv=None):
             rust = lista_rust(args, cale, referinta)
             if rust.get("referinta") != referinta:
                 raise EroareIntrare(f"rezultatul Rust are referinta {rust.get('referinta')!r}, nu {referinta!r}")
-            raport = compara(inst, referinta, meta_py, lista_py, rust)
+            asteptari = []
+            if args.asteptari:
+                try:
+                    with open(args.asteptari, encoding="utf-8") as f:
+                        asteptari = json.load(f)
+                except (OSError, ValueError) as e:
+                    raise EroareIntrare(f"nu pot citi {args.asteptari}: {e}")
+            raport = compara(inst, referinta, meta_py, lista_py, rust, asteptari)
             csv_dif = compara_csv(args.csv, lista_py) if args.csv else None
     except EroareIntrare as e:
         print(f"eroare: {e}", file=sys.stderr)
         return 2
 
-    ok = scrie_raport(raport, csv_dif)
+    ok = scrie_raport(raport, csv_dif, args.strict)
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump({**raport, "csv": csv_dif}, f, ensure_ascii=False, indent=1)
