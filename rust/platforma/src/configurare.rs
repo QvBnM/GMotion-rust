@@ -64,8 +64,12 @@ impl Configurare {
                 detaliu: e.to_string(),
             }),
             Ok(text) => {
+                // Notepad si PowerShell 5 (`Out-File`, `Set-Content -Encoding
+                // UTF8`) pun BOM; serde_json il refuza, si atunci orice
+                // comanda, inclusiv `diagnostic`, cadea. Gasit la audit.
+                let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
                 let c: Configurare =
-                    serde_json::from_str(&text).map_err(|e| Eroare::Configurare {
+                    serde_json::from_str(text).map_err(|e| Eroare::Configurare {
                         cale: cale.display().to_string(),
                         detaliu: e.to_string(),
                     })?;
@@ -96,8 +100,11 @@ impl Configurare {
         }
     }
 
+    /// Scrie doar o configurare pe care `citeste` o accepta inapoi: altfel
+    /// un `scrie` reusit ar bloca la urmatoarea pornire orice comanda.
     pub fn scrie(&self, cale: impl AsRef<Path>) -> Rezultat<()> {
         let cale = cale.as_ref();
+        self.valideaza(cale)?;
         if let Some(p) = cale.parent() {
             std::fs::create_dir_all(p).map_err(|e| Eroare::Configurare {
                 cale: p.display().to_string(),
@@ -108,7 +115,7 @@ impl Configurare {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
         })?;
-        std::fs::write(cale, text).map_err(|e| Eroare::Configurare {
+        crate::cai::scrie_atomic(cale, text.as_bytes()).map_err(|e| Eroare::Configurare {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
         })
@@ -118,6 +125,35 @@ impl Configurare {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    /// Regresie din audit: BOM-ul pus de Notepad / PowerShell 5 bloca tot.
+    #[test]
+    fn bom_la_inceput_e_acceptat() {
+        let d = std::env::temp_dir().join(format!("gmotion-cfg-bom-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("c.json");
+        std::fs::write(&cale, "\u{feff}{\"timeout_conectare_s\": 5}").unwrap();
+        assert_eq!(Configurare::citeste(&cale).unwrap().timeout_conectare_s, 5);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// Regresie din audit: `scrie` accepta valori pe care `citeste` le refuza.
+    #[test]
+    fn scrie_refuza_ce_citeste_n_ar_accepta() {
+        let d = std::env::temp_dir().join(format!("gmotion-cfg-val-{}", std::process::id()));
+        let cale = d.join("c.json");
+        let c = Configurare {
+            timeout_conectare_s: 0,
+            ..Configurare::default()
+        };
+        assert!(c.scrie(&cale).is_err());
+        let c = Configurare {
+            prag_similaritate: f64::NAN,
+            ..Configurare::default()
+        };
+        assert!(c.scrie(&cale).is_err());
+        assert!(!cale.exists());
+    }
 
     fn dir(et: &str) -> std::path::PathBuf {
         let d = std::env::temp_dir().join(format!("gmotion-cfg-{et}-{}", std::process::id()));

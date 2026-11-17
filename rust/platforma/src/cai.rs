@@ -19,10 +19,22 @@ const NUME_APP: &str = "GMotion";
 ///
 /// Windows: `%APPDATA%\GMotion`.
 /// Altundeva (dezvoltare): `$XDG_DATA_HOME/gmotion` sau `$HOME/.local/share/gmotion`.
+///
+/// O cale relativa din mediu e refuzata (`GMOTION_DIR_DATE`, `APPDATA`) sau
+/// ignorata (`XDG_DATA_HOME`, cum cere specificatia XDG): altfel datele ar
+/// depinde de directorul din care e pornit programul. Gasit la audit.
 pub fn director_date() -> Rezultat<PathBuf> {
+    let absoluta = |v: String| {
+        let p = PathBuf::from(v);
+        if p.is_absolute() {
+            Ok(p)
+        } else {
+            Err(Eroare::DirectorDate)
+        }
+    };
     if let Ok(suprascris) = std::env::var("GMOTION_DIR_DATE") {
         if !suprascris.is_empty() {
-            return Ok(PathBuf::from(suprascris));
+            return absoluta(suprascris);
         }
     }
     #[cfg(windows)]
@@ -31,13 +43,13 @@ pub fn director_date() -> Rezultat<PathBuf> {
         if appdata.is_empty() {
             return Err(Eroare::DirectorDate);
         }
-        Ok(PathBuf::from(appdata).join(NUME_APP))
+        Ok(absoluta(appdata)?.join(NUME_APP))
     }
     #[cfg(not(windows))]
     {
         let _ = NUME_APP;
         if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
-            if !xdg.is_empty() {
+            if !xdg.is_empty() && PathBuf::from(&xdg).is_absolute() {
                 return Ok(PathBuf::from(xdg).join("gmotion"));
             }
         }
@@ -45,8 +57,20 @@ pub fn director_date() -> Rezultat<PathBuf> {
         if home.is_empty() {
             return Err(Eroare::DirectorDate);
         }
-        Ok(PathBuf::from(home).join(".local/share/gmotion"))
+        Ok(absoluta(home)?.join(".local/share/gmotion"))
     }
+}
+
+/// Scrie un fisier atomic: intai alaturi, apoi redenumit peste. O cadere la
+/// jumatatea scrierii lasa fisierul vechi intreg, nu unul trunchiat (care, la
+/// configurare, ar bloca orice comanda). Gasit la audit.
+pub(crate) fn scrie_atomic(cale: &std::path::Path, date: &[u8]) -> std::io::Result<()> {
+    let temporar = cale.with_extension("tmp-gmotion");
+    std::fs::write(&temporar, date)?;
+    std::fs::rename(&temporar, cale).map_err(|e| {
+        let _ = std::fs::remove_file(&temporar);
+        e
+    })
 }
 
 /// Directorul sesiunilor unui modul: `<date>/sesiuni/<modul>`.

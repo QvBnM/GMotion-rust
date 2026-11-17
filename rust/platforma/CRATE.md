@@ -1,6 +1,6 @@
 # gmotion-platforma
 
-<!-- api-hash: bfbae90bd31c9a30 -->
+<!-- api-hash: b24a73deb566964b -->
 
 ## Rol
 
@@ -54,6 +54,12 @@ publica drept `<nume>/<metoda>`.
 3. **Un identificator nu poate ieși din directorul de date.** Doar litere mici,
    cifre, cratima — fiindca devine nume de director. `slug()` reduce orice nume
    de baza la ceva care nu conține `/`, `\` sau `..`.
+3b. **Doua nume de baza diferite nu impart niciodata un fisier de sesiune:**
+   `slug()` se termina cu 48 de biti de SHA-256 pe numele exact (pana la audit,
+   lungimea numelui — `Prod.2024` si `Prod_2024` coliziau). `incarca` verifica
+   si ca sesiunea citita e a bazei cerute. Serverul **nu** face parte din cheie:
+   aceeasi baza pe doua servere imparte sesiunea (deschis, de decis cand
+   sesiunile vor fi folosite din interfata).
 4. **Doua module pot avea metode cu acelasi nume.** Rutarea e cu prefix.
 5. **Un modul nu poate calca o metoda comuna.** Inregistrarea o refuza: altfel
    comportamentul ar depinde de modulul activ.
@@ -63,7 +69,14 @@ publica drept `<nume>/<metoda>`.
 7. **O sesiune ilizibila e sarita la listare, cu avertisment.** Un singur fisier
    stricat nu ascunde celelalte.
 8. **Jurnalul nu creste nemarginit:** 2000 de linii in memorie, cele mai vechi
-   se arunca.
+   se arunca, si fiecare linie are cel mult 4096 de caractere. Liniile pastreaza
+   campurile evenimentului (`server=... baza=...`), iar caracterele de control
+   devin secvente vizibile (`\n`, `\u{1b}`).
+9. **Configurarea si sesiunile se scriu atomic** (temporar + redenumire), iar
+   `Configurare::scrie` refuza ce `citeste` n-ar accepta. BOM-ul de la inceputul
+   configurarii e acceptat.
+10. **Caile din mediu trebuie sa fie absolute** (`GMOTION_DIR_DATE`, `APPDATA`);
+   un `XDG_DATA_HOME` relativ se ignora.
 
 ## Erori tipice
 

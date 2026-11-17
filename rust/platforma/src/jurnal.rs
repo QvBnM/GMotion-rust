@@ -71,10 +71,11 @@ pub fn linii(de_la: usize) -> (Vec<String>, usize) {
 /// Adauga o linie in tampon. Publica fiindca o folosesc si straturile de
 /// deasupra pentru mesaje destinate utilizatorului, nu doar `tracing`.
 pub fn adauga_linie(linie: impl Into<String>) {
+    let linie = curata_linie(&linie.into());
     tampon()
         .lock()
         .unwrap_or_else(|e| e.into_inner())
-        .adauga(linie.into(), MAX_LINII);
+        .adauga(linie, MAX_LINII);
 }
 
 /// Strat de `tracing` care scrie si in tamponul din memorie.
@@ -86,20 +87,72 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for StratTampon {
         event: &tracing::Event<'_>,
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
-        struct Culege(String);
+        /// Mesajul si **toate** campurile. Pana la audit se pastra doar
+        /// mesajul, iar fiecare apel pune datele in campuri
+        /// (`%server, %baza, "deschid conexiunea"`), deci tamponul arata
+        /// „deschid conexiunea" fara server sau baza — inutil la depanare.
+        #[derive(Default)]
+        struct Culege {
+            mesaj: String,
+            campuri: Vec<String>,
+        }
         impl tracing::field::Visit for Culege {
-            fn record_debug(&mut self, camp: &tracing::field::Field, val: &dyn std::fmt::Debug) {
+            fn record_str(&mut self, camp: &tracing::field::Field, val: &str) {
                 if camp.name() == "message" {
-                    self.0 = format!("{val:?}").trim_matches('"').to_string();
+                    self.mesaj = val.to_string();
+                } else {
+                    self.campuri.push(format!("{}={}", camp.name(), val));
+                }
+            }
+            fn record_debug(&mut self, camp: &tracing::field::Field, val: &dyn std::fmt::Debug) {
+                // `format_args!` (mesajul obisnuit) are `Debug` fara ghilimele;
+                // inainte se tăiau ghilimelele de la capete, si cu ele si pe
+                // cele care faceau parte din mesaj.
+                if camp.name() == "message" {
+                    self.mesaj = format!("{val:?}");
+                } else {
+                    self.campuri.push(format!("{}={:?}", camp.name(), val));
                 }
             }
         }
-        let mut c = Culege(String::new());
+        let mut c = Culege::default();
         event.record(&mut c);
-        if !c.0.is_empty() {
-            adauga_linie(format!("[{}] {}", event.metadata().level(), c.0));
+        if c.mesaj.is_empty() && c.campuri.is_empty() {
+            return;
+        }
+        let mut linie = format!("[{}] {}", event.metadata().level(), c.mesaj);
+        for camp in &c.campuri {
+            linie.push(' ');
+            linie.push_str(camp);
+        }
+        adauga_linie(linie);
+    }
+}
+
+/// Lungimea maxima a unei linii din tampon, in caractere. Limita pe numarul de
+/// linii nu ajuta daca o linie are 50 MB.
+const MAX_CARACTERE_LINIE: usize = 4096;
+
+/// O linie de jurnal sigura de afisat: caracterele de control devin `\n`,
+/// `\r`, `\t` sau `\u{..}` (numele vin si din baze si de pe retea; un rand nou
+/// fabrica o linie de jurnal falsa, un ESC rescrie terminalul), iar liniile
+/// prea lungi se taie.
+fn curata_linie(s: &str) -> String {
+    let mut out = String::with_capacity(s.len().min(MAX_CARACTERE_LINIE));
+    for (i, c) in s.chars().enumerate() {
+        if i >= MAX_CARACTERE_LINIE {
+            out.push_str(" …[taiat]");
+            break;
+        }
+        match c {
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if c.is_control() => out.push_str(&format!("\\u{{{:x}}}", c as u32)),
+            c => out.push(c),
         }
     }
+    out
 }
 
 /// Porneste jurnalul. Sigur de chemat de mai multe ori: a doua chemare nu face
@@ -197,6 +250,44 @@ mod teste {
         let (noi, urmator) = t.de_la(1);
         assert_eq!(noi, vec!["linia 5", "linia 6", "linia 7"]);
         assert_eq!(urmator, 8);
+    }
+
+    /// Regresii din audit: control in linii, linii nelimitate.
+    #[test]
+    fn liniile_se_curata_si_se_limiteaza() {
+        assert_eq!(
+            curata_linie("Baza\n[ERROR] fals\u{1b}[31m"),
+            "Baza\\n[ERROR] fals\\u{1b}[31m"
+        );
+        let lunga = "x".repeat(MAX_CARACTERE_LINIE * 3);
+        assert!(curata_linie(&lunga).chars().count() < MAX_CARACTERE_LINIE + 20);
+        assert_eq!(
+            curata_linie("\"citat\" la capete \""),
+            "\"citat\" la capete \""
+        );
+    }
+
+    /// Regresie din audit: campurile se pierdeau, iar ghilimelele reale de la
+    /// capetele mesajului erau taiate.
+    #[test]
+    fn stratul_pastreaza_campurile_si_ghilimelele() {
+        use tracing_subscriber::layer::SubscriberExt;
+        let sub = tracing_subscriber::registry().with(StratTampon);
+        tracing::subscriber::with_default(sub, || {
+            tracing::info!(referinta = %"RefUnica-9c1", cale = "/x", "sesiune salvata");
+            tracing::info!("\"citat\" la capete");
+        });
+        let (toate, _) = linii(0);
+        assert!(
+            toate.iter().any(|l| l.contains("sesiune salvata")
+                && l.contains("referinta=RefUnica-9c1")
+                && l.contains("cale=/x")),
+            "{toate:?}"
+        );
+        assert!(
+            toate.iter().any(|l| l.ends_with("\"citat\" la capete")),
+            "{toate:?}"
+        );
     }
 
     #[test]

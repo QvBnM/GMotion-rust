@@ -70,9 +70,11 @@ impl Sesiune {
 /// Numele de fisier pentru o baza de referinta.
 ///
 /// Numele de baze pot conține orice; fisierele nu. Se reduce la litere, cifre
-/// si cratima, pastrand lizibilitatea. Coliziunile intre doua nume care dau
-/// acelasi slug sunt posibile, deci se adauga lungimea originalului ca
-/// discriminant ieftin.
+/// si cratima, pentru lizibilitate, plus 48 de biti din SHA-256 pe numele
+/// **exact**, ca doua nume diferite sa nu ajunga niciodata in acelasi fisier.
+/// Pana la audit discriminantul era lungimea numelui, deci `Prod.2024` si
+/// `Prod_2024` (doua baze distincte) aveau acelasi fisier, iar o sesiune o
+/// suprascria tacut pe cealalta.
 pub fn slug(nume: &str) -> String {
     let mut s: String = nume
         .chars()
@@ -90,7 +92,8 @@ pub fn slug(nume: &str) -> String {
     let s = s.trim_matches('-').to_string();
     let baza = if s.is_empty() { "baza".to_string() } else { s };
     let baza: String = baza.chars().take(48).collect();
-    format!("{baza}-{}", nume.chars().count())
+    let h = gmotion_core::calc_hash(nume);
+    format!("{baza}-{}", &h[..12])
 }
 
 /// Sesiunile unui modul. Un `Sesiuni` e legat de **un** modul: platforma da
@@ -136,7 +139,7 @@ impl Sesiuni {
             cale: cale.display().to_string(),
             detaliu: "sistemul a refuzat protejarea datelor".into(),
         })?;
-        std::fs::write(&cale, protejat).map_err(|e| Eroare::ScriereSesiune {
+        crate::cai::scrie_atomic(&cale, &protejat).map_err(|e| Eroare::ScriereSesiune {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
         })?;
@@ -173,6 +176,17 @@ impl Sesiuni {
                 cale: cale.display().to_string(),
                 gasita: s.versiune,
                 asteptata: VERSIUNE_SESIUNE,
+            });
+        }
+        // Un fisier mutat sau redenumit de mana nu are voie sa devina sesiunea
+        // altei baze.
+        if s.referinta != referinta {
+            return Err(Eroare::CitireSesiune {
+                cale: cale.display().to_string(),
+                detaliu: format!(
+                    "fisierul e sesiunea bazei {:?}, nu a lui {:?}",
+                    s.referinta, referinta
+                ),
             });
         }
         Ok(Some(s))
@@ -236,19 +250,26 @@ mod teste {
 
     #[test]
     fn slug_curata_si_e_stabil() {
-        assert_eq!(slug("Baza Mea"), "baza-mea-8");
-        assert_eq!(slug("a/b\\c"), "a-b-c-5");
-        assert_eq!(slug("---"), "baza-3");
-        // 8 caractere, nu 10 octeti: discriminantul numara caractere.
-        assert_eq!(slug("ÎmiPlace"), "miplace-8");
+        assert!(slug("Baza Mea").starts_with("baza-mea-"));
+        assert!(slug("a/b\\c").starts_with("a-b-c-"));
+        assert!(slug("---").starts_with("baza-"));
+        assert!(slug("ÎmiPlace").starts_with("miplace-"));
         // acelasi nume da mereu acelasi slug
         assert_eq!(slug("Baza1"), slug("Baza1"));
     }
 
+    /// Regresie din audit: discriminantul era lungimea, deci perechile astea
+    /// (nume distincte, aceeasi lungime) dadeau acelasi fisier.
     #[test]
-    fn nume_diferite_care_ar_colida_se_separa_prin_lungime() {
-        // Fara discriminant, ambele ar da "a-b".
-        assert_ne!(slug("a/b"), slug("a//b"));
+    fn nume_diferite_nu_ajung_in_acelasi_fisier() {
+        for (a, b) in [
+            ("a/b", "a//b"),
+            ("Prod.2024", "Prod_2024"),
+            ("Baza_A", "baza-a"),
+            ("Ăla", "Îla"),
+        ] {
+            assert_ne!(slug(a), slug(b), "{a:?} / {b:?}");
+        }
     }
 
     #[test]
