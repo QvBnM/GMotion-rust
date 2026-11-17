@@ -25,16 +25,17 @@ Partea care se poate face fara Windows:
 
 Partea care are nevoie de rulari pe Windows:
 
-- [ ] `cargo test --all` trece pe Windows (singura proba reala pentru DPAPI:
+- [x] `cargo test --all` trece pe Windows (singura proba reala pentru DPAPI:
       testele din `platforma/src/protejare.rs` fac ciclul cu implementarea
       tintei; `diagnostic` doar raporteaza daca e activ)
-- [ ] `gmotion diagnostic`, `baze` si `instantaneu` merg pe masina lui Mihai
+- [x] `gmotion diagnostic`, `baze` si `instantaneu` merg pe masina lui Mihai
       (TLS SChannel, autentificare SQL si integrata)
 - [x] pe instantaneul real: zero diferente clasificate `regresie`
-- [ ] lista exportata de aplicatia Python pe aceleasi baze (CSV) are aceleasi
-      perechi (obiect, baza, categorie) ca Python-ul rulat pe instantaneu —
-      dovada ca `tiberius` aduce aceleasi obiecte ca `pyodbc`
-- [ ] timpul lui `gmotion instantaneu` pe bazele reale e masurat si comparat
+- [x] ~~lista exportata de aplicatia Python (CSV)~~ — inlocuit, cu ceva mai
+      strict: `paritate_pyodbc.py` compara obiect cu obiect (hash normalizat,
+      text de afisare, tip) ce aduce `pyodbc` cu ce aduce `tiberius`. Dovada ca
+      driverele aduc aceleasi obiecte
+- [x] timpul lui `gmotion instantaneu` pe bazele reale e masurat si comparat
       cu incarcarea din aplicatia Python (citirea Rust e secventiala, Python
       foloseste 4 conexiuni — vezi `JURNAL.md`, „Citirea bazelor rămâne
       secventiala"); daca e inacceptabil, paralelismul intra in `db`
@@ -142,6 +143,17 @@ Partea care are nevoie de rulari pe Windows:
   date identice, prinde un obiect lipsa si un text alterat. **Scriptul .ps1
   NU a fost rulat niciodata**: aici nu exista PowerShell (instalarea lui a
   fost refuzata de permisiunile sesiunii). Prima rulare la Mihai e si proba.
+
+- **2026-11-17** `etapa6.ps1` a mers din prima pe Windows. Rezultate: auth SQL
+  si integrata Windows merg (`baze`); descoperirea gaseste 15 instante;
+  **pyodbc si tiberius aduc aceleasi 42.427 obiecte**, identice ca hash, text
+  si tip; paritatea pe instantaneul proaspat si pe fixture-ul
+  `TESTSIMILITUDINE` (18+18 obiecte, 48,5 KB): 0 regresii. Timp: Rust citeste
+  cele doua baze in 19 s secvential; Python 29,6 s cu 4 conexiuni (citire +
+  comparatie, deci nu strict comparabil). Rust nu e mai lent, deci
+  paralelismul amanat nu e necesar. Defect gasit: jurnalul punea coduri ANSI
+  si in ieșire redirectata (fisierul de rezultat era plin de `[2m`); corectat
+  cu `IsTerminal`, test pe binar vazut cazand.
 
 ## Ce a ieșit altfel decat planul
 

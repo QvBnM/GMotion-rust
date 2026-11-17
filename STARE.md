@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (177 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
+**Poarta:** verde (178 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
 
 ---
 
@@ -19,8 +19,8 @@ interfata grafica: binarul `gmotion`.
 | Crate | Stare |
 |---|---|
 | `rust/core` | gata, 37 teste, fuzz pe invariante |
-| `rust/db` | gata functional, prima conectare reala in curs, 35 teste |
-| `rust/platforma` | gata functional, DPAPI dus-intors verificat pe Windows, 35 teste |
+| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), 35 teste |
+| `rust/platforma` | gata, DPAPI verificat pe Windows, 35 teste |
 | `rust/module/diff-obiecte` | gata, 42 teste |
 | `rust/cli` | gata, 27 teste, din care 10 pe binarul adevarat |
 
@@ -41,49 +41,45 @@ incepe — nu se deschide etapa 7 fara discutia asta.
 
 ## Urmatorul pas concret
 
-**Paritatea pe baza reala a trecut: 0 regresii** (detalii in
-`etape/06-paritate.md`). Instantaneul (202 MB, cod CharismaERP) ramane pe
-masina lui Mihai; `paritate.py` ruleaza acolo.
+Etapa 6 e aproape inchisa. Verificat pe masina lui Mihai (`TS2409\MIHAIG`,
+SQL Server 17): auth SQL si integrata, 0 regresii de paritate, **pyodbc si
+tiberius aduc aceleasi 42.427 obiecte**, Rust citeste mai repede (19 s fata de
+29,6 s). Detalii in `etape/06-paritate.md`.
 
-Ce mai inchide etapa, in ordine:
+Ramane un singur criteriu: **fixture-ul `TESTSIMILITUDINE`** (18+18 obiecte,
+48,5 KB, extras deja la Mihai in `referinta\instantanee\testsimilitudine.json`)
+intra in repo **daca Mihai confirma** ca obiectele pot fi publice in repo.
+Atunci: commit-ul il face Mihai (fisierul e doar la el), iar poarta primeste un
+pas care ruleaza `paritate.py` si pe el (asteptat: 18 randuri, 10 corecturi,
+0 regresii). Daca nu poate intra: criteriul se inchide ca „refuzat", cu
+motivul, si ramane doar instantaneul sintetic.
 
-1. Linia finala a aplicatiei Python pe aceleasi baze trebuie sa fie
-   `21193 obiecte: 21042 identice, 149 diferite, 2 lipsa, 43 extra` —
-   dovada ca `tiberius` aduce aceleasi obiecte ca `pyodbc`. Plus timpul de
-   incarcare, contra 26,5 s in Rust (criteriul de viteza).
-2. Fixture: `TESTSIMILITUDINE_*` extrase cu `referinta/extrage.py`, intra in
-   repo (daca Mihai confirma ca pot), iar poarta ruleaza `paritate.py` si pe
-   ele, nu doar pe cazurile sintetice.
-3. Autentificarea integrata Windows: `instantaneu` fara `--utilizator`.
-4. Optional: doua obiecte deschise in editorul v3.4
-   (`TESTSIMILITUDINE_CaseB_Imbricat` -> `1 modificate`,
-   `Payment_BankAccountListAllBanks` -> `1 modificate, 5 adaugate`), ca
-   `motor_js.mjs` sa fie confirmat egal cu ce ruleaza in aplicatie.
-
-Apoi etapa se inchide. **Etapa 7 (interfata) nu se deschide fara discutia
-despre GUI ceruta de Mihai.**
+Apoi: etapa se inchide (`Stare: INCHEIATA`, „Ce a iesit altfel"). **Etapa 7
+(interfata) nu se deschide fara discutia despre GUI ceruta de Mihai.**
 
 ---
 
 ## Ce aștept de la Mihai
 
-Punctele 1-3 de mai sus sunt intr-un singur script. Din radacina repo-ului:
+1. Da sau nu: pot intra `TESTSIMILITUDINE_*` in repo? Daca da:
 
 ```
-git pull
+git add referinta\instantanee\testsimilitudine.json
 ```
 
 ```
-powershell -ExecutionPolicy Bypass -File unelte\etapa6.ps1
+git commit -m "Fixture TESTSIMILITUDINE din CharismaERP_GetsBet"
 ```
 
-Incoace: `etapa6-rezultat.txt` (fara cod SQL in el), si raspunsul daca
-`referinta\instantanee\testsimilitudine.json` poate intra in repo. Punctul 4
-(editorul v3.4) e singurul manual. `etapa6.ps1` n-a fost rulat niciodata —
-daca da eroare de sintaxa, trimite-o exact.
+```
+git push
+```
 
-Comenzile se dau **fara parola in ele**; parola prin `Get-Credential`. Daca o
-comanda cade, mesajul exact (are un cod `GM-...`).
+2. Optional: in editorul aplicatiei v3.4, `TESTSIMILITUDINE_CaseB_Imbricat` ar
+   trebui sa arate `1 modificate`, iar `Payment_BankAccountListAllBanks`
+   `1 modificate, 5 adaugate` — confirma ca `motor_js.mjs` e egal cu ce
+   ruleaza in aplicatie.
+3. Discutia despre GUI.
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
