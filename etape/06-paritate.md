@@ -133,6 +133,16 @@ Partea care are nevoie de rulari pe Windows:
   e acelasi cu ce ruleaza in aplicatie: doua obiecte deschise in editorul v3.4.
   Adaugat `referinta/extrage.py` pentru fixture-ul mic (`TESTSIMILITUDINE_*`).
 
+- **2026-11-17** Mihai a cerut o singura comanda. `unelte/etapa6.ps1` ruleaza
+  tot si scrie `etapa6-rezultat.txt`. Pasul nou: `referinta/paritate_pyodbc.py`
+  ruleaza `Api._comparatie` cu **pyodbc real** — da timpul Python (4
+  conexiuni) si compara obiect cu obiect (hash normalizat, text de afisare,
+  tip) ce aduce pyodbc cu ce a adus tiberius. Mai puternic decat linia de
+  stare din interfata, si fara interfata. Probat local cu pyodbc fals: trece pe
+  date identice, prinde un obiect lipsa si un text alterat. **Scriptul .ps1
+  NU a fost rulat niciodata**: aici nu exista PowerShell (instalarea lui a
+  fost refuzata de permisiunile sesiunii). Prima rulare la Mihai e si proba.
+
 ## Ce a ieșit altfel decat planul
 
 (se completeaza la incheiere)

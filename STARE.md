@@ -67,11 +67,20 @@ despre GUI ceruta de Mihai.**
 
 ## Ce aștept de la Mihai
 
-Punctele 1-4 de mai sus. Pentru fixture, din radacina repo-ului:
+Punctele 1-3 de mai sus sunt intr-un singur script. Din radacina repo-ului:
 
 ```
-py -3 -I referinta\extrage.py rust\target\release\instantaneu.json --filtru TESTSIMILITUDINE -o referinta\instantanee\testsimilitudine.json
+git pull
 ```
+
+```
+powershell -ExecutionPolicy Bypass -File unelte\etapa6.ps1
+```
+
+Incoace: `etapa6-rezultat.txt` (fara cod SQL in el), si raspunsul daca
+`referinta\instantanee\testsimilitudine.json` poate intra in repo. Punctul 4
+(editorul v3.4) e singurul manual. `etapa6.ps1` n-a fost rulat niciodata —
+daca da eroare de sintaxa, trimite-o exact.
 
 Comenzile se dau **fara parola in ele**; parola prin `Get-Credential`. Daca o
 comanda cade, mesajul exact (are un cod `GM-...`).
