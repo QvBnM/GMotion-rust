@@ -93,12 +93,16 @@ fn certificat(mod_: &str) -> Certificat {
 ///
 /// Spatiile se taie si elementele goale se arunca, fiindca `--baze "A, B,"` e
 /// ce scrie un om.
+/// Fara dubluri, in ordinea data: `--baze A,A` compara A de doua ori, dubla
+/// numaratorile si scria fiecare bloc de doua ori in deploy. Gasit la audit.
 pub fn lista(s: &str) -> Vec<String> {
-    s.split(',')
-        .map(str::trim)
-        .filter(|x| !x.is_empty())
-        .map(str::to_string)
-        .collect()
+    let mut out: Vec<String> = Vec::new();
+    for x in s.split(',').map(str::trim).filter(|x| !x.is_empty()) {
+        if !out.iter().any(|y| y == x) {
+            out.push(x.to_string());
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -122,6 +126,7 @@ mod teste {
         assert_eq!(lista("A,,B,"), ["A", "B"]);
         assert_eq!(lista(""), Vec::<String>::new());
         assert_eq!(lista("  "), Vec::<String>::new());
+        assert_eq!(lista("A,B,A, B"), ["A", "B"]);
     }
 
     #[test]

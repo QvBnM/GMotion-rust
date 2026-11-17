@@ -28,7 +28,19 @@ const CAP: [&str; 8] = [
 
 /// Un camp CSV: se pun ghilimele doar daca e nevoie, iar ghilimelele din
 /// conținut se dubleaza.
+///
+/// Un camp care incepe cu `=`, `+`, `-`, `@`, tab sau CR e luat de Excel drept
+/// formula (`=HYPERLINK(...)`, `@SUM(...)`); numele de baze si obiecte vin din
+/// baze sau din instantanee, deci nu sunt de incredere. Primeste un apostrof
+/// in fata, cum recomanda OWASP. Gasit la audit.
 fn camp(v: &str) -> String {
+    let neutralizat;
+    let v = if v.starts_with(['=', '+', '-', '@', '\t', '\r']) {
+        neutralizat = format!("'{v}");
+        neutralizat.as_str()
+    } else {
+        v
+    };
     if v.contains(';') || v.contains('"') || v.contains('\n') || v.contains('\r') {
         format!("\"{}\"", v.replace('"', "\"\""))
     } else {
@@ -166,6 +178,19 @@ mod teste {
         assert!(text.contains("\"rezumat \"\"citat\"\"\""));
         assert!(text.contains("\"linia 1\nlinia 2\""));
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// Regresie din audit: `@SUM(1+1)` ajungea brut intr-o celula.
+    #[test]
+    fn formulele_nu_ajung_in_excel() {
+        for v in ["=HYPERLINK(\"http://x\")", "@SUM(1+1)", "+1", "-2", "\tx"] {
+            assert!(
+                camp(v).trim_start_matches('"').starts_with('\''),
+                "{v:?} -> {:?}",
+                camp(v)
+            );
+        }
+        assert_eq!(camp("dbo.pNormal"), "dbo.pNormal");
     }
 
     #[test]

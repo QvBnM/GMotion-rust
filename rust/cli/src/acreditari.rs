@@ -14,7 +14,6 @@
 //!
 //! Autentificarea integrata Windows nu are nevoie de niciuna.
 
-use std::io::Read;
 use std::path::PathBuf;
 
 use gmotion_db::Autentificare;
@@ -59,9 +58,11 @@ impl ArgumenteAuth {
                 .map_err(|e| format!("nu pot citi parola din {}: {e}", cale.display()))?;
             prima_linie(&text)
         } else if self.parola_stdin {
+            // O singura linie: tastata in terminal, citirea pana la sfarsitul
+            // intrarii astepta Ctrl-D / Ctrl-Z si parea agatata. Gasit la audit.
             let mut text = String::new();
             std::io::stdin()
-                .read_to_string(&mut text)
+                .read_line(&mut text)
                 .map_err(|e| format!("nu pot citi parola de la intrarea standard: {e}"))?;
             prima_linie(&text)
         } else {
@@ -88,8 +89,14 @@ impl ArgumenteAuth {
 
 /// Prima linie, fara terminatorii. O parola nu conține `\n`, iar un fisier
 /// scris de un editor are mai mult ca sigur o linie noua la final.
+/// Prima linie, fara BOM la inceput si fara `\r` la sfarsit. PowerShell 5.1
+/// (`Out-File`, `-Encoding utf8`) scrie BOM; un fisier cu terminatii vechi de
+/// Mac lasa `\r`. Amandoua ajungeau in parola si dadeau un „login refuzat"
+/// fara explicatie. Gasit la audit.
 fn prima_linie(text: &str) -> String {
-    text.lines().next().unwrap_or("").to_string()
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let linie = text.split(['\n', '\r']).next().unwrap_or("");
+    linie.to_string()
 }
 
 #[cfg(test)]
@@ -185,5 +192,7 @@ mod teste {
         assert_eq!(prima_linie("abc\r\ndef"), "abc");
         assert_eq!(prima_linie(""), "");
         assert_eq!(prima_linie("\n"), "");
+        assert_eq!(prima_linie("\u{feff}Secret123\r\n"), "Secret123");
+        assert_eq!(prima_linie("Secret123\r"), "Secret123");
     }
 }

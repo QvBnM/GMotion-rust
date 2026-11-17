@@ -34,8 +34,10 @@ Doua lucruri trebuie sa rămână adevarate:
 | `deploy` | scripturile, cu codul din referinta |
 | `export` | CSV pentru Excel |
 
-Argumente comune: `--server`/`--port` sau `--sursa`, `--utilizator`,
-`--parola-fisier`/`--parola-stdin`, `--json`.
+Argumente comune: `--server`/`--port`/`--certificat` sau `--sursa`,
+`--utilizator`, `--parola-fisier`/`--parola-stdin`, `--json`.
+`--certificat`: `nevalidat` (implicit, ca in v3.4), `sistem`, sau calea unei
+autoritati de certificare.
 
 ## Invariante
 
