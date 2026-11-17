@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (230 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (250 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -23,65 +23,61 @@ interfata grafica: binarul `gmotion`.
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
 | `rust/module/diff-obiecte` | gata, 59 teste |
 | `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
+| `rust/fereastra` | editorul de diferente: gata (etapa 8), 19 teste; restul ecranelor, de scris |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/08-prototip-editor.md` — prototipul nativ (Slint) al
-editorului de diferente. Mihai a decis (2026-11-17): interfata nativa, fara
-WebView2, aspect apropiat de v3.4 dar poate fi mai frumos, si se incepe acum,
-inaintea modulului `upgrade`. Cercetarea de design (tool-uri de referinta,
-vizualizarea diferentelor, review la scara, deploy sigur, design vizual,
-fezabilitate Slint): `cercetare/design-interfata.md`.
+**Etapa activa:** `etape/09-lista-si-previzualizare.md` — ecranul principal
+(lista de diferente + previzualizarea), dupa macheta `Main.dc.html`.
 
-**Designul e aprobat** (Mihai, 2026-11-17): `cercetare/design-aprobat.md` +
-machetele din `cercetare/machete/`. E contractul vizual; nu se deseneaza un
-ecran care nu e acolo fara sa intrebi. Atentie: prototipul existent din
-`rust/fereastra/ui/editor.slint` foloseste inca culorile v3.4 — se aliniaza la
-jetoanele aprobate.
+**Etapa 8 e incheiata.** Editorul nativ e pe designul aprobat
+(`cercetare/design-aprobat.md`): jetoanele si fonturile IBM Plex in locul
+culorilor v3.4, plierea sirurilor identice, modul unificat, navigare de la
+tastatura, harta diferentelor. Capturi, langa machete:
+`cercetare/machete/capturi/`. Cifrele pe obiecte uriase si ce a ieșit altfel:
+`etape/08-prototip-editor.md`.
 
 ---
 
 ## Urmatorul pas concret
 
-A treia rulare pe Windows (`b4b0e30`) a confirmat tot ce era deschis:
-citirea paralela **12,3 s** (fata de 48,6 s secvential si 29,3 s in v3.4, pe
-aceeasi retea); garda de versiune corecta pe ambele ramuri pe serverul real;
-**~4.440 de obiecte (21%) au `QUOTED_IDENTIFIER OFF`** si 401
-`ANSI_NULLS OFF` — un deploy v3.4 rulat din SSMS le schimba comportamentul;
-0 regresii. Obiectul ascuns de v3.4 (`GenerateOrderByRecommendedOrder`):
-diferenta e intr-un mesaj din string (`'... pentru partenerul '`), adica
-exact ce normalizarea v3.4 inghitea. `gmotion diferente` nu arata insa ce s-a
-schimbat; reparat (ambele versiuni, `[-...-]` / `{+...+}`, inclusiv spatiile
-din string-uri).
+**Etapa 9, pasul 1: clasificarea „difera in" in `core`** (cod / sir /
+comentariu / setari SET, prin `core::lexer`), cu teste pe cazurile care au
+pacalit v3.4 — mai ales `GenerateOrderByRecommendedOrder`, unde singura
+diferenta e o majuscula intr-un mesaj din sir. Apoi expusa in `cli` si
+folosita in coloana „Difera in" din lista. Criteriile complete:
+`etape/09-lista-si-previzualizare.md`.
 
-1. ~~`diferente` pe `GenerateOrderByRecommendedOrder`~~ — rulat de Mihai:
-   `'nu s-au gasit ...'` fata de `'Nu s-au gasit ...'`, majuscula intr-un
-   mesaj din string. Confirmat: exact ce v3.4 ascundea. Afisarea noua
-   (`[-nu-]` / `{+Nu+}`) merge pe Windows.
-2. **Decizii de la Mihai:** implicitul pentru `--certificat`; specificatia
-   modulului `upgrade`; repo-ul public.
-3. Ramase deschise (documentate): performanta patratica pe obiecte uriase,
-   nume case-insensitive intre baze, divergentele Unicode fata de JS (in
-   afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca nume de
-   modul, dependentele prin SQL dinamic sau sinonime.
+Rulari pe Windows: nimic de cerut acum. Ultima (`b4b0e30`) a confirmat
+citirea paralela (12,3 s fata de 29,3 s in v3.4), garda de versiune, cele
+~4.440 de obiecte (21%) cu `QUOTED_IDENTIFIER OFF` si 401 cu `ANSI_NULLS OFF`,
+si 0 regresii.
 
-**Urmatorul pas:** etapa 8 se termina pe designul aprobat (jetoanele si
-fonturile in `editor.slint`, navigare, virtualizare pe 20.000 de linii, captura
-noua), apoi se deschide etapa 9 — lista si previzualizarea (`Main.dc.html`).
-
----
+Ramase deschise, documentate: performanta patratica pe obiecte uriase (se
+vede acum si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura
+data, la deschidere), nume case-insensitive intre baze, divergentele Unicode
+fata de JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate
+Windows ca nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
 
-Deciziile de la punctul 2: implicitul pentru `--certificat`, specificatia
-modulului `upgrade`, repo-ul public. Nimic de rulat.
+**Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
+specificatia modulului `upgrade`; repo-ul public.
+
+**Doua intrebari de design, din etapa 8** (nu blocheaza etapa 9):
+
+1. In modul **unificat** al editorului, cum se marcheaza care linie e din
+   sursa si care din baza? Macheta are tabul „Unificat", dar nu si randarea.
+   Acum liniile apar una dupa alta, cu numarul lor de linie si culoarea
+   blocului, fara alt semn. Un semn in plus (de pildă o litera `S` / `B` in
+   jgheab) ar fi un element care nu e in machete, deci nu l-am facut.
+2. „47 linii" din macheta sau „47 de linii"? In cod e a doua (forma corecta
+   gramatical, ca „22 de linii identice" din aceeasi macheta).
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
-
----
 
 ## Capcane active
 
@@ -144,6 +140,19 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 - **O conectare care merge pe Linux nu dovedeste nimic despre Windows.**
   Furnizorul de TLS difera intre tinte (`rustls` vs SChannel), si auth integrata
   nu exista pe Linux deloc.
+- **O masuratoare de virtualizare cu plierea pornita nu masoara nimic.**
+  `pliaza-identicul` lasa in lista ~160 de randuri dintr-un obiect de 30.000:
+  timpul pe cadru iese plat si cu `ListView`, si fara el. `--example masura`
+  ruleaza de-aia si nepliat; acolo se vede diferenta (12 ms fata de 711 ms).
+- **In `.slint` nu se scrie nicio culoare.** Jetoanele stau in
+  `rust/fereastra/src/jetoane.rs`, unde testul de contrast le vede; `Tema` din
+  Slint n-are valori implicite, tocmai ca o culoare uitata sa iasa
+  transparenta si sa cada testul, nu sa semene cu ceva.
+- **Editorul arata culorile in sensul deploy-ului, motorul in sensul
+  referintei.** Verde = doar in sursa (se va adauga in baza) = `Stare::Sters`
+  in model. Incrucisarea e doar in `cod_stare` din `fereastra/src/lib.rs`.
+  Daca o muti sau o dublezi, culorile se inverseaza fara ca vreun test de
+  motor sa cada.
 - **Un fuzz care trece nu e un fuzz care functioneaza.** Cand adaugi un test de
   invariante, strica deliberat codul si uita-te daca il prinde. Prima versiune a
   fuzz-ului de segmentare trecea si cu urmarirea literalelor scoasa complet.

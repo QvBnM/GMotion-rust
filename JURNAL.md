@@ -505,6 +505,47 @@ schimbat si scriptul de revenire la deploy.
 
 ---
 
+## 2026-11-17 — Contrastul: doua jetoane intunecate fata de macheta
+
+**Context.** Jetoanele aprobate au intrat in cod (`rust/fereastra/src/jetoane.rs`),
+iar criteriul de contrast din `design-aprobat.md` (≥ 4,5:1 pentru text normal)
+a fost scris ca test peste fiecare pereche text / fundal pe care o deseneaza
+editorul. Testul a cazut pe doua culori: `text-tert` `#9c978b` (numere de
+linie, schema) avea 2,9:1 pe fundalul de cod, iar comentariile `#8a857a`
+aveau 3,7:1.
+
+**Decizie (Mihai).** Se intuneca minim, restul designului nu se atinge:
+`text-tert` → `#716c61`, comentarii → `#6a665b` (al doilea pas a fost nevoie
+ca sa treaca si pe fundalul blocurilor sterse, `#f8e6e1`).
+
+**Consecinta.** Numarul de linie **din interiorul unui bloc diferit** ia
+culoarea blocului (`mod-text` / `add-text` / `del-text`), nu gri-ul tert: pe
+fundalurile tinte, un gri destul de inchis cat sa treaca AA nu se mai
+deosebea de `text-secundar`, adica se pierdea ierarhia.
+
+**Abatere acceptata, notata in cod:** caracterele schimbate **dintr-un
+comentariu** stau pe fundalul de in-linie (galben / verde / roz tare) si
+raman la ~3,7:1. Acolo fundalul mai tare e semnal peste cel al blocului, nu
+fundalul de referinta al textului; nu se poate ridica fara sa dispara chiar
+evidentierea (la 4,5:1 fundalul de in-linie nu se mai distinge de cel al
+blocului). Lista abaterilor e in `jetoane.rs` si are test propriu.
+
+---
+
+## 2026-11-17 — Sensul culorilor in editor: deploy, nu referinta
+
+**Context.** Motorul numeste blocurile fata de referinta: `Sters` = e in
+sursa si lipseste din baza. Machetele coloreaza invers: in `Editor.dc.html` o
+linie care e doar in sursa (stanga) e **verde**, una care e doar in baza
+(dreapta) e **rosie**.
+
+**Decizie.** Macheta are dreptate pentru utilizator: el se uita la ce o sa
+faca deploy-ul — ce e doar in sursa se **adauga** in baza, ce e doar in baza
+se **scoate**. Incrucisarea se face intr-un singur loc, `cod_stare` din
+`rust/fereastra/src/lib.rs`, cu test. Numele din motor nu se schimba.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

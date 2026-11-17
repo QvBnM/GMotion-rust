@@ -675,8 +675,13 @@ export component EditorDiferente inherits Window {
                             x: 0px;
                             width: root.alaturat ? parent.width / 2 : parent.width;
                             height: parent.height;
-                            baza: root.sursa-baza;
-                            detaliu: root.sursa-detaliu;
+                            // unificat: un singur antet, deci spune ambele baze
+                            baza: root.alaturat
+                                ? root.sursa-baza
+                                : root.sursa-baza + " → " + root.tinta-baza;
+                            detaliu: root.alaturat ? root.sursa-detaliu : root.tinta-detaliu;
+                            mediu: root.alaturat ? "" : root.eticheta-mediu;
+                            cod-mediu: root.mediu;
                             margine: root.alaturat;
                         }
                         if root.alaturat: AntetPanou {
