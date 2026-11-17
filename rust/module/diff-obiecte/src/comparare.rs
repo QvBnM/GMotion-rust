@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use gmotion_core::{calc_hash, normalizeaza, pregateste_afisare, rezumat_rapid, scor_similaritate};
-use gmotion_db::Obiect;
+use gmotion_db::{Obiect, Setari};
 use serde::{Deserialize, Serialize};
 
 /// In ce categorie cade un obiect comparat.
@@ -94,6 +94,9 @@ pub struct ObiectPregatit {
     /// de la capat de linie si `\r\n` schimbate, inclusiv in string-uri (gasit
     /// la audit; v3.4 deploya tot `afisare`).
     pub definitie: String,
+    /// `ANSI_NULLS` / `QUOTED_IDENTIFIER` cu care a fost creat; se refac la
+    /// deploy.
+    pub setari: Option<Setari>,
     pub afisare: String,
     pub hash: String,
 }
@@ -104,6 +107,7 @@ impl ObiectPregatit {
         ObiectPregatit {
             tip: o.tip.clone(),
             definitie: o.definitie.clone(),
+            setari: o.setari,
             afisare: pregateste_afisare(&o.definitie),
             hash: calc_hash(&normalizat),
         }
@@ -296,6 +300,7 @@ mod teste {
             nume: nume.into(),
             tip: "P".into(),
             definitie: def.into(),
+            setari: None,
         }
     }
 

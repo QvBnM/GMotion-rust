@@ -21,6 +21,21 @@ pub struct Obiect {
     pub tip: String,
     /// Textul `CREATE`, neatins.
     pub definitie: String,
+    /// `SET ANSI_NULLS` / `SET QUOTED_IDENTIFIER` cu care a fost creat
+    /// obiectul. SQL Server le retine per obiect si le aplica la fiecare
+    /// rulare; un deploy care nu le reface schimba comportamentul (`= NULL`,
+    /// `"text"`) sau cade (indecsi filtrati, XML). `None` in instantaneele
+    /// scrise inainte de 2026-11-17, care nu le aveau.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub setari: Option<Setari>,
+}
+
+/// Setarile de sesiune pe care SQL Server le retine la crearea unui modul
+/// (`sys.sql_modules.uses_ansi_nulls` / `uses_quoted_identifier`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Setari {
+    pub ansi_nulls: bool,
+    pub quoted_identifier: bool,
 }
 
 impl Obiect {
@@ -139,6 +154,26 @@ pub struct InfoServer {
 mod teste {
     use super::*;
 
+    /// Setarile sunt optionale in JSON: un instantaneu de dinainte de ele se
+    /// citeste in continuare (`None`), iar unul nou le pastreaza.
+    #[test]
+    fn setarile_sunt_compatibile_inapoi_si_dus_intors() {
+        let vechi = r#"{"schema":"dbo","nume":"p","tip":"P","definitie":"SELECT 1"}"#;
+        let o: Obiect = serde_json::from_str(vechi).unwrap();
+        assert_eq!(o.setari, None);
+        assert!(!serde_json::to_string(&o).unwrap().contains("setari"));
+        let cu = Obiect {
+            setari: Some(Setari {
+                ansi_nulls: false,
+                quoted_identifier: true,
+            }),
+            ..o
+        };
+        let dus_intors: Obiect =
+            serde_json::from_str(&serde_json::to_string(&cu).unwrap()).unwrap();
+        assert_eq!(dus_intors, cu);
+    }
+
     /// Regresie din audit: `Autentificare` derivata `Debug` tiparea parola.
     #[test]
     fn debug_pe_autentificare_nu_scurge_parola() {
@@ -158,6 +193,7 @@ mod teste {
             nume: "pClienti".into(),
             tip: "P".into(),
             definitie: "CREATE PROCEDURE dbo.pClienti AS SELECT 1".into(),
+            setari: None,
         };
         assert_eq!(o.id(), "dbo.pClienti");
     }
@@ -173,6 +209,7 @@ mod teste {
             nume: "n".into(),
             tip: "P".into(),
             definitie: "d".into(),
+            setari: None,
         };
         accepta_serializabil(&o);
     }

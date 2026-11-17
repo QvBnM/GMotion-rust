@@ -37,6 +37,9 @@ pub struct DeDeployat {
     pub obiect: String,
     pub tip: String,
     pub cod: String,
+    /// Setarile cu care a fost creat obiectul in referinta. `None`: necunoscute
+    /// (instantaneu vechi) — se scrie `ON`/`ON`, ca SSMS.
+    pub setari: Option<gmotion_db::Setari>,
 }
 
 /// Ce s-a scris.
@@ -256,15 +259,212 @@ fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>
     Ok(())
 }
 
+/// Garda de versiune, primul lucru din fiecare script.
+///
+/// `CREATE OR ALTER` exista de la SQL Server 2016 SP1 (13.0.4001). Pe un
+/// server mai vechi fiecare batch cadea cu o eroare de sintaxa greu de inteles;
+/// garda opreste executia inainte de orice `USE` si spune de ce. `SET NOEXEC
+/// ON` face ca restul batch-urilor sa fie doar compilate, si in `sqlcmd` si in
+/// SSMS (care altfel continua dupa o eroare). Azure SQL Database si Managed
+/// Instance (`EngineEdition` 5 si 8) raporteaza versiunea 12.x, dar au
+/// `CREATE OR ALTER`, deci sunt exceptate. Gasit la audit.
+const GARDA_VERSIUNE: &str = "\
+DECLARE @gmotion_versiune NVARCHAR(128) = CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128));
+IF CAST(SERVERPROPERTY('EngineEdition') AS INT) NOT IN (5, 8)
+   AND (CAST(PARSENAME(@gmotion_versiune, 4) AS INT) < 13
+        OR (CAST(PARSENAME(@gmotion_versiune, 4) AS INT) = 13
+            AND CAST(PARSENAME(@gmotion_versiune, 2) AS INT) < 4001))
+BEGIN
+    RAISERROR(N'GMotion: scriptul foloseste CREATE OR ALTER, care cere SQL Server 2016 SP1 (13.0.4001) sau mai nou; serverul are %s. Nu se executa nimic.', 16, 1, @gmotion_versiune);
+    SET NOEXEC ON;
+END
+GO
+";
+
+/// La sfarsitul fiecarui fisier: sesiunea se intoarce la normal, ca o garda
+/// declansata sa nu lase `NOEXEC` pornit in fereastra SSMS.
+const SFARSIT_SCRIPT: &str = "SET NOEXEC OFF;\nGO\n";
+
 fn antet(baza: &str, referinta: &str, acum: &str) -> String {
     format!(
-        "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\nUSE {};\nGO\n\n",
+        "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\n{GARDA_VERSIUNE}USE {};\nGO\n\n",
         paranteze(baza)
     )
 }
 
-fn bloc(obiect: &str, cod: &str) -> String {
-    format!("-- ═══ {obiect} ═══\n{cod}\nGO\n\n")
+/// Un obiect in script: setarile de sesiune intr-un batch propriu, apoi codul.
+///
+/// `SET ANSI_NULLS` si `SET QUOTED_IDENTIFIER` se aplica la **compilarea**
+/// obiectului si raman legate de el: `sqlcmd` porneste cu `QUOTED_IDENTIFIER
+/// OFF`, deci un deploy fara ele facea din `"coloana"` un string si strica
+/// procedurile folosite cu indecsi filtrati, view-uri indexate sau XML. Se
+/// refac exact cum erau in referinta. Gasit la audit; v3.4 nu le scria.
+fn bloc(o: &DeDeployat) -> String {
+    let on = |b: bool| if b { "ON" } else { "OFF" };
+    let (ansi, qi, nota) = match o.setari {
+        Some(s) => (s.ansi_nulls, s.quoted_identifier, ""),
+        None => (
+            true,
+            true,
+            " -- setari necunoscute (instantaneu vechi): ON, ca SSMS",
+        ),
+    };
+    format!(
+        "-- ═══ {} ═══\nSET ANSI_NULLS {};\nSET QUOTED_IDENTIFIER {};{}\nGO\n{}\nGO\n\n",
+        o.obiect,
+        on(ansi),
+        on(qi),
+        nota,
+        o.cod
+    )
+}
+
+/// Numele (cu puncte) la care face referire codul: `dbo.f`, `[dbo].[v]`, `p`.
+/// Doar din cod — un nume dintr-un comentariu sau string nu e o dependenta.
+/// Fiecare nume e lista partilor, cu litere mici si fara paranteze.
+fn nume_referite(cod: &str) -> Vec<Vec<String>> {
+    use gmotion_core::lexer::{segmente, Fel};
+    let e_cuvant = |c: char| c.is_alphanumeric() || matches!(c, '_' | '@' | '#' | '$');
+    let mut nume: Vec<Vec<String>> = Vec::new();
+    let mut parti: Vec<String> = Vec::new();
+    let mut cuvant = String::new();
+    let inchide_cuvant = |cuvant: &mut String, parti: &mut Vec<String>| {
+        if !cuvant.is_empty() {
+            parti.push(std::mem::take(cuvant));
+        }
+    };
+    let inchide_nume = |parti: &mut Vec<String>, nume: &mut Vec<Vec<String>>| {
+        if !parti.is_empty() {
+            nume.push(std::mem::take(parti));
+        }
+    };
+    for seg in segmente(cod) {
+        let text = &cod[seg.start..seg.sfarsit];
+        match seg.fel {
+            Fel::Cod => {
+                for c in text.chars() {
+                    if e_cuvant(c) {
+                        cuvant.extend(c.to_lowercase());
+                    } else if c == '.' {
+                        inchide_cuvant(&mut cuvant, &mut parti);
+                    } else {
+                        inchide_cuvant(&mut cuvant, &mut parti);
+                        inchide_nume(&mut parti, &mut nume);
+                    }
+                }
+            }
+            Fel::IdentificatorParanteze => {
+                inchide_cuvant(&mut cuvant, &mut parti);
+                let interior = text
+                    .strip_prefix('[')
+                    .and_then(|s| s.strip_suffix(']'))
+                    .unwrap_or(text)
+                    .replace("]]", "]");
+                parti.push(interior.to_lowercase());
+            }
+            _ => {
+                inchide_cuvant(&mut cuvant, &mut parti);
+                inchide_nume(&mut parti, &mut nume);
+            }
+        }
+    }
+    inchide_cuvant(&mut cuvant, &mut parti);
+    inchide_nume(&mut parti, &mut nume);
+    nume
+}
+
+/// Ordinea in care se scriu obiectele unei baze: fiecare dupa obiectele din
+/// acelasi deploy pe care le foloseste.
+///
+/// Un view sau o functie care foloseste un obiect inca inexistent nu se
+/// compileaza; v3.4 scria obiectele alfabetic, deci un view `aView` peste o
+/// functie `zFunc` cadea la primul deploy pe o baza unde lipseau amandoua.
+/// Dependentele se iau din cod (prin lexer), comparate cu numele obiectelor
+/// din deploy — nu din `sys.sql_expression_dependencies`, ca sa mearga si din
+/// instantanee. La egalitate: functii, view-uri, proceduri, triggere, apoi
+/// ordinea primita. Un ciclu nu pierde obiecte: cele ramase se adauga la
+/// final, in aceeasi ordine, cu avertisment.
+pub fn ordine_dupa_dependente(obiecte: &[DeDeployat]) -> Vec<usize> {
+    use std::cmp::Reverse;
+    use std::collections::{BinaryHeap, HashMap};
+
+    let rang = |tip: &str| match tip.trim() {
+        "FN" | "IF" | "TF" => 0u8,
+        "V" => 1,
+        "P" => 2,
+        "TR" => 3,
+        _ => 2,
+    };
+    let mut dupa_nume_complet: HashMap<String, usize> = HashMap::new();
+    let mut dupa_nume_scurt: HashMap<String, Option<usize>> = HashMap::new();
+    for (i, o) in obiecte.iter().enumerate() {
+        let complet = o.obiect.to_lowercase();
+        let scurt = complet.rsplit('.').next().unwrap_or(&complet).to_string();
+        dupa_nume_complet.insert(complet, i);
+        dupa_nume_scurt
+            .entry(scurt)
+            .and_modify(|v| *v = None) // nume scurt ambiguu: nu se foloseste
+            .or_insert(Some(i));
+    }
+
+    let n = obiecte.len();
+    let mut urmasi: Vec<Vec<usize>> = vec![Vec::new(); n];
+    let mut intrari = vec![0usize; n];
+    for (i, o) in obiecte.iter().enumerate() {
+        let mut deps: Vec<usize> = Vec::new();
+        for parti in nume_referite(&o.cod) {
+            let gasit = if parti.len() >= 2 {
+                dupa_nume_complet
+                    .get(&format!(
+                        "{}.{}",
+                        parti[parti.len() - 2],
+                        parti[parti.len() - 1]
+                    ))
+                    .copied()
+            } else {
+                dupa_nume_scurt.get(&parti[0]).copied().flatten()
+            };
+            if let Some(j) = gasit.filter(|&j| j != i) {
+                if !deps.contains(&j) {
+                    deps.push(j);
+                }
+            }
+        }
+        for j in deps {
+            urmasi[j].push(i);
+            intrari[i] += 1;
+        }
+    }
+
+    let mut gata: BinaryHeap<Reverse<(u8, usize)>> = (0..n)
+        .filter(|&i| intrari[i] == 0)
+        .map(|i| Reverse((rang(&obiecte[i].tip), i)))
+        .collect();
+    let mut ordine = Vec::with_capacity(n);
+    while let Some(Reverse((_, i))) = gata.pop() {
+        ordine.push(i);
+        for &k in &urmasi[i] {
+            intrari[k] -= 1;
+            if intrari[k] == 0 {
+                gata.push(Reverse((rang(&obiecte[k].tip), k)));
+            }
+        }
+    }
+    if ordine.len() < n {
+        let mut pus = vec![false; n];
+        for &i in &ordine {
+            pus[i] = true;
+        }
+        let mut ramase: Vec<usize> = (0..n).filter(|&i| !pus[i]).collect();
+        ramase.sort_by_key(|&i| (rang(&obiecte[i].tip), i));
+        tracing::warn!(
+            target: "gmotion::modul",
+            obiecte = ?ramase.iter().map(|&i| obiecte[i].obiect.as_str()).collect::<Vec<_>>(),
+            "dependente circulare: obiectele raman in ordinea primita"
+        );
+        ordine.extend(ramase);
+    }
+    ordine
 }
 
 /// Directorul de iesire trebuie sa nu existe sau sa fie gol. Pana la audit,
@@ -306,12 +506,24 @@ pub fn scrie(
     }
     verifica_inainte(referinta, pe_baza)?;
     pregateste_director(director)?;
+    let ordonat: BTreeMap<String, Vec<DeDeployat>> = pe_baza
+        .iter()
+        .map(|(baza, obiecte)| {
+            let ordine = ordine_dupa_dependente(obiecte);
+            (
+                baza.clone(),
+                ordine.into_iter().map(|i| obiecte[i].clone()).collect(),
+            )
+        })
+        .collect();
+    let pe_baza = &ordonat;
 
     let mut fisiere = Vec::new();
     let mut nume_fisiere = NumeFisiere::default();
     let mut scrie_fisier = |baza_nume: String, conținut: String| -> Rezultat<()> {
         let nume = nume_fisiere.unic(&baza_nume, "sql");
         let cale = director.join(&nume);
+        let conținut = format!("{conținut}{SFARSIT_SCRIPT}");
         std::fs::write(&cale, conținut).map_err(|e| Eroare::ScriereDeploy {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
@@ -331,14 +543,7 @@ pub fn scrie(
                         tip_nume(&o.tip),
                         slug(&o.obiect)
                     );
-                    scrie_fisier(
-                        nume,
-                        format!(
-                            "{}{}",
-                            antet(baza, referinta, acum),
-                            bloc(&o.obiect, &o.cod)
-                        ),
-                    )?;
+                    scrie_fisier(nume, format!("{}{}", antet(baza, referinta, acum), bloc(o)))?;
                 }
             }
         }
@@ -356,7 +561,7 @@ pub fn scrie(
                     );
                     let mut text = antet(baza, referinta, acum);
                     for o in grup {
-                        text.push_str(&bloc(&o.obiect, &o.cod));
+                        text.push_str(&bloc(o));
                     }
                     scrie_fisier(nume, text)?;
                 }
@@ -367,7 +572,7 @@ pub fn scrie(
             for (baza, obiecte) in pe_baza {
                 text.push_str(&antet(baza, referinta, acum));
                 for o in obiecte {
-                    text.push_str(&bloc(&o.obiect, &o.cod));
+                    text.push_str(&bloc(o));
                 }
                 text.push('\n');
             }
@@ -377,7 +582,7 @@ pub fn scrie(
             for (baza, obiecte) in pe_baza {
                 let mut text = antet(baza, referinta, acum);
                 for o in obiecte {
-                    text.push_str(&bloc(&o.obiect, &o.cod));
+                    text.push_str(&bloc(o));
                 }
                 scrie_fisier(slug(baza), text)?;
             }
@@ -527,16 +732,19 @@ mod teste {
                     obiect: "dbo.pA".into(),
                     tip: "P".into(),
                     cod: "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1".into(),
+                    setari: None,
                 },
                 DeDeployat {
                     obiect: "dbo.vB".into(),
                     tip: "V".into(),
                     cod: "CREATE OR ALTER VIEW dbo.vB AS SELECT 2".into(),
+                    setari: None,
                 },
                 DeDeployat {
                     obiect: "dbo.pC".into(),
                     tip: "P".into(),
                     cod: "CREATE OR ALTER PROCEDURE dbo.pC AS SELECT 3".into(),
+                    setari: None,
                 },
             ],
         );
@@ -546,6 +754,7 @@ mod teste {
                 obiect: "dbo.pA".into(),
                 tip: "P".into(),
                 cod: "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1".into(),
+                setari: None,
             }],
         );
         m
@@ -556,6 +765,7 @@ mod teste {
             obiect: obiect.into(),
             tip: "P".into(),
             cod: cod.into(),
+            setari: None,
         }
     }
 
@@ -723,6 +933,150 @@ mod teste {
     }
 
     #[test]
+    fn setarile_obiectului_preced_codul_intr_un_batch_propriu() {
+        let d = dir("setari");
+        let mut ob = o("dbo.pVechi", "CREATE OR ALTER PROC dbo.pVechi AS SELECT 1");
+        ob.setari = Some(gmotion_db::Setari {
+            ansi_nulls: false,
+            quoted_identifier: true,
+        });
+        let r = scrie(&d, "Ref", &o_baza("B", ob), ModImpartire::Unul, 0, "t").unwrap();
+        let t = std::fs::read_to_string(&r.fisiere[0]).unwrap();
+        assert!(
+            t.contains("SET ANSI_NULLS OFF;\nSET QUOTED_IDENTIFIER ON;\nGO\nCREATE OR ALTER PROC dbo.pVechi"),
+            "{t}"
+        );
+        // necunoscute: ON / ON, cu explicatie
+        let d2 = dir("setari-necunoscute");
+        let r = scrie(
+            &d2,
+            "Ref",
+            &o_baza("B", o("dbo.p", "CREATE OR ALTER PROC dbo.p AS SELECT 1")),
+            ModImpartire::Unul,
+            0,
+            "t",
+        )
+        .unwrap();
+        let t = std::fs::read_to_string(&r.fisiere[0]).unwrap();
+        assert!(
+            t.contains("SET ANSI_NULLS ON;\nSET QUOTED_IDENTIFIER ON; -- setari necunoscute"),
+            "{t}"
+        );
+    }
+
+    fn o_tip(obiect: &str, tip: &str, cod: &str) -> DeDeployat {
+        DeDeployat {
+            tip: tip.into(),
+            ..o(obiect, cod)
+        }
+    }
+
+    fn ordonat(obiecte: &[DeDeployat]) -> Vec<String> {
+        ordine_dupa_dependente(obiecte)
+            .into_iter()
+            .map(|i| obiecte[i].obiect.clone())
+            .collect()
+    }
+
+    #[test]
+    fn obiectele_folosite_se_scriu_inainte() {
+        let obiecte = [
+            o_tip(
+                "dbo.aProc",
+                "P",
+                "CREATE PROC dbo.aProc AS SELECT * FROM dbo.mView",
+            ),
+            o_tip(
+                "dbo.mView",
+                "V",
+                "CREATE VIEW dbo.mView AS SELECT dbo.zFunc(1) AS x",
+            ),
+            o_tip(
+                "dbo.zFunc",
+                "FN",
+                "CREATE FUNCTION dbo.zFunc(@a INT) RETURNS INT AS BEGIN RETURN @a END",
+            ),
+        ];
+        assert_eq!(ordonat(&obiecte), ["dbo.zFunc", "dbo.mView", "dbo.aProc"]);
+    }
+
+    #[test]
+    fn referintele_cu_paranteze_sau_fara_schema_conteaza_cele_din_comentarii_nu() {
+        let obiecte = [
+            o_tip("dbo.p1", "P", "CREATE PROC dbo.p1 AS EXEC [dbo].[p2]"),
+            o_tip("dbo.p2", "P", "CREATE PROC dbo.p2 AS EXEC p3"),
+            o_tip(
+                "dbo.p3",
+                "P",
+                "CREATE PROC dbo.p3 AS SELECT 1 -- apoi EXEC dbo.p1\nPRINT 'dbo.p2'",
+            ),
+        ];
+        assert_eq!(ordonat(&obiecte), ["dbo.p3", "dbo.p2", "dbo.p1"]);
+    }
+
+    #[test]
+    fn ciclurile_nu_pierd_obiecte_si_independentele_isi_pastreaza_ordinea() {
+        let obiecte = [
+            o_tip("dbo.a", "P", "CREATE PROC dbo.a AS EXEC dbo.b"),
+            o_tip("dbo.b", "P", "CREATE PROC dbo.b AS EXEC dbo.a"),
+            o_tip("dbo.c", "P", "CREATE PROC dbo.c AS SELECT 1"),
+            o_tip("dbo.d", "P", "CREATE PROC dbo.d AS SELECT 2"),
+        ];
+        let r = ordonat(&obiecte);
+        assert_eq!(r, ["dbo.c", "dbo.d", "dbo.a", "dbo.b"]);
+    }
+
+    #[test]
+    fn deploy_ul_scrie_in_ordinea_dependentelor() {
+        let d = dir("ordine");
+        let mut m = BTreeMap::new();
+        m.insert(
+            "B".to_string(),
+            vec![
+                o_tip(
+                    "dbo.aView",
+                    "V",
+                    "CREATE OR ALTER VIEW dbo.aView AS SELECT dbo.zFunc() AS x",
+                ),
+                o_tip(
+                    "dbo.zFunc",
+                    "FN",
+                    "CREATE OR ALTER FUNCTION dbo.zFunc() RETURNS INT AS BEGIN RETURN 1 END",
+                ),
+            ],
+        );
+        let r = scrie(&d, "Ref", &m, ModImpartire::PerObiect, 0, "t").unwrap();
+        let nume: Vec<String> = r
+            .fisiere
+            .iter()
+            .map(|f| f.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(
+            nume,
+            ["001_B_FUNC_dbo.zFunc.sql", "002_B_VIEW_dbo.aView.sql"]
+        );
+    }
+
+    #[test]
+    fn fiecare_fisier_incepe_cu_garda_de_versiune_si_o_inchide() {
+        let d = dir("garda");
+        let r = scrie(&d, "Ref", &exemplu(), ModImpartire::PerObiect, 0, "t").unwrap();
+        for f in &r.fisiere {
+            let t = std::fs::read_to_string(f).unwrap();
+            let garda = t.find("SET NOEXEC ON").expect("garda lipseste");
+            let poz_use = t.find("USE [").unwrap();
+            // mesajul gărzii contine si el „CREATE OR ALTER"; codul incepe cu tipul
+            let primul_create = t
+                .find("CREATE OR ALTER PROC")
+                .or_else(|| t.find("CREATE OR ALTER VIEW"))
+                .unwrap();
+            assert!(garda < poz_use && poz_use < primul_create, "{t}");
+            assert!(t.contains("< 4001"), "{t}");
+            assert!(t.ends_with("SET NOEXEC OFF;\nGO\n"), "{t}");
+        }
+    }
+
+    #[test]
     fn mod_per_baza() {
         let d = dir("per-baza");
         let r = scrie(
@@ -742,8 +1096,8 @@ mod teste {
         assert_eq!(t.matches("-- ═══").count(), 3);
         assert_eq!(
             t.matches("\nGO\n").count(),
-            4,
-            "unul de USE plus unul per obiect"
+            9,
+            "garda, USE, doua per obiect (setarile, apoi codul), sfarsitul"
         );
         std::fs::remove_dir_all(&d).ok();
     }
@@ -766,8 +1120,9 @@ mod teste {
         let d = dir("per-obiect");
         let r = scrie(&d, "Ref", &exemplu(), ModImpartire::PerObiect, 0, "a").unwrap();
         assert_eq!(r.fisiere.len(), 4);
-        assert!(d.join("001_Client1_PROC_dbo.pA.sql").exists());
-        assert!(d.join("002_Client1_VIEW_dbo.vB.sql").exists());
+        // fara dependente intre ele: view-urile inaintea procedurilor
+        assert!(d.join("001_Client1_VIEW_dbo.vB.sql").exists());
+        assert!(d.join("002_Client1_PROC_dbo.pA.sql").exists());
         assert!(d.join("003_Client1_PROC_dbo.pC.sql").exists());
         assert!(d.join("001_Client2_PROC_dbo.pA.sql").exists());
         std::fs::remove_dir_all(&d).ok();
@@ -811,6 +1166,7 @@ mod teste {
                 obiect: "dbo.p".into(),
                 tip: "P".into(),
                 cod: "SELECT 1".into(),
+                setari: None,
             }],
         );
         let r = scrie(&d, "Ref", &m, ModImpartire::PerBaza, 0, "a").unwrap();

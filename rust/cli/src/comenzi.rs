@@ -381,6 +381,7 @@ pub fn deploy(
                 obiect: rand.obiect.clone(),
                 tip: rand.tip.clone(),
                 cod: modul::aplica_create_or_alter(&o.definitie),
+                setari: o.setari,
             });
     }
 

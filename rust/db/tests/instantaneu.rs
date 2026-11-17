@@ -12,6 +12,7 @@ fn obiect(schema: &str, nume: &str, tip: &str, def: &str) -> Obiect {
         nume: nume.into(),
         tip: tip.into(),
         definitie: def.into(),
+        setari: None,
     }
 }
 

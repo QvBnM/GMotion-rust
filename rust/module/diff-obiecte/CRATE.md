@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: ae948a808510ea72 -->
+<!-- api-hash: 9135545d7241b08e -->
 
 ## Rol
 
@@ -61,6 +61,16 @@ biblioteca** — fara nicio interfata.
    definitie (`GM-MOD-009`; sqlcmd taie batch-ul chiar si intr-un string),
    obiect fara cod / criptat (`GM-MOD-011`). Numele bazei intra in `USE [..]`
    cu `]` dublat.
+6c. **Fiecare obiect isi reface setarile de creare** (`SET ANSI_NULLS` /
+   `SET QUOTED_IDENTIFIER`, intr-un batch inaintea codului), exact cum erau in
+   referinta; necunoscute (instantaneu vechi) -> `ON`/`ON`, ca SSMS.
+6d. **Obiectele unei baze se scriu dupa dependente** (`ordine_dupa_dependente`):
+   referintele din cod (prin lexer) la alte obiecte din acelasi deploy; la
+   egalitate functii, view-uri, proceduri, triggere. Ciclurile nu pierd
+   obiecte.
+6e. **Fiecare fisier incepe cu garda de versiune** (`CREATE OR ALTER` cere
+   13.0.4001+; Azure exceptat): pe un server vechi `RAISERROR` + `SET NOEXEC
+   ON`, inainte de orice `USE`. Fiecare fisier se termina cu `SET NOEXEC OFF`.
 7. **Fiecare baza isi aduce propriul `USE [...]`,** inclusiv in modul „tot
    intr-un fisier": altfel al doilea set ar rula pe baza greșita.
 8. **Un nume de baza sau obiect nu poate forma o cale.** Separatorii devin `_`,

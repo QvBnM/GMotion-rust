@@ -17,6 +17,7 @@ fn ob(nume: &str, tip: &str, def: &str) -> Obiect {
         nume: nume.into(),
         tip: tip.into(),
         definitie: def.into(),
+        setari: None,
     }
 }
 
@@ -141,6 +142,7 @@ fn comparare_diff_deploy_export() {
             obiect: r.obiect.clone(),
             tip: r.tip.clone(),
             cod,
+            setari: referinta[&r.obiect].setari,
         });
     }
     assert_eq!(sarite, 1);

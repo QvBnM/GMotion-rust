@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 9b739aa3030ecc82 -->
+<!-- api-hash: 3e2cd0c021ec8243 -->
 
 ## Rol
 
@@ -68,6 +68,9 @@ se testeaza fara SQL Server.
    login-ul TDS, niciodata in text SQL. Configuratia se construieste pe
    campuri, nu prin text de conexiune cu `;`.
 3. **Obiectele vin brute.** Nicio transformare in afara de `trim()` pe tip.
+   Cu ele vin si setarile de creare (`Obiect::setari`: `uses_ansi_nulls`,
+   `uses_quoted_identifier`), optionale in JSON ca instantaneele vechi sa se
+   citeasca in continuare.
 4. **Ordinea e stabila:** `ORDER BY s.name, o.name` in interogare, `BTreeMap` in
    instantaneu. Altfel diff-ul a doua instantanee e nefolositor.
 5. **Un instantaneu dus-intors prin JSON da obiecte identice,** inclusiv CRLF,

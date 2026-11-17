@@ -19,7 +19,7 @@ use tokio::net::TcpStream;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 use crate::eroare::{valideaza_baza, valideaza_nume, Eroare, Redactat, Rezultat};
-use crate::model::{Autentificare, Certificat, InfoServer, Obiect, Tinta};
+use crate::model::{Autentificare, Certificat, InfoServer, Obiect, Setari, Tinta};
 use crate::sursa::SursaObiecte;
 
 /// Interogarea care aduce obiectele comparabile. Tipurile vin din
@@ -32,7 +32,8 @@ fn interogare_obiecte() -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!(
-        "SELECT s.name, o.name, o.type, m.definition \
+        "SELECT s.name, o.name, o.type, m.definition, \
+         m.uses_ansi_nulls, m.uses_quoted_identifier \
          FROM sys.objects o \
          JOIN sys.schemas s ON s.schema_id = o.schema_id \
          JOIN sys.sql_modules m ON m.object_id = o.object_id \
@@ -257,6 +258,13 @@ fn text<'a>(r: &'a Row, i: usize, baza: &str) -> Rezultat<Option<&'a str>> {
     })
 }
 
+fn bit(r: &Row, i: usize, baza: &str) -> Rezultat<Option<bool>> {
+    r.try_get::<bool, _>(i).map_err(|e| Eroare::Interogare {
+        baza: baza.to_string(),
+        detaliu: format!("coloana {i}: {e}"),
+    })
+}
+
 fn intreg(r: &Row, i: usize, baza: &str) -> Rezultat<Option<i32>> {
     r.try_get::<i32, _>(i).map_err(|e| Eroare::Interogare {
         baza: baza.to_string(),
@@ -327,6 +335,13 @@ impl SursaObiecte for SursaSqlServer {
                 nume: nume.to_string(),
                 tip: text(r, 2, baza)?.unwrap_or_default().trim().to_string(),
                 definitie: definitie.unwrap_or_default().to_string(),
+                setari: match (bit(r, 4, baza)?, bit(r, 5, baza)?) {
+                    (Some(ansi_nulls), Some(quoted_identifier)) => Some(Setari {
+                        ansi_nulls,
+                        quoted_identifier,
+                    }),
+                    _ => None,
+                },
             });
         }
         Ok(out)

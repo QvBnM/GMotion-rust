@@ -89,6 +89,7 @@ mod teste {
                 nume: format!("p{baza}"),
                 tip: "P".into(),
                 definitie: "SELECT 1".into(),
+                setari: None,
             }])
         }
     }
