@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: e1efaad5320ab7fa -->
+<!-- api-hash: ba1c0bc1205e2ec8 -->
 
 ## Rol
 
@@ -52,6 +52,10 @@ Argumente comune: `--server`/`--port` sau `--sursa`, `--utilizator`,
    degeaba, posibil minute.
 5. **Marcajul de timp se da catre modul, nu se citeste din ceas acolo**, ca
    generatorul de deploy sa rămână testabil.
+6. **Un instantaneu retine doar numele serverului** (`SRV\INST` sau
+   `SRV,PORT`, din `ArgumenteSursa::eticheta_server`), nu descrierea pentru
+   jurnal. Instantaneele ajung in repo ca fixture; o data a ajuns acolo
+   lungimea parolei pe calea asta.
 
 ## Erori tipice
 

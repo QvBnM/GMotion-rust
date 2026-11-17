@@ -90,15 +90,17 @@ pub fn valideaza_nume(n: &str) -> Rezultat<()> {
     }
 }
 
-/// Pentru jurnal: niciodata parola, niciodata textul de conexiune intreg.
+/// Pentru jurnal: niciodata parola, nici lungimea ei, niciodata textul de
+/// conexiune intreg. Spune doar daca exista — atat ajuta la depanare. Lungimea
+/// a ajuns o data intr-un instantaneu commitat; vezi `JURNAL.md`.
 pub(crate) struct Redactat<'a>(pub &'a str);
 
 impl fmt::Display for Redactat<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.0.is_empty() {
-            write!(f, "(gol)")
+            write!(f, "(goala)")
         } else {
-            write!(f, "({} caractere, ascuns)", self.0.len())
+            write!(f, "(data, ascunsa)")
         }
     }
 }
@@ -130,7 +132,13 @@ mod teste {
     fn parola_nu_apare_in_jurnal() {
         let t = format!("{}", Redactat("parola-secreta"));
         assert!(!t.contains("secreta"));
-        assert!(t.contains("14"));
+        assert!(!t.contains("14"), "nici lungimea nu se spune: {t}");
+        assert!(!t.chars().any(|c| c.is_ascii_digit()), "{t}");
+        assert_ne!(
+            t,
+            format!("{}", Redactat("")),
+            "goala se deosebeste de data"
+        );
     }
 
     #[test]

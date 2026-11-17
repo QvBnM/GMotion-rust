@@ -200,7 +200,9 @@ pub fn instantaneu(
         return Err("nicio baza de citit".into());
     }
 
-    let descriere = s.descriere();
+    // Numele serverului, nu descrierea pentru jurnal (care vorbeste si despre
+    // autentificare). Din alt instantaneu: descrierea lui, fara acreditari.
+    let eticheta = args.eticheta_server().unwrap_or_else(|| s.descriere());
     let citite = s
         .obiecte_multe(&lista_baze, &mut |i, n, baza| {
             if !baza.is_empty() {
@@ -209,7 +211,7 @@ pub fn instantaneu(
         })
         .map_err(|e| e.to_string())?;
 
-    let mut inst = Instantaneu::nou(descriere, acum());
+    let mut inst = Instantaneu::nou(eticheta, acum());
     inst.nota = nota.to_string();
     let mut total = 0usize;
     for (baza, obiecte) in citite {

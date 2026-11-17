@@ -32,6 +32,17 @@ pub struct ArgumenteSursa {
 }
 
 impl ArgumenteSursa {
+    /// Ce se scrie in campul `server` al unui instantaneu: numele dat, cu
+    /// portul in forma `SRV,PORT` daca a fost dat. **Nu** `descriere()` — aceea
+    /// e pentru jurnal si a dus o data informatii despre parola intr-un
+    /// fisier commitat.
+    pub fn eticheta_server(&self) -> Option<String> {
+        self.server.as_ref().map(|s| match self.port {
+            Some(p) => format!("{s},{p}"),
+            None => s.clone(),
+        })
+    }
+
     pub fn deschide(&self) -> Result<Box<dyn SursaObiecte>, String> {
         match (&self.sursa, &self.server) {
             (Some(cale), _) => {
@@ -90,6 +101,25 @@ mod teste {
         assert_eq!(lista("A,,B,"), ["A", "B"]);
         assert_eq!(lista(""), Vec::<String>::new());
         assert_eq!(lista("  "), Vec::<String>::new());
+    }
+
+    #[test]
+    fn eticheta_de_server_nu_are_nimic_despre_autentificare() {
+        let mut a = ArgumenteSursa {
+            server: Some(r"TS2409\MIHAIG".into()),
+            port: None,
+            sursa: None,
+            auth: ArgumenteAuth {
+                utilizator: Some("sa".into()),
+                parola_fisier: None,
+                parola_stdin: false,
+            },
+        };
+        assert_eq!(a.eticheta_server().as_deref(), Some(r"TS2409\MIHAIG"));
+        a.port = Some(1500);
+        assert_eq!(a.eticheta_server().as_deref(), Some(r"TS2409\MIHAIG,1500"));
+        a.server = None;
+        assert_eq!(a.eticheta_server(), None);
     }
 
     #[test]
