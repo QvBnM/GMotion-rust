@@ -132,6 +132,9 @@ pub fn porneste() {
         .with(
             tracing_subscriber::fmt::layer()
                 .with_target(true)
+                // Culori doar pe terminal: redirectat intr-un fisier sau
+                // capturat de alt program, codurile ANSI devin gunoi.
+                .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
                 .with_writer(std::io::stderr),
         )
         .with(StratTampon)

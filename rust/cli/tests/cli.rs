@@ -391,3 +391,28 @@ fn ajutorul_spune_de_ce_nu_exista_parola_ca_argument() {
         "ajutorul trebuie sa arate fluxul cu instantaneu:\n{t}"
     );
 }
+
+/// Jurnalul nu pune coduri de culoare cand nu scrie pe un terminal. La prima
+/// rulare pe Windows, `etapa6-rezultat.txt` era plin de `[2m...[0m`.
+#[test]
+fn jurnalul_redirectat_nu_are_coduri_de_culoare() {
+    let d = dir("culori");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let o = Command::new(EXE)
+        .args(["baze", "--sursa", inst.to_str().unwrap()])
+        .env("GMOTION_JURNAL", "info")
+        .env_remove("NO_COLOR")
+        .output()
+        .expect("binarul gmotion exista");
+    assert!(o.status.success(), "{}", err(&o));
+    let e = err(&o);
+    assert!(
+        e.contains("INFO"),
+        "testul are nevoie de jurnal pe erori:\n{e}"
+    );
+    assert!(
+        !e.contains('\u{1b}'),
+        "coduri ANSI in ieșire redirectata:\n{e:?}"
+    );
+}
