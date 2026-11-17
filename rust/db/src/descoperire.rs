@@ -29,35 +29,52 @@ const CERERE_BROADCAST: [u8; 1] = [0x02];
 /// greu de obtinut, iar formatul are destule capcane (instanta implicita se
 /// numeste `MSSQLSERVER` si nu se scrie in nume; `tcp` poate lipsi).
 pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
-    if date.len() <= 3 {
+    // Antetul: 0x05 (SVR_RESP), apoi lungimea continutului pe 2 octeti
+    // little-endian. Pana la audit antetul nu se verifica deloc: orice
+    // datagrama de pe LAN era parsata ca raspuns.
+    if date.len() <= 3 || date[0] != 0x05 {
         return Vec::new();
     }
-    let text = String::from_utf8_lossy(&date[3..]);
+    // Lungime 0 sau mai mare decat ce a sosit: se ia tot (toleranta pentru
+    // implementari neglijente); mai mica: surplusul se ignora.
+    let lungime = u16::from_le_bytes([date[1], date[2]]) as usize;
+    let sfarsit = if lungime == 0 {
+        date.len()
+    } else {
+        date.len().min(3 + lungime)
+    };
+    let continut = &date[3..sfarsit];
+    let text = String::from_utf8_lossy(continut);
     let mut out = Vec::new();
 
     for bloc in text.split(";;") {
         let parti: Vec<&str> = bloc.split(';').collect();
-        let mut nume: Option<&str> = None;
-        let mut instanta: Option<&str> = None;
-        let mut tcp: Option<&str> = None;
-        let mut versiune: Option<&str> = None;
-
-        for par in parti.chunks(2) {
-            if par.len() < 2 {
-                continue;
-            }
-            match par[0] {
-                "ServerName" => nume = Some(par[1]),
-                "InstanceName" => instanta = Some(par[1]),
-                "tcp" => tcp = Some(par[1]),
-                "Version" => versiune = Some(par[1]),
-                _ => {}
-            }
-        }
+        // Valoarea e cea de dupa cheie. Inainte perechile se luau cate doua
+        // de la inceput, deci un singur token in plus le decala pe toate si
+        // instanta disparea tacut.
+        let valoare = |cheie: &str| {
+            parti
+                .iter()
+                .position(|p| p.eq_ignore_ascii_case(cheie))
+                .and_then(|i| parti.get(i + 1).copied())
+        };
+        let nume = valoare("ServerName");
+        let instanta = valoare("InstanceName");
+        let tcp = valoare("tcp");
+        let versiune = valoare("Version");
 
         let Some(server) = nume.filter(|s| !s.is_empty()) else {
             continue;
         };
+        // Numele vin de la oricine de pe retea si ajung pe ecran si in jurnal:
+        // un caracter de control ar putea rescrie terminalul.
+        if server
+            .chars()
+            .chain(instanta.unwrap_or("").chars())
+            .any(char::is_control)
+        {
+            continue;
+        }
 
         // Instanta implicita se numeste MSSQLSERVER si NU se scrie in nume:
         // `SRV01`, nu `SRV01\MSSQLSERVER`. Altfel conexiunea ar cauta o
@@ -70,7 +87,7 @@ pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
         out.push(Instanta {
             server,
             ip: ip.to_string(),
-            port: tcp.and_then(|p| p.parse().ok()),
+            port: tcp.and_then(|p| p.parse().ok()).filter(|p: &u16| *p != 0),
             versiune: versiune.filter(|v| !v.is_empty()).map(str::to_string),
         });
     }
@@ -105,7 +122,9 @@ pub fn cauta_instante(timeout: Duration) -> Rezultat<Vec<Instanta>> {
 
     let start = Instant::now();
     let mut gasite: Vec<Instanta> = Vec::new();
-    let mut tampon = [0u8; 4096];
+    // Un raspuns SSRP poate avea pana la 64 KB. Cu 4 KB, unul lung se trunchia
+    // (port gresit) sau, pe Windows, recv intorcea eroare si oprea tot.
+    let mut tampon = vec![0u8; 65_536];
 
     loop {
         let scurs = start.elapsed();
@@ -127,8 +146,22 @@ pub fn cauta_instante(timeout: Duration) -> Rezultat<Vec<Instanta>> {
                     }
                 }
             }
-            // Timeout sau socket intrerupt: am terminat de ascultat.
-            Err(_) => break,
+            // Timeout: am terminat de ascultat.
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                ) =>
+            {
+                break
+            }
+            // Orice alta eroare (datagrama prea mare, ICMP „port unreachable"
+            // raportat ca ConnectionReset pe Windows) e a unui singur raspuns,
+            // nu a cautarii: o datagrama trimisa de oricine de pe LAN nu are
+            // voie sa ascunda restul instantelor.
+            Err(e) => {
+                tracing::debug!(target: "gmotion::db", eroare = %e, "raspuns SSRP ignorat");
+            }
         }
     }
 
@@ -142,9 +175,45 @@ mod teste {
     use super::*;
 
     fn raspuns(corp: &str) -> Vec<u8> {
-        let mut v = vec![0x05, 0x00, 0x00];
+        let mut v = vec![0x05];
+        v.extend_from_slice(&(corp.len() as u16).to_le_bytes());
         v.extend_from_slice(corp.as_bytes());
         v
+    }
+
+    // ---- regresii din auditul de la f561bf9 ----
+
+    #[test]
+    fn un_token_in_plus_nu_decaleaza_perechile() {
+        let d = raspuns("junk;ServerName;SRV;InstanceName;X;tcp;1500;;");
+        let i = parseaza_raspuns(&d, "10.0.0.5");
+        assert_eq!(i.len(), 1);
+        assert_eq!(i[0].server, "SRV\\X");
+        assert_eq!(i[0].port, Some(1500));
+    }
+
+    #[test]
+    fn datagrame_straine_si_nume_cu_control_se_ignora() {
+        let mut fara_antet = raspuns("ServerName;SRV;tcp;1433;;");
+        fara_antet[0] = 0x07;
+        assert!(parseaza_raspuns(&fara_antet, "1.1.1.1").is_empty());
+        let d = raspuns("ServerName;\u{1b}[2J\u{1b}[31mEVIL;tcp;1433;;");
+        assert!(parseaza_raspuns(&d, "1.1.1.1").is_empty());
+        let d = raspuns("ServerName;SRV;tcp;0;;");
+        assert_eq!(
+            parseaza_raspuns(&d, "1.1.1.1")[0].port,
+            None,
+            "portul 0 nu e port"
+        );
+    }
+
+    #[test]
+    fn lungimea_din_antet_taie_surplusul() {
+        let mut d = raspuns("ServerName;SRV;tcp;1433;;");
+        d.extend_from_slice(b"ServerName;FALS;tcp;1;;");
+        let i = parseaza_raspuns(&d, "1.1.1.1");
+        assert_eq!(i.len(), 1);
+        assert_eq!(i[0].server, "SRV");
     }
 
     #[test]

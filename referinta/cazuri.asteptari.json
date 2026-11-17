@@ -1,0 +1,18 @@
+[
+ {
+  "obiect": "dbo.ambele_goale",
+  "baza": "Tinta",
+  "camp": "rand",
+  "python": null,
+  "rust": "criptat",
+  "motiv": "definitie goala in ambele baze: SQL Server da definitie goala (NULL) doar obiectelor WITH ENCRYPTION; v4 nu le compara si nu le deployeaza"
+ },
+ {
+  "obiect": "dbo.gol_vs_plin",
+  "baza": "Tinta",
+  "camp": "categorie",
+  "python": "diferit",
+  "rust": "criptat",
+  "motiv": "definitie goala intr-o baza = obiect criptat; v3.4 l-ar fi deployat peste"
+ }
+]

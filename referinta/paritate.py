@@ -217,6 +217,8 @@ def explicat_de_v4(definitii_obiect):
     for d in definitii_obiect:
         if d is None:
             continue
+        if not d.strip():
+            return "fara definitie: v4 il trateaza ca obiect criptat"
         if RE_ATINS_DE_NORMALIZARE.search(d):
             return "constructii tratate altfel de normalizarea v4"
         if len(motor.normalizeaza(d).split()) >= PRAG_TOKENI_ROTUNJIRE:
@@ -309,10 +311,14 @@ def compara(inst, referinta, meta_py, lista_py, rust, asteptari=()):
         if v_py == v_rs:
             continue
         intrare = {"obiect": "*", "baza": "*", "camp": f"numar {camp}", "python": v_py, "rust": v_rs}
-        # O numaratoare diferita e explicata doar daca fiecare rand diferit e
-        # explicat; altfel e regresie.
-        if camp == "identice" and not regresii:
-            de_verificat.append({**intrare, "motiv": "urmeaza randurile de mai sus"})
+        # O numaratoare diferita e o consecinta a randurilor, nu o constatare
+        # proprie: are statutul celui mai slab rand diferit.
+        if regresii:
+            regresii.append(intrare)
+        elif de_verificat:
+            de_verificat.append({**intrare, "motiv": "urmeaza randurile de verificat"})
+        elif deliberate:
+            deliberate.append({**intrare, "motiv": "urmeaza diferentele deliberate"})
         else:
             regresii.append(intrare)
     for i, a in enumerate(asteptari):
@@ -439,6 +445,10 @@ def main(argv=None):
             if args.din_cazuri:
                 if args.rust:
                     raise EroareIntrare("--din-cazuri cere --gmotion: rezultatul Rust se produce aici")
+                if not args.asteptari:
+                    implicit = os.path.join(AICI, "cazuri.asteptari.json")
+                    if os.path.exists(implicit):
+                        args.asteptari = implicit
                 inst = instantaneu_din_cazuri()
                 referinta = args.referinta or "Referinta"
                 cale = os.path.join(tmp, "instantaneu.json")

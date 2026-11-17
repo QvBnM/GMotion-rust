@@ -14,12 +14,12 @@
 
 use std::time::Duration;
 
-use tiberius::{AuthMethod, Client, Config, SqlBrowser};
+use tiberius::{AuthMethod, Client, Config, Row};
 use tokio::net::TcpStream;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
-use crate::eroare::{valideaza_nume, Eroare, Redactat, Rezultat};
-use crate::model::{Autentificare, InfoServer, Obiect, Tinta};
+use crate::eroare::{valideaza_baza, valideaza_nume, Eroare, Redactat, Rezultat};
+use crate::model::{Autentificare, Certificat, InfoServer, Obiect, Tinta};
 use crate::sursa::SursaObiecte;
 
 /// Interogarea care aduce obiectele comparabile. Tipurile vin din
@@ -52,16 +52,35 @@ const INTEROGARE_INFO: &str = "SELECT \
      DATEDIFF(SECOND, (SELECT sqlserver_start_time FROM sys.dm_os_sys_info), GETDATE()), \
      (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4)";
 
-/// Cat asteptam deschiderea conexiunii. Versiunea Python folosea 30 s.
+/// Cat asteptam deschiderea conexiunii: TCP, TLS si login, impreuna.
+/// Versiunea Python folosea 30 s. Pana la audit acoperea doar TCP-ul; un
+/// server care accepta conexiunea si apoi tace bloca programul la nesfarsit.
 const TIMEOUT_CONECTARE: Duration = Duration::from_secs(30);
+
+/// Cat poate dura o interogare. Citirea a ~21.000 de obiecte dureaza ~10 s pe
+/// o retea locala; limita e larga, dar exista: un server care moare la
+/// jumatatea raspunsului nu mai blocheaza programul.
+const TIMEOUT_INTEROGARE: Duration = Duration::from_secs(600);
+
+/// Cat asteptam raspunsul SQL Browser pentru o instanta numita.
+const TIMEOUT_BROWSER: Duration = Duration::from_secs(2);
+
+/// Portul pe care asculta SQL Browser.
+const PORT_BROWSER: u16 = 1434;
+
+type ClientTds = Client<tokio_util::compat::Compat<TcpStream>>;
 
 pub struct SursaSqlServer {
     runtime: tokio::runtime::Runtime,
     tinta: Tinta,
     auth: Autentificare,
     /// Baza la care e legata conexiunea curenta. `tiberius` leaga clientul de o
-    /// baza, deci schimbarea de baza cere reconectare.
-    conexiune: Option<(String, Client<tokio_util::compat::Compat<TcpStream>>)>,
+    /// baza, deci schimbarea de baza cere reconectare. Dupa orice eroare
+    /// conexiunea se arunca: una rupta la jumatatea unui raspuns nu mai e
+    /// sigura (raman token-uri necitite).
+    conexiune: Option<(String, ClientTds)>,
+    /// `TIMEOUT_CONECTARE`, schimbabil doar in teste (un test de 30 s nu).
+    timeout_conectare: Duration,
 }
 
 impl SursaSqlServer {
@@ -71,6 +90,21 @@ impl SursaSqlServer {
         valideaza_nume(&tinta.server)?;
         if matches!(auth, Autentificare::Integrata) && !auth_integrata_disponibila() {
             return Err(Eroare::AuthIntegrataIndisponibila);
+        }
+        if let Certificat::Autoritate(cale) = &tinta.certificat {
+            if !cale.is_file() {
+                return Err(Eroare::Conectare {
+                    server: tinta.server.clone(),
+                    detaliu: format!("certificatul autoritatii {} nu exista", cale.display()),
+                });
+            }
+        }
+        if tinta.certificat == Certificat::Nevalidat {
+            tracing::warn!(
+                target: "gmotion::db",
+                server = %tinta.server,
+                "certificatul serverului NU se verifica (ca in v3.4); pe o retea nesigura parola poate fi interceptata. Vezi --certificat"
+            );
         }
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -85,28 +119,24 @@ impl SursaSqlServer {
             tinta,
             auth,
             conexiune: None,
+            timeout_conectare: TIMEOUT_CONECTARE,
         })
     }
 
-    fn configuratie(&self, baza: &str) -> Rezultat<Config> {
-        valideaza_nume(baza)?;
+    fn configuratie(&self, baza: &str, gazda: &str, port: u16) -> Rezultat<Config> {
+        valideaza_baza(baza)?;
         let mut c = Config::new();
         // `ADO string` ar fi mai scurt, dar numele de server si baza ar intra
         // intr-un text cu `;` ca separator — exact locul in care un nume
         // ostil poate injecta. Setarea campurilor evita problema.
-        let a = interpreteaza_server(&self.tinta.server, self.tinta.port)?;
-        c.host(&a.gazda);
-        match (a.port, &a.instanta) {
-            (Some(p), _) => c.port(p),
-            // Portul il spune SQL Browser. Cu port dat, Browser-ul nu se intreaba.
-            (None, Some(i)) => c.instance_name(i),
-            (None, None) => {}
-        }
+        c.host(gazda);
+        c.port(port);
         c.database(baza);
-        // Certificate autosemnate sunt norma pe serverele interne, iar
-        // versiunea Python folosea TrustServerCertificate=yes. Se pastreaza
-        // comportamentul; criptarea rămâne activa.
-        c.trust_cert();
+        match &self.tinta.certificat {
+            Certificat::Nevalidat => c.trust_cert(),
+            Certificat::Sistem => {}
+            Certificat::Autoritate(cale) => c.trust_cert_ca(cale.display()),
+        }
         c.authentication(match &self.auth {
             Autentificare::Sql { utilizator, parola } => AuthMethod::sql_server(utilizator, parola),
             Autentificare::Integrata => auth_integrata()?,
@@ -118,11 +148,10 @@ impl SursaSqlServer {
         if self.conexiune.as_ref().is_some_and(|(b, _)| b == baza) {
             return Ok(());
         }
-        let config = self.configuratie(baza)?;
+        self.conexiune = None;
+        valideaza_baza(baza)?;
         let server = self.tinta.server.clone();
-        let instanta = interpreteaza_server(&server, self.tinta.port)?
-            .instanta
-            .filter(|_| self.tinta.port.is_none());
+        let a = interpreteaza_server(&server, self.tinta.port)?;
 
         tracing::info!(
             target: "gmotion::db",
@@ -131,45 +160,108 @@ impl SursaSqlServer {
         );
 
         let client = self.runtime.block_on(async {
-            let tcp = deschide_tcp(&config, &server, instanta.as_deref()).await?;
-
-            Client::connect(config, tcp.compat_write())
-                .await
-                .map_err(|e| clasifica(&server, e))
+            tokio::time::timeout(self.timeout_conectare, async {
+                let port = match (a.port, &a.instanta) {
+                    (Some(p), _) => p,
+                    (None, Some(i)) => {
+                        rezolva_port_instanta(&a.gazda, PORT_BROWSER, i, &server).await?
+                    }
+                    (None, None) => 1433,
+                };
+                let config = self.configuratie(baza, &a.gazda, port)?;
+                let tcp =
+                    TcpStream::connect(config.get_addr())
+                        .await
+                        .map_err(|e| Eroare::Conectare {
+                            server: server.clone(),
+                            detaliu: e.to_string(),
+                        })?;
+                tcp.set_nodelay(true).ok();
+                Client::connect(config, tcp.compat_write())
+                    .await
+                    .map_err(|e| clasifica_conectare(&server, baza, e))
+            })
+            .await
+            .map_err(|_| Eroare::Conectare {
+                server: server.clone(),
+                detaliu: format!(
+                    "timeout dupa {} s (TCP, TLS si autentificare)",
+                    self.timeout_conectare.as_secs()
+                ),
+            })?
         })?;
 
         self.conexiune = Some((baza.to_string(), client));
         Ok(())
     }
 
+    /// Ruleaza o interogare pe baza data si intoarce primul set de randuri.
+    /// Orice eroare (si timeout-ul) arunca conexiunea.
+    fn interogheaza(&mut self, baza: &str, sql: &str) -> Rezultat<Vec<Row>> {
+        self.conectare(baza)?;
+        let Some((_, client)) = self.conexiune.as_mut() else {
+            return Err(Eroare::Interogare {
+                baza: baza.to_string(),
+                detaliu: "conexiunea lipseste dupa conectare".into(),
+            });
+        };
+        let eroare = |detaliu: String| Eroare::Interogare {
+            baza: baza.to_string(),
+            detaliu,
+        };
+        let rez = self.runtime.block_on(async {
+            tokio::time::timeout(TIMEOUT_INTEROGARE, async {
+                client
+                    .query(sql, &[])
+                    .await
+                    .map_err(|e| eroare(e.to_string()))?
+                    .into_first_result()
+                    .await
+                    .map_err(|e| eroare(e.to_string()))
+            })
+            .await
+            .map_err(|_| eroare(format!("timeout dupa {} s", TIMEOUT_INTEROGARE.as_secs())))?
+        });
+        if rez.is_err() {
+            self.conexiune = None;
+        }
+        rez
+    }
+
     /// Verifica conexiunea si intoarce ce raporteaza serverul despre el insusi.
     /// Pentru ecranul de conectare si pentru `gmotion diagnostic`.
     pub fn verifica(&mut self, baza: &str) -> Rezultat<InfoServer> {
-        self.conectare(baza)?;
-        let server = self.tinta.server.clone();
-        let (_, client) = self.conexiune.as_mut().expect("conectare a reușit");
-        self.runtime.block_on(async {
-            let rand = client
-                .query(INTEROGARE_INFO, &[])
-                .await
-                .map_err(|e| clasifica(&server, e))?
-                .into_row()
-                .await
-                .map_err(|e| clasifica(&server, e))?;
-            let Some(r) = rand else {
-                return Err(Eroare::Interogare {
-                    baza: baza.to_string(),
-                    detaliu: "interogarea de informatii nu a intors niciun rand".into(),
-                });
-            };
-            Ok(InfoServer {
-                editie: r.get::<&str, _>(0).unwrap_or("necunoscuta").to_string(),
-                sistem: r.get::<&str, _>(1).unwrap_or("necunoscut").to_string(),
-                pornit_de_secunde: r.get::<i32, _>(2).map(i64::from),
-                nr_baze: r.get::<i32, _>(3),
-            })
+        let randuri = self.interogheaza(baza, INTEROGARE_INFO)?;
+        let Some(r) = randuri.first() else {
+            return Err(Eroare::Interogare {
+                baza: baza.to_string(),
+                detaliu: "interogarea de informatii nu a intors niciun rand".into(),
+            });
+        };
+        Ok(InfoServer {
+            editie: text(r, 0, baza)?.unwrap_or("necunoscuta").to_string(),
+            sistem: text(r, 1, baza)?.unwrap_or("necunoscut").to_string(),
+            pornit_de_secunde: intreg(r, 2, baza)?.map(i64::from),
+            nr_baze: intreg(r, 3, baza)?,
         })
     }
+}
+
+/// O coloana text. `try_get`, nu `get`: `get` da panica daca serverul
+/// intoarce alt tip decat cel asteptat, iar serverul (sau cineva intre noi si
+/// el) nu e de incredere. Gasit la audit.
+fn text<'a>(r: &'a Row, i: usize, baza: &str) -> Rezultat<Option<&'a str>> {
+    r.try_get::<&str, _>(i).map_err(|e| Eroare::Interogare {
+        baza: baza.to_string(),
+        detaliu: format!("coloana {i}: {e}"),
+    })
+}
+
+fn intreg(r: &Row, i: usize, baza: &str) -> Rezultat<Option<i32>> {
+    r.try_get::<i32, _>(i).map_err(|e| Eroare::Interogare {
+        baza: baza.to_string(),
+        detaliu: format!("coloana {i}: {e}"),
+    })
 }
 
 /// `Debug` scris de mana, nu derivat: un `derive` ar tipari parola la primul
@@ -203,86 +295,69 @@ impl SursaObiecte for SursaSqlServer {
 
     fn baze(&mut self) -> Rezultat<Vec<String>> {
         // `master` exista mereu si nu cere drepturi speciale pentru lista.
-        self.conectare("master")?;
-        let server = self.tinta.server.clone();
-        let (_, client) = self.conexiune.as_mut().expect("conectare a reușit");
-        self.runtime.block_on(async {
-            let randuri = client
-                .query(INTEROGARE_BAZE, &[])
-                .await
-                .map_err(|e| clasifica(&server, e))?
-                .into_first_result()
-                .await
-                .map_err(|e| clasifica(&server, e))?;
-            Ok(randuri
-                .iter()
-                .filter_map(|r| r.get::<&str, _>(0).map(str::to_string))
-                .collect())
-        })
+        let randuri = self.interogheaza("master", INTEROGARE_BAZE)?;
+        let mut out = Vec::with_capacity(randuri.len());
+        for r in &randuri {
+            if let Some(n) = text(r, 0, "master")? {
+                out.push(n.to_string());
+            }
+        }
+        Ok(out)
     }
 
     fn obiecte(&mut self, baza: &str) -> Rezultat<Vec<Obiect>> {
-        self.conectare(baza)?;
-        let interogare = interogare_obiecte();
-        let baza_nume = baza.to_string();
-        let (_, client) = self.conexiune.as_mut().expect("conectare a reușit");
-        self.runtime.block_on(async {
-            let randuri = client
-                .query(&interogare, &[])
-                .await
-                .map_err(|e| Eroare::Interogare {
-                    baza: baza_nume.clone(),
-                    detaliu: e.to_string(),
-                })?
-                .into_first_result()
-                .await
-                .map_err(|e| Eroare::Interogare {
-                    baza: baza_nume.clone(),
-                    detaliu: e.to_string(),
-                })?;
-
-            let mut out = Vec::with_capacity(randuri.len());
-            for r in &randuri {
-                // Un obiect fara definitie (criptat cu WITH ENCRYPTION) se
-                // sare: nu se poate compara, si nu e un motiv sa cada tot.
-                let Some(definitie) = r.get::<&str, _>(3) else {
-                    tracing::warn!(
-                        target: "gmotion::db",
-                        baza = %baza_nume,
-                        obiect = r.get::<&str, _>(1).unwrap_or("?"),
-                        "obiect fara definitie, probabil criptat - sarit"
-                    );
-                    continue;
-                };
-                out.push(Obiect {
-                    schema: r.get::<&str, _>(0).unwrap_or("dbo").to_string(),
-                    nume: r.get::<&str, _>(1).unwrap_or_default().to_string(),
-                    tip: r.get::<&str, _>(2).unwrap_or_default().trim().to_string(),
-                    definitie: definitie.to_string(),
-                });
+        let randuri = self.interogheaza(baza, &interogare_obiecte())?;
+        let mut out = Vec::with_capacity(randuri.len());
+        for r in &randuri {
+            let schema = text(r, 0, baza)?.unwrap_or("dbo");
+            let nume = text(r, 1, baza)?.unwrap_or_default();
+            // Obiect criptat (WITH ENCRYPTION): definitia e NULL. Se pastreaza
+            // cu definitie goala, ca sa nu para „lipsa" in tinta — altfel
+            // deploy-ul ar suprascrie un obiect criptat al furnizorului.
+            let definitie = text(r, 3, baza)?;
+            if definitie.is_none() {
+                tracing::warn!(
+                    target: "gmotion::db",
+                    %baza, obiect = %nume,
+                    "obiect fara definitie (criptat): nu se compara si nu se deployeaza"
+                );
             }
-            Ok(out)
-        })
+            out.push(Obiect {
+                schema: schema.to_string(),
+                nume: nume.to_string(),
+                tip: text(r, 2, baza)?.unwrap_or_default().trim().to_string(),
+                definitie: definitie.unwrap_or_default().to_string(),
+            });
+        }
+        Ok(out)
     }
 }
 
-/// Distinge o parola greșita de un server inaccesibil. Fara asta, ambele ar
-/// aparea ca `GM-DB-001` si utilizatorul n-ar sti daca sa verifice reteaua sau
-/// acreditarile.
-fn clasifica(server: &str, e: tiberius::error::Error) -> Eroare {
-    let text = e.to_string();
-    let e_auth = matches!(&e, tiberius::error::Error::Server(t)
-        if matches!(t.code(), 18456 | 18452 | 4060 | 18451));
-    if e_auth {
-        Eroare::Autentificare {
+/// Erorile de la deschiderea conexiunii: parola greșita, baza inaccesibila sau
+/// server inaccesibil, fiecare cu codul ei, ca utilizatorul sa stie daca sa
+/// verifice reteaua, acreditarile sau numele bazei. Erorile de interogare nu
+/// trec pe aici (sunt `GM-DB-004`): pana la audit treceau, si o interogare
+/// respinsa aparea ca „nu pot deschide conexiunea", marcata ca reincercabila.
+fn clasifica_conectare(server: &str, baza: &str, e: tiberius::error::Error) -> Eroare {
+    let cod = match &e {
+        tiberius::error::Error::Server(t) => Some(t.code()),
+        _ => None,
+    };
+    match cod {
+        Some(18456 | 18452 | 18451) => Eroare::Autentificare {
             server: server.to_string(),
-            detaliu: text,
-        }
-    } else {
-        Eroare::Conectare {
+            detaliu: e.to_string(),
+        },
+        // 4060: „Cannot open database requested by the login": baza nu exista,
+        // e offline, sau utilizatorul nu are acces la ea.
+        Some(4060) => Eroare::BazaLipsa {
             server: server.to_string(),
-            detaliu: text,
-        }
+            baza: baza.to_string(),
+        },
+        _ => Eroare::Conectare {
+            server: server.to_string(),
+            detaliu: e.to_string(),
+        },
     }
 }
 
@@ -347,39 +422,77 @@ fn interpreteaza_server(server: &str, port: Option<u16>) -> Rezultat<Adresa> {
     })
 }
 
-/// Deschide socket-ul TCP. Cu instanta numita, portul se afla intai de la SQL
-/// Browser (UDP 1434, sau portul din `config` cand e dat explicit).
-async fn deschide_tcp(
-    config: &Config,
+/// Portul unei instante numite, intrebat de la SQL Browser (SSRP, UDP).
+///
+/// Cod propriu in locul `connect_named` din `tiberius`, din trei motive gasite
+/// la audit: (1) un raspuns de 1-2 octeti dadea panica in `tiberius`, deci
+/// oricine de pe LAN putea opri aplicatia; (2) socket-ul nu era conectat, deci
+/// primul raspuns de la **oricine** alegea portul; (3) nu se verifica numele
+/// instantei din raspuns. Aici socket-ul UDP e conectat la gazda intrebata
+/// (sistemul arunca datagramele venite de la altcineva), raspunsul trece prin
+/// parserul validat din `descoperire`, si se ia doar instanta ceruta.
+async fn rezolva_port_instanta(
+    gazda: &str,
+    port_browser: u16,
+    instanta: &str,
     server: &str,
-    instanta: Option<&str>,
-) -> Rezultat<TcpStream> {
-    let timeout = || Eroare::Conectare {
+) -> Rezultat<u16> {
+    let eroare = |detaliu: String| Eroare::Conectare {
         server: server.to_string(),
-        detaliu: format!("timeout dupa {} s", TIMEOUT_CONECTARE.as_secs()),
+        detaliu: format!(
+            "{detaliu}. Instanta numita {instanta:?}: portul ei il spune serviciul \
+             SQL Browser (UDP {port_browser}). Verifica ca SQL Browser ruleaza pe server \
+             si ca instanta exista, sau da portul direct cu --port"
+        ),
     };
-    let Some(instanta) = instanta else {
-        let tcp = tokio::time::timeout(TIMEOUT_CONECTARE, TcpStream::connect(config.get_addr()))
-            .await
-            .map_err(|_| timeout())?
-            .map_err(|e| Eroare::Conectare {
-                server: server.to_string(),
-                detaliu: e.to_string(),
-            })?;
-        tcp.set_nodelay(true).ok();
-        return Ok(tcp);
-    };
-    tokio::time::timeout(TIMEOUT_CONECTARE, TcpStream::connect_named(config))
+    let adrese: Vec<std::net::SocketAddr> = tokio::net::lookup_host((gazda, port_browser))
         .await
-        .map_err(|_| timeout())?
-        .map_err(|e| Eroare::Conectare {
-            server: server.to_string(),
-            detaliu: format!(
-                "{e}. Instanta numita {instanta:?}: portul ei il spune serviciul \
-                 SQL Browser (UDP 1434). Verifica ca SQL Browser ruleaza pe server \
-                 si ca instanta exista, sau da portul direct cu --port"
-            ),
-        })
+        .map_err(|e| eroare(format!("nu pot rezolva {gazda}: {e}")))?
+        .collect();
+    let mut ultima = format!("{gazda} nu are nicio adresa");
+    for adr in adrese {
+        let local: std::net::SocketAddr = if adr.is_ipv4() {
+            (std::net::Ipv4Addr::UNSPECIFIED, 0).into()
+        } else {
+            (std::net::Ipv6Addr::UNSPECIFIED, 0).into()
+        };
+        let incercare = async {
+            let sock = tokio::net::UdpSocket::bind(local).await?;
+            sock.connect(adr).await?;
+            let mut cerere = vec![0x04u8];
+            cerere.extend_from_slice(instanta.as_bytes());
+            sock.send(&cerere).await?;
+            let mut tampon = vec![0u8; 65_536];
+            let n = sock.recv(&mut tampon).await?;
+            tampon.truncate(n);
+            Ok::<_, std::io::Error>(tampon)
+        };
+        match tokio::time::timeout(TIMEOUT_BROWSER, incercare).await {
+            Err(_) => {
+                ultima = format!(
+                    "SQL Browser de la {adr} nu a raspuns in {} s",
+                    TIMEOUT_BROWSER.as_secs()
+                )
+            }
+            Ok(Err(e)) => ultima = format!("SQL Browser de la {adr}: {e}"),
+            Ok(Ok(raspuns)) => {
+                let gasita = crate::descoperire::parseaza_raspuns(&raspuns, &adr.ip().to_string())
+                    .into_iter()
+                    .find(|i| {
+                        i.server
+                            .rsplit_once('\\')
+                            .is_some_and(|(_, n)| n.eq_ignore_ascii_case(instanta))
+                    });
+                match gasita.and_then(|i| i.port) {
+                    Some(p) => return Ok(p),
+                    None => {
+                        ultima = format!("raspunsul de la {adr} nu contine instanta cu port TCP")
+                    }
+                }
+            }
+        }
+    }
+    Err(eroare(ultima))
 }
 
 #[cfg(windows)]
@@ -437,36 +550,24 @@ mod teste {
         }
     }
 
-    /// Prin `nou`, ca sa treaca si de `valideaza_nume`. `get_addr` arata portul
-    /// spre care pleaca primul pachet: 1434 = SQL Browser, deci instanta a
-    /// ajuns in configuratie.
+    fn sql(server: &str, port: Option<u16>) -> SursaSqlServer {
+        SursaSqlServer::nou(
+            Tinta::noua(server, port),
+            Autentificare::Sql {
+                utilizator: "sa".into(),
+                parola: "S3cret-Pa55".into(),
+            },
+        )
+        .unwrap()
+    }
+
     #[test]
-    fn configuratia_pentru_instanta_numita_intreaba_sql_browser() {
-        let sursa = |server: &str, port| {
-            SursaSqlServer::nou(
-                Tinta {
-                    server: server.into(),
-                    port,
-                },
-                Autentificare::Sql {
-                    utilizator: "sa".into(),
-                    parola: "x".into(),
-                },
-            )
-            .unwrap()
-        };
-        let c = sursa(r"TS2409\MIHAIG", None)
-            .configuratie("master")
-            .unwrap();
-        assert_eq!(c.get_addr(), "TS2409:1434");
-        let c = sursa(r"TS2409\MIHAIG", Some(1500))
-            .configuratie("master")
-            .unwrap();
-        assert_eq!(c.get_addr(), "TS2409:1500", "cu port dat, direct pe el");
-        let c = sursa("srv,1500", None).configuratie("master").unwrap();
-        assert_eq!(c.get_addr(), "srv:1500");
-        let c = sursa("SRV01", None).configuratie("master").unwrap();
-        assert_eq!(c.get_addr(), "SRV01:1433");
+    fn autoritate_de_certificare_inexistenta_e_refuzata_devreme() {
+        let mut tinta = Tinta::noua("srv", None);
+        tinta.certificat = Certificat::Autoritate("/nu/exista/ca.pem".into());
+        let e = SursaSqlServer::nou(tinta, Autentificare::Integrata).err();
+        // pe Linux poate cadea si pe auth integrata; important e ca nu trece
+        assert!(e.is_some());
     }
 
     #[test]
@@ -477,59 +578,121 @@ mod teste {
         }
     }
 
-    /// SQL Browser fals pe localhost: raspunde cu portul unui `TcpListener`.
-    /// Verifica tot drumul: intrebarea catre Browser, raspunsul, conectarea.
-    #[test]
-    fn instanta_numita_se_rezolva_prin_sql_browser() {
-        let rt = tokio::runtime::Builder::new_current_thread()
+    fn rt() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .unwrap();
-        rt.block_on(async {
-            let tcp = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let port_tcp = tcp.local_addr().unwrap().port();
+            .unwrap()
+    }
+
+    fn raspuns_ssrp(corp: &str) -> Vec<u8> {
+        let mut v = vec![5u8];
+        v.extend_from_slice(&(corp.len() as u16).to_le_bytes());
+        v.extend_from_slice(corp.as_bytes());
+        v
+    }
+
+    /// SQL Browser fals pe localhost, pe un port efemer. Verifica tot drumul:
+    /// intrebarea, raspunsul, portul ales.
+    #[test]
+    fn instanta_numita_se_rezolva_prin_sql_browser() {
+        rt().block_on(async {
             let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
             let port_browser = udp.local_addr().unwrap().port();
             let browser = tokio::spawn(async move {
                 let mut b = [0u8; 256];
                 let (n, de) = udp.recv_from(&mut b).await.unwrap();
-                let r = format!(
-                    "ServerName;TS2409;InstanceName;MIHAIG;IsClustered;No;Version;16.0;tcp;{port_tcp};;"
-                );
-                let mut msg = vec![5u8, 0, 0];
-                msg.extend_from_slice(r.as_bytes());
-                udp.send_to(&msg, de).await.unwrap();
+                let r = "ServerName;TS2409;InstanceName;ALTA;tcp;1111;;\
+                         ServerName;TS2409;InstanceName;MIHAIG;IsClustered;No;Version;16.0;tcp;52383;;";
+                udp.send_to(&raspuns_ssrp(r), de).await.unwrap();
                 b[..n].to_vec()
             });
-            let mut c = Config::new();
-            c.host("127.0.0.1");
-            c.port(port_browser);
-            c.instance_name("MIHAIG");
-            let s = deschide_tcp(&c, r"127.0.0.1\MIHAIG", Some("MIHAIG")).await.unwrap();
-            assert_eq!(s.peer_addr().unwrap().port(), port_tcp, "portul de la Browser");
-            assert_eq!(browser.await.unwrap(), b"\x04MIHAIG", "intrebarea catre Browser");
+            let p = rezolva_port_instanta("127.0.0.1", port_browser, "mihaig", "x")
+                .await
+                .unwrap();
+            assert_eq!(p, 52383, "portul instantei cerute, nu al alteia");
+            assert_eq!(browser.await.unwrap(), b"\x04mihaig", "intrebarea catre Browser");
         });
     }
 
     #[test]
     fn browser_care_nu_raspunde_da_mesaj_despre_sql_browser() {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        rt.block_on(async {
-            let mut c = Config::new();
+        rt().block_on(async {
             // Socket deschis care nu raspunde niciodata: Browser oprit.
             let mut_udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
-            c.host("127.0.0.1");
-            c.port(mut_udp.local_addr().unwrap().port());
-            c.instance_name("NUEXISTA");
-            let e = deschide_tcp(&c, r"127.0.0.1\NUEXISTA", Some("NUEXISTA"))
+            let port = mut_udp.local_addr().unwrap().port();
+            let e = rezolva_port_instanta("127.0.0.1", port, "NUEXISTA", "x")
                 .await
                 .unwrap_err();
             assert_eq!(e.cod(), "GM-DB-001");
             assert!(e.to_string().contains("SQL Browser"), "{e}");
         });
+    }
+
+    /// Regresie din audit: un raspuns de 2 octeti dadea panica in `tiberius`
+    /// (`&buf[3..len]`), iar release-ul are `panic = "abort"`.
+    #[test]
+    fn raspuns_scurt_de_la_browser_nu_da_panica() {
+        rt().block_on(async {
+            let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            let port = udp.local_addr().unwrap().port();
+            tokio::spawn(async move {
+                let mut b = [0u8; 64];
+                let (_, de) = udp.recv_from(&mut b).await.unwrap();
+                udp.send_to(&[0x05, 0x00], de).await.unwrap();
+            });
+            let e = rezolva_port_instanta("127.0.0.1", port, "X", "x")
+                .await
+                .unwrap_err();
+            assert_eq!(e.cod(), "GM-DB-001");
+        });
+    }
+
+    /// Regresie din audit: raspunsul venit de la ALT socket decat cel intrebat
+    /// alegea portul (socket neconectat). Acum sistemul il arunca.
+    #[test]
+    fn raspunsul_de_la_alta_sursa_e_ignorat() {
+        rt().block_on(async {
+            let browser = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            let port = browser.local_addr().unwrap().port();
+            let atacator = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            tokio::spawn(async move {
+                let mut b = [0u8; 64];
+                let (_, de) = browser.recv_from(&mut b).await.unwrap();
+                let r = raspuns_ssrp("ServerName;S;InstanceName;X;tcp;4444;;");
+                atacator.send_to(&r, de).await.unwrap();
+                // browserul adevarat tace
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                drop(browser);
+            });
+            let e = rezolva_port_instanta("127.0.0.1", port, "X", "x")
+                .await
+                .unwrap_err();
+            assert!(e.to_string().contains("nu a raspuns"), "{e}");
+        });
+    }
+
+    /// Regresie din audit: dupa TCP, nimic nu avea timeout; un server care
+    /// accepta conexiunea si tace bloca programul la nesfarsit.
+    #[test]
+    fn serverul_care_tace_dupa_tcp_da_timeout() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let _tine = std::thread::spawn(move || {
+            let _c = listener.accept();
+            std::thread::sleep(Duration::from_secs(10));
+        });
+        let mut s = sql("127.0.0.1", Some(port));
+        s.timeout_conectare = Duration::from_secs(1);
+        let start = std::time::Instant::now();
+        let e = s.baze().unwrap_err();
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "{:?}",
+            start.elapsed()
+        );
+        assert_eq!(e.cod(), "GM-DB-001");
+        assert!(e.to_string().contains("timeout"), "{e}");
     }
 
     #[test]
@@ -552,10 +715,7 @@ mod teste {
     fn numele_ostile_sunt_refuzate_inainte_de_conectare() {
         for server in ["srv;DROP DATABASE x", "srv'--", "a b"] {
             let e = SursaSqlServer::nou(
-                Tinta {
-                    server: server.into(),
-                    port: None,
-                },
+                Tinta::noua(server, None),
                 Autentificare::Sql {
                     utilizator: "u".into(),
                     parola: "p".into(),
@@ -569,10 +729,7 @@ mod teste {
     #[test]
     fn debug_nu_scurge_parola() {
         let s = SursaSqlServer::nou(
-            Tinta {
-                server: "SRV01".into(),
-                port: None,
-            },
+            Tinta::noua("SRV01", None),
             Autentificare::Sql {
                 utilizator: "sa".into(),
                 parola: "parola-secreta".into(),
@@ -587,10 +744,7 @@ mod teste {
     #[test]
     fn descrierea_nu_scurge_parola() {
         let s = SursaSqlServer::nou(
-            Tinta {
-                server: "SRV01".into(),
-                port: Some(1433),
-            },
+            Tinta::noua("SRV01", Some(1433)),
             Autentificare::Sql {
                 utilizator: "sa".into(),
                 parola: "parola-secreta".into(),
@@ -606,13 +760,7 @@ mod teste {
     #[cfg(not(windows))]
     #[test]
     fn auth_integrata_e_refuzata_devreme_pe_linux() {
-        let e = SursaSqlServer::nou(
-            Tinta {
-                server: "SRV01".into(),
-                port: None,
-            },
-            Autentificare::Integrata,
-        );
+        let e = SursaSqlServer::nou(Tinta::noua("SRV01", None), Autentificare::Integrata);
         // Pe Linux nu e disponibila: se afla la construire, nu la conectare.
         assert!(e.is_err() || !auth_integrata_disponibila());
     }

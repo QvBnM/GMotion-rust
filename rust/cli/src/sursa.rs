@@ -8,7 +8,7 @@
 //! nevoie de obiecte o foloseste. Daca apare o comanda care accepta doar
 //! server, asta e bug-ul.
 
-use gmotion_db::{Autentificare, SursaFixture, SursaObiecte, SursaSqlServer, Tinta};
+use gmotion_db::{Autentificare, Certificat, SursaFixture, SursaObiecte, SursaSqlServer, Tinta};
 
 use crate::acreditari::ArgumenteAuth;
 
@@ -21,6 +21,18 @@ pub struct ArgumenteSursa {
     /// Port, daca nu e cel implicit.
     #[arg(long, requires = "server")]
     pub port: Option<u16>,
+
+    /// Verificarea certificatului serverului: `nevalidat` (implicit, ca in
+    /// v3.4: criptat, dar oricine se pune la mijloc poate citi parola),
+    /// `sistem` (depozitul de certificate al sistemului), sau calea unei
+    /// autoritati de certificare (`.pem`/`.crt`).
+    #[arg(
+        long,
+        value_name = "MOD",
+        requires = "server",
+        default_value = "nevalidat"
+    )]
+    pub certificat: String,
 
     /// Citeste dintr-un instantaneu in loc de pe un server. Asa se reia un bug
     /// de pe o baza reala, pe orice masina.
@@ -56,6 +68,7 @@ impl ArgumenteSursa {
                     Tinta {
                         server: server.clone(),
                         port: self.port,
+                        certificat: certificat(&self.certificat),
                     },
                     auth,
                 )
@@ -65,6 +78,14 @@ impl ArgumenteSursa {
             }
             (None, None) => Err("da ori --server <SERVER>, ori --sursa <instantaneu.json>".into()),
         }
+    }
+}
+
+fn certificat(mod_: &str) -> Certificat {
+    match mod_ {
+        "nevalidat" => Certificat::Nevalidat,
+        "sistem" => Certificat::Sistem,
+        cale => Certificat::Autoritate(cale.into()),
     }
 }
 
@@ -108,6 +129,7 @@ mod teste {
         let mut a = ArgumenteSursa {
             server: Some(r"TS2409\MIHAIG".into()),
             port: None,
+            certificat: "nevalidat".into(),
             sursa: None,
             auth: ArgumenteAuth {
                 utilizator: Some("sa".into()),
@@ -127,6 +149,7 @@ mod teste {
         let a = ArgumenteSursa {
             server: None,
             port: None,
+            certificat: "nevalidat".into(),
             sursa: None,
             auth: ArgumenteAuth {
                 utilizator: None,
@@ -144,6 +167,7 @@ mod teste {
         let a = ArgumenteSursa {
             server: None,
             port: None,
+            certificat: "nevalidat".into(),
             sursa: Some(std::path::PathBuf::from("/nu/exista.json")),
             auth: ArgumenteAuth {
                 utilizator: None,

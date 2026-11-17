@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 139024adb2a7c665 -->
+<!-- api-hash: ae948a808510ea72 -->
 
 ## Rol
 
@@ -33,7 +33,8 @@ biblioteca** — fara nicio interfata.
 
 ## Invariante
 
-1. **Ordinea de clasificare:** lipsa -> hash egal (identic) -> diferit.
+1. **Ordinea de clasificare:** lipsa -> criptat (definitie goala intr-o
+   parte) -> hash egal (identic) -> diferit.
    Comparatia de hash e si optimizarea care conteaza: pe baze aproape identice
    majoritatea obiectelor se opresc acolo.
 2. **Hash diferit inseamna diferit, si scorul afisat e cel mult 99,99.**

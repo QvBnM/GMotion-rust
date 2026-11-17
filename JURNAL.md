@@ -406,6 +406,34 @@ exact modificarile pe care v3.4 le ascundea.
 
 ---
 
+## 2026-11-17 — Conexiunea: timeout-uri, SQL Browser propriu, certificat optional
+
+**Context.** Auditul de la `f561bf9`: (1) certificatul serverului nu se
+verifica niciodata — un server TDS fals a primit parola `sa` in clar;
+(2) dupa TCP nimic nu avea timeout; (3) `connect_named` din `tiberius` dadea
+panica pe un raspuns SQL Browser de 2 octeti si accepta raspunsul de la
+oricine de pe LAN; (4) `Autentificare` avea `Debug` derivat.
+
+**Alternative pentru certificat.** (a) validare implicita: sigur, dar cade pe
+fiecare server intern cu certificat autosemnat — adica pe serverele reale de
+azi, inclusiv `TS2409\MIHAIG`; (b) implicit ca in v3.4, validarea la cerere,
+cu avertisment in jurnal la fiecare conexiune; (c) „trust on first use"
+(amprenta retinuta) — cere stocare si un flux de confirmare.
+
+**Motiv.** (b), deocamdata: (a) ar rupe toate instalarile existente fara ca
+Mihai sa fi decis. Implicitul e decizia lui Mihai (in `STARE.md`). (c) e
+candidatul bun pentru interfata.
+
+**Ce s-a facut.** `Tinta::certificat` + `--certificat nevalidat|sistem|<ca>`;
+timeout pe deschidere (TCP+TLS+login), pe interogari si pe SQL Browser;
+conexiunea se arunca dupa orice eroare; `rezolva_port_instanta` propriu
+(socket UDP conectat, parser validat, instanta verificata); `try_get` in loc de
+`get`; erorile de interogare `GM-DB-004`, baza inaccesibila (4060) `GM-DB-005`;
+`valideaza_baza` (`GM-DB-011`); obiectele criptate pastrate, categorie
+`criptat` in modul.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
@@ -414,7 +442,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | Prefix | Zona |
 |---|---|
 | `GM-CORE-*` | motorul de comparare |
-| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-010**, vezi `rust/db/CRATE.md` |
+| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-011**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
 | `GM-MOD-*` | module — **diff-obiecte: 001-011**, vezi `rust/module/diff-obiecte/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |

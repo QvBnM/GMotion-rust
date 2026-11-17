@@ -28,16 +28,41 @@ impl Obiect {
     pub fn id(&self) -> String {
         format!("{}.{}", self.schema, self.nume)
     }
+
+    /// Obiect `WITH ENCRYPTION`: serverul nu da definitia. Se pastreaza cu
+    /// definitie goala (SQL Server nu are obiecte necriptate cu definitie
+    /// goala). Pana la audit se sarea, deci aparea „lipsa" in tinta si deploy-ul
+    /// l-ar fi suprascris.
+    pub fn criptat(&self) -> bool {
+        self.definitie.is_empty()
+    }
 }
 
 /// Cum ne autentificam. Parola nu se serializeaza niciodata: nu ajunge nici in
 /// sesiuni, nici in instantanee, nici in jurnal.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// `Debug` scris de mana, nu derivat (regula din `CLAUDE.md`): derivat, un
+/// `{:?}`, un `assert_eq!` care cade sau o panica tipareau parola. Gasit la
+/// auditul din 2026-11-17.
+#[derive(Clone, PartialEq, Eq)]
 pub enum Autentificare {
     /// Utilizator si parola de SQL Server.
     Sql { utilizator: String, parola: String },
     /// Utilizatorul Windows curent (SSPI). Doar pe Windows.
     Integrata,
+}
+
+impl std::fmt::Debug for Autentificare {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Autentificare::Sql { utilizator, .. } => f
+                .debug_struct("Sql")
+                .field("utilizator", utilizator)
+                .field("parola", &"<ascunsa>")
+                .finish(),
+            Autentificare::Integrata => f.write_str("Integrata"),
+        }
+    }
 }
 
 impl Autentificare {
@@ -56,6 +81,37 @@ pub struct Tinta {
     pub server: String,
     /// Port explicit. `None` lasa portul implicit sau SQL Browser sa decida.
     pub port: Option<u16>,
+    /// Cum se verifica certificatul TLS al serverului.
+    pub certificat: Certificat,
+}
+
+/// Verificarea certificatului serverului.
+///
+/// Fara verificare, oricine se pune intre statie si server (ARP/DNS spoofing,
+/// un nume tastat gresit) primeste parola in clar si poate livra definitii
+/// false — reprodus la audit cu un server TDS fals. Cu `Sistem`, serverul
+/// trebuie sa aiba un certificat valid pentru numele lui; pe serverele interne
+/// cu certificat autosemnat asta cade, de aceea implicitul ramane, deocamdata,
+/// cel din v3.4 (`TrustServerCertificate=yes`). Vezi `JURNAL.md`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum Certificat {
+    /// Orice certificat e acceptat. Criptarea ramane, autenticitatea nu.
+    #[default]
+    Nevalidat,
+    /// Validat cu depozitul de certificate al sistemului.
+    Sistem,
+    /// Validat cu o autoritate data (fisier `.pem`/`.crt`/`.der`).
+    Autoritate(std::path::PathBuf),
+}
+
+impl Tinta {
+    pub fn noua(server: impl Into<String>, port: Option<u16>) -> Self {
+        Tinta {
+            server: server.into(),
+            port,
+            certificat: Certificat::default(),
+        }
+    }
 }
 
 /// O instanta gasita in retea prin SQL Browser.
@@ -82,6 +138,18 @@ pub struct InfoServer {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    /// Regresie din audit: `Autentificare` derivata `Debug` tiparea parola.
+    #[test]
+    fn debug_pe_autentificare_nu_scurge_parola() {
+        let a = Autentificare::Sql {
+            utilizator: "sa".into(),
+            parola: "S3cret-Pa55".into(),
+        };
+        let t = format!("{a:?} {a:#?}");
+        assert!(!t.contains("S3cret"), "{t}");
+        assert!(t.contains("sa"), "utilizatorul ramane vizibil: {t}");
+    }
 
     #[test]
     fn id_e_schema_punct_nume() {

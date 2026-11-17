@@ -30,6 +30,7 @@ impl Format {
     /// Unde merg mesajele de progres. Pe JSON, la erori: altfel ar strica
     /// ieșirea.
     pub fn progres(self, mesaj: &str) {
+        let mesaj = fara_control(mesaj);
         match self {
             Format::Text => println!("{mesaj}"),
             Format::Json => eprintln!("{mesaj}"),
@@ -37,11 +38,34 @@ impl Format {
     }
 }
 
+/// Caracterele de control (in afara de rand nou) devin `?`. Numele de baze,
+/// obiecte si servere vin din baze sau de pe retea; un `ESC[2J` intr-un nume
+/// rescria terminalul, iar un rand nou in mijlocul unei celule strica
+/// tabelul. Gasit la audit.
+pub fn fara_control(s: &str) -> String {
+    s.chars()
+        .map(|c| if c.is_control() && c != '\n' { '?' } else { c })
+        .collect()
+}
+
+/// Ca `fara_control`, dar si randul nou devine `?`: o celula de tabel e pe
+/// un singur rand.
+fn celula(s: &str) -> String {
+    s.chars()
+        .map(|c| if c.is_control() { '?' } else { c })
+        .collect()
+}
+
 /// Un tabel simplu, aliniat pe lațimea conținutului.
 ///
 /// Fara dependinta de un crate de tabele: zece linii de cod fac exact ce
 /// trebuie, iar coloanele noastre sunt mereu text scurt.
 pub fn tabel(cap: &[&str], randuri: &[Vec<String>]) -> String {
+    let randuri: Vec<Vec<String>> = randuri
+        .iter()
+        .map(|r| r.iter().map(|c| celula(c)).collect())
+        .collect();
+    let randuri = &randuri;
     let mut lat: Vec<usize> = cap.iter().map(|c| c.chars().count()).collect();
     for r in randuri {
         for (i, c) in r.iter().enumerate() {
@@ -99,6 +123,12 @@ pub fn comparare_text(c: &Comparare) -> String {
         n.lipsa,
         n.extra
     );
+    if n.criptate > 0 {
+        out.push_str(&format!(
+            "{} criptate (WITH ENCRYPTION): nu se compara, nu se deployeaza\n",
+            n.criptate
+        ));
+    }
     if c.randuri.is_empty() {
         out.push_str("\nNimic de raportat: bazele sunt identice cu referinta.\n");
         return out;
@@ -146,6 +176,7 @@ pub struct CompararJson<'a> {
     pub diferite: usize,
     pub lipsa: usize,
     pub extra: usize,
+    pub criptate: usize,
     pub randuri: &'a [Rand],
 }
 
@@ -158,6 +189,7 @@ pub fn comparare_json(c: &Comparare) -> CompararJson<'_> {
         diferite: c.numaratoare.diferite,
         lipsa: c.numaratoare.lipsa,
         extra: c.numaratoare.extra,
+        criptate: c.numaratoare.criptate,
         randuri: &c.randuri,
     }
 }
@@ -211,8 +243,16 @@ mod teste {
                 diferite: 1,
                 lipsa: 1,
                 extra: 0,
+                criptate: 0,
             },
         }
+    }
+
+    #[test]
+    fn caracterele_de_control_nu_ajung_in_terminal() {
+        let t = tabel(&["N"], &[vec!["a\u{1b}[2Jb\nc".to_string()]]);
+        assert!(!t.contains('\u{1b}') && t.lines().count() == 3, "{t:?}");
+        assert_eq!(fara_control("x\u{1b}y\nz"), "x?y\nz");
     }
 
     #[test]

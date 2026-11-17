@@ -59,9 +59,17 @@ impl Instantaneu {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
         })?;
-        std::fs::write(cale, text).map_err(|e| Eroare::ScriereInstantaneu {
+        // Intai intr-un fisier temporar, apoi redenumit: o cadere la jumatatea
+        // scrierii nu lasa un instantaneu trunchiat in locul celui vechi.
+        let temporar = cale.with_extension("tmp-gmotion");
+        let eroare = |e: std::io::Error| Eroare::ScriereInstantaneu {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
+        };
+        std::fs::write(&temporar, text).map_err(eroare)?;
+        std::fs::rename(&temporar, cale).map_err(|e| {
+            let _ = std::fs::remove_file(&temporar);
+            eroare(e)
         })?;
         tracing::info!(
             target: "gmotion::db",
@@ -91,7 +99,37 @@ impl Instantaneu {
                 asteptata: VERSIUNE_INSTANTANEU,
             });
         }
+        inst.valideaza()
+            .map_err(|detaliu| Eroare::CitireInstantaneu {
+                cale: cale.display().to_string(),
+                detaliu,
+            })?;
         Ok(inst)
+    }
+
+    /// Un instantaneu circula intre oameni, deci continutul lui nu e de
+    /// incredere. Pana la audit nu se verifica nimic: o baza numita
+    /// `x];DROP DATABASE Prod;--` sau doua obiecte cu acelasi nume (ultimul
+    /// castiga, tacut) treceau mai departe.
+    fn valideaza(&self) -> Result<(), String> {
+        for (baza, obiecte) in &self.baze {
+            if crate::eroare::valideaza_baza(baza).is_err() {
+                return Err(format!("numele de baza {baza:?} nu e valid"));
+            }
+            let mut vazute = std::collections::BTreeSet::new();
+            for o in obiecte {
+                if o.nume.is_empty() || o.schema.is_empty() {
+                    return Err(format!("obiect fara nume sau schema in baza {baza:?}"));
+                }
+                if !vazute.insert(o.id()) {
+                    return Err(format!(
+                        "obiectul {} apare de doua ori in baza {baza:?}",
+                        o.id()
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -216,6 +254,42 @@ mod teste {
         let cale = dir.join("rupt.json");
         std::fs::write(&cale, "{ nu e json").unwrap();
         assert_eq!(Instantaneu::citeste(&cale).unwrap_err().cod(), "GM-DB-007");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Regresie din audit: continutul instantaneului nu se verifica.
+    #[test]
+    fn instantaneu_cu_continut_ostil_e_refuzat() {
+        let dir = std::env::temp_dir().join(format!("gmotion-test-ostil-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ob =
+            |n: &str| serde_json::json!({"schema":"dbo","nume":n,"tip":"P","definitie":"SELECT 1"});
+        for (eticheta, baze) in [
+            (
+                "control",
+                serde_json::json!({"x\nGO\nDROP DATABASE Prod": [ob("p")]}),
+            ),
+            ("duplicat", serde_json::json!({"A": [ob("p"), ob("p")]})),
+            ("gol", serde_json::json!({"A": [ob("")]})),
+        ] {
+            let cale = dir.join(format!("{eticheta}.json"));
+            let inst = serde_json::json!({"versiune":1,"server":"s","creat":"t","baze":baze});
+            std::fs::write(&cale, inst.to_string()).unwrap();
+            let e = Instantaneu::citeste(&cale).unwrap_err();
+            assert_eq!(e.cod(), "GM-DB-007", "{eticheta}: {e}");
+        }
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn scrierea_nu_lasa_fisiere_temporare() {
+        let dir = std::env::temp_dir().join(format!("gmotion-test-atomic-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let cale = dir.join("i.json");
+        Instantaneu::nou("S", "t").scrie(&cale).unwrap();
+        Instantaneu::nou("S", "t2").scrie(&cale).unwrap();
+        assert_eq!(Instantaneu::citeste(&cale).unwrap().creat, "t2");
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1);
         std::fs::remove_dir_all(&dir).ok();
     }
 }

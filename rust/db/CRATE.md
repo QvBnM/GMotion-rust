@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 243dbd8f17bf7a44 -->
+<!-- api-hash: 9b739aa3030ecc82 -->
 
 ## Rol
 
@@ -60,10 +60,13 @@ se testeaza fara SQL Server.
 
 1. **Parola nu iese niciodata:** nici in `Display`, nici in `Debug`, nici in
    jurnal, nici in instantaneu. `Autentificare` nu implementeaza `Serialize`,
-   iar `Debug` pe `SursaSqlServer` e scris de mana, nu derivat.
-2. **Numele se valideaza inainte de conectare,** nu dupa. Doar litere, cifre,
-   `_ - . \ ,`. Configuratia se construieste pe campuri, nu prin text de
-   conexiune cu `;`.
+   iar `Debug` e scris de mana, cu redactare, si pe `Autentificare` si pe
+   `SursaSqlServer` (pe `Autentificare` era derivat pana la audit).
+2. **Numele se valideaza inainte de conectare,** nu dupa. Serverul: doar
+   litere, cifre, `_ - . \ ,` (`valideaza_nume`). Baza: orice nume valid in
+   SQL Server, fara caractere de control (`valideaza_baza`) — ajunge doar in
+   login-ul TDS, niciodata in text SQL. Configuratia se construieste pe
+   campuri, nu prin text de conexiune cu `;`.
 3. **Obiectele vin brute.** Nicio transformare in afara de `trim()` pe tip.
 4. **Ordinea e stabila:** `ORDER BY s.name, o.name` in interogare, `BTreeMap` in
    instantaneu. Altfel diff-ul a doua instantanee e nefolositor.
@@ -71,8 +74,20 @@ se testeaza fara SQL Server.
    diacritice, ghilimele si apostrofuri escapate.
 6. **`obiecte_multe` se oprește la prima eroare.** O comparare pe baze
    incomplete da rezultate false, ceea ce e mai rau decat sa nu dea nimic.
-7. Un obiect fara definitie (criptat cu `WITH ENCRYPTION`) se sare cu
-   avertisment; nu e eroare.
+7. **Un obiect criptat** (`WITH ENCRYPTION`, definitie NULL) se pastreaza cu
+   definitie goala (`Obiect::criptat`), cu avertisment. Nu se sare: sarit,
+   aparea „lipsa" in tinta si deploy-ul l-ar fi suprascris.
+8. **Nicio asteptare fara limita.** Deschiderea (TCP + TLS + login) are
+   `TIMEOUT_CONECTARE`, fiecare interogare `TIMEOUT_INTEROGARE`, SQL Browser
+   `TIMEOUT_BROWSER`. Dupa orice eroare conexiunea se arunca.
+9. **Instanta numita se rezolva prin cod propriu** (`rezolva_port_instanta`),
+   pe un socket UDP conectat la gazda intrebata, cu parserul validat din
+   `descoperire`. Nu prin `connect_named` din `tiberius` (panica pe raspuns
+   scurt, accepta raspuns de la oricine).
+10. **Certificatul serverului:** `Tinta::certificat` — `Nevalidat` (implicit,
+   ca in v3.4, cu avertisment in jurnal), `Sistem`, `Autoritate(cale)`.
+11. **Un instantaneu e intrare nesigura:** la citire se refuza nume de baze
+   invalide si obiecte duplicate; scrierea e atomica (temporar + redenumire).
 
 ## Erori tipice
 
@@ -83,10 +98,13 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 |---|---|---|
 | `GM-DB-001` | conexiunea nu se deschide: retea, port, firewall, instanta oprita | `src/sqlserver.rs` |
 | `GM-DB-001` cu „No such host is known” la `SRV\INSTANTA` | numele intreg a ajuns la DNS: instanta nu a trecut prin `interpreteaza_server` | `src/sqlserver.rs` |
-| `GM-DB-001` cu „SQL browser timeout” | instanta numita fara port: serviciul SQL Browser (UDP 1434) oprit, blocat de firewall, sau instanta nu exista. Ocolire: `--port` | `src/sqlserver.rs`, `deschide_tcp` |
+| `GM-DB-001` cu „SQL Browser ... nu a raspuns” | instanta numita fara port: serviciul SQL Browser (UDP 1434) oprit, blocat de firewall, sau instanta nu exista. Ocolire: `--port` | `src/sqlserver.rs`, `rezolva_port_instanta` |
+| `GM-DB-001` cu „timeout dupa 30 s (TCP, TLS si autentificare)” | serverul accepta TCP dar nu termina login-ul: alt serviciu pe port, server blocat | `src/sqlserver.rs`, `conectare` |
+| `GM-DB-001` cu eroare de certificat | `--certificat sistem` pe un server cu certificat autosemnat sau cu alt nume | `src/sqlserver.rs`, `configuratie` |
 | `GM-DB-002` | autentificare refuzata: parola, utilizator, drepturi pe baza | `src/sqlserver.rs` |
 | `GM-DB-003` | auth integrata cerută pe un sistem care nu o are (orice non-Windows) | `src/sqlserver.rs` |
 | `GM-DB-004` | interogarea cade: drepturi lipsa pe `sys.sql_modules`, baza offline | `src/sqlserver.rs` |
+| `GM-DB-011` | nume de baza gol, peste 128 de caractere, sau cu caractere de control | `src/eroare.rs` |
 | `GM-DB-005` | baza cerută nu exista in sursa | `src/sqlserver.rs`, `src/fixture.rs` |
 | `GM-DB-006` | descoperirea eșueaza: socket UDP blocat local | `src/descoperire.rs` |
 | `GM-DB-007` | instantaneul nu se citeste: fisier lipsa sau JSON rupt | `src/fixture.rs` |

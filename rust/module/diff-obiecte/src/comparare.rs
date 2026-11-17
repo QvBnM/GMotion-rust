@@ -25,6 +25,11 @@ pub enum Categorie {
     Diferit,
     /// Exista doar in baza comparata.
     Extra,
+    /// Criptat (`WITH ENCRYPTION`) in referinta sau in baza comparata: codul
+    /// nu se poate citi, deci nu se compara si nu se deployeaza. Pana la audit
+    /// obiectele criptate se sareau la citire, deci in tinta pareau „lipsa" si
+    /// deploy-ul le-ar fi suprascris.
+    Criptat,
 }
 
 impl Categorie {
@@ -33,6 +38,7 @@ impl Categorie {
             Categorie::Lipsa => "lipsa",
             Categorie::Diferit => "diferit",
             Categorie::Extra => "extra",
+            Categorie::Criptat => "criptat",
         }
     }
 }
@@ -73,6 +79,7 @@ pub struct Numaratoare {
     pub diferite: usize,
     pub lipsa: usize,
     pub extra: usize,
+    pub criptate: usize,
 }
 
 /// Forma pregatita a unui obiect: ce e nevoie pentru comparare, calculat o
@@ -197,6 +204,22 @@ pub fn compara(
                 id += 1;
                 continue;
             };
+            if r.definitie.is_empty() || c.definitie.is_empty() {
+                n.criptate += 1;
+                randuri.push(Rand {
+                    id,
+                    obiect: nume.clone(),
+                    baza: baza.clone(),
+                    scor: None,
+                    rezumat: "criptat: nu se poate compara".into(),
+                    tip: r.tip.clone(),
+                    categorie: Categorie::Criptat,
+                    hash_referinta: Some(r.hash.clone()),
+                    hash_curent: Some(c.hash.clone()),
+                });
+                id += 1;
+                continue;
+            }
             if c.hash == r.hash {
                 n.identice += 1;
                 continue;
@@ -353,6 +376,18 @@ mod teste {
             scor < 100.0,
             "un obiect diferit nu se afiseaza cu scor 100: {scor}"
         );
+    }
+
+    /// Regresie din audit: un obiect criptat in tinta nu e „lipsa" (deploy-ul
+    /// l-ar suprascrie), ci `criptat`.
+    #[test]
+    fn obiectul_criptat_nu_apare_lipsa() {
+        let r = pregateste(&[ob("pV", "CREATE PROC dbo.pV AS SELECT 1")]);
+        let t = pregateste(&[ob("pV", "")]);
+        let c = compara("Ref", &r, &[("T".to_string(), t)], fara_progres());
+        assert_eq!(c.numaratoare.lipsa, 0);
+        assert_eq!(c.numaratoare.criptate, 1);
+        assert_eq!(c.randuri[0].categorie, Categorie::Criptat);
     }
 
     #[test]

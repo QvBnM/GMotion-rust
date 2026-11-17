@@ -46,6 +46,9 @@ pub enum Eroare {
 
     #[error("[GM-DB-010] nume invalid: {0:?}. Sunt permise doar litere, cifre, _ , - , . si \\")]
     NumeInvalid(String),
+
+    #[error("[GM-DB-011] numele de baza {0:?} e gol, prea lung (peste 128 de caractere) sau contine caractere de control")]
+    BazaInvalida(String),
 }
 
 impl Eroare {
@@ -62,6 +65,7 @@ impl Eroare {
             Eroare::ScriereInstantaneu { .. } => "GM-DB-008",
             Eroare::VersiuneInstantaneu { .. } => "GM-DB-009",
             Eroare::NumeInvalid(_) => "GM-DB-010",
+            Eroare::BazaInvalida(_) => "GM-DB-011",
         }
     }
 
@@ -71,8 +75,8 @@ impl Eroare {
     }
 }
 
-/// Numele de server, baza si obiect ajung in text de conexiune si in SQL
-/// generat, deci se valideaza inainte, nu dupa.
+/// Numele de **server**: ajunge in campurile de configurare si in rezolvarea
+/// DNS, deci forma e stricta.
 ///
 /// Permis: litere, cifre, `_`, `-`, `.`, `\` (instanta), `,` (port). Orice
 /// altceva — ghilimele, `;`, spatiu, `--` — e refuzat.
@@ -88,6 +92,19 @@ pub fn valideaza_nume(n: &str) -> Rezultat<()> {
     } else {
         Err(Eroare::NumeInvalid(n.to_string()))
     }
+}
+
+/// Numele unei **baze de date**: ajunge doar in campul de login TDS (UTF-16),
+/// niciodata in text SQL, deci orice nume valid in SQL Server e acceptat —
+/// spatii, diacritice, `]`. Pana la audit trecea prin regula de server, deci
+/// `Contabilitate 2024` era refuzat si oprea o comparatie pe tot serverul.
+/// Refuzate raman doar caracterele de control (nu exista in nume reale si ar
+/// strica jurnalele si scripturile) si numele peste limita SQL Server.
+pub fn valideaza_baza(n: &str) -> Rezultat<()> {
+    if n.is_empty() || n.chars().count() > 128 || n.chars().any(char::is_control) {
+        return Err(Eroare::BazaInvalida(n.to_string()));
+    }
+    Ok(())
 }
 
 /// Pentru jurnal: niciodata parola, nici lungimea ei, niciodata textul de
@@ -118,6 +135,16 @@ mod teste {
             "Baza_1-test",
         ] {
             assert!(valideaza_nume(n).is_ok(), "{n} ar trebui valid");
+        }
+    }
+
+    #[test]
+    fn baze_cu_nume_obisnuite_sunt_acceptate() {
+        for n in ["Contabilitate 2024", "My DB", "Facturare_ț", "X]y", "a'b"] {
+            assert!(valideaza_baza(n).is_ok(), "{n:?} ar trebui acceptat");
+        }
+        for n in ["", "a\nb", "a\u{1b}[2J", &"x".repeat(129)] {
+            assert_eq!(valideaza_baza(n).unwrap_err().cod(), "GM-DB-011", "{n:?}");
         }
     }
 
@@ -178,6 +205,7 @@ mod teste {
                 asteptata: 2,
             },
             Eroare::NumeInvalid("n".into()),
+            Eroare::BazaInvalida("b".into()),
         ];
         let mut coduri: Vec<&str> = toate.iter().map(|e| e.cod()).collect();
         coduri.sort_unstable();

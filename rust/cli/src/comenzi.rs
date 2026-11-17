@@ -360,10 +360,20 @@ pub fn deploy(
             sarite += 1;
             continue;
         }
+        if rand.categorie == modul::Categorie::Criptat {
+            // criptat intr-una din parti: nu exista cod de citit, si un obiect
+            // criptat al furnizorului nu se suprascrie
+            sarite += 1;
+            continue;
+        }
         let Some(o) = r.referinta.get(&rand.obiect) else {
             // nu se poate intampla: randurile non-extra vin din referinta
             continue;
         };
+        if o.definitie.is_empty() {
+            sarite += 1; // criptat in referinta, lipsa in tinta
+            continue;
+        }
         pe_baza
             .entry(rand.baza.clone())
             .or_default()
