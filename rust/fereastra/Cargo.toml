@@ -1,0 +1,19 @@
+[package]
+name = "gmotion-fereastra"
+description = "Interfata nativa GMotion: ferestrele si componentele, desenate cu Slint (randare software, merge si prin RDP fara GPU)."
+version.workspace = true
+edition.workspace = true
+# Slint 1.19 cere Rust 1.95; restul workspace-ului ramane pe 1.74 (vezi JURNAL.md).
+rust-version = "1.95"
+license.workspace = true
+
+[dependencies]
+gmotion-core = { path = "../core" }
+slint = { version = "1.19", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "software-renderer-systemfonts"] }
+
+[build-dependencies]
+slint-build = "1.19"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+serde_json = "1"

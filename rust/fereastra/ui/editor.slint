@@ -1,0 +1,328 @@
+// Editorul de diferente, ca in v3.4 (tema deschisa): referinta in stanga
+// (SURSA, bej), baza comparata in dreapta (BAZA, albastru), blocurile aliniate
+// pe aceeasi inaltime, diferentele din linie marcate cu verde.
+//
+// Se strica astfel: panourile nu mai sunt aliniate, culorile nu mai spun ce
+// e diferit, sau derularea pe obiecte mari se blocheaza. Un singur ListView
+// (virtualizat) cu ambele panouri pe acelasi rand tine derularea sincronizata
+// fara cod.
+
+import { ListView } from "std-widgets.slint";
+
+// Culorile temei deschise din v3.4 (variabilele CSS din mostenire/ui.py).
+export global Tema {
+    in-out property <string> font-ui: "Segoe UI";
+    in-out property <string> font-mono: "Consolas";
+    out property <color> fundal: #ffffff;
+    out property <color> fundal2: #f6f8fa;
+    out property <color> text: #1f2328;
+    out property <color> text-slab: #656d76;
+    out property <color> bordura: #d0d7de;
+    out property <color> albastru: #2f81f7;
+    out property <color> albastru-fundal: #eef5ff;
+    out property <color> verde: #2da44e;
+    out property <color> verde-fundal: #dafbe1;
+    out property <color> rosu: #cf222e;
+    out property <color> rosu-fundal: #ffebe9;
+    out property <color> chihlimbar: #9a6700;
+    out property <color> bej: #f3ecdf;
+    out property <color> bara-unelte: #d1d5da;
+    // sintaxa
+    out property <color> s-cuvant: #8250df;
+    out property <color> s-variabila: #cf222e;
+    out property <color> s-numar: #116329;
+    out property <color> s-sir: #a40e26;
+    out property <color> s-comentariu: #6e7781;
+}
+
+export struct BucataUi {
+    text: string,
+    // 0 text, 1 cuvant cheie, 2 variabila, 3 numar, 4 sir, 5 comentariu
+    sintaxa: int,
+    schimbat: bool,
+}
+
+export struct RandUi {
+    st-nr: string,
+    st: [BucataUi],
+    dr-nr: string,
+    dr: [BucataUi],
+    // 0 egal, 1 modificat, 2 sters, 3 adaugat
+    stare: int,
+    inceput: bool,
+}
+
+export struct MarcajUi {
+    // pozitia in obiect, 0..1
+    pozitie: float,
+    stare: int,
+}
+
+component Buton inherits Rectangle {
+    in property <string> text;
+    in property <bool> activ: false;
+    in property <bool> primar: false;
+    callback apasat();
+    height: 26px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: activ ? Tema.verde : Tema.bordura;
+    background: activ ? Tema.verde-fundal : (zona.has-hover ? Tema.fundal2 : Tema.fundal);
+    min-width: eticheta.preferred-width + 24px;
+    eticheta := Text {
+        text: root.text;
+        font-family: Tema.font-ui;
+        font-size: 12px;
+        font-weight: 600;
+        color: activ ? #1a7f37 : (primar ? Tema.albastru : Tema.text);
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+    zona := TouchArea { clicked => { root.apasat(); } }
+}
+
+component Bucati inherits HorizontalLayout {
+    in property <[BucataUi]> bucati;
+    spacing: 0px;
+    alignment: start;
+    for b in bucati: Rectangle {
+        background: b.schimbat ? Tema.verde-fundal : transparent;
+        width: t.preferred-width;
+        t := Text {
+            text: b.text;
+            font-family: Tema.font-mono;
+            font-size: 12.5px;
+            font-weight: b.sintaxa == 1 ? 700 : 400;
+            color: b.sintaxa == 1 ? Tema.s-cuvant
+                 : b.sintaxa == 2 ? Tema.s-variabila
+                 : b.sintaxa == 3 ? Tema.s-numar
+                 : b.sintaxa == 4 ? Tema.s-sir
+                 : b.sintaxa == 5 ? Tema.s-comentariu
+                 : Tema.text;
+            vertical-alignment: center;
+        }
+        if b.schimbat: Rectangle {
+            y: parent.height - 2px;
+            height: 1.5px;
+            background: Tema.verde;
+        }
+    }
+}
+
+// O jumatate de rand: numarul de linie si textul colorat.
+component Jumatate inherits Rectangle {
+    in property <string> nr;
+    in property <[BucataUi]> bucati;
+    in property <int> stare;
+    in property <bool> stanga;
+    in property <bool> inceput;
+    clip: true;
+    min-width: 0px;
+    background: stare == 0 ? transparent
+              : stare == 1 ? Tema.bej
+              : stare == 2 ? (stanga ? Tema.rosu-fundal : Tema.fundal2)
+              : (stanga ? Tema.fundal2 : Tema.verde-fundal);
+    // bara laterala a blocului diferit, ca in v3.4
+    if stare != 0 && nr != "": Rectangle {
+        x: stanga ? 5px : 44px;
+        width: 2.5px;
+        background: stare == 1 ? Tema.chihlimbar : stare == 2 ? Tema.rosu : Tema.verde;
+    }
+    HorizontalLayout {
+        padding-left: 6px;
+        spacing: 10px;
+        alignment: start;
+        Text {
+            width: 30px;
+            text: nr;
+            font-family: Tema.font-mono;
+            font-size: 11px;
+            color: Tema.text-slab;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+        Bucati { bucati: root.bucati; }
+    }
+    if inceput && stanga: Rectangle {
+        x: parent.width - 34px;
+        y: 2px;
+        width: 26px;
+        height: 14px;
+        border-radius: 3px;
+        border-width: 1px;
+        border-color: Tema.bordura;
+        background: Tema.fundal;
+        Text { text: "1/1"; font-size: 9px; color: Tema.text-slab; font-family: Tema.font-ui; }
+    }
+}
+
+export component EditorDiferente inherits Window {
+    title: "GMotion - SQL Diff & Deploy";
+    preferred-width: 1400px;
+    preferred-height: 860px;
+    background: Tema.fundal;
+
+    in property <string> obiect;
+    in property <string> baza-ref;
+    in property <string> baza-tinta;
+    in property <string> scor;
+    in property <string> pozitie-obiect;   // "13/18"
+    in property <string> rezumat;          // "1 mod, 0 add, 0 sterse"
+    in property <[RandUi]> randuri;
+    in property <[MarcajUi]> marcaje;
+    in property <int> total-diferente;
+    in-out property <int> diferenta-curenta: 0;
+    in property <[int]> start-diferente;
+    callback inapoi-lista();
+    callback obiect-anterior();
+    callback obiect-urmator();
+
+    property <length> inaltime-rand: 19px;
+
+    function mergi-la(i: int) {
+        if (total-diferente == 0) { return; }
+        diferenta-curenta = Math.max(0, Math.min(total-diferente - 1, i));
+        lista.viewport-y = -Math.max(0, start-diferente[diferenta-curenta] - 3) * inaltime-rand;
+    }
+
+    VerticalLayout {
+        // ---- bara de sus: obiectul si navigarea intre obiecte
+        Rectangle {
+            height: 58px;
+            background: Tema.fundal2;
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Buton { text: "← Lista"; apasat => { root.inapoi-lista(); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text { text: root.obiect; font-family: Tema.font-mono; font-size: 14px; font-weight: 700; color: Tema.text; }
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Text { text: "Baza:"; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-slab; }
+                        Text { text: root.baza-tinta; font-family: Tema.font-ui; font-size: 11px; font-weight: 700; color: Tema.albastru; }
+                        Text { text: "• " + root.scor; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-slab; }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Buton { text: "←"; apasat => { root.obiect-anterior(); } }
+                        Text { text: root.pozitie-obiect; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-slab; vertical-alignment: center; }
+                        Buton { text: "→"; apasat => { root.obiect-urmator(); } }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout { alignment: center; Buton { text: "◌  Am ajuns la o concluzie"; height: 34px; } }
+                VerticalLayout { alignment: center; Buton { text: "⊖  Omite"; height: 34px; } }
+            }
+        }
+        // ---- banda informativa
+        Rectangle {
+            height: 24px;
+            background: Tema.albastru-fundal;
+            HorizontalLayout {
+                padding-left: 20px;
+                spacing: 6px;
+                alignment: start;
+                Text { text: "●  Modificarile se aplica in timp real ·"; font-family: Tema.font-ui; font-size: 11px; color: Tema.albastru; vertical-alignment: center; }
+                Text { text: root.scor + " similar · " + root.rezumat; font-family: Tema.font-ui; font-size: 11px; font-weight: 700; color: Tema.albastru; vertical-alignment: center; }
+            }
+        }
+        // ---- bara de unelte
+        Rectangle {
+            height: 42px;
+            background: Tema.bara-unelte;
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 8px;
+                VerticalLayout { alignment: center; Buton { text: "Aplica toate"; activ: true; } }
+                VerticalLayout { alignment: center; Buton { text: "Reset"; } }
+                VerticalLayout { alignment: center; Buton { text: "↑"; apasat => { root.mergi-la(root.diferenta-curenta - 1); } } }
+                Text {
+                    text: root.total-diferente == 0 ? "0/0" : (root.diferenta-curenta + 1) + "/" + root.total-diferente;
+                    font-family: Tema.font-mono; font-size: 11px; color: Tema.chihlimbar; vertical-alignment: center;
+                }
+                VerticalLayout { alignment: center; Buton { text: "↓"; apasat => { root.mergi-la(root.diferenta-curenta + 1); } } }
+                VerticalLayout { alignment: center; Buton { text: "▶  Mod ghidat"; } }
+                VerticalLayout { alignment: center; Buton { text: "Side-by-side"; activ: true; } }
+                VerticalLayout { alignment: center; Buton { text: "Inline"; } }
+                Rectangle { horizontal-stretch: 1; }
+                VerticalLayout { alignment: center; Buton { text: "Ascunde diferentele"; activ: true; } }
+                VerticalLayout { alignment: center; Buton { text: "Re-sincronizeaza"; primar: true; } }
+            }
+        }
+        // ---- antetele panourilor
+        HorizontalLayout {
+            height: 38px;
+            spacing: 46px;
+            padding-right: 12px + 14px;
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Tema.bej;
+                HorizontalLayout {
+                    padding-left: 14px; spacing: 10px;
+                    VerticalLayout { alignment: center; Rectangle {
+                        width: 44px; height: 16px; border-radius: 3px; background: Tema.fundal; border-width: 1px; border-color: Tema.bordura;
+                        Text { text: "SURSA"; font-family: Tema.font-ui; font-size: 9px; font-weight: 800; color: Tema.text; }
+                    } }
+                    Text { text: root.baza-ref; font-family: Tema.font-ui; font-size: 11px; font-weight: 800; color: Tema.chihlimbar; vertical-alignment: center; }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Tema.albastru-fundal;
+                HorizontalLayout {
+                    padding-left: 14px; spacing: 10px;
+                    VerticalLayout { alignment: center; Rectangle {
+                        width: 40px; height: 16px; border-radius: 3px; background: Tema.fundal; border-width: 1px; border-color: Tema.bordura;
+                        Text { text: "BAZA"; font-family: Tema.font-ui; font-size: 9px; font-weight: 800; color: Tema.text; }
+                    } }
+                    Text { text: root.baza-tinta; font-family: Tema.font-ui; font-size: 11px; font-weight: 800; color: Tema.albastru; vertical-alignment: center; }
+                }
+            }
+        }
+        // ---- corpul: ambele panouri pe acelasi rand, deci derulare comuna
+        HorizontalLayout {
+            lista := ListView {
+                for r in root.randuri: Rectangle {
+                    height: root.inaltime-rand;
+                    property <length> jumatate: (self.width - 46px) / 2;
+                    HorizontalLayout {
+                        spacing: 0px;
+                        Jumatate { width: jumatate; nr: r.st-nr; bucati: r.st; stare: r.stare; stanga: true; inceput: r.inceput; }
+                        // spatiul dintre panouri, ca in v3.4 (acolo stau conectorii)
+                        Rectangle {
+                            width: 46px;
+                            if r.stare != 0: Rectangle {
+                                y: parent.height / 2;
+                                height: 1px;
+                                background: r.inceput ? Tema.chihlimbar : transparent;
+                            }
+                        }
+                        Jumatate { width: jumatate; nr: r.dr-nr; bucati: r.dr; stare: r.stare; stanga: false; inceput: r.inceput; }
+                    }
+                }
+            }
+            // minimap: unde sunt diferentele in tot obiectul
+            Rectangle {
+                width: 12px;
+                background: Tema.fundal2;
+                for m in root.marcaje: Rectangle {
+                    x: 3px;
+                    y: m.pozitie * (parent.height - 4px);
+                    width: 6px;
+                    height: 3px;
+                    background: m.stare == 1 ? Tema.chihlimbar : m.stare == 2 ? Tema.rosu : Tema.verde;
+                }
+            }
+        }
+    }
+}

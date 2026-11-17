@@ -29,10 +29,11 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 7 (remedierea auditului de la `f561bf9`)
-e **incheiata**: toate constatarile critice si inalte reparate, cu teste.
-Detalii: `etape/07-remediere-audit.md`. Urmatoarea: 8 (`module/upgrade`),
-blocata pe specificatie. GUI-ul (9-10) e la final, la decizia lui Mihai.
+**Etapa activa:** `etape/08-prototip-editor.md` — prototipul nativ (Slint) al
+editorului de diferente. Mihai a decis (2026-11-17): interfata nativa, fara
+WebView2, aspect apropiat de v3.4 dar poate fi mai frumos, si se incepe acum,
+inaintea modulului `upgrade`. In lucru si o cercetare de design
+(`reports/`, local, neversionat).
 
 ---
 

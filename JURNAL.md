@@ -457,6 +457,34 @@ instantaneu ramane pe implementarea implicita (secventiala, fara retea).
 
 ---
 
+## 2026-11-17 — Interfata nativa, cu Slint
+
+**Context.** Mihai a ales (2026-11-17): interfata se rescrie **nativ**, fara
+WebView2, „afisajul oarecum la fel" ca v3.4 dar poate fi si mai frumos; si se
+incepe acum, inaintea modulului `upgrade`. Alternativa refuzata: refolosirea
+HTML-ului v3.4 intr-un WebView.
+
+**Alternative de toolkit.** Slint; egui (MIT, imediat, dar pe RDP fara GPU are
+nevoie de wgpu/WARP, iar toate controalele se deseneaza de mana); iced; Qt
+(licenta, C++).
+
+**Motiv.** Slint: randare software nativa (RDP fara GPU), declarativ (layout ca
+in CSS), componente standard, virtualizare prin `ListView`, si — decisiv pentru
+lucrul fara ecran — randare in buffer, deci capturi PNG comparabile cu v3.4
+(`referinta/captura_v34/`). Probat: compileaza si randeaza aici.
+
+**Licenta.** Slint Royalty-free 2.0: gratuit pentru aplicatii desktop, cu
+atribuire — fie widget-ul `AboutSlint` intr-un ecran „Despre" accesibil din
+meniu, fie insigna „Made with Slint" pe o pagina publica. Nu e permis in
+sisteme embedded. Se alege `AboutSlint` in „Despre".
+
+**Consecinte.** Slint 1.19 cere Rust 1.95: doar `gmotion-fereastra` are
+`rust-version = 1.95`, restul ramane pe 1.74. Dependente noi doar in
+`fereastra` (`slint`, `slint-build`; `image` si `serde_json` doar pentru
+exemplul de captura).
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
