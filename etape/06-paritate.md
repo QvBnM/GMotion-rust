@@ -30,7 +30,7 @@ Partea care are nevoie de rulari pe Windows:
       tintei; `diagnostic` doar raporteaza daca e activ)
 - [ ] `gmotion diagnostic`, `baze` si `instantaneu` merg pe masina lui Mihai
       (TLS SChannel, autentificare SQL si integrata)
-- [ ] pe instantaneul real: zero diferente clasificate `regresie`
+- [x] pe instantaneul real: zero diferente clasificate `regresie`
 - [ ] lista exportata de aplicatia Python pe aceleasi baze (CSV) are aceleasi
       perechi (obiect, baza, categorie) ca Python-ul rulat pe instantaneu —
       dovada ca `tiberius` aduce aceleasi obiecte ca `pyodbc`
@@ -120,6 +120,18 @@ Partea care are nevoie de rulari pe Windows:
   instantaneu sintetic de 45.000 obiecte: 2,6 s. Tot de aici: `tiberius`
   scria ~8 linii INFO la fiecare conexiune si acoperea progresul; filtrul
   implicit e acum `info,tiberius=warn`.
+
+- **2026-11-17** **Paritate pe instantaneul real: 0 regresii.** Referinta
+  `CharismaERP_GetsBet` (21.193 obiecte), tinta `_Copy`: 194 randuri in
+  ambele, 21.042 identice, 149 diferite, 2 lipsa, 43 extra — categorie, tip si
+  scor identice pe toate. 70 din cele 149 de rezumate difera de v3.4, toate 70
+  confirmate de motorul JS: in v3.4 lista si editorul se contrazic pe ~47% din
+  obiectele modificate; in Rust spun acelasi lucru. Inca nedovedit: ca
+  `tiberius` aduce aceleasi obiecte ca `pyodbc` (ambele parti au rulat pe
+  obiectele aduse de Rust) — se inchide cu linia finala a aplicatiei Python pe
+  aceleasi baze, care da si timpul. De verificat si ca `motor_js.mjs` extras
+  e acelasi cu ce ruleaza in aplicatie: doua obiecte deschise in editorul v3.4.
+  Adaugat `referinta/extrage.py` pentru fixture-ul mic (`TESTSIMILITUDINE_*`).
 
 ## Ce a ieșit altfel decat planul
 

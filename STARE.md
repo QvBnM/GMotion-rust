@@ -41,41 +41,37 @@ incepe — nu se deschide etapa 7 fara discutia asta.
 
 ## Urmatorul pas concret
 
-Instantaneul real exista (`TS2409\MIHAIG`, `CharismaERP_GetsBet` si
-`CharismaERP_GetsBet_Copy`, 42.427 obiecte, 202 MB, 26,5 s), dar **ramane pe
-masina lui Mihai**: e prea mare pentru GitHub (100 MB pe fisier) si e cod
-CharismaERP. Deci `paritate.py` se ruleaza **acolo**, iar incoace vine doar
-raportul. Fiecare `regresie` se repara in Rust (intai `comparare.rs`, apoi
-`core`); `corectura` = JS confirma Rust-ul, se noteaza doar.
+**Paritatea pe baza reala a trecut: 0 regresii** (detalii in
+`etape/06-paritate.md`). Instantaneul (202 MB, cod CharismaERP) ramane pe
+masina lui Mihai; `paritate.py` ruleaza acolo.
 
-Fixture de regresie: nu instantaneul intreg, ci obiectele pe care paritatea le
-gaseste interesante, extrase si anonimizate — de discutat cu Mihai.
+Ce mai inchide etapa, in ordine:
 
-**Nu se trece la interfata inainte de paritate**, si nu se deschide etapa 7
-fara discutia despre GUI ceruta de Mihai.
+1. Linia finala a aplicatiei Python pe aceleasi baze trebuie sa fie
+   `21193 obiecte: 21042 identice, 149 diferite, 2 lipsa, 43 extra` —
+   dovada ca `tiberius` aduce aceleasi obiecte ca `pyodbc`. Plus timpul de
+   incarcare, contra 26,5 s in Rust (criteriul de viteza).
+2. Fixture: `TESTSIMILITUDINE_*` extrase cu `referinta/extrage.py`, intra in
+   repo (daca Mihai confirma ca pot), iar poarta ruleaza `paritate.py` si pe
+   ele, nu doar pe cazurile sintetice.
+3. Autentificarea integrata Windows: `instantaneu` fara `--utilizator`.
+4. Optional: doua obiecte deschise in editorul v3.4
+   (`TESTSIMILITUDINE_CaseB_Imbricat` -> `1 modificate`,
+   `Payment_BankAccountListAllBanks` -> `1 modificate, 5 adaugate`), ca
+   `motor_js.mjs` sa fie confirmat egal cu ce ruleaza in aplicatie.
+
+Apoi etapa se inchide. **Etapa 7 (interfata) nu se deschide fara discutia
+despre GUI ceruta de Mihai.**
 
 ---
 
 ## Ce aștept de la Mihai
 
-Din radacina repo-ului (`C:\Users\mihai.georgescu\GMotion-rust`), cu Python 3
-(cel al aplicatiei vechi) si, ideal, node:
+Punctele 1-4 de mai sus. Pentru fixture, din radacina repo-ului:
 
 ```
-node --version
+py -3 -I referinta\extrage.py rust\target\release\instantaneu.json --filtru TESTSIMILITUDINE -o referinta\instantanee\testsimilitudine.json
 ```
-
-```
-py -3 -I referinta\paritate.py rust\target\release\instantaneu.json --referinta CharismaERP_GetsBet --gmotion rust\target\release\gmotion.exe --json raport.json
-```
-
-Incoace: tot ce afiseaza (e scurtat la 40 de cazuri pe categorie) si codul de
-iesire. `raport.json` doar daca cer, fiindca poate contine fragmente de cod.
-
-Mai sunt deschise: autentificarea integrata Windows (aceeasi comanda
-`instantaneu` fara `--utilizator`), timpul aplicatiei Python pe aceleasi doua
-baze, si **daca `_Copy` e o copie identica**: daca da, paritatea pe ea spune
-putin si trebuie o baza care difera de-adevaratelea (un client).
 
 Comenzile se dau **fara parola in ele**; parola prin `Get-Credential`. Daca o
 comanda cade, mesajul exact (are un cod `GM-...`).
