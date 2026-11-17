@@ -38,6 +38,11 @@ if ($LASTEXITCODE -ne 0) {
   if ($r -eq 'd') { & py -3 -m pip install pyodbc }
 }
 
+# Compilarea INAINTE de parola: altfel scripturile de build ale tuturor
+# dependentelor (build.rs) ar rula cu parola in variabilele de mediu.
+$compilare = & cargo build --release --manifest-path rust\Cargo.toml -p gmotion-cli 2>&1 | ForEach-Object { "$_" } | Select-Object -Last 2
+$codCompilare = $LASTEXITCODE
+
 $c = Get-Credential -UserName $Utilizator -Message "Parola SQL Server pentru $Server"
 if (-not $c) { Write-Host "Anulat."; exit 1 }
 $env:GMOTION_PAROLA = $c.GetNetworkCredential().Password
@@ -60,7 +65,8 @@ function Ruleaza([scriptblock]$bloc) {
   "data:   $(Get-Date -Format s)"
 
   Pas "2. binarul gmotion"
-  Ruleaza { cargo build --release --manifest-path rust\Cargo.toml -p gmotion-cli 2>&1 | Select-Object -Last 2 }
+  $compilare
+  "-> cod iesire: $codCompilare (compilat inainte de cererea parolei)"
 
   Pas "3a. servere in retea"
   Ruleaza { & $gm servere }
