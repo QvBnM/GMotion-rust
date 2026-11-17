@@ -107,6 +107,11 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for StratTampon {
 /// binar ar putea incerca de doua ori.
 ///
 /// Filtrul vine din `GMOTION_JURNAL` sau `RUST_LOG`; implicit `info`.
+/// Filtrul cand nu e dat altul in `GMOTION_JURNAL` / `RUST_LOG`. `tiberius`
+/// scrie ~8 linii INFO la fiecare conexiune (TLS, schimbari de context); la
+/// prima rulare pe o baza reala acopereau progresul. Avertismentele raman.
+const FILTRU_IMPLICIT: &str = "info,tiberius=warn";
+
 pub fn porneste() {
     static PORNIT: OnceLock<()> = OnceLock::new();
     if PORNIT.set(()).is_err() {
@@ -114,9 +119,9 @@ pub fn porneste() {
     }
     let filtru = std::env::var("GMOTION_JURNAL")
         .or_else(|_| std::env::var("RUST_LOG"))
-        .unwrap_or_else(|_| "info".to_string());
+        .unwrap_or_else(|_| FILTRU_IMPLICIT.to_string());
     let env = tracing_subscriber::EnvFilter::try_new(&filtru)
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(FILTRU_IMPLICIT));
     let _ = tracing_subscriber::registry()
         .with(env)
         // La ieșirea de ERORI, nu la cea standard. Linia de comanda scrie
@@ -203,6 +208,11 @@ mod teste {
             "{noi:?}"
         );
         assert!(dupa > inainte);
+    }
+
+    #[test]
+    fn filtrul_implicit_e_valid() {
+        assert!(tracing_subscriber::EnvFilter::try_new(FILTRU_IMPLICIT).is_ok());
     }
 
     #[test]
