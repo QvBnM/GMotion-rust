@@ -1,14 +1,19 @@
-# GMotion — rescriere in Rust
+# GMotion v4 — rescriere in Rust
 
-Rescrierea GMotion in Rust, ca platforma pe module.
+Unealta pentru compararea obiectelor SQL Server (proceduri, view-uri, functii,
+triggere) intre mai multe baze de date fata de o baza de referinta, si pentru
+generarea scripturilor de deploy.
 
-Porneste din aceleasi commit-uri ca repo-ul original (`GMotion`), care rămâne
-versiunea Python in productie. Codul Python e pastrat aici neatins, ca
-referinta: din el se valideaza fiecare bucata portata.
+Versiunea in productie e GMotion v3.4, in Python. Codul ei e **inghetat** in
+`mostenire/`, ca referinta de paritate; vezi `mostenire/MOSTENIRE.md`.
 
-**Originalul:** `QvBnM/GMotion`, tag `v3.4`. Problemele versiunii Python sunt
-documentate in README-ul de acolo; aici le reiau doar cand explica o decizie de
-proiectare.
+| Document | Ce conține |
+|---|---|
+| `CLAUDE.md` | regulile de lucru. Contractul — se citeste inainte de orice schimbare |
+| `ARHITECTURA.md` | harta crate-urilor, direcția dependentelor, si de ce e asa |
+| `HARTA.md` | simptom -> fisierul vinovat. Indexul de depanare |
+| `JURNAL.md` | deciziile luate, cu alternativele si motivul. Append-only |
+| `<crate>/CRATE.md` | contractul fiecarui crate: rol, API, invariante, depanare |
 
 ---
 
@@ -21,7 +26,7 @@ Trei motive, in ordinea greutatii.
 (editorul live) ar trebui sa dea rezultate identice. Masurat pe 24 de cazuri:
 8 diverg. In doua, diferenta ajunge in fata utilizatorului — un comentariu bloc
 pe mai multe linii face `motor.py` sa raporteze doua blocuri sterse care nu
-exista. Vezi `rust/referinta/README.md`.
+exista. Vezi `referinta/README.md`.
 
 Rust rezolva asta structural: acelasi cod compileaza in binar nativ si in
 WebAssembly, deci backendul si editorul live folosesc fizic acelasi motor. Nu
@@ -39,7 +44,7 @@ antetul lui. In Rust token-urile sunt felii din acelasi tampon.
 
 Viteza bruta **nu** e un motiv puternic: masurat, castigul pe munca
 comparabila e ~4x, nu ordinele de magnitudine la care te-ai aștepta. Cifrele si
-explicatia sunt in `rust/referinta/README.md`.
+explicatia sunt in `referinta/README.md`.
 
 ---
 
@@ -47,13 +52,19 @@ explicatia sunt in `rust/referinta/README.md`.
 
 | Componenta | Stare |
 |---|---|
+| `mostenire/` — GMotion v3.4 in Python | inghetat, referinta de paritate |
+| `referinta/` — harness de conformitate + bench | **gata** |
+| `unelte/` — poarta de verificare | **gata** |
 | `rust/core` — `gmotion-core`, motorul de comparare | **gata, 31 teste** |
-| `rust/referinta` — harness de conformitate + bench | **gata** |
-| `rust/db` — conexiune SQL Server, descoperire instante, citire obiecte | de scris |
-| `rust/platforma` — sesiuni DPAPI, configurare, registru de module | de scris |
+| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | de scris |
+| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | de scris |
+| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | de scris |
+| `rust/cli` — binarul headless | de scris |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
-| `rust/module/diff-obiecte` — modulul 1 | de scris |
-| `rust/app` — binarul | de scris |
+| `rust/app` — binarul cu interfata | de scris |
+| `rust/module/upgrade` — modulul 2 | de scris |
+
+O componenta e **gata** doar cand are teste, `CRATE.md`, si poarta verde.
 
 ### Ce acopera `gmotion-core`
 
@@ -68,61 +79,80 @@ diff.rs         diferente in interiorul blocului, aliniere DP, rezumate
 Porteaza **semantica JS**, nu pe cea din `motor.py`. Portul JS e varianta mai
 noua si corecta; `motor.py` a rams in urma. Testul de conformitate verifica
 toate cele 24 de cazuri pe 8 campuri contra fixture-ului produs de motorul JS,
-si trece.
+si trece. Detalii in `rust/core/CRATE.md`.
 
 ---
 
 ## Rulare
 
+**Poarta** — se ruleaza inainte de fiecare commit:
+
+```
+unelte/verifica.sh              # Linux / WSL / Git Bash
+unelte\verifica.bat             # Windows (varianta redusa)
+unelte/verifica.sh rapid        # fara wasm si fara harness
+```
+
+Verifica format, clippy fara avertismente, toate testele, tinta `wasm32` pentru
+`core`, direcția dependentelor, sincronizarea fiecarui `CRATE.md` cu API-ul lui
+public, si faptul ca `mostenire/` n-a fost atins.
+
+**Doar motorul:**
+
 ```
 cd rust
-cargo test                              # 31 teste, inclusiv conformitatea cu motorul JS
-cargo clippy --all-targets              # fara avertismente
-cargo run --release --example bench     # masuratori (cere corpus_bench.json)
+cargo test -p gmotion-core
+cargo run --release --example bench     # cere referinta/corpus_bench.json
 ```
 
-Regenerarea fixture-urilor, cand se schimba `ui.py` sau `motor.py` in original:
+**Harness-ul de referinta** (regenerare explicita, cu motiv notat in `JURNAL.md`):
 
 ```
-python3 -I rust/referinta/genereaza_corpus.py   # corpus de bench (negitat)
-node     rust/referinta/genereaza.mjs           # fixture de referinta (motorul JS)
-python3 -I rust/referinta/genereaza.py          # rezultatele motorului Python
-python3 -I rust/referinta/compara.py            # raport de divergente
+unelte/regenereaza-fixture.sh
+python3 -I referinta/compara.py             # raport de divergente Python vs JS
+python3 -I referinta/genereaza_corpus.py    # corpus de bench (negitat)
 ```
 
-Versiunea Python se ruleaza ca inainte: `pip install -r requirements.txt`,
-`python app.py`.
+**Versiunea Python**, ca inainte:
+
+```
+pip install -r mostenire/requirements.txt
+python mostenire/app.py
+```
 
 ---
 
-## Structura tinta
-
-Doua decizii stau la baza:
-
-1. **Platforma vs module.** Ce e comun tuturor uneltelor sta in platforma.
-   Fiecare unealta e un crate separat. Adaugarea modulului 2 nu trebuie sa
-   atinga modulul 1.
-2. **Un fisier se separa daca are o cauza de eroare proprie.** Nu despart ca sa
-   bifez module. De-asta `core` are `normalizare` / `segmentare` / `diff`
-   separat — se strica fiecare altfel: fals „modificat", blocuri taiate prost,
-   blocuri imperecheate greșit. Partea de Win32, in schimb, va fi un singur
-   fisier: DPI, monitoare, DWM si handle-uri sunt aceeasi categorie de bug.
+## Structura
 
 ```
+CLAUDE.md ARHITECTURA.md HARTA.md JURNAL.md
+
+mostenire/           GMotion v3.4 in Python — INGHETAT, nu se modifica
+referinta/           harness de conformitate: Python vs JS, fixture, bench
+unelte/              poarta de verificare, regenerare fixture
 rust/
-  Cargo.toml                workspace
-  core/          GATA      normalizare, segmentare, diff, seqmatch
-  referinta/     GATA      harness de conformitate + bench
-  db/                      conexiune, descoperire instante, citire obiecte
-  platforma/               sesiuni (DPAPI), configurare, registru de module
-  fereastra/               fereastra nativa, teme, componente comune
+  Cargo.toml         workspace
+  core/     GATA     normalizare, segmentare, diff, seqmatch — logica pura
+  db/                SursaObiecte: SQL Server | fixture; descoperire instante
+  platforma/         configurare, sesiuni, jurnal, registru de module, rutare
+  cli/               binar headless: compara, instantaneu, diagnostic, deploy
+  fereastra/         fereastra nativa, teme, componente comune
   module/
-    diff-obiecte/          modulul 1: orchestrare + ecrane + generator de deploy
-    upgrade/               modulul 2
-    alocare-multidim/      modulul 3
-    stoc/                  modulul 4
-  app/                     binarul: porneste fereastra si ruteaza catre module
+    diff-obiecte/    modulul 1: orchestrare + ecrane + generator de deploy
+    upgrade/         modulul 2
+    alocare-multidim/
+    stoc/
+  app/               binarul cu interfata
 ```
+
+Direcția dependentelor, verificata mecanic de poarta:
+
+```
+core  <-  db  <-  platforma  <-  module/*  <-  app, cli
+```
+
+Nimic nu depinde la dreapta. **Niciun modul nu depinde de alt modul** — daca
+are nevoie de ceva din alt modul, acel ceva aparține platformei.
 
 ### Contractul de modul
 
@@ -134,29 +164,51 @@ navigatia catre ea, jurnalul, temele si fereastra.
 catre interfata, si de ce are nevoie de la platforma (ex: „una sau mai multe
 baze", „o singura baza", „doua baze si o mapare").
 
-### Doua lucruri de corectat fata de versiunea Python
+### Tot ce face aplicatia trebuie sa mearga fara interfata
 
-**Sesiunile se vor ciocni.** Cheia de sesiune e acum doar numele bazei de
-referinta (`_cale_sesiune(referinta)` -> `<slug>.dat`). Daca modulul Upgrade
-salveaza progres pe aceeasi baza, suprascrie sesiunea modulului de diff. Cheia
-trebuie sa devina `<modul>/<slug>.dat`.
+`db` expune `SursaObiecte` ca trait, cu doua implementari: SQL Server real, si
+fixture din JSON. Deci tot ce e deasupra `db` se testeaza fara baza de date.
 
-**Expunerea catre interfata trebuie sa devina rutare.** Clasa `Api` din
-`app.py` expune metodele modulului de diff direct la nivelul de sus. Cu patru
-module, metodele comune (`test_conexiune`, `cauta_servere`, `progres`,
-`log_lines`, controalele de fereastra) stau la nivelul platformei si se scriu o
-singura data, iar cele specifice se inregistreaza cu prefix.
+`gmotion instantaneu` scrie obiectele brute dintr-o comparare reala intr-un
+fisier; `gmotion compara --sursa fisier` il reia offline. Un bug de pe o baza de
+productie devine astfel un test de regresie, reproductibil pe orice masina.
+
+De aceea `cli` se face **inaintea** interfetei.
+
+---
+
+## Plan
+
+Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
+
+| # | Etapa | Rezultat verificabil |
+|---|---|---|
+| 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta. `core` mutat neatins. *(facut)* |
+| 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
+| 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decizia `tiberius` vs `odbc-api`, cu test pe server real |
+| 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix |
+| 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture |
+| 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila** |
+| 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python |
+| 7 | **Prototip editor diff** | doar editorul, in toolkitul candidat. Scop: aflat costul real al partii grele |
+| 8 | **`fereastra` + interfata** | UI complet, cu `cli` ramas permanent ca mod de depanare |
+| 9 | **`module/upgrade`** | primul test real al contractului de modul. Daca cere modificari in platforma, contractul de la etapa 3 era greșit si se corecteaza acum, cat e ieftin |
+
+Harness-ul din `referinta/` e plasa de siguranta pentru tot ce urmeaza. Orice
+etapa care atinge motorul trebuie sa treaca `cargo test -p gmotion-core`.
 
 ---
 
 ## Decizii nerezolvate
+
+Toate sunt notate, cu alternativele si motivul, in `JURNAL.md`.
 
 **Driver SQL Server.** `tiberius` (TDS nativ, pur Rust) ar elimina complet
 cerinta de driver ODBC pe masina tinta, si are suport pentru descoperirea
 instantelor prin SQL Browser — ceea ce inlocuieste broadcast-ul UDP 1434 scris
 de mana in `app.py`. Alternativa, `odbc-api`, pastreaza comportamentul identic
 cu cel de azi, inclusiv autentificarea integrata Windows, dar rămâne dependenta
-de driverul instalat. De testat pe un server real inainte de a alege.
+de driverul instalat. Se decide la etapa 2, cu test pe un server real.
 
 **Toolkit-ul de interfata — riscul principal.** Lista de obiecte, filtrele,
 conectarea si deployer-ul se fac direct in orice toolkit nativ. Editorul de
@@ -169,30 +221,3 @@ manual.
 Pentru RDP si servere fara GPU, toolkit-ul trebuie sa aiba **renderer
 software** (Slint are). **Tauri nu e o opțiune:** foloseste WebView2 pe
 Windows, deci ar reintroduce exact dependenta pe care rescrierea o elimina.
-
----
-
-## Plan
-
-Fiecare etapa = un branch si un PR, cu codul functional la final.
-
-1. **Harness de conformitate** — dovada divergentei, fixture de referinta.
-   *(facut)*
-2. **`gmotion-core`** — motorul, validat contra motorului JS. *(facut)*
-3. **Prototip de editor de diferente** in toolkit-ul ales. Scop: aflat cat
-   costa partea grea, inainte de a investi in restul. E singura componenta cu
-   incertitudine mare de efort.
-4. **`db`** — conexiune, descoperire instante, citire obiecte. Decizia
-   tiberius vs odbc-api se ia aici, cu un test pe un server real.
-5. **`platforma`** + contractul de modul — sesiuni cu spatiu de nume, registru,
-   rutare.
-6. **`module/diff-obiecte`** — orchestrare, ecrane, generator de deploy.
-   Primul modul complet in Rust.
-7. **Paritate verificata** — aceleasi baze comparate cu ambele versiuni,
-   rezultate identice. Abia dupa asta se retrage versiunea Python.
-8. **`module/upgrade`** — primul test real al contractului. Daca are nevoie de
-   modificari in platforma, contractul de la etapa 5 era greșit si se
-   corecteaza acum, cat e ieftin.
-
-Harness-ul de la etapa 1 e plasa de siguranta pentru tot ce urmeaza. Orice
-etapa care atinge motorul trebuie sa treaca `cargo test -p gmotion-core`.

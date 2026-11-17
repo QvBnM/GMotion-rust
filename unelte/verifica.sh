@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# Poarta. Nimic nu se commiteaza daca asta nu e verde.
+#
+# Ruleaza toate verificarile, apoi raporteaza. NU se oprește la prima eroare:
+# vrei sa vezi tot ce e rupt intr-o singura rulare, nu sa reporneasca de zece
+# ori. Verificarile care nu pot rula (lipseste `node`, lipseste tinta wasm) sunt
+# raportate explicit ca SARIT — citeste ieșirea, nu doar codul de retur.
+#
+#   unelte/verifica.sh            tot
+#   unelte/verifica.sh rapid      fara wasm si fara conformitatea Python/JS
+set -uo pipefail
+
+RADACINA="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$RADACINA"
+MOD="${1:-tot}"
+
+ROSU=$'\033[31m'; VERDE=$'\033[32m'; GALBEN=$'\033[33m'; GRI=$'\033[90m'; ZERO=$'\033[0m'
+if [ ! -t 1 ]; then ROSU=; VERDE=; GALBEN=; GRI=; ZERO=; fi
+
+ESECURI=(); SARITE=()
+
+pas()    { printf '%s  ok    %s%s\n'   "$VERDE"  "$1" "$ZERO"; }
+cade()   { printf '%s  CADE  %s%s\n'   "$ROSU"   "$1" "$ZERO"; ESECURI+=("$1"); }
+sare()   { printf '%s  sarit %s — %s%s\n' "$GALBEN" "$1" "$2" "$ZERO"; SARITE+=("$1: $2"); }
+titlu()  { printf '\n%s== %s%s\n' "$GRI" "$1" "$ZERO"; }
+
+# Ruleaza o comanda; la eșec arata ieșirea.
+ruleaza() {
+  local nume="$1"; shift
+  local ies
+  if ies="$("$@" 2>&1)"; then pas "$nume"; else cade "$nume"; printf '%s\n' "$ies" | sed 's/^/      /'; fi
+}
+
+# ---------------------------------------------------------------- 1. format
+titlu "format"
+if command -v cargo >/dev/null; then
+  ruleaza "cargo fmt --check" cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+else
+  sare "cargo fmt" "cargo nu e instalat"
+fi
+
+# ---------------------------------------------------------------- 2. clippy
+titlu "clippy"
+if command -v cargo >/dev/null; then
+  ruleaza "clippy -D warnings" cargo clippy --manifest-path rust/Cargo.toml --all-targets --all-features -- -D warnings
+else
+  sare "clippy" "cargo nu e instalat"
+fi
+
+# ---------------------------------------------------------------- 3. teste
+titlu "teste"
+if command -v cargo >/dev/null; then
+  ies="$(cargo test --manifest-path rust/Cargo.toml --all 2>&1)"
+  if [ $? -eq 0 ]; then
+    pas "cargo test ($(printf '%s' "$ies" | grep -cE '^test .* \.\.\. ok$') teste)"
+  else
+    cade "cargo test"; printf '%s\n' "$ies" | grep -E '^(test |error|---- )' | sed 's/^/      /' | head -40
+  fi
+else
+  sare "cargo test" "cargo nu e instalat"
+fi
+
+# ---------------------------------------------------------------- 4. wasm
+# `core` trebuie sa mearga pe wasm. Daca nu merge, backendul si editorul live
+# nu mai pot folosi acelasi motor — adica exact bug-ul din v3.4, reintrodus.
+titlu "tinta wasm (core nu are I/O)"
+if [ "$MOD" = rapid ]; then
+  sare "wasm32" "mod rapid"
+elif ! command -v cargo >/dev/null; then
+  sare "wasm32" "cargo nu e instalat"
+elif ! rustup target list --installed 2>/dev/null | grep -qx wasm32-unknown-unknown; then
+  sare "wasm32" "tinta lipseste: rustup target add wasm32-unknown-unknown"
+else
+  ruleaza "core compileaza pe wasm32" cargo build --manifest-path rust/Cargo.toml -p gmotion-core --target wasm32-unknown-unknown
+fi
+
+# ---------------------------------------------------------------- 5. dependente
+# Direcția e: core <- db <- platforma <- module/* <- app, cli.
+# Nimic nu depinde la dreapta, si niciun modul nu depinde de alt modul.
+titlu "direcția dependentelor"
+python3 - <<'PY'
+import os, re, sys, glob
+
+NIVEL = {"gmotion-core": 0, "gmotion-db": 1, "gmotion-platforma": 2,
+         "gmotion-cli": 4, "gmotion-app": 4}
+probleme = []
+
+for cale in glob.glob("rust/**/Cargo.toml", recursive=True):
+    txt = open(cale, encoding="utf-8").read()
+    if "[workspace]" in txt and "[package]" not in txt:
+        continue
+    m = re.search(r'^name\s*=\s*"([^"]+)"', txt, re.M)
+    if not m:
+        continue
+    nume = m.group(1)
+    e_modul = os.sep + "module" + os.sep in cale
+    nivel = 3 if e_modul else NIVEL.get(nume)
+    if nivel is None:
+        probleme.append(f"{nume}: crate necunoscut, adauga-l in unelte/verifica.sh si in ARHITECTURA.md")
+        continue
+    for dep in re.findall(r'^(gmotion-[a-z0-9-]+)\s*[=.]', txt, re.M):
+        e_modul_dep = dep not in NIVEL
+        nivel_dep = 3 if e_modul_dep else NIVEL[dep]
+        if nivel_dep >= nivel:
+            probleme.append(f"{nume} -> {dep}: dependinta la dreapta sau laterala")
+        if e_modul and e_modul_dep:
+            probleme.append(f"{nume} -> {dep}: un modul nu depinde de alt modul; mutǎ in platforma")
+
+if probleme:
+    print("\n".join(probleme)); sys.exit(1)
+PY
+if [ $? -eq 0 ]; then pas "direcția dependentelor"; else cade "direcția dependentelor"; fi
+
+# ---------------------------------------------------------------- 6. CRATE.md
+# Cauza de eroare proprie: documentatia rămasa in urma codului. Singurul fel de
+# bug pe care nu-l prinde niciun test.
+titlu "CRATE.md sincronizat cu API-ul public"
+for crate in rust/*/ rust/module/*/; do
+  [ -f "$crate/Cargo.toml" ] || continue
+  nume="$(basename "$crate")"
+  if [ ! -f "$crate/CRATE.md" ]; then cade "$nume: lipseste CRATE.md"; continue; fi
+  acum="$("$RADACINA/unelte/api-hash.sh" "$crate")"
+  notat="$(grep -oE 'api-hash: [0-9a-f]+' "$crate/CRATE.md" | head -1 | cut -d' ' -f2)"
+  if [ -z "$notat" ]; then
+    cade "$nume: CRATE.md nu are linia <!-- api-hash: $acum -->"
+  elif [ "$acum" != "$notat" ]; then
+    cade "$nume: API-ul public s-a schimbat, CRATE.md nu. Actualizeaza-l si pune: <!-- api-hash: $acum -->"
+  else
+    pas "$nume/CRATE.md"
+  fi
+done
+
+# ---------------------------------------------------------------- 7. mostenire
+titlu "mostenire/ nemodificat"
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:
+  # altfel commit-ul care a mutat Python-ul in mostenire/ ar cadea pe sine.
+  if git diff --name-only --diff-filter=M HEAD -- mostenire/ 2>/dev/null | grep -q .; then
+    cade "mostenire/ e modificat — vezi regula 2 din CLAUDE.md"
+    git diff --name-only --diff-filter=M HEAD -- mostenire/ | sed 's/^/      /'
+  else
+    pas "mostenire/ nemodificat"
+  fi
+else
+  sare "mostenire/" "nu e repo git"
+fi
+
+# ---------------------------------------------------------------- 8. conformitate Python/JS
+# Nu valideaza Rust-ul (asta o face cargo test), ci verifica faptul ca harness-ul
+# de referinta inca ruleaza — plasa de siguranta pentru tot ce urmeaza.
+titlu "harness de referinta"
+if [ "$MOD" = rapid ]; then
+  sare "harness" "mod rapid"
+else
+  if command -v python3 >/dev/null; then
+    ruleaza "motorul Python ruleaza cazurile" python3 -I referinta/genereaza.py
+  else
+    sare "harness Python" "python3 nu e instalat"
+  fi
+  if command -v node >/dev/null; then
+    ruleaza "motorul JS ruleaza cazurile" node referinta/genereaza.mjs
+  else
+    sare "harness JS" "node nu e instalat"
+  fi
+fi
+
+# ---------------------------------------------------------------- raport
+printf '\n'
+if [ ${#SARITE[@]} -gt 0 ]; then
+  printf '%ssarit %d verificari:%s\n' "$GALBEN" "${#SARITE[@]}" "$ZERO"
+  for s in "${SARITE[@]}"; do printf '  - %s\n' "$s"; done
+fi
+if [ ${#ESECURI[@]} -gt 0 ]; then
+  printf '\n%sPOARTA ROSIE — %d probleme:%s\n' "$ROSU" "${#ESECURI[@]}" "$ZERO"
+  for e in "${ESECURI[@]}"; do printf '  - %s\n' "$e"; done
+  exit 1
+fi
+printf '%sPOARTA VERDE%s\n' "$VERDE" "$ZERO"
