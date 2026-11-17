@@ -34,3 +34,7 @@ pkg/
 
 # Corpus de bench generat (vezi referinta/genereaza_corpus.py)
 referinta/corpus_bench.json
+
+# Etapa 6: iesiri locale pe Windows (pot contine cod din baze reale)
+etapa6-rezultat.txt
+raport.json
