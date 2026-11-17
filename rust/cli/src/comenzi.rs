@@ -493,19 +493,8 @@ pub fn diferente(
             println!("{obiect}: {referinta} -> {baza}");
             println!("{rezumat}\n");
             for rand in &d {
-                let semn = match rand.fel {
-                    modul::Fel::Egal => " ",
-                    modul::Fel::Modificat => "~",
-                    modul::Fel::Sters => "-",
-                    modul::Fel::Adaugat => "+",
-                };
-                let text = rand
-                    .dreapta
-                    .as_deref()
-                    .or(rand.stanga.as_deref())
-                    .unwrap_or("");
-                for linie in text.lines() {
-                    println!("{semn} {linie}");
+                for linie in randuri_text(rand) {
+                    println!("{}", afisare::fara_control(&linie));
                 }
             }
             Ok(())
@@ -513,9 +502,88 @@ pub fn diferente(
     }
 }
 
+/// Randurile de text pentru un bloc din `diferente`.
+///
+/// Un bloc modificat se arata cu **ambele** versiuni, ca `git diff
+/// --word-diff`: `-` referinta, `+` baza comparata, iar bucatile schimbate in
+/// interiorul liniei intre `[-...-]` / `{+...+}`. Inainte se arata doar
+/// versiunea noua cu `~`, deci nu se vedea ce s-a schimbat — iar o diferenta
+/// de un spatiu intr-un string era invizibila. Gasit pe
+/// `GenerateOrderByRecommendedOrder`, la a doua rulare pe Windows.
+fn randuri_text(rand: &modul::Diferenta) -> Vec<String> {
+    let cu_semn = |semn: &str, text: &str| -> Vec<String> {
+        text.lines().map(|l| format!("{semn} {l}")).collect()
+    };
+    let evidentiat = |bucati: &Option<Vec<modul::Bucata>>,
+                      simplu: &Option<String>,
+                      deschis: &str,
+                      inchis: &str| {
+        match bucati {
+            Some(b) => b
+                .iter()
+                .map(|x| {
+                    if x.marcaj.is_some() {
+                        format!("{deschis}{}{inchis}", x.text)
+                    } else {
+                        x.text.clone()
+                    }
+                })
+                .collect::<String>(),
+            None => simplu.clone().unwrap_or_default(),
+        }
+    };
+    match rand.fel {
+        modul::Fel::Egal => cu_semn(
+            " ",
+            rand.stanga
+                .as_deref()
+                .or(rand.dreapta.as_deref())
+                .unwrap_or(""),
+        ),
+        modul::Fel::Sters => cu_semn("-", rand.stanga.as_deref().unwrap_or("")),
+        modul::Fel::Adaugat => cu_semn("+", rand.dreapta.as_deref().unwrap_or("")),
+        modul::Fel::Modificat => {
+            let mut v = cu_semn(
+                "-",
+                &evidentiat(&rand.bucati_stanga, &rand.stanga, "[-", "-]"),
+            );
+            v.extend(cu_semn(
+                "+",
+                &evidentiat(&rand.bucati_dreapta, &rand.dreapta, "{+", "+}"),
+            ));
+            v
+        }
+    }
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn randul_modificat_arata_ambele_versiuni_si_ce_s_a_schimbat() {
+        let (d, _) = modul::diferente_obiect(
+            "SELECT 1\n\nSELECT dbo.ResStr('Nu s-au gasit detalii pentru partenerul ') + x",
+            "SELECT 1\n\nSELECT dbo.ResStr('Nu s-au gasit detalii pentru partenerul  ') + x",
+        );
+        let text: Vec<String> = d.iter().flat_map(randuri_text).collect();
+        let vechi = text
+            .iter()
+            .find(|l| l.starts_with("- "))
+            .expect("lipseste versiunea veche");
+        let noua = text
+            .iter()
+            .find(|l| l.starts_with("+ "))
+            .expect("lipseste versiunea noua");
+        assert!(
+            vechi.contains("[-") || noua.contains("{+"),
+            "schimbarea nu e marcata:\n{vechi}\n{noua}"
+        );
+        assert_ne!(
+            vechi.trim_start_matches("- "),
+            noua.trim_start_matches("+ ")
+        );
+    }
 
     #[test]
     fn conversia_de_zile_e_corecta_pe_repere_cunoscute() {

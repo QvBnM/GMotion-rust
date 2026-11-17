@@ -13,6 +13,7 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
+use crate::lexer::Fel;
 use crate::normalizare::{norm, scor_pe_tokeni, tokeni_scor, HINTURI};
 use crate::segmentare::{cheie_bloc, split_statements};
 use crate::seqmatch::{SequenceMatcher, Tag};
@@ -101,6 +102,27 @@ fn tokenizeaza(s: &str) -> Vec<&str> {
     RE_TOKEN.find_iter(s).map(|m| m.as_str()).collect()
 }
 
+/// Pentru fiecare token din `tokenizeaza(s)`: e in interiorul unui string sau
+/// al unui identificator in ghilimele? Acolo spatiile si majusculele conteaza,
+/// deci o schimbare nu e cosmetica. Pana la a doua rulare pe Windows, un spatiu
+/// in plus intr-un mesaj (`'... partenerul '`) era raportat „modificat", dar
+/// nu era marcat nicaieri in linie.
+fn tokeni_in_literal(s: &str) -> Vec<bool> {
+    let literale: Vec<(usize, usize)> = crate::lexer::segmente(s)
+        .into_iter()
+        .filter(|g| matches!(g.fel, Fel::Sir | Fel::IdentificatorGhilimele))
+        .map(|g| (g.start, g.sfarsit))
+        .collect();
+    RE_TOKEN
+        .find_iter(s)
+        .map(|m| {
+            literale
+                .iter()
+                .any(|&(a, b)| a <= m.start() && m.start() < b)
+        })
+        .collect()
+}
+
 fn este_cosmetic(s: &str) -> bool {
     !s.is_empty() && RE_COSMETIC.is_match(s)
 }
@@ -110,6 +132,8 @@ fn este_cosmetic(s: &str) -> bool {
 fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
     let ta = tokenizeaza(a);
     let tb = tokenizeaza(b);
+    let la = tokeni_in_literal(a);
+    let lb = tokeni_in_literal(b);
     let sm = SequenceMatcher::new(&ta, &tb);
 
     let mut sr: Vec<Segment> = Vec::new();
@@ -119,7 +143,9 @@ fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
         let va: String = ta[op.i1..op.i2].concat();
         let vb: String = tb[op.j1..op.j2].concat();
         let mut schimbat = op.tag != Tag::Equal;
+        let in_literal = la[op.i1..op.i2].iter().any(|&x| x) || lb[op.j1..op.j2].iter().any(|&x| x);
         if schimbat
+            && !in_literal
             && (va.is_empty() || este_cosmetic(&va))
             && (vb.is_empty() || este_cosmetic(&vb))
         {
@@ -414,6 +440,22 @@ mod teste {
         let b = "DELETE FROM Clienti WHERE activ = 0 AND id = 79586";
         assert_ne!(cheie_bloc(a), cheie_bloc(b));
         assert_eq!(tipuri(&diff_aliniat(a, b)), vec!["modificat"]);
+    }
+
+    /// Un spatiu in plus intr-un string se marcheaza; acelasi spatiu in cod nu.
+    #[test]
+    fn spatiile_din_string_se_marcheaza_cele_din_cod_nu() {
+        let r = diff_aliniat("PRINT 'a b'", "PRINT 'a  b'");
+        let seg = r[0].seg_dreapta.as_ref().expect("segmente");
+        assert!(seg.iter().any(|s| s.schimbat.is_some()), "{seg:?}");
+        let r = diff_aliniat("SELECT a,b FROM t", "SELECT a,  b FROM t");
+        assert!(
+            r.iter().all(|x| x
+                .seg_dreapta
+                .as_ref()
+                .map_or(true, |s| s.iter().all(|g| g.schimbat.is_none()))),
+            "{r:?}"
+        );
     }
 
     #[test]
