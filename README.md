@@ -61,10 +61,10 @@ explicatia sunt in `referinta/README.md`.
 | `referinta/` — harness de conformitate + bench | **gata** |
 | `unelte/` — poarta de verificare | **gata** |
 | `rust/core` — `gmotion-core`, motorul de comparare | **gata, 37 teste** |
-| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata functional, neverificat pe tinta** (30 teste) |
-| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata functional, DPAPI neverificat pe tinta** (32 teste) |
+| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (35 teste) |
+| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (35 teste) |
 | `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 42 teste** |
-| `rust/cli` — binarul headless | **gata, 27 teste** |
+| `rust/cli` — binarul headless | **gata, 29 teste** |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
 | `rust/app` — binarul cu interfata | de scris |
 | `rust/module/upgrade` — modulul 2 | de scris |
@@ -205,11 +205,11 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 |---|---|---|
 | 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta, urmarirea stării. `core` mutat neatins. *(facut)* |
 | 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
-| 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decis `tiberius`. *(facut; verificarea pe server real rămâne)* |
+| 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decis `tiberius`. *(facut; verificat pe server real la etapa 6)* |
 | 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix. *(facut)* |
 | 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture. *(facut)* |
 | 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila.** *(facut)* |
-| 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python |
+| 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python. *(facut: 0 regresii pe 21.193 obiecte reale)* |
 | 7 | **Prototip editor diff** | doar editorul, in toolkitul candidat. Scop: aflat costul real al partii grele |
 | 8 | **`fereastra` + interfata** | UI complet, cu `cli` ramas permanent ca mod de depanare |
 | 9 | **`module/upgrade`** | primul test real al contractului de modul. Daca cere modificari in platforma, contractul de la etapa 3 era greșit si se corecteaza acum, cat e ieftin |

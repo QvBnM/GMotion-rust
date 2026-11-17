@@ -40,15 +40,20 @@ vedere al motorului si al accesului la date. Detalii si lectii:
 
 ## Urmatorul pas concret
 
-**Discutia despre GUI cu Mihai, inainte de orice cod pentru etapa 7.** Mihai a
-cerut-o explicit. Nu se deschide `etape/07-*.md` si nu se alege tehnologia de
-interfata fara ea.
+Mihai a decis (2026-11-17): **GUI-ul (etapele 7-8) se lasa la final** si se
+discuta mai tarziu. Singura etapa ramasa fara interfata e **9,
+`module/upgrade`** — si **nu are specificatie nicaieri** (nici in
+`mostenire/`, nici in documente). Nu se incepe pana nu spune Mihai ce face
+modulul: ce compara/aplica, pe ce baze, ce iese. O fraza ajunge ca sa se
+scrie criteriile.
 
-De adus la discutie, din ce s-a invatat pana acum:
+Pentru discutia despre GUI, cand va fi:
 
-- `core` compileaza pe wasm32 tocmai ca editorul live sa foloseasca acelasi
-  motor — deci o interfata web (WebView2 / Tauri) poate rula motorul in
-  pagina, fara al doilea motor in JS. Asta era cauza bug-ului din v3.4.
+- **README.md, „Decizii nerezolvate", exclude deja Tauri/WebView2**: rescrierea
+  scapa tocmai de WebView2 (artefacte pe RDP fara GPU); cerinta e renderer
+  software (Slint il are). In sesiunea din 2026-11-17 am propus gresit
+  WebView2/Tauri — de corectat la discutie. Oricare ar fi toolkit-ul: un
+  singur motor (`core`) pentru lista si editor; asta era bug-ul din v3.4.
 - Tot ce face aplicatia e accesibil din `cli` si din metodele platformei; GUI-ul
   e un consumator, nu locul logicii.
 - `jurnal::linii` are acum index absolut — gata pentru un panou de jurnal.
@@ -61,12 +66,14 @@ De adus la discutie, din ce s-a invatat pana acum:
 
 ## Ce aștept de la Mihai
 
-1. Discutia despre GUI: ce vrei sa pastrezi din interfata v3.4, ce te-a
-   deranjat, unde ruleaza (statie, server prin RDP), cine o foloseste.
-2. Optional, nu mai blocheaza nimic: in editorul v3.4,
+1. **Ce face modulul `upgrade`** — blocheaza etapa 9, singura ramasa fara
+   interfata.
+2. Mai tarziu: discutia despre GUI (ce pastrezi din v3.4, ce te-a deranjat,
+   unde ruleaza, cine o foloseste).
+3. Optional, nu mai blocheaza nimic: in editorul v3.4,
    `TESTSIMILITUDINE_CaseB_Imbricat` -> `1 modificate`,
    `Payment_BankAccountListAllBanks` -> `1 modificate, 5 adaugate`.
-3. Istoricul branch-ului a fost rescris (lungimea parolei scoasa). Clona de
+4. Istoricul branch-ului a fost rescris (lungimea parolei scoasa). Clona de
    pe Windows trebuie readusa: `git fetch`, apoi
    `git reset --hard origin/claude/upbeat-ramanujan-dm6j8c`.
 
