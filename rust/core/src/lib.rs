@@ -24,6 +24,7 @@
 //! assert_eq!(diff_aliniat(referinta, curent).len(), 1);
 //! ```
 
+pub mod clasificare;
 pub mod diff;
 pub mod lexer;
 pub mod normalizare;

@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: ba515235bd904f8c -->
+<!-- api-hash: ecd3a4d57ee7f3e0 -->
 
 ## Rol
 
@@ -59,6 +59,17 @@ proiectul.
 ### `seqmatch`
 `SequenceMatcher` — port fidel al `difflib.SequenceMatcher` din Python, cu
 `autojunk=False`. `ratio`, `opcodes`, `matching_blocks`, `find_longest_match`.
+
+### `clasificare`
+`clasifica_diferente(ref, tinta) -> Clasificare` — in ce difera doua versiuni:
+`cod` / `siruri` / `comentarii` (bucati schimbate, nu caractere), prin `lexer`.
+`eticheta(c, setari)` — textul din coloana „Difera in" al machetelor:
+„cod, șiruri", „un șir", „comentariu", „QUOTED_IDENTIFIER", „—".
+
+**Comentariul singur nu ajunge aici:** normalizarea sterge comentariile (ca in
+v3.4), deci un obiect care difera doar intr-un comentariu e „identic" si nu
+intra in lista. Decizie confirmata 2026-11-17; vezi testul
+`comentariul_singur_ramane_zgomot_filtrat`.
 
 ### rădăcină
 `TIPURI_OBIECTE` — tipurile comparate, ca in `sys.objects.type`:

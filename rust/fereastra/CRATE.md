@@ -54,7 +54,10 @@ Stare: **prototip** (etapa 8) — editorul de diferente alaturat / unificat.
    in baza (verde), ce e doar in baza se va scoate (rosu). Motorul le numeste
    invers (fata de referinta); incrucisarea se face intr-un singur loc,
    `cod_stare` din `lib.rs`.
-8. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
+8. **In modul unificat, numerele spun din ce parte vine linia:** doua
+   jgheaburi (sursa | baza), fara vreun semn nou — decizia lui Mihai,
+   2026-11-17.
+9. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
    modelului: plierea scoate randuri, iar navigarea deruleaza lista.
 
 ## Erori tipice
