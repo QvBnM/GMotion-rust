@@ -19,9 +19,36 @@ use tracing_subscriber::util::SubscriberInitExt;
 /// ziua e o scurgere de memorie, nu o facilitate.
 const MAX_LINII: usize = 2000;
 
+/// Indexurile date apelantului sunt **absolute** (a cata linie de la pornire),
+/// nu pozitii in coada: dupa ce tamponul se umple, coada are mereu `MAX_LINII`
+/// elemente, si un index pozitional ar spune „nimic nou" la nesfarsit.
 #[derive(Default)]
 struct Tampon {
     linii: std::collections::VecDeque<String>,
+    /// Cate linii au fost aruncate de la inceput = indexul absolut al primei
+    /// linii din coada.
+    aruncate: usize,
+}
+
+impl Tampon {
+    fn adauga(&mut self, linie: String, max: usize) {
+        if self.linii.len() >= max {
+            self.linii.pop_front();
+            self.aruncate += 1;
+        }
+        self.linii.push_back(linie);
+    }
+
+    /// Liniile de la indexul absolut `de_la`. Daca unele au fost deja aruncate,
+    /// se incepe cu cea mai veche pastrata.
+    fn de_la(&self, de_la: usize) -> (Vec<String>, usize) {
+        let total = self.aruncate + self.linii.len();
+        let sari = de_la.saturating_sub(self.aruncate);
+        if sari >= self.linii.len() {
+            return (Vec::new(), total);
+        }
+        (self.linii.iter().skip(sari).cloned().collect(), total)
+    }
 }
 
 static TAMPON: OnceLock<Arc<Mutex<Tampon>>> = OnceLock::new();
@@ -35,22 +62,19 @@ fn tampon() -> &'static Arc<Mutex<Tampon>> {
 /// Apelantul tine indexul si cere doar ce e nou — exact ce facea `log_lines`
 /// din versiunea Python, dar fara sa retrimita tot de fiecare data.
 pub fn linii(de_la: usize) -> (Vec<String>, usize) {
-    let t = tampon().lock().expect("tamponul de jurnal nu e otravit");
-    let total = t.linii.len();
-    if de_la >= total {
-        return (Vec::new(), total);
-    }
-    (t.linii.iter().skip(de_la).cloned().collect(), total)
+    tampon()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .de_la(de_la)
 }
 
 /// Adauga o linie in tampon. Publica fiindca o folosesc si straturile de
 /// deasupra pentru mesaje destinate utilizatorului, nu doar `tracing`.
 pub fn adauga_linie(linie: impl Into<String>) {
-    let mut t = tampon().lock().expect("tamponul de jurnal nu e otravit");
-    if t.linii.len() >= MAX_LINII {
-        t.linii.pop_front();
-    }
-    t.linii.push_back(linie.into());
+    tampon()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .adauga(linie.into(), MAX_LINII);
 }
 
 /// Strat de `tracing` care scrie si in tamponul din memorie.
@@ -113,29 +137,72 @@ pub fn porneste() {
 mod teste {
     use super::*;
 
+    // Logica se testeaza pe un `Tampon` local. Tamponul global e partajat cu
+    // toate testele din proces (si cu jurnalul lor, dupa `porneste`), deci un
+    // test pe el care presupune ca nu scrie nimeni altcineva cade aleator:
+    // asa a cazut `linii_cere_doar_ce_e_nou`, ~1 rulare din 100.
+
     #[test]
     fn linii_cere_doar_ce_e_nou() {
-        adauga_linie("prima");
-        let (_, pana_aici) = linii(0);
-        adauga_linie("a doua");
-        let (noi, urmator) = linii(pana_aici);
+        let mut t = Tampon::default();
+        t.adauga("prima".into(), 10);
+        let (_, pana_aici) = t.de_la(0);
+        t.adauga("a doua".into(), 10);
+        let (noi, urmator) = t.de_la(pana_aici);
         assert_eq!(noi, vec!["a doua"]);
         assert_eq!(urmator, pana_aici + 1);
         // index peste total nu da panica si nu intoarce nimic
-        assert_eq!(linii(urmator + 100).0.len(), 0);
+        assert_eq!(t.de_la(urmator + 100).0.len(), 0);
     }
 
     #[test]
     fn tamponul_nu_creste_nemarginit() {
+        let mut t = Tampon::default();
         for i in 0..(MAX_LINII + 50) {
-            adauga_linie(format!("linia {i}"));
+            t.adauga(format!("linia {i}"), MAX_LINII);
         }
-        let (toate, _) = linii(0);
+        let (toate, total) = t.de_la(0);
+        assert_eq!(toate.len(), MAX_LINII);
+        assert_eq!(toate[0], "linia 50", "se arunca cele mai vechi");
+        assert_eq!(total, MAX_LINII + 50, "indexul numara si ce s-a aruncat");
+    }
+
+    #[test]
+    fn dupa_ce_tamponul_e_plin_liniile_noi_se_vad_in_continuare() {
+        let mut t = Tampon::default();
+        for i in 0..5 {
+            t.adauga(format!("linia {i}"), 5);
+        }
+        let (_, pana_aici) = t.de_la(0);
+        t.adauga("noua".into(), 5);
+        let (noi, urmator) = t.de_la(pana_aici);
+        assert_eq!(noi, vec!["noua"], "jurnalul a inghetat la tamponul plin");
+        assert_eq!(urmator, pana_aici + 1);
+    }
+
+    #[test]
+    fn un_apelant_ramas_in_urma_primeste_ce_s_a_pastrat() {
+        let mut t = Tampon::default();
+        for i in 0..8 {
+            t.adauga(format!("linia {i}"), 3);
+        }
+        let (noi, urmator) = t.de_la(1);
+        assert_eq!(noi, vec!["linia 5", "linia 6", "linia 7"]);
+        assert_eq!(urmator, 8);
+    }
+
+    #[test]
+    fn functiile_globale_vad_ce_s_a_adaugat() {
+        // Robust la scrieri concurente: verifica doar ca linia proprie apare
+        // dupa index si ca indexul avanseaza.
+        let (_, inainte) = linii(0);
+        adauga_linie("marcaj-unic-de-test-7f3a");
+        let (noi, dupa) = linii(inainte);
         assert!(
-            toate.len() <= MAX_LINII,
-            "tamponul a crescut la {}",
-            toate.len()
+            noi.iter().any(|l| l == "marcaj-unic-de-test-7f3a"),
+            "{noi:?}"
         );
+        assert!(dupa > inainte);
     }
 
     #[test]
