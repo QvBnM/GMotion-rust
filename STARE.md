@@ -32,8 +32,10 @@ cd rust && cargo build --release -p gmotion-cli
 **Etapa activa:** `etape/08-prototip-editor.md` — prototipul nativ (Slint) al
 editorului de diferente. Mihai a decis (2026-11-17): interfata nativa, fara
 WebView2, aspect apropiat de v3.4 dar poate fi mai frumos, si se incepe acum,
-inaintea modulului `upgrade`. In lucru si o cercetare de design
-(`reports/`, local, neversionat).
+inaintea modulului `upgrade`. Cercetarea de design (tool-uri de referinta,
+vizualizarea diferentelor, review la scara, deploy sigur, design vizual,
+fezabilitate Slint): `cercetare/design-interfata.md` — de citit inainte de
+orice ecran.
 
 ---
 
