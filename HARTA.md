@@ -37,6 +37,13 @@ lipsea.
 | Paritatea raporteaza o regresie | intai `rust/module/diff-obiecte/src/comparare.rs`, apoi motorul din `core`; o `regresie` pe `rezumat` arata si ce zice JS |
 | Exportul CSV nu se potriveste cu instantaneul | export facut cu filtru activ in interfata, sau driverele aduc obiecte diferite (`rust/db/src/sqlserver.rs`) |
 
+## Platforma
+
+| Simptom | Cauza probabila | Fisier |
+|---|---|---|
+| Jurnalul afisat nu mai primeste linii noi dupa o vreme | indexul trebuie sa fie absolut, nu pozitie in coada (tamponul se roteste la `MAX_LINII`) | `rust/platforma/src/jurnal.rs` |
+| Un test cade o data la cateva zeci de rulari | stare globala partajata intre teste paralele: mediu, tamponul de jurnal, abonatul `tracing` | testul respectiv; vezi `CLAUDE.md` sectiunea 6 |
+
 ## Poarta
 
 | Simptom | Unde |

@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (168 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
+**Poarta:** verde (171 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
 
 ---
 
@@ -20,7 +20,7 @@ interfata grafica: binarul `gmotion`.
 |---|---|
 | `rust/core` | gata, 37 teste, fuzz pe invariante |
 | `rust/db` | gata functional, **neverificat pe tinta**, 30 teste |
-| `rust/platforma` | gata functional, **DPAPI neverificat pe tinta**, 32 teste |
+| `rust/platforma` | gata functional, DPAPI dus-intors verificat pe Windows, 35 teste |
 | `rust/module/diff-obiecte` | gata, 42 teste |
 | `rust/cli` | gata, 27 teste, din care 10 pe binarul adevarat |
 
@@ -76,7 +76,8 @@ cd target\release
 ```
 
 ```
-$env:GMOTION_PAROLA = "parola-ta"
+$c = Get-Credential -UserName sa -Message "SQL Server"
+$env:GMOTION_PAROLA = $c.GetNetworkCredential().Password
 .\gmotion.exe baze --server SRV01 --utilizator sa
 ```
 
@@ -122,6 +123,12 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 - **`paritate.py` ruleaza binarul pe care i-l dai, nu sursa.** Dupa o
   modificare in Rust, reconstruieste inainte de a citi raportul — altfel
   masori binarul vechi. (Poarta il reconstruieste singura.)
+- **Nu da comenzi cu parola scrisa in ele, nici in PowerShell.**
+  `$env:GMOTION_PAROLA = "..."` ajunge in istoricul PSReadLine, pe disc. Parola
+  se ia prin `Get-Credential`.
+- **Pe Windows ruleaza cu 2 teste mai putin decat pe Linux, si e corect**
+  (`auth_integrata_e_refuzata_devreme_pe_linux`, `pe_linux_marcajul_...`). Pe
+  Windows in schimb ruleaza `pe_windows_datele_nu_apar_in_clar`.
 - **`mostenire/` nu se atinge.** Poarta cade pe orice modificare de conținut
   acolo. Daca ai nevoie de o schimbare in Python, discuta intai: probabil
   insemna ca trebuie regenerate fixture-urile.
@@ -145,6 +152,11 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 - **Un test care umbla la variabile de mediu trebuie serializat cu un lacat.**
   `cargo test` ruleaza in paralel in acelasi proces. Vezi
   `rust/platforma/tests/sesiuni.rs`.
+- **Nu doar mediul e stare globala intre teste.** Tamponul de jurnal din
+  `platforma` si abonatul `tracing` (instalat de primul test care cheama
+  `porneste`) sunt partajate de tot procesul. Un test care presupune ca nu
+  scrie nimeni altcineva acolo cade ~1 data din 100. Logica se testeaza pe o
+  instanta locala.
 - **Un tip care tine acreditari nu are `Debug` derivat.** Ar tipari parola la
   primul `dbg!` sau in orice mesaj de panica. Se scrie de mana, cu redactare.
   Vezi `rust/db/src/sqlserver.rs`.

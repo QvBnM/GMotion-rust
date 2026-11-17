@@ -73,6 +73,31 @@ Partea care are nevoie de rulari pe Windows:
   `comentariu_bloc_multiline` textul normalizat e identic, deci in lista e
   identic in ambele versiuni si nu primeste rezumat deloc. Cifra era corecta.
 
+- **2026-11-17** Prima rulare pe Windows (Mihai): `cargo test --all` verde,
+  166 teste (168 pe Linux, minus doua care exista doar pe non-Windows — numarat
+  pe crate-uri, se potriveste). `diagnostic --json`: `protejare_criptata` si
+  `auth_integrata_disponibila` `true`. Compilarea in release merge, deci si
+  legarea de `crypt32`. **Gaura gasita:** `dus_intors` din `protejare.rs` ar
+  trece si cu o protejare care intoarce textul neschimbat, deci nu dovedea
+  DPAPI. Adaugat `pe_windows_datele_nu_apar_in_clar`, vazut cazand pe
+  implementarea de Linux (cfg inversat temporar). Trebuie rulat pe Windows.
+- **2026-11-17** Prima comanda data lui Mihai avea `<repo>` ca loc de
+  completat; PowerShell il citeste ca redirectare si nu ruleaza nimic. Si
+  `$env:GMOTION_PAROLA = "..."` ar fi pus parola in istoricul PSReadLine.
+  Ambele corectate in `STARE.md`.
+
+- **2026-11-17** Poarta a iesit o data rosie fara nicio modificare de cod.
+  Cauta: `jurnal::teste::linii_cere_doar_ce_e_nou` lucra pe tamponul global,
+  in care scriau in paralel alte teste — 4 caderi din 400 de rulari.
+  Investigand, **bug real in productie**: indexul dat de `jurnal::linii` era
+  pozitia in coada, iar dupa `MAX_LINII` coada se roteste la lungime constanta,
+  deci „ce e nou de la N" intorcea gol pentru totdeauna — jurnalul din
+  interfata ar fi inghetat dupa 2000 de linii. Corectat cu index absolut;
+  testele pe `Tampon` local, vazute cazand pe logica veche; 0 caderi din 600
+  dupa. Tot de aici: poarta numara testele din randurile `test ... ok`, care
+  se amesteca uneori cu jurnalul (se vede si in ieșirea de pe Windows), deci
+  numarul afisat varia (167/168). Numara acum din `test result:`.
+
 ## Ce a ieșit altfel decat planul
 
 (se completeaza la incheiere)
