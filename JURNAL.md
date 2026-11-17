@@ -278,6 +278,31 @@ interfata, defectul s-ar fi descoperit mult mai tarziu.
 
 ---
 
+## 2026-11-17 — Paritatea ruleaza Python-ul vechi pe instantaneu, nu compara exporturi
+
+**Context.** Planul pentru etapa 6 era: Mihai exporta CSV din aplicatia Python,
+eu il compar cu `rust.json`. Asta inseamna o rulare manuala pe Windows pentru
+fiecare iteratie, si un CSV care depinde de filtrele active in interfata.
+
+**Alternative.** (a) comparatie de exporturi, ca in plan; (b) reimplementarea
+logicii din `Api._comparatie` intr-un script; (c) rularea `Api._comparatie`
+din `mostenire/app.py` neatins, cu `pyodbc` inlocuit de un modul care
+serveste randurile din instantaneu.
+
+**Motiv.** (c). `_comparatie` si `aduce_obiecte` nu au nevoie de altceva decat
+de randurile interogarii. (b) ar fi exact o a doua implementare a aceleiasi
+logici — ar putea „trece" fara sa spuna nimic despre codul din productie.
+Arbitrul pentru rezumatele diferite e motorul JS extras din `ui.py`, prin
+`referinta/rezumat_js.mjs`: daca JS da ce da Rust, diferenta e corectura.
+
+**Consecinte.** `referinta/paritate.py`, rulat si de poarta pe un instantaneu
+sintetic din `cazuri.json`. De pe Windows mai trebuie doar instantaneul; CSV-ul
+ramane, optional, ca dovada ca `tiberius` si `pyodbc` aduc aceleasi obiecte.
+Modulele `pyodbc`/`webview` se inlocuiesc doar in procesul scriptului;
+`mostenire/` ramane neatins.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

@@ -33,6 +33,9 @@ lipsea.
 | Vreau sa regenerez fixture-ul de referinta | `unelte/regenereaza-fixture.sh` — explicit, cu motiv in `JURNAL.md` |
 | `corpus_bench.json` lipseste | `python3 -I referinta/genereaza_corpus.py` (negitat, se genereaza local) |
 | Masuratori de performanta | `referinta/README.md`, secțiunea de la final |
+| Paritate Python v3.4 / Rust pe un instantaneu | `python3 -I referinta/paritate.py <instantaneu> --referinta <baza> --gmotion <binar>` |
+| Paritatea raporteaza o regresie | intai `rust/module/diff-obiecte/src/comparare.rs`, apoi motorul din `core`; o `regresie` pe `rezumat` arata si ce zice JS |
+| Exportul CSV nu se potriveste cu instantaneul | export facut cu filtru activ in interfata, sau driverele aduc obiecte diferite (`rust/db/src/sqlserver.rs`) |
 
 ## Poarta
 

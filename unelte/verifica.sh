@@ -239,6 +239,22 @@ else
   fi
 fi
 
+# ---------------------------------------------------------------- 11. paritate
+# Python v3.4 (mostenire/app.py, neatins) si binarul gmotion pe acelasi
+# instantaneu sintetic. node e arbitrul pentru rezumatele care difera; fara el,
+# orice corectura ar arata ca regresie, deci se sare explicit.
+titlu "paritate Python v3.4 / gmotion"
+if [ "$MOD" = rapid ]; then
+  sare "paritate" "mod rapid"
+elif ! command -v python3 >/dev/null || ! command -v node >/dev/null; then
+  sare "paritate" "cere python3 si node"
+elif ! cargo build -q --manifest-path rust/Cargo.toml -p gmotion-cli 2>/dev/null; then
+  cade "paritate: binarul gmotion nu se construieste"
+else
+  ruleaza "paritate pe instantaneul din cazuri" \
+    python3 -I referinta/paritate.py --din-cazuri --gmotion rust/target/debug/gmotion
+fi
+
 # ---------------------------------------------------------------- raport
 printf '\n'
 if [ ${#SARITE[@]} -gt 0 ]; then

@@ -66,6 +66,30 @@ corect; `mostenire/motor.py` a rams in urma. Fixture-ul de referinta e
 
 ---
 
+## Paritate pe un instantaneu
+
+`paritate.py` ruleaza `Api._comparatie` din `mostenire/app.py` **neatins** pe
+obiectele unui instantaneu (`pyodbc` e inlocuit, in procesul scriptului, cu un
+modul care serveste randurile din fisier) si compara lista cu
+`gmotion compara --json` pe acelasi instantaneu.
+
+```
+python3 -I referinta/paritate.py instantaneu.json --referinta Ref --gmotion rust/target/release/gmotion
+python3 -I referinta/paritate.py --din-cazuri --gmotion rust/target/debug/gmotion   # ce ruleaza poarta
+```
+
+Optional `--csv export.csv` (exportul aplicatiei Python pe aceleasi baze) si
+`--json raport.json`. Un rezumat diferit pe un obiect `diferit` se arbitreaza
+prin motorul JS (`rezumat_js.mjs`): daca JS da ce da Rust, e `corectura`;
+orice altceva e `regresie`. Cod de ieșire 0 / 1 (regresii) / 2 (intrare).
+
+Pe instantaneul din `cazuri.json`: 0 regresii, o corectura
+(`declare_in_header`). `comentariu_bloc_multiline` nu apare: normalizat e
+identic, deci in lista e identic si nu primeste rezumat — falsul pozitiv din
+v3.4 se vede doar in editor.
+
+---
+
 ## Masuratori de performanta
 
 Corpus sintetic: 400 perechi de proceduri, ~51 linii fiecare (~20.500 linii in
