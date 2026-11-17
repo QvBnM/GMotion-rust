@@ -49,8 +49,10 @@ exact ce normalizarea v3.4 inghitea. `gmotion diferente` nu arata insa ce s-a
 schimbat; reparat (ambele versiuni, `[-...-]` / `{+...+}`, inclusiv spatiile
 din string-uri).
 
-1. Optional, la urmatoarea ocazie: aceeasi comanda `diferente` pe
-   `GenerateOrderByRecommendedOrder`, ca sa se vada exact diferenta.
+1. ~~`diferente` pe `GenerateOrderByRecommendedOrder`~~ — rulat de Mihai:
+   `'nu s-au gasit ...'` fata de `'Nu s-au gasit ...'`, majuscula intr-un
+   mesaj din string. Confirmat: exact ce v3.4 ascundea. Afisarea noua
+   (`[-nu-]` / `{+Nu+}`) merge pe Windows.
 2. **Decizii de la Mihai:** implicitul pentru `--certificat`; specificatia
    modulului `upgrade`; repo-ul public.
 3. Ramase deschise (documentate): performanta patratica pe obiecte uriase,
@@ -64,19 +66,8 @@ din string-uri).
 
 ## Ce aștept de la Mihai
 
-Deciziile de la punctul 2. Pentru diferenta din obiectul ascuns, din radacina:
-
-```
-git pull
-```
-
-```
-cargo build --release --manifest-path rust\Cargo.toml -p gmotion-cli
-```
-
-```
-rust\target\release\gmotion.exe diferente --sursa rust\target\release\instantaneu.json --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy --obiect dbo.GenerateOrderByRecommendedOrder
-```
+Deciziile de la punctul 2: implicitul pentru `--certificat`, specificatia
+modulului `upgrade`, repo-ul public. Nimic de rulat.
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
