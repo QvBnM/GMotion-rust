@@ -136,7 +136,7 @@ fn comparare_diff_deploy_export() {
             sarite += 1;
             continue;
         }
-        let cod = modul::aplica_create_or_alter(&referinta[&r.obiect].afisare);
+        let cod = modul::aplica_create_or_alter(&referinta[&r.obiect].definitie);
         pe_baza.entry(r.baza.clone()).or_default().push(DeDeployat {
             obiect: r.obiect.clone(),
             tip: r.tip.clone(),

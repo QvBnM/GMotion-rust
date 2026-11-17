@@ -27,6 +27,18 @@ pub enum Eroare {
 
     #[error("[GM-MOD-007] {0}")]
     Date(String),
+
+    #[error("[GM-MOD-008] numele {nume:?} contine caractere de control (rand nou, tab etc.); intr-un script de deploy ar putea deveni cod executabil, deci nu se scrie")]
+    NumeNesigur { nume: String },
+
+    #[error("[GM-MOD-009] definitia lui {obiect} are linia `GO` (liniile {linii}); sqlcmd si SSMS taie batch-ul acolo, chiar si in interiorul unui string, deci restul s-ar executa separat. Obiectul trebuie deployat de mana")]
+    GoInDefinitie { obiect: String, linii: String },
+
+    #[error("[GM-MOD-010] directorul {cale} nu e gol; fisierele dintr-o rulare veche s-ar amesteca cu cele noi. Alege un director nou sau gol")]
+    DirectorNegol { cale: String },
+
+    #[error("[GM-MOD-011] {obiect} e criptat (WITH ENCRYPTION) intr-una din baze; codul nu se poate citi, deci nu se compara si nu se deployeaza")]
+    ObiectCriptat { obiect: String },
 }
 
 impl Eroare {
@@ -39,6 +51,10 @@ impl Eroare {
             Eroare::Export { .. } => "GM-MOD-005",
             Eroare::Platforma(_) => "GM-MOD-006",
             Eroare::Date(_) => "GM-MOD-007",
+            Eroare::NumeNesigur { .. } => "GM-MOD-008",
+            Eroare::GoInDefinitie { .. } => "GM-MOD-009",
+            Eroare::DirectorNegol { .. } => "GM-MOD-010",
+            Eroare::ObiectCriptat { .. } => "GM-MOD-011",
         }
     }
 }
@@ -77,6 +93,13 @@ mod teste {
             },
             Eroare::Platforma("p".into()),
             Eroare::Date("d".into()),
+            Eroare::NumeNesigur { nume: "n".into() },
+            Eroare::GoInDefinitie {
+                obiect: "o".into(),
+                linii: "1".into(),
+            },
+            Eroare::DirectorNegol { cale: "c".into() },
+            Eroare::ObiectCriptat { obiect: "o".into() },
         ];
         let mut c: Vec<&str> = toate.iter().map(|e| e.cod()).collect();
         c.sort_unstable();

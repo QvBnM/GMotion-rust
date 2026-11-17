@@ -416,7 +416,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | `GM-CORE-*` | motorul de comparare |
 | `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-010**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
-| `GM-MOD-*` | module — **diff-obiecte: 001-007**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-MOD-*` | module — **diff-obiecte: 001-011**, vezi `rust/module/diff-obiecte/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
 `core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide

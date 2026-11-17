@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 35b437f6ad0ab45f -->
+<!-- api-hash: 139024adb2a7c665 -->
 
 ## Rol
 
@@ -33,11 +33,13 @@ biblioteca** — fara nicio interfata.
 
 ## Invariante
 
-1. **Ordinea de clasificare:** lipsa -> hash egal -> scor 100 -> diferit.
-   Comparatia de hash **inainte** de scor e optimizarea care conteaza: pe baze
-   aproape identice majoritatea obiectelor se opresc acolo.
-2. **Hash diferit cu scor 100 inseamna identic.** Diferenta e cosmetica, adica
-   exact ce sterge normalizarea. Nu se raporteaza.
+1. **Ordinea de clasificare:** lipsa -> hash egal (identic) -> diferit.
+   Comparatia de hash e si optimizarea care conteaza: pe baze aproape identice
+   majoritatea obiectelor se opresc acolo.
+2. **Hash diferit inseamna diferit, si scorul afisat e cel mult 99,99.**
+   v3.4 avea „scor 100 -> identic"; scorul e rotunjit, deci pe obiecte mari
+   un `NOT` sters disparea (audit 2026-11-17). Ce e cosmetic e deja prins de
+   hash, care e calculat pe forma normalizata.
 3. **`Diferenta::id` NU e poziția in lista.** E id-ul stabil dat de
    `gmotion_core`: poziția blocului in referinta pentru randurile ancorate,
    numere negative unice pentru cele doar-adaugate. Prin el supraviețuiesc
@@ -46,14 +48,25 @@ biblioteca** — fara nicio interfata.
 4. **Obiectele `extra` nu se pot deploia** — exista doar in baza comparata, deci
    nu exista cod in referinta de adus. Se numara ca `sarite`, si daca **tot** ce
    e marcat e extra, se intoarce `GM-MOD-002`, nu un director gol.
-5. **Codul deployat vine din referinta,** nu din tinta.
-6. **Primul `CREATE`/`ALTER <tip>` devine `CREATE OR ALTER`,** doar primul:
-   restul pot fi in comentarii sau in SQL dinamic. `CREATE TABLE` nu se atinge
-   (`CREATE OR ALTER TABLE` nu exista). Codul deja `CREATE OR ALTER` rămâne
-   neatins.
+5. **Codul deployat vine din referinta, exact cum e in baza** (`definitie`),
+   nu textul de afisare: acela schimba spatiile de la capat de linie si `\r\n`
+   si in interiorul string-urilor.
+6. **Primul `CREATE`/`ALTER <tip>` din cod devine `CREATE OR ALTER`.** Se
+   cauta doar in cod (prin `gmotion_core::lexer`), nu in comentarii sau
+   string-uri; pozitiile sunt in textul original. `CREATE TABLE` nu se atinge.
+   Codul deja `CREATE OR ALTER` rămâne neatins.
+6b. **Nimic nu se scrie daca ceva e periculos** (verificare inainte de orice
+   fisier): nume cu caractere de control (`GM-MOD-008`), o linie `GO` in
+   definitie (`GM-MOD-009`; sqlcmd taie batch-ul chiar si intr-un string),
+   obiect fara cod / criptat (`GM-MOD-011`). Numele bazei intra in `USE [..]`
+   cu `]` dublat.
 7. **Fiecare baza isi aduce propriul `USE [...]`,** inclusiv in modul „tot
    intr-un fisier": altfel al doilea set ar rula pe baza greșita.
-8. **Un nume de baza sau obiect nu poate forma o cale.** Separatorii devin `_`.
+8. **Un nume de baza sau obiect nu poate forma o cale.** Separatorii devin `_`,
+   punctele de la capete se taie. Numele de fisier sunt unice in cadrul unei
+   rulari (fara a deosebi majusculele), numele rezervate Windows (`CON`,
+   `NUL`, ...) primesc `_` in fata, iar directorul de iesire trebuie sa nu
+   existe sau sa fie gol (`GM-MOD-010`).
 9. **CSV-ul are BOM UTF-8, separator `;`, CRLF si virgula zecimala** — altfel
    Excel romanesc strica diacriticele sau pune totul pe o coloana.
 
@@ -67,6 +80,10 @@ biblioteca** — fara nicio interfata.
 | `GM-MOD-004` | id de rand inexistent | `src/eroare.rs` |
 | `GM-MOD-005` | exportul CSV cade, sau nimic de exportat | `src/export.rs` |
 | `GM-MOD-006/007` | eroare venita de la platforma / de la date. **Codul original rămâne in text** | `src/eroare.rs` |
+| `GM-MOD-008` | nume de baza / obiect cu caractere de control: ar injecta cod in script | `src/deploy.rs` |
+| `GM-MOD-009` | linie `GO` in definitie: obiectul se deployeaza de mana | `src/deploy.rs` |
+| `GM-MOD-010` | directorul de deploy nu e gol | `src/deploy.rs` |
+| `GM-MOD-011` | obiect criptat sau fara cod: nu se compara, nu se deployeaza | `src/deploy.rs`, `src/comparare.rs` |
 
 **Un obiect raportat ca „modificat" care se deschide identic** era bug-ul tipic
 din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama

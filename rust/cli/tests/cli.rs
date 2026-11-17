@@ -416,3 +416,45 @@ fn jurnalul_redirectat_nu_are_coduri_de_culoare() {
         "coduri ANSI in ieșire redirectata:\n{e:?}"
     );
 }
+
+/// Deploy-ul scrie definitia exacta din baza, nu textul de afisare. Inainte
+/// (si in v3.4), spatiile de la capat de linie si `\r\n` se schimbau si in
+/// interiorul string-urilor, deci procedurile care construiesc text de latime
+/// fixa sau SQL dinamic se schimbau tacut in productie. Gasit la audit.
+#[test]
+fn deploy_scrie_definitia_originala_octet_cu_octet() {
+    let d = dir("deploy-brut");
+    let inst = d.join("inst.json");
+    let definitie = "CREATE PROCEDURE dbo.pSpatii AS\r\nSELECT 'linia1   \r\nlinia2' AS x   \r\n";
+    let json = serde_json::json!({
+        "versiune": 1, "server": "S", "creat": "t", "nota": "",
+        "baze": {
+            "Ref": [{"schema": "dbo", "nume": "pSpatii", "tip": "P", "definitie": definitie}],
+            "T": []
+        }
+    });
+    std::fs::write(&inst, json.to_string()).unwrap();
+    let iesire = d.join("out");
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Ref",
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let fisier = std::fs::read_dir(&iesire)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let text = std::fs::read_to_string(fisier).unwrap();
+    let asteptat = definitie.replacen("CREATE PROCEDURE", "CREATE OR ALTER PROCEDURE", 1);
+    assert!(
+        text.contains(&asteptat),
+        "definitia s-a schimbat:\n{text:?}"
+    );
+}

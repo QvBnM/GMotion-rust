@@ -83,6 +83,10 @@ pub struct Numaratoare {
 #[derive(Debug, Clone)]
 pub struct ObiectPregatit {
     pub tip: String,
+    /// Textul exact din baza. **Asta** se deployeaza: `afisare` are spatiile
+    /// de la capat de linie si `\r\n` schimbate, inclusiv in string-uri (gasit
+    /// la audit; v3.4 deploya tot `afisare`).
+    pub definitie: String,
     pub afisare: String,
     pub hash: String,
 }
@@ -92,6 +96,7 @@ impl ObiectPregatit {
         let normalizat = normalizeaza(&o.definitie);
         ObiectPregatit {
             tip: o.tip.clone(),
+            definitie: o.definitie.clone(),
             afisare: pregateste_afisare(&o.definitie),
             hash: calc_hash(&normalizat),
         }
