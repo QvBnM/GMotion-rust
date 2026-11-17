@@ -4,8 +4,56 @@ Acest fisier e contractul. Daca o regula de aici intra in conflict cu o idee
 care pare mai buna pe moment, regula castiga; ideea se discuta si, daca e
 corecta, se schimba regula aici, in acelasi commit.
 
-Context: `ARHITECTURA.md` (harta crate-urilor), `HARTA.md` (simptom -> fisier),
-`JURNAL.md` (de ce am decis ce am decis).
+Fiecare document raspunde la o singura intrebare, ca sa nu se dubleze:
+
+| Intrebare | Unde |
+|---|---|
+| Unde suntem acum, ce urmeaza, ce e blocat | `STARE.md` |
+| Ce ne-am propus la etapa asta si cand e gata | `etape/NN-nume.md` |
+| De ce am decis ce am decis | `JURNAL.md` |
+| Ce s-a facut, exact | `git log` — **nu se dubleaza in fisiere** |
+| Harta crate-urilor, direcția dependentelor | `ARHITECTURA.md` |
+| Simptom -> fisierul vinovat | `HARTA.md` |
+| Contractul unui crate | `<crate>/CRATE.md` |
+
+---
+
+## 0. Pornire si incheiere de sesiune
+
+Asistentul pornește de la zero la fiecare sesiune, iar utilizatorul poate intra
+de pe alt cont. Deci starea trebuie sa fie in repo, nu in memoria sesiunii.
+
+**La pornire, in ordinea asta:**
+
+1. `CLAUDE.md` — asta. Regulile.
+2. `STARE.md` — unde suntem, urmatorul pas concret, capcanele active.
+3. etapa activa din `etape/` — scopul si criteriile de terminare.
+4. `unelte/verifica.sh` — confirma ca pornesti de pe verde. Daca poarta e roșie
+   inainte sa atingi ceva, **asta** e prima treaba, si se spune utilizatorului.
+
+Nu te apuci de cod inainte de pasii 2 si 3. Daca `STARE.md` contrazice ce
+crezi ca stii despre proiect, `STARE.md` castiga — sau e invechit, si atunci se
+spune, nu se ghiceste.
+
+**La incheiere, inainte de ultimul commit:**
+
+1. `unelte/stare.sh` — da faptele mecanice (commit, branch, numar de teste, cat
+   de veche e starea).
+2. actualizeaza `STARE.md`: unde s-a ajuns, **urmatorul pas concret**, ce
+   aștepti de la utilizator, capcane noi.
+3. actualizeaza jurnalul de lucru al etapei active. Daca etapa s-a incheiat:
+   `Stare: INCHEIATA`, data, si completeaza „Ce a ieșit altfel decat planul" —
+   e partea cea mai utila din tot fisierul.
+4. decizie luata? intra in `JURNAL.md`.
+5. **impinge pe branch.** O stare care n-a fost impinsa nu exista pentru
+   sesiunea urmatoare.
+
+O etapa noua se deschide copiind `etape/SABLON.md`. **Exact o etapa poate fi
+ACTIVA** — poarta verifica, fiindca doua etape active inseamna ca nimeni nu
+mai stie unde suntem.
+
+Scrie in `STARE.md` doar ce `git log` nu poate spune: intentii, blocaje, capcane.
+Nu rezuma commit-uri acolo.
 
 ---
 
@@ -116,8 +164,16 @@ Mediul meu e Linux, fara SQL Server si fara fereastra. Deci:
 - Cand cer o rulare pe Windows, dau comanda exacta si spun ce ieșire imi
   trebuie. Nu cer „incearca si spune-mi".
 
-## 10. Stare
+## 10. Ce inseamna „gata"
 
-`README.md` are tabelul de stare. O componenta e **gata** doar cand are teste,
-`CRATE.md` si poarta verde. Pana atunci e „in lucru", oricat de complet ar
-arata codul. Nu scriu „gata" in tabel inainte sa fie adevarat.
+O componenta e **gata** doar cand are teste, `CRATE.md` si poarta verde. Pana
+atunci e „in lucru", oricat de complet ar arata codul. Tabelul din `README.md`
+nu se actualizeaza inainte ca asta sa fie adevarat.
+
+La fel pentru o etapa: criteriile de terminare din `etape/NN-*.md` se scriu
+**inainte** de a incepe lucrul, si bifa se pune doar cand criteriul a fost
+verificat — nu cand pare facut.
+
+Si pentru verificari: **o verificare care n-a fost vazuta cazand nu e o
+verificare.** Cand adaugi una in poarta, incalc-o deliberat o data si uita-te
+daca poarta se face roșie.

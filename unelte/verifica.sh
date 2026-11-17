@@ -130,7 +130,66 @@ for crate in rust/*/ rust/module/*/; do
   fi
 done
 
-# ---------------------------------------------------------------- 7. mostenire
+# ---------------------------------------------------------------- 7. stare
+# Cauza de eroare proprie: sesiunea care nu stie de unde sa continue. Un
+# asistent pornește de la zero la fiecare sesiune, iar utilizatorul poate intra
+# de pe alt cont — daca STARE.md minte sau doua etape se cred active, se reia
+# munca greșita. Verificat deci, nu doar cerut.
+titlu "stare si etape"
+python3 - <<'PY_STARE'
+import glob, os, re, sys
+
+probleme, avertismente = [], []
+STARI = {"NEPORNITA", "ACTIVA", "INCHEIATA", "ABANDONATA"}
+
+if not os.path.exists("STARE.md"):
+    probleme.append("lipseste STARE.md — vezi secțiunea 0 din CLAUDE.md")
+
+active = []
+for cale in sorted(glob.glob("etape/*.md")):
+    if os.path.basename(cale) == "SABLON.md":
+        continue
+    txt = open(cale, encoding="utf-8").read()
+    m = re.search(r"^\*\*Stare:\*\* (\w+)", txt, re.M)
+    if not m:
+        probleme.append(f"{cale}: lipseste linia **Stare:** (una din {', '.join(sorted(STARI))})")
+        continue
+    if m.group(1) not in STARI:
+        probleme.append(f"{cale}: stare necunoscuta {m.group(1)!r}")
+    elif m.group(1) == "ACTIVA":
+        active.append(cale)
+    if m.group(1) == "INCHEIATA" and "(se completeaza la incheiere)" in txt:
+        avertismente.append(f"{cale}: incheiata, dar 'Ce a ieșit altfel decat planul' e necompletat")
+
+if len(active) > 1:
+    probleme.append("mai multe etape ACTIVA: " + ", ".join(active) + " — nu se poate sti unde suntem")
+
+# STARE.md trebuie sa numeasca etapa activa, altfel trimite in altă parte.
+if os.path.exists("STARE.md") and active:
+    stare = open("STARE.md", encoding="utf-8").read()
+    if os.path.basename(active[0]) not in stare:
+        probleme.append(f"STARE.md nu numeste etapa activa ({active[0]})")
+
+for a in avertismente:
+    print("avertisment: " + a)
+if probleme:
+    print("\n".join(probleme))
+    sys.exit(1)
+PY_STARE
+if [ $? -eq 0 ]; then pas "stare si etape"; else cade "stare si etape"; fi
+
+# Nu cade pe asta: ar invita la actualizari formale, de bifa. Doar impinge.
+if git rev-parse --git-dir >/dev/null 2>&1 && [ -f STARE.md ]; then
+  ultim="$(git log -1 --format=%H -- STARE.md 2>/dev/null || true)"
+  if [ -n "$ultim" ]; then
+    n="$(git rev-list --count "$ultim..HEAD" 2>/dev/null || echo 0)"
+    if [ "$n" -ge 3 ]; then
+      printf '%s  nota  STARE.md nu a fost atins de %s commit-uri — ruleaza unelte/stare.sh%s\n' "$GALBEN" "$n" "$ZERO"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------- 8. mostenire
 titlu "mostenire/ nemodificat"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:
@@ -145,7 +204,7 @@ else
   sare "mostenire/" "nu e repo git"
 fi
 
-# ---------------------------------------------------------------- 8. conformitate Python/JS
+# ---------------------------------------------------------------- 9. conformitate Python/JS
 # Nu valideaza Rust-ul (asta o face cargo test), ci verifica faptul ca harness-ul
 # de referinta inca ruleaza — plasa de siguranta pentru tot ce urmeaza.
 titlu "harness de referinta"

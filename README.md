@@ -7,8 +7,13 @@ generarea scripturilor de deploy.
 Versiunea in productie e GMotion v3.4, in Python. Codul ei e **inghetat** in
 `mostenire/`, ca referinta de paritate; vezi `mostenire/MOSTENIRE.md`.
 
+**Reia lucrul de unde a rams:** `STARE.md`, apoi etapa activa din `etape/`,
+apoi `unelte/verifica.sh`. Ritualul complet e in `CLAUDE.md`, secțiunea 0.
+
 | Document | Ce conține |
 |---|---|
+| `STARE.md` | unde suntem acum, urmatorul pas concret, ce e blocat, capcane active |
+| `etape/NN-*.md` | scopul si criteriile de terminare ale fiecarei etape, plus jurnalul ei de lucru |
 | `CLAUDE.md` | regulile de lucru. Contractul — se citeste inainte de orice schimbare |
 | `ARHITECTURA.md` | harta crate-urilor, direcția dependentelor, si de ce e asa |
 | `HARTA.md` | simptom -> fisierul vinovat. Indexul de depanare |
@@ -95,7 +100,12 @@ unelte/verifica.sh rapid        # fara wasm si fara harness
 
 Verifica format, clippy fara avertismente, toate testele, tinta `wasm32` pentru
 `core`, direcția dependentelor, sincronizarea fiecarui `CRATE.md` cu API-ul lui
-public, si faptul ca `mostenire/` n-a fost atins.
+public, coerenta stării (`STARE.md` plus exact o etapa activa), si faptul ca
+`mostenire/` n-a fost atins.
+
+```
+unelte/stare.sh                 # faptele mecanice de pus in STARE.md
+```
 
 **Doar motorul:**
 
@@ -125,7 +135,8 @@ python mostenire/app.py
 ## Structura
 
 ```
-CLAUDE.md ARHITECTURA.md HARTA.md JURNAL.md
+STARE.md CLAUDE.md ARHITECTURA.md HARTA.md JURNAL.md
+etape/               scopul, criteriile si jurnalul fiecarei etape
 
 mostenire/           GMotion v3.4 in Python — INGHETAT, nu se modifica
 referinta/           harness de conformitate: Python vs JS, fixture, bench
@@ -183,7 +194,7 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 
 | # | Etapa | Rezultat verificabil |
 |---|---|---|
-| 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta. `core` mutat neatins. *(facut)* |
+| 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta, urmarirea stării. `core` mutat neatins. *(facut)* |
 | 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
 | 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decizia `tiberius` vs `odbc-api`, cu test pe server real |
 | 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix |

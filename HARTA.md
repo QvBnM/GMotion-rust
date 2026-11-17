@@ -41,6 +41,17 @@ lipsea.
 | Poarta cade pe `api-hash` | ai schimbat API-ul public fara sa actualizezi `CRATE.md`; hash-ul nou e in ieșire |
 | Poarta cade pe direcția dependentelor | un crate depinde la dreapta in lanț, sau un modul de alt modul — vezi `ARHITECTURA.md` |
 | Poarta sare verificari | citeste ieșirea: lipseste `node`, `python3`, sau tinta `wasm32` |
+| Poarta cade pe `stare si etape` | doua etape marcate ACTIVA, o stare necunoscuta, sau `STARE.md` nu numeste etapa activa |
+| Poarta noteaza ca `STARE.md` e vechi | ruleaza `unelte/stare.sh` si actualizeaza-l — vezi secțiunea 0 din `CLAUDE.md` |
+
+## Reluarea lucrului
+
+| Intrebare | Unde |
+|---|---|
+| Unde am rams? Ce urmeaza? | `STARE.md` |
+| Ce ne-am propus la etapa asta, cand e gata? | `etape/NN-*.md`, cea cu `Stare: ACTIVA` |
+| De ce arata codul asa? | `JURNAL.md` |
+| Ce s-a facut concret? | `git log --oneline` |
 
 ## Versiunea Python (mostenire)
 

@@ -62,7 +62,8 @@ mecanic de `unelte/verifica.sh`.
 | `rust/cli/` | Binarul headless: `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. | de scris |
 | `rust/fereastra/` | Fereastra nativa, teme, componente comune. | de scris |
 | `rust/app/` | Binarul cu interfata: porneste fereastra, ruteaza catre module. | de scris |
-| `unelte/` | Poarta de verificare si scripturile de regenerare. | gata |
+| `unelte/` | Poarta de verificare, urmarirea stării, scripturile de regenerare. | gata |
+| `etape/` | Scopul, criteriile de terminare si jurnalul fiecarei etape. Exact una e `ACTIVA`. | gata |
 
 ---
 
