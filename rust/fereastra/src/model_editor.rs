@@ -405,6 +405,91 @@ pub fn construieste(text_ref: &str, text_tinta: &str) -> ModelEditor {
     ModelEditor { randuri, diferente }
 }
 
+/// Un rand de afisat in editor: o linie din model, sau o pliere care ascunde
+/// un sir de linii identice („pliaza identicul" din bara de unelte).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RandAfisat {
+    Linie(usize),
+    Pliere { randuri: usize, eticheta: String },
+}
+
+/// Eticheta unei plieri, ca in macheta: „22 de linii identice, 24-45".
+fn eticheta_pliere(n: usize, de_la: Option<usize>, pana_la: Option<usize>) -> String {
+    let linii = if n == 1 {
+        "1 linie identica".to_string()
+    } else if n < 20 {
+        format!("{n} linii identice")
+    } else {
+        // in romana, de la 20 in sus: „22 de linii"
+        format!("{n} de linii identice")
+    };
+    match (de_la, pana_la) {
+        (Some(a), Some(b)) if a != b => format!("{linii}, {a}\u{2013}{b}"),
+        (Some(a), Some(_)) => format!("{linii}, {a}"),
+        _ => linii,
+    }
+}
+
+/// Randurile de afisat, cu sirurile lungi de linii identice pliate.
+///
+/// `context` = cate linii identice se lasa vizibile lipit de o diferenta.
+/// Se plieaza doar daca ramane ceva de ascuns (minim 3 randuri), altfel
+/// plierea ar ocupa mai mult decat liniile pe care le ascunde.
+pub fn plieaza(model: &ModelEditor, context: usize) -> Vec<RandAfisat> {
+    const MINIM_ASCUNS: usize = 3;
+    let n = model.randuri.len();
+    let mut vizibil = vec![false; n];
+    for (i, r) in model.randuri.iter().enumerate() {
+        if r.stare == Stare::Egal {
+            continue;
+        }
+        let de_la = i.saturating_sub(context);
+        let pana_la = (i + context + 1).min(n);
+        vizibil[de_la..pana_la].fill(true);
+    }
+    let mut rez = Vec::new();
+    let mut i = 0;
+    while i < n {
+        if vizibil[i] {
+            rez.push(RandAfisat::Linie(i));
+            i += 1;
+            continue;
+        }
+        let j = (i..n).find(|&k| vizibil[k]).unwrap_or(n);
+        if j - i < MINIM_ASCUNS {
+            rez.extend((i..j).map(RandAfisat::Linie));
+        } else {
+            // numerele de linie reale ale sursei; daca partea aceea e
+            // umplutura (nu are numere), se cad pe cele ale bazei
+            let nr = |k: usize| model.randuri[k].stanga.nr.or(model.randuri[k].dreapta.nr);
+            let de_la = (i..j).find_map(nr);
+            let pana_la = (i..j).rev().find_map(nr);
+            rez.push(RandAfisat::Pliere {
+                randuri: j - i,
+                eticheta: eticheta_pliere(j - i, de_la, pana_la),
+            });
+        }
+        i = j;
+    }
+    rez
+}
+
+/// Pentru fiecare rand, a cata diferenta e (indexul in `diferente`), sau
+/// `None` pe randurile de context. Bara din jgheab e mai lata pe diferenta
+/// curenta, deci randul trebuie sa stie de care diferenta face parte.
+pub fn diferenta_fiecarui_rand(model: &ModelEditor) -> Vec<Option<usize>> {
+    let mut rez = vec![None; model.randuri.len()];
+    for (k, &start) in model.diferente.iter().enumerate() {
+        for (i, r) in model.randuri.iter().enumerate().skip(start) {
+            if r.stare == Stare::Egal || (i > start && r.inceput_bloc) {
+                break;
+            }
+            rez[i] = Some(k);
+        }
+    }
+    rez
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
@@ -508,5 +593,95 @@ mod teste {
             .map(|r| r.dreapta.text())
             .collect();
         assert_eq!(dreapta, ["SELECT 1", "", "EXEC p", "", "SELECT 2"]);
+    }
+
+    #[test]
+    fn liniile_identice_lungi_se_plieaza_cu_context_in_jur() {
+        // 40 de linii identice, cu o diferenta la mijloc
+        let mut a: Vec<String> = (1..=40).map(|i| format!("SELECT {i}")).collect();
+        let mut b = a.clone();
+        b[20] = "SELECT 999".to_string();
+        a.remove(0);
+        b.remove(0);
+        let m = construieste(&a.join("\n\n"), &b.join("\n\n"));
+        let afisat = plieaza(&m, 3);
+        let plieri: Vec<&RandAfisat> = afisat
+            .iter()
+            .filter(|r| matches!(r, RandAfisat::Pliere { .. }))
+            .collect();
+        assert_eq!(plieri.len(), 2, "o pliere inainte si una dupa: {afisat:?}");
+        // randurile pliate plus cele afisate acopera exact modelul, o data
+        let acoperit: usize = afisat
+            .iter()
+            .map(|r| match r {
+                RandAfisat::Linie(_) => 1,
+                RandAfisat::Pliere { randuri, .. } => *randuri,
+            })
+            .sum();
+        assert_eq!(acoperit, m.randuri.len());
+        // diferenta si contextul ei au ramas vizibile
+        let i = m.diferente[0];
+        for k in i.saturating_sub(3)..=(i + 3).min(m.randuri.len() - 1) {
+            assert!(
+                afisat.contains(&RandAfisat::Linie(k)),
+                "randul {k} trebuia vizibil"
+            );
+        }
+    }
+
+    #[test]
+    fn un_obiect_cu_diferente_dese_nu_se_plieaza_degeaba() {
+        let a = "SELECT 1\n\nSELECT 2\n\nSELECT 3";
+        let b = "SELECT 9\n\nSELECT 2\n\nSELECT 8";
+        let m = construieste(a, b);
+        let afisat = plieaza(&m, 3);
+        assert!(
+            afisat.iter().all(|r| matches!(r, RandAfisat::Linie(_))),
+            "nimic de ascuns, deci nicio pliere: {afisat:?}"
+        );
+        assert_eq!(afisat.len(), m.randuri.len());
+    }
+
+    #[test]
+    fn eticheta_plierii_e_in_romana_cu_intervalul_de_linii() {
+        assert_eq!(eticheta_pliere(1, Some(5), Some(5)), "1 linie identica, 5");
+        assert_eq!(
+            eticheta_pliere(7, Some(10), Some(16)),
+            "7 linii identice, 10\u{2013}16"
+        );
+        assert_eq!(
+            eticheta_pliere(22, Some(24), Some(45)),
+            "22 de linii identice, 24\u{2013}45"
+        );
+        assert_eq!(eticheta_pliere(4, None, None), "4 linii identice");
+    }
+
+    #[test]
+    fn fiecare_rand_stie_a_cata_diferenta_e() {
+        let a = "SELECT 1\n\nUPDATE t\nSET a = 1\n\nSELECT 3";
+        let b = "SELECT 1\n\nUPDATE t\nSET a = 2\n\nSELECT 9";
+        let m = construieste(a, b);
+        assert_eq!(m.diferente.len(), 2);
+        let d = diferenta_fiecarui_rand(&m);
+        assert_eq!(d.len(), m.randuri.len());
+        assert_eq!(d[m.diferente[0]], Some(0));
+        assert_eq!(d[m.diferente[1]], Some(1));
+        for (i, r) in m.randuri.iter().enumerate() {
+            assert_eq!(
+                d[i].is_some(),
+                r.stare != Stare::Egal,
+                "randul {i} ({:?})",
+                r.stare
+            );
+        }
+        // blocul modificat are doua linii: ambele aparțin diferentei 0
+        let bloc: Vec<Option<usize>> = (m.diferente[0]..)
+            .take_while(|&i| m.randuri[i].stare != Stare::Egal)
+            .map(|i| d[i])
+            .collect();
+        assert!(
+            bloc.len() >= 2 && bloc.iter().all(|&x| x == Some(0)),
+            "{bloc:?}"
+        );
     }
 }
