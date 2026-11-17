@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (281 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (301 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -24,32 +24,38 @@ interfata grafica: binarul `gmotion`.
 | `rust/module/diff-obiecte` | gata, 59 teste |
 | `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
 | `rust/fereastra` | editorul si lista: gata (etapele 8-9), 32 teste; conectarea, deploy-ul si paleta, de scris |
+| `rust/app` | `gmotion-ui`: lista ↔ editor, revizuirea (etapa 10), 8 teste de rutare |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/10-aplicatia-lista-editor.md` — din lista in editor
-si inapoi, cu starea de revizuire care tine minte.
+**Etapa activa:** `etape/11-conectare.md` — ecranul de conectare, ca sa nu
+mai primeasca `gmotion-ui` sursa in linia de comanda.
 
-**Etapele 8 si 9 sunt incheiate.** Exista doua ecrane native pe designul
-aprobat (`cercetare/design-aprobat.md`): editorul de diferente si lista cu
-previzualizare. Capturi, langa machete: `cercetare/machete/capturi/`. Cifrele
-masurate (20.000 de linii, 50.000 de obiecte) si ce a ieșit altfel:
-`etape/08-prototip-editor.md`, `etape/09-lista-si-previzualizare.md`.
+**Etapele 8-10 sunt incheiate.** Exista o aplicatie cu interfata,
+`gmotion-ui`: lista de diferente, editorul alaturat / unificat, si bifa de
+revizuit care se tine minte intre sesiuni (si cade singura cand obiectul s-a
+schimbat pe server). Capturi, langa machete: `cercetare/machete/capturi/`.
+
+```
+cd rust && cargo run --release -p gmotion-app -- \
+    --sursa ../referinta/instantanee/testsimilitudine.json \
+    --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy
+```
 
 ---
 
 ## Urmatorul pas concret
 
-**Etapa 10, pasul 1: starea de revizuire in `diff-obiecte`,** legata de
-amprenta continutului — un obiect marcat revizuit nu mai e revizuit daca
-definitia lui s-a schimbat intre timp pe server. Se salveaza prin sesiunile
-care exista deja in `platforma` (`sesiune.rs`, campul `date` e opac pentru
-platforma, deci e exact locul). Apoi comanda din `cli` si rutarea lista ↔
-editor in crate-ul nou `rust/app`. Criteriile complete:
-`etape/10-aplicatia-lista-editor.md`.
+**Etapa 11, pasul 1: modelul ecranului de conectare** (campuri, validari,
+stari), apoi ecranul in Slint dupa `cercetare/machete/Conectare.dc.html`, si
+legarea de `db` (test de conexiune, lista bazelor) si de sesiunile salvate
+(compararile recente, reluabile). Criteriile complete: `etape/11-conectare.md`.
+
+Atentie la parola: nu intra in sesiuni, in jurnal sau in mesaje de eroare, iar
+tipul care o tine nu are `Debug` derivat.
 
 Rulari pe Windows: nimic de cerut acum.
 
