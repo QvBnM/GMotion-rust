@@ -255,6 +255,14 @@ elif ! cargo build -q --manifest-path rust/Cargo.toml -p gmotion-cli 2>/dev/null
 else
   ruleaza "paritate pe instantaneul din cazuri" \
     python3 -I referinta/paritate.py --din-cazuri --gmotion rust/target/debug/gmotion
+  # Fixture-uri extrase de pe baze reale (referinta/extrage.py). Fiecare cu
+  # baza lui de referinta: instantaneul nu o retine.
+  while read -r fisier referinta; do
+    ruleaza "paritate pe $(basename "$fisier")" \
+      python3 -I referinta/paritate.py "$fisier" --referinta "$referinta" --gmotion rust/target/debug/gmotion
+  done <<'FIXTURI'
+referinta/instantanee/testsimilitudine.json CharismaERP_GetsBet
+FIXTURI
 fi
 
 # ---------------------------------------------------------------- raport
