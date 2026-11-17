@@ -303,6 +303,22 @@ Modulele `pyodbc`/`webview` se inlocuiesc doar in procesul scriptului;
 
 ---
 
+## 2026-11-17 — Citirea bazelor rămâne secventiala (confirmat pe date reale)
+
+**Context.** Decizia „Citirea bazelor rămâne secventiala, deocamdata" lasa
+masuratoarea pe etapa 6.
+
+**Masuratoare.** Doua baze CharismaERP de ~21.000 de obiecte fiecare, acelasi
+server: Rust 19 s (secvential, doar citire); Python v3.4 29,6 s (4 conexiuni,
+citire + comparatie).
+
+**Motiv.** Rust nu e mai lent decat versiunea pe care o inlocuieste, deci
+paralelismul n-ar rezolva o problema existenta si ar aduce anulare, erori
+parțiale si complexitate in `db`. Se redeschide doar daca un utilizator
+compara multe baze odata si timpul devine o plangere.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
