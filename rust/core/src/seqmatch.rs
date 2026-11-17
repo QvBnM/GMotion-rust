@@ -65,12 +65,26 @@ impl<'a, T: Eq + Hash> SequenceMatcher<'a, T> {
         bhi: usize,
     ) -> (usize, usize, usize) {
         let (a, b) = (self.a, self.b);
+        // Limitele vin si din afara (functia e publica): un apel cu limite
+        // peste lungime dadea panica la index. Se reduc la secventa reala.
+        let ahi = ahi.min(a.len());
+        let bhi = bhi.min(b.len());
+        let alo = alo.min(ahi);
+        let blo = blo.min(bhi);
         let (mut besti, mut bestj, mut bestsize) = (alo, blo, 0usize);
 
-        // j2len[j] = lungimea celei mai lungi potriviri care se termina la a[i-1], b[j]
-        let mut j2len: HashMap<usize, usize> = HashMap::new();
+        // j2len[j] = lungimea celei mai lungi potriviri care se termina la
+        // a[i-1], b[j]. Acelasi algoritm ca `difflib` (dict nou la fiecare i),
+        // dar pe doi vectori densi reutilizati: alocarea a doua HashMap-uri la
+        // fiecare token domina timpul pe obiecte mari (auditul: 97 s pe o
+        // procedura de 20.000 de linii). Indicii atinsi se tin separat, ca
+        // stergerea sa fie proportionala cu ei, nu cu lungimea lui `b`.
+        let latime = bhi - blo + 1;
+        let mut j2len: Vec<usize> = vec![0; latime];
+        let mut newj2len: Vec<usize> = vec![0; latime];
+        let mut atinsi: Vec<usize> = Vec::new();
+        let mut atinsi_noi: Vec<usize> = Vec::new();
         for i in alo..ahi {
-            let mut newj2len: HashMap<usize, usize> = HashMap::new();
             for &j in self.indici(&a[i]) {
                 if j < blo {
                     continue;
@@ -78,20 +92,24 @@ impl<'a, T: Eq + Hash> SequenceMatcher<'a, T> {
                 if j >= bhi {
                     break;
                 }
-                // in JS `j2len[j-1]` pe j=0 da undefined -> 0
-                let anterior = j
-                    .checked_sub(1)
-                    .and_then(|jm| j2len.get(&jm).copied())
-                    .unwrap_or(0);
+                // pozitia j in vectori e j - blo + 1; pozitia 0 ramane mereu 0,
+                // deci j2len[j-1] pentru j = blo da 0, ca in difflib
+                let anterior = j2len[j - blo];
                 let k = anterior + 1;
-                newj2len.insert(j, k);
+                newj2len[j - blo + 1] = k;
+                atinsi_noi.push(j - blo + 1);
                 if k > bestsize {
                     besti = i + 1 - k;
                     bestj = j + 1 - k;
                     bestsize = k;
                 }
             }
-            j2len = newj2len;
+            for &x in &atinsi {
+                j2len[x] = 0;
+            }
+            std::mem::swap(&mut j2len, &mut newj2len);
+            std::mem::swap(&mut atinsi, &mut atinsi_noi);
+            atinsi_noi.clear();
         }
 
         // extinde potrivirea in stanga, apoi in dreapta
@@ -206,6 +224,15 @@ impl<'a, T: Eq + Hash> SequenceMatcher<'a, T> {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    /// Regresie din audit: limite peste lungimea secventei dadeau panica.
+    #[test]
+    fn limitele_prea_mari_nu_dau_panica() {
+        let a = ["x", "y", "z"];
+        let sm = SequenceMatcher::new(&a, &a);
+        assert_eq!(sm.find_longest_match(0, 10, 0, 10), (0, 0, 3));
+        assert_eq!(sm.find_longest_match(7, 9, 0, 3).2, 0);
+    }
 
     #[test]
     fn ratio_secvente_goale() {

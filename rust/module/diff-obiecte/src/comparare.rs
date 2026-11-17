@@ -117,15 +117,29 @@ pub struct Comparare {
     pub numaratoare: Numaratoare,
 }
 
+/// Scorul unui obiect diferit nu poate fi afisat 100: rotunjirea la doua
+/// zecimale ar spune „identic" despre ceva care nu e.
+fn scor_afisat(scor: f64) -> f64 {
+    if scor >= 100.0 {
+        99.99
+    } else {
+        scor
+    }
+}
+
 /// Compara fiecare baza cu referinta.
 ///
 /// Ordinea de decizie, aceeasi ca in versiunea Python, si conteaza:
 ///
 /// 1. obiectul lipseste din baza -> `Lipsa`;
-/// 2. hash-urile sunt egale -> identic, nu se mai calculeaza nimic;
-/// 3. scorul e 100 -> identic (normalizarea a inghitit diferenta, deci e
-///    cosmetica);
-/// 4. altfel -> `Diferit`, cu scor si rezumat.
+/// 2. hash-urile formelor normalizate sunt egale -> identic;
+/// 3. altfel -> `Diferit`, cu scor si rezumat.
+///
+/// Versiunea Python mai avea un pas: „scor 100 -> identic". Scorul e rotunjit
+/// la doua zecimale, deci pe obiecte mari (10.000+ token-uri) un `NOT` sters
+/// dadea 99,995 -> 100 -> „identic", si modificarea nu ajungea nici in lista,
+/// nici in deploy. Scos la auditul din 2026-11-17; hash-ul e deja calculat pe
+/// forma normalizata, deci ce e cosmetic e prins la pasul 2.
 ///
 /// Pasul 2 inainte de 3 e optimizarea care conteaza: pe baze aproape identice,
 /// majoritatea obiectelor se opresc la comparatia de hash-uri.
@@ -182,13 +196,7 @@ pub fn compara(
                 n.identice += 1;
                 continue;
             }
-            let scor = scor_similaritate(&r.afisare, &c.afisare);
-            if scor >= 100.0 {
-                // Hash-uri diferite dar scor 100: diferenta e cosmetica, adica
-                // exact ce normalizarea sterge. Nu merita raportata.
-                n.identice += 1;
-                continue;
-            }
+            let scor = scor_afisat(scor_similaritate(&r.afisare, &c.afisare));
             n.diferite += 1;
             randuri.push(Rand {
                 id,
@@ -252,6 +260,7 @@ pub fn compara(
 #[cfg(test)]
 mod teste {
     use super::*;
+    use gmotion_core::normalizare::tokeni_scor;
 
     fn ob(nume: &str, def: &str) -> Obiect {
         Obiect {
@@ -317,6 +326,28 @@ mod teste {
         assert_eq!(c.numaratoare.identice, 1);
         assert_eq!(c.numaratoare.diferite, 0);
         assert!(c.randuri.is_empty(), "nimic de raportat: {:?}", c.randuri);
+    }
+
+    /// Regresie din audit: pe un obiect de 10.000+ token-uri, un `NOT` sters
+    /// dadea scor 99,995 -> rotunjit 100 -> „identic", si modificarea nu
+    /// ajungea nici in lista, nici in deploy (la fel in v3.4).
+    #[test]
+    fn modificarea_unui_cuvant_intr_un_obiect_mare_se_raporteaza() {
+        let corp: String = (0..1200)
+            .map(|i| format!("UPDATE t SET c{i} = {i} WHERE id = @id\n"))
+            .collect();
+        let a = format!("CREATE PROC dbo.pMare AS\nIF NOT EXISTS (SELECT 1 FROM t)\n{corp}");
+        let b = format!("CREATE PROC dbo.pMare AS\nIF EXISTS (SELECT 1 FROM t)\n{corp}");
+        assert!(tokeni_scor(&a).len() > 10_000);
+        let r = pregateste(&[ob("pMare", &a)]);
+        let t = pregateste(&[ob("pMare", &b)]);
+        let c = compara("Ref", &r, &[("T".to_string(), t)], fara_progres());
+        assert_eq!(c.numaratoare.diferite, 1, "{:?}", c.numaratoare);
+        let scor = c.randuri[0].scor.unwrap();
+        assert!(
+            scor < 100.0,
+            "un obiect diferit nu se afiseaza cu scor 100: {scor}"
+        );
     }
 
     #[test]

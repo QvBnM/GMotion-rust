@@ -246,16 +246,44 @@ fn nume_cursor_din_bloc(bloc: &str) -> Option<String> {
         .map(|c| c[1].to_lowercase())
 }
 
+/// `text` (normalizat, deci cu litere mici) contine `deallocate <nume>` ca
+/// cuvinte intregi. Cautare directa, nu regex: numele vine din codul
+/// utilizatorului, iar un regex compilat din el dadea panica pe un nume de
+/// 1.000.000 de caractere (`CompiledTooBig`), gasit la audit.
+fn contine_deallocate(text: &str, nume: &str) -> bool {
+    let e_cuvant = |c: char| c.is_alphanumeric() || c == '_';
+    let mut cautat_de_la = 0usize;
+    while let Some(rel) = text[cautat_de_la..].find("deallocate") {
+        let poz = cautat_de_la + rel;
+        cautat_de_la = poz + "deallocate".len();
+        if text[..poz].chars().next_back().is_some_and(e_cuvant) {
+            continue;
+        }
+        let dupa = &text[cautat_de_la..];
+        let fara_spatii = dupa.trim_start();
+        if fara_spatii.len() == dupa.len() {
+            continue; // `deallocate` lipit de urmatorul cuvant
+        }
+        if let Some(rest) = fara_spatii.strip_prefix(nume) {
+            if !rest.chars().next().is_some_and(e_cuvant) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// Uneste `DECLARE ... CURSOR` ... `DEALLOCATE <nume>` intr-un singur bloc.
 fn uneste_cicluri_cursor(blocuri: Vec<String>) -> Vec<String> {
+    // Forma normalizata a fiecarui bloc, calculata o data: inainte se
+    // recalcula pentru fiecare cursor, patratic in numarul de blocuri.
+    let norme: Vec<String> = blocuri.iter().map(|b| norm(b)).collect();
     let mut out: Vec<String> = Vec::with_capacity(blocuri.len());
     let mut i = 0usize;
     while i < blocuri.len() {
         if let Some(nume) = nume_cursor_din_bloc(&blocuri[i]) {
-            let re_dealloc =
-                Regex::new(&format!(r"(?i)\bdeallocate\s+{}\b", regex::escape(&nume))).unwrap();
             if let Some(sfarsit) =
-                (i + 1..blocuri.len()).find(|&j| re_dealloc.is_match(&norm(&blocuri[j])))
+                (i + 1..blocuri.len()).find(|&j| contine_deallocate(&norme[j], &nume))
             {
                 out.push(blocuri[i..=sfarsit].join("\n"));
                 i = sfarsit + 1;
@@ -373,7 +401,12 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
 
 /// Cheia de identificare a unui bloc, folosita la alinierea cu
 /// `SequenceMatcher`: tipul instructiunii, primele 40 de caractere din forma
-/// normalizata, si un prefix de MD5 pentru restul.
+/// normalizata, si 128 de biti din SHA-256 pe toata forma normalizata.
+///
+/// Doua blocuri cu aceeasi cheie se raporteaza `egal`, fara alta comparatie,
+/// deci cheia trebuie sa insemne „acelasi text normalizat". Pana la auditul
+/// din 2026-11-17 erau 32 de biti de MD5 (ca in JS): o coliziune s-a gasit in
+/// 0,1 s, iar editorul arata „egal" la o modificare reala.
 pub fn cheie_bloc(bloc: &str) -> String {
     const CUVINTE: [&str; 14] = [
         "select", "insert", "update", "delete", "set", "exec", "if", "while", "return", "create",
@@ -386,8 +419,8 @@ pub fn cheie_bloc(bloc: &str) -> String {
         .copied()
         .unwrap_or("other");
     let prefix: String = n.chars().take(40).collect();
-    let h = crate::md5_hex(&n);
-    format!("{}:{}:{}", tip, prefix, &h[..8])
+    let h = crate::calc_hash(&n);
+    format!("{}:{}:{}", tip, prefix, &h[..32])
 }
 
 /// Linia (0-based) pe care incepe fiecare bloc in textul original.
@@ -415,6 +448,26 @@ pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn deallocate_se_recunoaste_ca_in_regex_ul_vechi() {
+        assert!(contine_deallocate("close c deallocate c", "c"));
+        assert!(contine_deallocate("deallocate   c;", "c"));
+        assert!(!contine_deallocate("deallocate cc", "c"));
+        assert!(!contine_deallocate("xdeallocate c", "c"));
+        assert!(!contine_deallocate("deallocatec", "c"));
+        assert!(contine_deallocate("x deallocatey; deallocate c", "c"));
+    }
+
+    /// Regresie din audit: panica `CompiledTooBig` cu `uneste_cursor = true`.
+    #[test]
+    fn nume_de_cursor_urias_nu_da_panica() {
+        let t = format!(
+            "DECLARE {} CURSOR FOR SELECT 1\n\nSELECT 2",
+            "c".repeat(1_000_000)
+        );
+        assert_eq!(split_statements(&t, true).len(), 2);
+    }
 
     #[test]
     fn antetul_sta_lipit_de_begin() {

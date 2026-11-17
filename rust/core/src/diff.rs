@@ -406,6 +406,16 @@ mod teste {
         assert_eq!(tipuri(&diff_aliniat(t, t)), vec!["egal", "egal"]);
     }
 
+    /// Regresie din audit: cu 32 de biti de MD5 in cheie, aceste doua blocuri
+    /// aveau aceeasi cheie (coliziune gasita in 0,1 s) si se raportau `egal`.
+    #[test]
+    fn blocuri_diferite_cu_cheie_veche_identica_nu_sunt_egale() {
+        let a = "DELETE FROM Clienti WHERE activ = 0 AND id = 32750";
+        let b = "DELETE FROM Clienti WHERE activ = 0 AND id = 79586";
+        assert_ne!(cheie_bloc(a), cheie_bloc(b));
+        assert_eq!(tipuri(&diff_aliniat(a, b)), vec!["modificat"]);
+    }
+
     #[test]
     fn bloc_sters() {
         let r = diff_aliniat(

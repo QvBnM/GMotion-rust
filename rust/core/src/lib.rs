@@ -41,12 +41,3 @@ pub use segmentare::{cheie_bloc, linii_start_blocuri, split_statements};
 /// Tipurile de obiecte SQL comparate, asa cum apar in `sys.objects.type`.
 /// `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.
 pub const TIPURI_OBIECTE: [&str; 6] = ["P", "V", "FN", "IF", "TF", "TR"];
-
-/// MD5 hex. Folosit doar la construirea cheii de bloc, nu in context de
-/// securitate.
-pub(crate) fn md5_hex(s: &str) -> String {
-    use md5::{Digest, Md5};
-    let mut h = Md5::new();
-    h.update(s.as_bytes());
-    hex::encode(h.finalize())
-}
