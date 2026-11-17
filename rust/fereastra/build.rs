@@ -1,3 +1,3 @@
 fn main() {
-    slint_build::compile("ui/editor.slint").expect("ui/editor.slint nu se compileaza");
+    slint_build::compile("ui/fereastra.slint").expect("ui/fereastra.slint nu se compileaza");
 }

@@ -11,6 +11,7 @@
 
 pub mod jetoane;
 pub mod model_editor;
+pub mod model_lista;
 
 slint::include_modules!();
 

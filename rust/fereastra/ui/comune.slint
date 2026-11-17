@@ -1,0 +1,210 @@
+// Vocabularul vizual comun al ferestrelor: jetoanele temei si piesele mici
+// care apar pe mai multe ecrane (butoane, taburi, bife, chevroane).
+//
+// Se strica astfel: doua ecrane ajung sa arate altfel acelasi lucru. De-aia
+// stau aici, o data, nu copiate in fiecare fereastra.
+//
+// Culorile NU se scriu aici: jetoanele vin din `src/jetoane.rs` prin
+// `aplica_tema`, ca sa existe un singur loc de unde se verifica contrastul.
+
+// Fonturile aprobate, incorporate in binar (IBM Plex, SIL OFL 1.1 — vezi
+// `fonturi/LICENSE-OFL-1.1.txt`). Rezerva, daca lipsesc: Segoe UI / Consolas.
+import "../fonturi/IBMPlexSans-Regular.ttf";
+import "../fonturi/IBMPlexSans-Medium.ttf";
+import "../fonturi/IBMPlexSans-SemiBold.ttf";
+import "../fonturi/IBMPlexMono-Regular.ttf";
+import "../fonturi/IBMPlexMono-Medium.ttf";
+import "../fonturi/IBMPlexMono-SemiBold.ttf";
+import "../fonturi/IBMPlexMono-Italic.ttf";
+
+export global Tema {
+    in-out property <string> font-ui;
+    in-out property <string> font-mono;
+    in-out property <color> fundal;
+    in-out property <color> suprafata;
+    in-out property <color> cod-fundal;
+    in-out property <color> linie;
+    in-out property <color> linie-slaba;
+    in-out property <color> text;
+    in-out property <color> text-secundar;
+    in-out property <color> text-tert;
+    in-out property <color> selectie;
+    in-out property <color> mediu-prod;
+    in-out property <color> mediu-test;
+    in-out property <color> mediu-dev;
+    in-out property <color> mod-text;
+    in-out property <color> mod-fundal;
+    in-out property <color> mod-bara;
+    in-out property <color> mod-inlinie;
+    in-out property <color> add-text;
+    in-out property <color> add-fundal;
+    in-out property <color> add-bara;
+    in-out property <color> add-inlinie;
+    in-out property <color> del-text;
+    in-out property <color> del-fundal;
+    in-out property <color> del-bara;
+    in-out property <color> del-inlinie;
+    in-out property <color> hasura-a;
+    in-out property <color> hasura-b;
+    in-out property <color> s-cuvant;
+    in-out property <color> s-sir;
+    in-out property <color> s-numar;
+    in-out property <color> s-variabila;
+    in-out property <color> s-comentariu;
+
+    // Culorile unei stari de rand: 1 modificat, 2 doar in sursa, 3 doar in baza.
+    public pure function fundal-stare(stare: int) -> color {
+        return stare == 1 ? root.mod-fundal : stare == 2 ? root.add-fundal : root.del-fundal;
+    }
+    public pure function bara-stare(stare: int) -> color {
+        return stare == 1 ? root.mod-bara : stare == 2 ? root.add-bara : root.del-bara;
+    }
+    public pure function inlinie-stare(stare: int) -> color {
+        return stare == 1 ? root.mod-inlinie : stare == 2 ? root.add-inlinie : root.del-inlinie;
+    }
+    // In interiorul unui bloc diferit, numarul de linie ia culoarea blocului:
+    // gri-ul tert ar cadea sub 4,5:1 pe fundalurile tinte (vezi jetoane.rs).
+    public pure function numar-stare(stare: int) -> color {
+        return stare == 0 ? root.text-tert
+             : stare == 1 ? root.mod-text
+             : stare == 2 ? root.add-text
+             : root.del-text;
+    }
+    public pure function culoare-mediu(mediu: int) -> color {
+        return mediu == 2 ? root.mediu-prod : mediu == 1 ? root.mediu-test : root.mediu-dev;
+    }
+}
+
+export component Despartitor inherits Rectangle {
+    width: 1px;
+    height: 20px;
+    background: Tema.linie;
+}
+
+export component Chevron inherits Path {
+    in property <string> drum;
+    in property <color> culoare: Tema.text;
+    width: 12px;
+    height: 12px;
+    viewbox-width: 16;
+    viewbox-height: 16;
+    commands: drum;
+    stroke: culoare;
+    stroke-width: 1.8px;
+    fill: transparent;
+}
+
+// Buton cu contur, ca in macheta: 1 px `linie`, colt de 3 px, fara umbra.
+export component Buton inherits Rectangle {
+    in property <string> text;
+    in property <length> inalt: 28px;
+    in property <bool> apasabil: true;
+    callback apasat();
+    height: inalt;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: Tema.linie;
+    background: zona.has-hover ? Tema.fundal : Tema.cod-fundal;
+    min-width: eticheta.preferred-width + 20px;
+    eticheta := Text {
+        text: root.text;
+        font-family: Tema.font-ui;
+        font-size: 13px;
+        color: Tema.text;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+    zona := TouchArea {
+        enabled: root.apasabil;
+        clicked => { root.apasat(); }
+    }
+}
+
+// Butonul principal: fundal `text`, scris cu `suprafata`.
+export component ButonPrincipal inherits Rectangle {
+    in property <string> text;
+    callback apasat();
+    height: 28px;
+    border-radius: 3px;
+    background: zona.has-hover ? Tema.selectie : Tema.text;
+    min-width: eticheta.preferred-width + 24px;
+    eticheta := Text {
+        text: root.text;
+        font-family: Tema.font-ui;
+        font-size: 13px;
+        font-weight: 500;
+        color: Tema.suprafata;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+    zona := TouchArea { clicked => { root.apasat(); } }
+}
+
+// Tab cu sublinierea de 2 px (Alaturat / Unificat).
+export component Tab inherits Rectangle {
+    in property <string> text;
+    in property <bool> activ;
+    callback apasat();
+    height: 33px;
+    min-width: eticheta.preferred-width;
+    eticheta := Text {
+        text: root.text;
+        font-family: Tema.font-ui;
+        font-size: 12.5px;
+        font-weight: root.activ ? 600 : 400;
+        color: root.activ ? Tema.text : Tema.text-secundar;
+        vertical-alignment: center;
+    }
+    Rectangle {
+        y: parent.height - 2px;
+        height: 2px;
+        background: root.activ ? Tema.text : transparent;
+    }
+    TouchArea { clicked => { root.apasat(); } }
+}
+
+export component Bifa inherits Rectangle {
+    in property <string> text;
+    in-out property <bool> bifat;
+    callback schimbat(bool);
+    height: 16px;
+    min-width: 13px + 6px + eticheta.preferred-width;
+    HorizontalLayout {
+        spacing: 6px;
+        alignment: start;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 13px;
+                height: 13px;
+                border-radius: 2px;
+                border-width: 1px;
+                border-color: root.bifat ? Tema.text : Tema.linie;
+                background: root.bifat ? Tema.text : Tema.cod-fundal;
+                if root.bifat: Path {
+                    width: 9px;
+                    height: 9px;
+                    viewbox-width: 16;
+                    viewbox-height: 16;
+                    commands: "M 3 8.5 L 6 11.5 L 13 4.5";
+                    stroke: Tema.suprafata;
+                    stroke-width: 2px;
+                    fill: transparent;
+                }
+            }
+        }
+        eticheta := Text {
+            text: root.text;
+            font-family: Tema.font-ui;
+            font-size: 12.5px;
+            color: Tema.text;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea {
+        clicked => {
+            root.bifat = !root.bifat;
+            root.schimbat(root.bifat);
+        }
+    }
+}
