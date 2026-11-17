@@ -41,3 +41,34 @@ pub use segmentare::{cheie_bloc, linii_start_blocuri, split_statements};
 /// Tipurile de obiecte SQL comparate, asa cum apar in `sys.objects.type`.
 /// `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.
 pub const TIPURI_OBIECTE: [&str; 6] = ["P", "V", "FN", "IF", "TF", "TR"];
+
+/// Numele tipului, pentru utilizator. Sta aici, langa `TIPURI_OBIECTE`, ca sa
+/// fie acelasi text in `cli` si in fereastra (un singur loc, nu doua liste).
+/// Textele sunt cele din machete (`cercetare/machete/Main.dc.html`).
+pub fn nume_tip(tip: &str) -> &'static str {
+    match tip.trim().to_ascii_uppercase().as_str() {
+        "P" => "procedură",
+        "V" => "view",
+        "FN" | "IF" | "TF" => "funcție",
+        "TR" => "trigger",
+        _ => "obiect",
+    }
+}
+
+#[cfg(test)]
+mod teste {
+    use super::*;
+
+    #[test]
+    fn fiecare_tip_comparat_are_un_nume_pentru_utilizator() {
+        for t in TIPURI_OBIECTE {
+            assert_ne!(nume_tip(t), "obiect", "tipul {t} n-are nume");
+        }
+        assert_eq!(nume_tip("P"), "procedură");
+        assert_eq!(nume_tip("v"), "view");
+        assert_eq!(nume_tip(" TF "), "funcție");
+        assert_eq!(nume_tip("TR"), "trigger");
+        // un tip pe care nu-l comparam: nu da panica, da un nume generic
+        assert_eq!(nume_tip("U"), "obiect");
+    }
+}

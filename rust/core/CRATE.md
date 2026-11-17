@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 493aa5492cbdf985 -->
+<!-- api-hash: ba515235bd904f8c -->
 
 ## Rol
 
@@ -63,6 +63,8 @@ proiectul.
 ### rădăcină
 `TIPURI_OBIECTE` — tipurile comparate, ca in `sys.objects.type`:
 `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.
+`nume_tip(tip)` — numele tipului pentru utilizator („procedură", „view",
+„funcție", „trigger"), acelasi text in `cli` si in fereastra.
 
 ## Invariante
 
