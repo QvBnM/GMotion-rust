@@ -162,34 +162,12 @@ impl SursaSqlServer {
 
         let client = self.runtime.block_on(async {
             tokio::time::timeout(self.timeout_conectare, async {
-                let port = match (a.port, &a.instanta) {
-                    (Some(p), _) => p,
-                    (None, Some(i)) => {
-                        rezolva_port_instanta(&a.gazda, PORT_BROWSER, i, &server).await?
-                    }
-                    (None, None) => 1433,
-                };
+                let port = port_tinta(&a, &server).await?;
                 let config = self.configuratie(baza, &a.gazda, port)?;
-                let tcp =
-                    TcpStream::connect(config.get_addr())
-                        .await
-                        .map_err(|e| Eroare::Conectare {
-                            server: server.clone(),
-                            detaliu: e.to_string(),
-                        })?;
-                tcp.set_nodelay(true).ok();
-                Client::connect(config, tcp.compat_write())
-                    .await
-                    .map_err(|e| clasifica_conectare(&server, baza, e))
+                deschide_client(config, &server, baza).await
             })
             .await
-            .map_err(|_| Eroare::Conectare {
-                server: server.clone(),
-                detaliu: format!(
-                    "timeout dupa {} s (TCP, TLS si autentificare)",
-                    self.timeout_conectare.as_secs()
-                ),
-            })?
+            .map_err(|_| timeout_conectare(&server, self.timeout_conectare))?
         })?;
 
         self.conexiune = Some((baza.to_string(), client));
@@ -315,37 +293,182 @@ impl SursaObiecte for SursaSqlServer {
 
     fn obiecte(&mut self, baza: &str) -> Rezultat<Vec<Obiect>> {
         let randuri = self.interogheaza(baza, &interogare_obiecte())?;
-        let mut out = Vec::with_capacity(randuri.len());
-        for r in &randuri {
-            let schema = text(r, 0, baza)?.unwrap_or("dbo");
-            let nume = text(r, 1, baza)?.unwrap_or_default();
-            // Obiect criptat (WITH ENCRYPTION): definitia e NULL. Se pastreaza
-            // cu definitie goala, ca sa nu para „lipsa" in tinta — altfel
-            // deploy-ul ar suprascrie un obiect criptat al furnizorului.
-            let definitie = text(r, 3, baza)?;
-            if definitie.is_none() {
-                tracing::warn!(
-                    target: "gmotion::db",
-                    %baza, obiect = %nume,
-                    "obiect fara definitie (criptat): nu se compara si nu se deployeaza"
-                );
-            }
-            out.push(Obiect {
-                schema: schema.to_string(),
-                nume: nume.to_string(),
-                tip: text(r, 2, baza)?.unwrap_or_default().trim().to_string(),
-                definitie: definitie.unwrap_or_default().to_string(),
-                setari: match (bit(r, 4, baza)?, bit(r, 5, baza)?) {
-                    (Some(ansi_nulls), Some(quoted_identifier)) => Some(Setari {
-                        ansi_nulls,
-                        quoted_identifier,
-                    }),
-                    _ => None,
-                },
-            });
-        }
-        Ok(out)
+        obiecte_din_randuri(&randuri, baza)
     }
+
+    /// Pana la `PARALELISM` baze deodata, pe conexiuni separate, ca v3.4
+    /// (4 conexiuni). Secvential, pe o retea cu latenta mare (VPN) citirea a
+    /// doua baze CharismaERP a durat 48,6 s fata de 28,9 s in v3.4; pe LAN
+    /// diferenta nu se vedea (19 s). Ordinea rezultatului e cea ceruta, iar
+    /// prima eroare opreste tot (restul conexiunilor se inchid).
+    fn obiecte_multe(
+        &mut self,
+        baze: &[String],
+        progres: &mut dyn FnMut(usize, usize, &str),
+    ) -> Rezultat<Vec<(String, Vec<Obiect>)>> {
+        for b in baze {
+            valideaza_baza(b)?;
+        }
+        let n = baze.len();
+        let server = self.tinta.server.clone();
+        let a = interpreteaza_server(&server, self.tinta.port)?;
+        let timeout = self.timeout_conectare;
+        tracing::info!(
+            target: "gmotion::db",
+            %server, baze = n, paralel = PARALELISM.min(n), auth = self.auth.eticheta(),
+            "citesc bazele"
+        );
+        let rez = self.runtime.block_on(async {
+            let port = tokio::time::timeout(timeout, port_tinta(&a, &server))
+                .await
+                .map_err(|_| timeout_conectare(&server, timeout))??;
+            let mut configuratii = Vec::with_capacity(n);
+            for b in baze {
+                configuratii.push(self.configuratie(b, &a.gazda, port)?);
+            }
+            let mut configuratii = configuratii.into_iter();
+
+            let mut in_lucru = tokio::task::JoinSet::new();
+            let mut rezultate: Vec<Option<Vec<Obiect>>> = (0..n).map(|_| None).collect();
+            let mut urmator = 0usize;
+            let mut porneste = |in_lucru: &mut tokio::task::JoinSet<_>, i: usize| {
+                let (config, baza, server) =
+                    (configuratii.next(), baze[i].clone(), server.clone());
+                in_lucru.spawn(async move {
+                    let Some(config) = config else {
+                        return (i, Err(Eroare::Conectare { server, detaliu: "configuratie lipsa".into() }));
+                    };
+                    (i, citeste_baza(config, &server, &baza, timeout).await)
+                });
+            };
+            while urmator < n && in_lucru.len() < PARALELISM {
+                progres(urmator, n, &baze[urmator]);
+                porneste(&mut in_lucru, urmator);
+                urmator += 1;
+            }
+            while let Some(gata) = in_lucru.join_next().await {
+                let (i, r) = gata.map_err(|e| Eroare::Conectare {
+                    server: server.clone(),
+                    detaliu: format!("citirea s-a intrerupt: {e}"),
+                })?;
+                let ob = r?; // prima eroare: JoinSet-ul se arunca, conexiunile se inchid
+                tracing::debug!(target: "gmotion::db", baza = %baze[i], nr = ob.len(), "obiecte citite");
+                rezultate[i] = Some(ob);
+                if urmator < n {
+                    progres(urmator, n, &baze[urmator]);
+                    porneste(&mut in_lucru, urmator);
+                    urmator += 1;
+                }
+            }
+            Ok(rezultate)
+        })?;
+        progres(n, n, "");
+        Ok(baze
+            .iter()
+            .cloned()
+            .zip(rez.into_iter().map(Option::unwrap_or_default))
+            .collect())
+    }
+}
+
+/// Cate baze se citesc deodata. Ca in v3.4.
+const PARALELISM: usize = 4;
+
+fn timeout_conectare(server: &str, durata: Duration) -> Eroare {
+    Eroare::Conectare {
+        server: server.to_string(),
+        detaliu: format!(
+            "timeout dupa {} s (TCP, TLS si autentificare)",
+            durata.as_secs()
+        ),
+    }
+}
+
+/// Portul TCP la care se conecteaza: cel dat, cel spus de SQL Browser pentru
+/// o instanta numita, sau 1433.
+async fn port_tinta(a: &Adresa, server: &str) -> Rezultat<u16> {
+    Ok(match (a.port, &a.instanta) {
+        (Some(p), _) => p,
+        (None, Some(i)) => rezolva_port_instanta(&a.gazda, PORT_BROWSER, i, server).await?,
+        (None, None) => 1433,
+    })
+}
+
+/// TCP, TLS si login. Timeout-ul il pune apelantul.
+async fn deschide_client(config: Config, server: &str, baza: &str) -> Rezultat<ClientTds> {
+    let tcp = TcpStream::connect(config.get_addr())
+        .await
+        .map_err(|e| Eroare::Conectare {
+            server: server.to_string(),
+            detaliu: e.to_string(),
+        })?;
+    tcp.set_nodelay(true).ok();
+    Client::connect(config, tcp.compat_write())
+        .await
+        .map_err(|e| clasifica_conectare(server, baza, e))
+}
+
+/// O baza, pe o conexiune proprie: deschidere, interogare, conversie.
+async fn citeste_baza(
+    config: Config,
+    server: &str,
+    baza: &str,
+    timeout: Duration,
+) -> Rezultat<Vec<Obiect>> {
+    let mut client = tokio::time::timeout(timeout, deschide_client(config, server, baza))
+        .await
+        .map_err(|_| timeout_conectare(server, timeout))??;
+    let eroare = |detaliu: String| Eroare::Interogare {
+        baza: baza.to_string(),
+        detaliu,
+    };
+    let sql = interogare_obiecte();
+    let randuri = tokio::time::timeout(TIMEOUT_INTEROGARE, async {
+        client
+            .query(sql.as_str(), &[])
+            .await
+            .map_err(|e| eroare(e.to_string()))?
+            .into_first_result()
+            .await
+            .map_err(|e| eroare(e.to_string()))
+    })
+    .await
+    .map_err(|_| eroare(format!("timeout dupa {} s", TIMEOUT_INTEROGARE.as_secs())))??;
+    obiecte_din_randuri(&randuri, baza)
+}
+
+/// Randurile interogarii de obiecte, ca `Obiect`.
+fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
+    let mut out = Vec::with_capacity(randuri.len());
+    for r in randuri {
+        let schema = text(r, 0, baza)?.unwrap_or("dbo");
+        let nume = text(r, 1, baza)?.unwrap_or_default();
+        // Obiect criptat (WITH ENCRYPTION): definitia e NULL. Se pastreaza
+        // cu definitie goala, ca sa nu para „lipsa" in tinta — altfel
+        // deploy-ul ar suprascrie un obiect criptat al furnizorului.
+        let definitie = text(r, 3, baza)?;
+        if definitie.is_none() {
+            tracing::warn!(
+                target: "gmotion::db",
+                %baza, obiect = %nume,
+                "obiect fara definitie (criptat): nu se compara si nu se deployeaza"
+            );
+        }
+        out.push(Obiect {
+            schema: schema.to_string(),
+            nume: nume.to_string(),
+            tip: text(r, 2, baza)?.unwrap_or_default().trim().to_string(),
+            definitie: definitie.unwrap_or_default().to_string(),
+            setari: match (bit(r, 4, baza)?, bit(r, 5, baza)?) {
+                (Some(ansi_nulls), Some(quoted_identifier)) => Some(Setari {
+                    ansi_nulls,
+                    quoted_identifier,
+                }),
+                _ => None,
+            },
+        });
+    }
+    Ok(out)
 }
 
 /// Erorile de la deschiderea conexiunii: parola greșita, baza inaccesibila sau
@@ -708,6 +831,54 @@ mod teste {
         );
         assert_eq!(e.cod(), "GM-DB-001");
         assert!(e.to_string().contains("timeout"), "{e}");
+    }
+
+    /// Citirea paralela: cu un server care tace dupa TCP, patru baze expira
+    /// impreuna (o singura asteptare), nu una dupa alta, si progresul a pornit
+    /// fiecare baza in ordinea ceruta.
+    #[test]
+    fn citirea_paralela_expira_impreuna_si_porneste_in_ordine() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let _tine = std::thread::spawn(move || {
+            let mut conexiuni = Vec::new();
+            for c in listener.incoming().take(8) {
+                conexiuni.push(c);
+            }
+            std::thread::sleep(Duration::from_secs(10));
+        });
+        let mut s = sql("127.0.0.1", Some(port));
+        s.timeout_conectare = Duration::from_secs(1);
+        let baze: Vec<String> = ["A", "B", "C", "D"].iter().map(|b| b.to_string()).collect();
+        let mut pornite = Vec::new();
+        let start = std::time::Instant::now();
+        let e = s
+            .obiecte_multe(&baze, &mut |i, _, b| pornite.push((i, b.to_string())))
+            .unwrap_err();
+        assert!(
+            start.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            start.elapsed()
+        );
+        assert_eq!(e.cod(), "GM-DB-001");
+        assert_eq!(
+            pornite,
+            [
+                (0, "A".into()),
+                (1, "B".into()),
+                (2, "C".into()),
+                (3, "D".into())
+            ]
+        );
+    }
+
+    #[test]
+    fn citirea_paralela_refuza_numele_invalide_inainte_de_conectare() {
+        let mut s = sql("127.0.0.1", Some(1));
+        let e = s
+            .obiecte_multe(&["ok".into(), "rau\n".into()], &mut |_, _, _| {})
+            .unwrap_err();
+        assert_eq!(e.cod(), "GM-DB-011");
     }
 
     #[test]

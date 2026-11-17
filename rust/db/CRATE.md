@@ -77,6 +77,8 @@ se testeaza fara SQL Server.
    diacritice, ghilimele si apostrofuri escapate.
 6. **`obiecte_multe` se oprește la prima eroare.** O comparare pe baze
    incomplete da rezultate false, ceea ce e mai rau decat sa nu dea nimic.
+   Pe SQL Server citeste pana la 4 baze deodata, pe conexiuni separate (ca
+   v3.4); ordinea rezultatului e cea ceruta.
 7. **Un obiect criptat** (`WITH ENCRYPTION`, definitie NULL) se pastreaza cu
    definitie goala (`Obiect::criptat`), cu avertisment. Nu se sare: sarit,
    aparea „lipsa" in tinta si deploy-ul l-ar fi suprascris.

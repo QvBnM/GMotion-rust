@@ -269,21 +269,32 @@ fn ruleaza_comparare(
         .verifica(m.nume(), referinta, &altele_nume)
         .map_err(|e| e.to_string())?;
 
-    format.progres(&format!("Citesc referinta {referinta}..."));
-    let ref_obiecte = modul::pregateste(&s.obiecte(referinta).map_err(|e| e.to_string())?);
-
-    let mut altele = Vec::with_capacity(altele_nume.len());
-    for (i, baza) in altele_nume.iter().enumerate() {
-        format.progres(&format!(
-            "[{}/{}] citesc {baza}...",
-            i + 1,
-            altele_nume.len()
-        ));
-        altele.push((
-            baza.clone(),
-            modul::pregateste(&s.obiecte(baza).map_err(|e| e.to_string())?),
-        ));
-    }
+    // Referinta si celelalte baze dintr-o data: de pe un server se citesc in
+    // paralel (`SursaSqlServer::obiecte_multe`), ca in v3.4.
+    let mut toate_nume = Vec::with_capacity(altele_nume.len() + 1);
+    toate_nume.push(referinta.to_string());
+    toate_nume.extend(altele_nume.iter().cloned());
+    let n_altele = altele_nume.len();
+    let mut citite = s
+        .obiecte_multe(&toate_nume, &mut |i, _, baza| {
+            if baza.is_empty() {
+                return;
+            }
+            if i == 0 {
+                format.progres(&format!("Citesc referinta {baza}..."));
+            } else {
+                format.progres(&format!("[{i}/{n_altele}] citesc {baza}..."));
+            }
+        })
+        .map_err(|e| e.to_string())?
+        .into_iter();
+    let ref_obiecte = match citite.next() {
+        Some((_, obiecte)) => modul::pregateste(&obiecte),
+        None => return Err("referinta nu a putut fi citita".into()),
+    };
+    let altele: Vec<(String, modul::Baza)> = citite
+        .map(|(baza, obiecte)| (baza, modul::pregateste(&obiecte)))
+        .collect();
 
     let comparare = modul::compara(referinta, &ref_obiecte, &altele, |p| {
         if p.gata {

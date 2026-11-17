@@ -434,6 +434,29 @@ conexiunea se arunca dupa orice eroare; `rezolva_port_instanta` propriu
 
 ---
 
+## 2026-11-17 — Citirea bazelor devine paralela (anuleaza „ramane secventiala")
+
+**Anuleaza** intrarea „Citirea bazelor rămâne secventiala (confirmat pe date
+reale)".
+
+**Context.** A doua rulare a lui Mihai a fost pe alta retea (192.168.1.x, cu
+latenta mai mare decat LAN-ul de la prima rulare): aceleasi doua baze
+CharismaERP s-au citit in 48,6 s secvential, fata de 28,9 s in v3.4 (4
+conexiuni, citire + comparatie). Pe LAN: 19 s fata de 29,6 s. Decizia
+anterioara spunea sa se redeschida daca timpul devine o problema; pe o retea
+lenta v4 era mai lent decat versiunea pe care o inlocuieste.
+
+**Ce s-a facut.** `SursaSqlServer::obiecte_multe` citeste pana la 4 baze
+deodata (ca v3.4), fiecare pe conexiunea ei, intr-un `JoinSet` pe runtime-ul
+existent — fara dependinta noua. Ordinea rezultatului e cea ceruta, prima
+eroare opreste tot, progresul porneste bazele in ordine. `compara` din CLI
+citeste referinta si celelalte baze printr-un singur apel. Sursa din
+instantaneu ramane pe implementarea implicita (secventiala, fara retea).
+
+**De masurat:** urmatoarea rulare a `etapa6.ps1` pe aceeasi retea.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
