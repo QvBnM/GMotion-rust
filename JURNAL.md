@@ -357,6 +357,19 @@ fork care sa le tina in viata.
 
 ---
 
+## 2026-11-17 — `Cargo.lock` intra in git
+
+**Context.** Era in `.gitignore`. Auditul: fiecare compilare isi alegea singura
+versiunile; pe Windows, Mihai a vazut „Locking 194 packages to highest
+compatible versions", deci binarul lui si cel verificat aici puteau diferi.
+
+**Motiv.** Pentru o aplicatie (nu o biblioteca), recomandarea Cargo e lock in
+git: build reproductibil, si un aviz de securitate se poate verifica pe exact
+versiunile livrate. Actualizarea dependentelor devine un commit vizibil
+(`cargo update`), nu un efect secundar al unei compilari.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

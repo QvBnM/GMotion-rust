@@ -29,7 +29,6 @@ desktop.ini
 
 # Rust
 target/
-Cargo.lock
 pkg/
 
 # Corpus de bench generat (vezi referinta/genereaza_corpus.py)
