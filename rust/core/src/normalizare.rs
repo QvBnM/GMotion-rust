@@ -6,6 +6,10 @@
 //! `COLLATE database_default`, parantezele drepte si spatiile redundante.
 //! Textul normalizat se foloseste doar la comparare; afisarea pastreaza mereu
 //! originalul.
+//!
+//! **Se strica astfel:** doua obiecte identice apar drept „modificate" (sau
+//! invers, o diferenta reala e inghitita), si scoruri de similaritate absurde.
+//! Simptomul e in lista de obiecte, nu in editor.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

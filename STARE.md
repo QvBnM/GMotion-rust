@@ -6,51 +6,49 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
-**Actualizat:** 2026-11-17 · commit `ecd2b8c` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (31 teste, `core` compileaza pe wasm32)
+**Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (37 teste, `core` compileaza pe wasm32)
 
 ---
 
 ## Unde suntem
 
-Etapa 0 — **restructurare + reguli** — incheiata. Vezi
-`etape/00-restructurare.md`.
+Etapele 0 si 1 incheiate. Vezi `etape/`.
 
-Repo-ul are acum: Python-ul v3.4 inghetat in `mostenire/`, harness-ul de
-conformitate in `referinta/`, documentele de regula (`CLAUDE.md`,
-`ARHITECTURA.md`, `HARTA.md`, `JURNAL.md`), urmarirea stării (`STARE.md` plus
-`etape/`), si o poarta de verificare (`unelte/verifica.sh`) care prinde si ce
-niciun test nu prinde: tinta wasm, direcția dependentelor, documentatia rămasa
-in urma codului, si starea incoerenta.
+`gmotion-core` e gata si consolidat: 37 de teste in trei straturi — unitare,
+conformitate cu motorul JS (24 cazuri x 8 campuri), si fuzz dirijat pe
+invariante (400 de intrari per test). Fuzz-ul a fost pus la proba cu bug-uri
+introduse deliberat si le prinde.
 
-Singurul cod Rust care exista e `rust/core` — motorul de comparare, gata, 31 de
-teste, validat contra fixture-ului produs de motorul JS.
+Repo-ul are documentele de regula, urmarirea stării (`STARE.md` + `etape/`), si
+o poarta (`unelte/verifica.sh`) care verifica si ce niciun test nu prinde:
+tinta wasm, direcția dependentelor, documentatia rămasa in urma codului, starea
+incoerenta.
 
-**Etapa activa:** niciuna. Urmatoarea la rand e etapa 1, nepornita:
-`etape/01-core-consolidat.md`.
+**Etapa activa:** niciuna. Urmatoarea la rand e etapa 2, `db`. Nu are inca
+fisier de etapa — se deschide din `etape/SABLON.md`.
 
 ---
 
 ## Urmatorul pas concret
 
-Etapa 1 — `core` consolidat. Nu schimba semantica, deci e ieftina si fara risc
-de regresie:
+Etapa 2 — `rust/db`. Crate nou. Trei lucruri, in ordine:
 
-1. antet de 3-5 linii in fiecare fisier din `rust/core/src/`, cu rolul si
-   **categoria de bug** care ii aparține (regula 4 din `CLAUDE.md`);
-2. fuzz pe `split_statements` — zona care a produs **toate** divergentele din
-   v3.4, deci locul cu cel mai bun raport efort/incredere. Invariantele de
-   verificat sunt 4 si 5 din `rust/core/CRATE.md`: nu taie in interiorul
-   literalelor/comentariilor/`CASE`, si concatenarea blocurilor acopera tot
-   textul de intrare;
-3. `cargo fmt`, poarta verde, `STARE.md` actualizat.
+1. **`SursaObiecte` ca trait**, plus implementarea din fixture (JSON). Se scrie
+   prima, fiindca tot ce urmeaza se testeaza prin ea, fara baza de date.
+2. **Implementarea pe SQL Server** + descoperirea instantelor. Aici se ia
+   decizia `tiberius` vs `odbc-api` — vezi „ce aștept de la Mihai".
+3. **`CRATE.md`**, codurile de eroare `GM-DB-*` in `JURNAL.md`, poarta verde.
 
 Pornire:
 
 ```
-unelte/verifica.sh                      # confirma ca pornesti de pe verde
-cat etape/01-core-consolidat.md
+unelte/verifica.sh
+cp etape/SABLON.md etape/02-db.md        # si pune Stare: ACTIVA
 ```
+
+Atentie la direcția dependentelor: `db` poate depinde de `core`, nu invers.
+Poarta verifica.
 
 ---
 
@@ -58,9 +56,10 @@ cat etape/01-core-consolidat.md
 
 Nimic blocant acum. Ce va fi nevoie, cand ajungem acolo:
 
-- **Etapa 2 (`db`)** — o rulare pe un SQL Server real, ca sa se decida
-  `tiberius` vs `odbc-api`. Comanda exacta ti-o dau atunci; nu e nevoie de
-  nimic pregatit dinainte.
+- **Etapa 2 (`db`), in curs de pornire** — o rulare pe un SQL Server real, ca
+  sa se decida `tiberius` vs `odbc-api`. Scriu intai partea care nu depinde de
+  decizie (traitul si implementarea din fixture), apoi iti dau comanda exacta.
+  Nu e nevoie de nimic pregatit dinainte.
 - **Etapa 6 (paritate)** — aceleasi baze comparate cu versiunea Python si cu
   `cli`, plus un `gmotion instantaneu` ca sa am fixture-ul aici.
 
@@ -87,3 +86,11 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   readuce exact problema celor doua motoare divergente.
 - **`referinta/corpus_bench.json` nu e in git.** Daca `cargo run --example bench`
   se plange, ruleaza `python3 -I referinta/genereaza_corpus.py`.
+- **Un bloc returnat de `split_statements` nu e garantat subsir al textului
+  original** (blocurile unite se lipesc cu un singur `\n`). De-aia
+  `linii_start_blocuri` are o ramura de rezerva. Conteaza la etapa de editor:
+  ancorele de scroll degradeaza silentios acolo. Vezi
+  `etape/01-core-consolidat.md`.
+- **Un fuzz care trece nu e un fuzz care functioneaza.** Cand adaugi un test de
+  invariante, strica deliberat codul si uita-te daca il prinde. Prima versiune a
+  fuzz-ului de segmentare trecea si cu urmarirea literalelor scoasa complet.

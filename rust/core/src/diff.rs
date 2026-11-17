@@ -1,4 +1,14 @@
 //! Alinierea blocurilor si diferentele din interiorul unui bloc.
+//!
+//! Alinierea se face prin programare dinamica pe similaritate
+//! (`perechi_replace`), nu pozitional ca in `mostenire/motor.py`: doua blocuri
+//! care si-au schimbat ordinea trebuie imperecheate intre ele, nu declarate
+//! „sters" plus „adaugat".
+//!
+//! **Se strica astfel:** un bloc modificat apare drept sters si adaugat
+//! separat (sau invers, doua blocuri fara legatura apar imperecheate);
+//! evidentierea in interiorul liniei marcheaza alte token-uri decat cele
+//! schimbate; rezumatul raporteaza blocuri care nu exista.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

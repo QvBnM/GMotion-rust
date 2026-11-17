@@ -6,6 +6,11 @@
 //! iar Ratcliff-Obershelp (recursiv pe cea mai lunga potrivire) da alte
 //! rezultate decat un LCS clasic. Orice abatere aici se vede direct in ce
 //! blocuri sunt declarate `modificat` fata de `sters` + `adaugat`.
+//!
+//! **Se strica astfel:** rezultate care difera de `difflib` din Python pe
+//! aceleasi intrari. Cel mai probabil vinovat e `autojunk`: `difflib` il are
+//! implicit activat si ignora elementele frecvente in secvente lungi, ceea ce
+//! schimba alinierea. Motorul existent il are oprit, deci si portul de aici.
 
 use std::collections::HashMap;
 use std::hash::Hash;

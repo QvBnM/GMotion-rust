@@ -1,12 +1,20 @@
 //! Impartirea codului unui obiect SQL in blocuri logice.
 //!
-//! Aici se afla toata divergenta istorica dintre `motor.py` si portul JS din
-//! `ui.py`: portul JS a primit urmarirea string-urilor, a comentariilor bloc, a
+//! Aici se afla toata divergenta istorica dintre `mostenire/motor.py` si portul JS din
+//! `mostenire/ui.py`: portul JS a primit urmarirea string-urilor, a comentariilor bloc, a
 //! adancimii parantezelor si a stivei `CASE`/`BEGIN`/`END`, plus splitarea pe
 //! `CREATE` si `DECLARE` - niciuna adusa inapoi in Python. Varianta de aici
 //! urmeaza semantica JS, care e cea corecta.
 //!
-//! Vezi `rust/referinta/README.md` pentru divergentele masurate.
+//! Vezi `referinta/README.md` pentru divergentele masurate.
+//!
+//! **Se strica astfel:** blocuri taiate in mijlocul unui literal, al unui
+//! comentariu bloc, al unei paranteze sau al unui `CASE`; un `UNION` sau un
+//! ciclu de cursor rupt in doua; numar de blocuri diferit de ce arata editorul.
+//! E zona cu cel mai greu istoric: **toata** divergenta masurata intre
+//! `mostenire/motor.py` si portul JS vine de aici, si de aici se propaga in
+//! tipurile de diferenta. De-aia are si fuzz pe invariante, in
+//! `tests/invariante.rs`.
 
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -14,7 +22,7 @@ use regex::Regex;
 use crate::normalizare::norm;
 
 /// Instructiunile pe care se taie un bloc nou. `CREATE` si `DECLARE` sunt
-/// incluse - lipsa lor in `motor.py` e una din cauzele divergentei.
+/// incluse - lipsa lor in `mostenire/motor.py` e una din cauzele divergentei.
 static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(concat!(
         r"(?i)^\s*(?:",

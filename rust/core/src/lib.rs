@@ -4,10 +4,15 @@
 //! interfete. Asta il face testabil direct si refolosibil in doua tinte - binar
 //! nativ (prin PyO3 sau direct, pentru backend) si WebAssembly (pentru editorul
 //! live din interfata). Scopul e sa existe UN SINGUR motor, in loc de cele doua
-//! implementari paralele de acum (`motor.py` si portul JS din `ui.py`), care au
-//! divergat deja - vezi `rust/referinta/README.md`.
+//! implementari paralele de acum (`mostenire/motor.py` si portul JS din `mostenire/ui.py`), care au
+//! divergat deja - vezi `referinta/README.md`.
 //!
 //! Semantica portata e cea a motorului JS, care e varianta corecta si mai nouă.
+//!
+//! Fiecare modul are antetul lui, cu categoria de bug care ii aparține:
+//! `normalizare` (fals „modificat"), `segmentare` (blocuri taiate prost),
+//! `diff` (blocuri imperecheate greșit), `seqmatch` (abateri de la `difflib`).
+//! Contractul complet — invariante, erori tipice, depanare — e in `CRATE.md`.
 //!
 //! ```
 //! use gmotion_core::{diff_aliniat, scor_similaritate};

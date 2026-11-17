@@ -67,8 +67,16 @@ proiectul.
 4. `split_statements` nu taie niciodata in interiorul unui literal, al unui
    comentariu bloc, al unei paranteze deschise sau al unei stive
    `CASE` / `BEGIN` / `END`.
-5. Concatenarea blocurilor intoarse de `split_statements` acopera tot codul de
-   intrare — nu se pierde si nu se dubleaza text.
+5. `split_statements` nu pierde si nu dubleaza **cod**:
+   `norm(blocuri.join("\n")) == norm(cod)`.
+   Atentie, forma mai tare — concatenare egala cu textul de intrare — e
+   **falsa**, si asta e intentionat: segmentarea arunca liniile goale
+   separatoare, antetul de dinaintea primei instructiuni si blocurile care sunt
+   doar comentariu, iar blocurile unite (`UNION`, cursor) se lipesc cu un singur
+   `\n`. Tot ce se arunca normalizeaza la gol, deci egalitatea se cere pe forma
+   normalizata. Consecinta practica: un bloc **nu** e garantat subsir al textului
+   original, de-aia `linii_start_blocuri` are o ramura de rezerva cand nu
+   gaseste blocul.
 6. Functiile sunt totale pe intrari UTF-8 valide: nu intorc `Result`, nu dau
    panica.
 
@@ -88,19 +96,34 @@ proiectul.
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-core          # 31 teste
+cd rust && cargo test -p gmotion-core          # 37 teste, ~1.5 s
 ```
 
-Acopera: teste unitare per modul, plus `tests/conformitate.rs` — toate cele 24
-de cazuri din `referinta/cazuri.json`, pe 8 campuri, contra fixture-ului produs
-de motorul JS (`referinta/rezultate_js.json`).
+Trei straturi:
+
+1. **teste unitare** per modul — cazuri numite, pentru comportamente anume;
+2. **`tests/conformitate.rs`** — toate cele 24 de cazuri din
+   `referinta/cazuri.json`, pe 8 campuri, contra fixture-ului produs de motorul
+   JS (`referinta/rezultate_js.json`);
+3. **`tests/invariante.rs`** — fuzz dirijat, 400 de intrari generate
+   determinist per test, pe invariantele 2-6. Generatorul nu produce SQL
+   aleator, ci formele care pun la incercare invariantele: literale si
+   comentarii pe mai multe linii in care o linie **incepe** cu un cuvant cheie,
+   `CASE` imbricate, paranteze pe mai multe linii, `UNION` la final, cursor
+   `FOR`, `INSERT ... SELECT`. Un eșec raporteaza seed-ul si textul.
 
 **Daca testul de conformitate cade, presupunerea implicita e ca portul Rust e
 greșit.** Fixture-ul nu se regenereaza pentru a face un test sa treaca — asa au
 divergat cele doua motoare din v3.4.
 
-Nu acopera: performanta (vezi `examples/bench.rs`), si nu exista inca fuzzing pe
-segmentare.
+Fuzz-ul a fost pus la proba cu trei bug-uri introduse deliberat in
+`segmentare.rs` (starea de literal ignorata la split, adancimea parantezelor
+ignorata, ultimul bloc aruncat) si le prinde pe toate trei. Prima versiune a
+generatorului **nu** prindea primele doua — vezi `etape/01-core-consolidat.md`.
+
+Nu acopera: performanta (vezi `examples/bench.rs`), si nici alinierea din
+`diff.rs` la nivel de invariante — acolo exista doar cazuri numite si
+conformitatea.
 
 ## Depanare
 
@@ -111,6 +134,11 @@ cargo run --release --example bench      # cere referinta/corpus_bench.json
 
 Un caz nou se adauga in `referinta/cazuri.json`, se regenereaza fixture-ul prin
 `unelte/regenereaza-fixture.sh` (cere `node`), si abia apoi se repara codul.
+
+Un eșec de fuzz se reproduce cu seed-ul din mesaj. Generatorul e determinist:
+`SEED_URI` si listele de fragmente sunt in capul lui `tests/invariante.rs`, si
+un fragment nou se adauga acolo cand apare o forma de T-SQL pe care nu o
+acopera.
 
 Pentru a vedea unde difera de motorul vechi:
 `python3 -I referinta/compara.py`.
