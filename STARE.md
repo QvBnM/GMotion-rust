@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (228 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (230 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -38,30 +38,25 @@ blocata pe specificatie. GUI-ul (9-10) e la final, la decizia lui Mihai.
 
 ## Urmatorul pas concret
 
-A doua rulare pe Windows (dupa etapa 7): **0 regresii**, aceleasi 42.427 de
-obiecte prin pyodbc si tiberius, instanta numita rezolvata de codul propriu,
-auth SQL si Windows. 45 de diferente „de verificat" (scoruri si rezumate pe
-obiecte cu string-uri) si **o modificare pe care v3.4 o ascundea**:
-`dbo.GenerateOrderByRecommendedOrder` (v3.4: identic, v4: diferit).
+A treia rulare pe Windows (`b4b0e30`) a confirmat tot ce era deschis:
+citirea paralela **12,3 s** (fata de 48,6 s secvential si 29,3 s in v3.4, pe
+aceeasi retea); garda de versiune corecta pe ambele ramuri pe serverul real;
+**~4.440 de obiecte (21%) au `QUOTED_IDENTIFIER OFF`** si 401
+`ANSI_NULLS OFF` — un deploy v3.4 rulat din SSMS le schimba comportamentul;
+0 regresii. Obiectul ascuns de v3.4 (`GenerateOrderByRecommendedOrder`):
+diferenta e intr-un mesaj din string (`'... pentru partenerul '`), adica
+exact ce normalizarea v3.4 inghitea. `gmotion diferente` nu arata insa ce s-a
+schimbat; reparat (ambele versiuni, `[-...-]` / `{+...+}`, inclusiv spatiile
+din string-uri).
 
-Dupa rulare s-au facut si cele trei puncte deschise ale deploy-ului (setarile
-de creare per obiect, ordinea dupa dependente, garda de versiune) si citirea
-paralela (pe reteaua lui Mihai v4 era mai lent decat v3.4: 48,6 s fata de
-28,9 s).
-
-1. **Mihai ruleaza din nou `unelte/etapa6.ps1`.** Pasi noi: 7 (garda de
-   versiune rulata pe `master`, doar citire, ca atare si cu versiunea
-   simulata 12.0) si 8 (cate obiecte au `ANSI_NULLS`/`QUOTED_IDENTIFIER` OFF).
-   De urmarit: timpul de la 4a (asteptat sub 48,6 s), pasul 7 „GARDA
-   CORECTA".
-2. **Mihai se uita la `GenerateOrderByRecommendedOrder`** (comanda in „Ce
-   astept"), si spune doar daca diferenta e reala — nu trebuie trimis codul.
-3. **Decizii de la Mihai:** implicitul pentru `--certificat`; specificatia
+1. Optional, la urmatoarea ocazie: aceeasi comanda `diferente` pe
+   `GenerateOrderByRecommendedOrder`, ca sa se vada exact diferenta.
+2. **Decizii de la Mihai:** implicitul pentru `--certificat`; specificatia
    modulului `upgrade`; repo-ul public.
-4. Ramase deschise (documentate): performanta patratica pe obiecte uriase,
+3. Ramase deschise (documentate): performanta patratica pe obiecte uriase,
    nume case-insensitive intre baze, divergentele Unicode fata de JS (in
    afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca nume de
-   modul, dependentele prin SQL dinamic sau sinonime (nu se vad in cod).
+   modul, dependentele prin SQL dinamic sau sinonime.
 
 **Nu se deschide etapa de interfata fara discutia despre GUI ceruta de Mihai.**
 
@@ -69,23 +64,19 @@ paralela (pe reteaua lui Mihai v4 era mai lent decat v3.4: 48,6 s fata de
 
 ## Ce aștept de la Mihai
 
+Deciziile de la punctul 2. Pentru diferenta din obiectul ascuns, din radacina:
+
 ```
 git pull
 ```
 
 ```
-powershell -ExecutionPolicy Bypass -File unelte\etapa6.ps1
+cargo build --release --manifest-path rust\Cargo.toml -p gmotion-cli
 ```
-
-Si, pentru obiectul ascuns de v3.4 (in aceeasi fereastra, din radacina):
 
 ```
 rust\target\release\gmotion.exe diferente --sursa rust\target\release\instantaneu.json --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy --obiect dbo.GenerateOrderByRecommendedOrder
 ```
-
-Trimite `etapa6-rezultat.txt`; despre `diferente` ajunge o propozitie (ce
-difera: majuscule intr-un string, cod dupa un `--` dintr-un string, alt
-lucru). Daca o comanda cade, mesajul exact (are un cod `GM-...`).
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 

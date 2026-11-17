@@ -453,7 +453,7 @@ eroare opreste tot, progresul porneste bazele in ordine. `compara` din CLI
 citeste referinta si celelalte baze printr-un singur apel. Sursa din
 instantaneu ramane pe implementarea implicita (secventiala, fara retea).
 
-**De masurat:** urmatoarea rulare a `etapa6.ps1` pe aceeasi retea.
+**Masurat** (a treia rulare, aceeasi retea): 12,3 s, fata de 48,6 s secvential si 29,3 s in v3.4.
 
 ---
 
