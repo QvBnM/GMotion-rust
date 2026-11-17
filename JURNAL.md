@@ -340,6 +340,23 @@ care cade pe orice cifra. Instantaneul primeste `ArgumenteSursa::eticheta_server
 
 ---
 
+## 2026-11-17 — Istoricul se rescrie, totusi, pentru lungimea parolei
+
+**Anuleaza** partea „istoricul nu se rescrie" din intrarea precedenta.
+
+**Context.** Mihai a cerut explicit scoaterea informatiei din git.
+
+**Ce s-a facut.** Rescris de la `58fbc06`; continut final identic; impins cu
+`--force-with-lease`. Clona lui Mihai trebuie readusa la noul istoric
+(`git fetch` + `git reset --hard origin/<branch>`), altfel un `pull` ar
+reintroduce commit-urile vechi.
+
+**Limita.** GitHub mai poate servi commit-urile vechi dupa SHA pana le curata
+singur; stergerea definitiva o face doar suportul GitHub. Nu exista PR sau
+fork care sa le tina in viata.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

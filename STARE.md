@@ -66,8 +66,9 @@ De adus la discutie, din ce s-a invatat pana acum:
 2. Optional, nu mai blocheaza nimic: in editorul v3.4,
    `TESTSIMILITUDINE_CaseB_Imbricat` -> `1 modificate`,
    `Payment_BankAccountListAllBanks` -> `1 modificate, 5 adaugate`.
-3. Lungimea parolei `sa` a ramas in istoricul branch-ului (vezi `JURNAL.md`).
-   Daca instanta e accesibila si altora, schimbarea parolei inchide subiectul.
+3. Istoricul branch-ului a fost rescris (lungimea parolei scoasa). Clona de
+   pe Windows trebuie readusa: `git fetch`, apoi
+   `git reset --hard origin/claude/upbeat-ramanujan-dm6j8c`.
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 

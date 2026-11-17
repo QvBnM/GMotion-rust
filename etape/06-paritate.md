@@ -161,8 +161,11 @@ Partea care are nevoie de rulari pe Windows:
   introdusa in `core`. **In fixture, campul `server` continea lungimea
   parolei** (`parola (N caractere, ascuns)`): `instantaneu` scria acolo
   descrierea pentru jurnal. Corectat in cod (`eticheta_server`), in
-  `Redactat` (nu mai spune lungimea), si in fixture (doar acel camp). Ramane
-  in istoricul branch-ului.
+  `Redactat` (nu mai spune lungimea), si in fixture (doar acel camp).
+- **2026-11-17** La cererea lui Mihai, istoricul branch-ului rescris de la
+  `58fbc06`: commit-ul cu fixture-ul refacut cu campul curat (autor si data
+  pastrate), mesajele si notele fara cifra, commit-ul de curatare disparut;
+  continutul final identic. Impins cu `--force-with-lease`.
 
 ## Ce a ieșit altfel decat planul
 
