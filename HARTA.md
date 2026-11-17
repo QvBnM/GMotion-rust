@@ -14,6 +14,7 @@ lipsea.
 
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
+| O modificare reala apare „identic" | o regula de normalizare a lovit intr-un string sau comentariu: granitele din lexer | `rust/core/src/lexer.rs`, `rust/core/src/normalizare.rs` |
 | Doua obiecte identice apar ca „modificate" | normalizarea nu curata ceva (spatii, comentarii, paranteze, majuscule) | `rust/core/src/normalizare.rs` |
 | Scorul de similaritate pare absurd | `scor_similaritate` sau rotunjirea bancara | `rust/core/src/normalizare.rs` |
 | Blocuri taiate in mijlocul unui string / comentariu / `CASE` | urmarirea literalelor si a stivei in segmentare | `rust/core/src/segmentare.rs` |
@@ -34,6 +35,7 @@ lipsea.
 | `corpus_bench.json` lipseste | `python3 -I referinta/genereaza_corpus.py` (negitat, se genereaza local) |
 | Masuratori de performanta | `referinta/README.md`, secțiunea de la final |
 | Paritate Python v3.4 / Rust pe un instantaneu | `python3 -I referinta/paritate.py <instantaneu> --referinta <baza> --gmotion <binar>` |
+| Paritatea raporteaza „de verificat" | obiect cu string-uri / identificatori / comentarii sau foarte mare, tratat deliberat altfel decat in v3.4; `gmotion diferente`, apoi in `*.asteptari.json` cu motiv | `referinta/paritate.py` |
 | Paritatea raporteaza o regresie | intai `rust/module/diff-obiecte/src/comparare.rs`, apoi motorul din `core`; o `regresie` pe `rezumat` arata si ce zice JS |
 | Exportul CSV nu se potriveste cu instantaneul | export facut cu filtru activ in interfata, sau driverele aduc obiecte diferite (`rust/db/src/sqlserver.rs`) |
 
@@ -41,6 +43,7 @@ lipsea.
 
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
+| Scriptul de deploy e refuzat cu `GM-MOD-008/009/010/011` | nume cu caractere de control / `GO` in definitie / director ne-gol / obiect criptat | `rust/module/diff-obiecte/src/deploy.rs` |
 | `GM-DB-001` „No such host is known” pe `SRV\INSTANTA` | instanta numita nerezolvata prin SQL Browser | `rust/db/src/sqlserver.rs`, `interpreteaza_server` |
 | `GM-DB-001` „SQL browser timeout” | SQL Browser oprit / UDP 1434 blocat; ocolire cu `--port` | `rust/db/src/sqlserver.rs`, `deschide_tcp` |
 

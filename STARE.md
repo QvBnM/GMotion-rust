@@ -7,72 +7,74 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (179 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (219 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
 ## Unde suntem
 
-Etapele 0-6 incheiate. **Exista o aplicatie completa si utilizabila**, fara
+Etapele 0-7 incheiate. **Exista o aplicatie completa si utilizabila**, fara
 interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
 |---|---|
-| `rust/core` | gata, 37 teste, fuzz pe invariante |
-| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), 35 teste |
-| `rust/platforma` | gata, DPAPI verificat pe Windows, 35 teste |
-| `rust/module/diff-obiecte` | gata, 42 teste |
-| `rust/cli` | gata, 29 teste, din care 11 pe binarul adevarat |
+| `rust/core` | gata, 50 teste, fuzz pe invariante, lexer T-SQL |
+| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), 45 teste |
+| `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
+| `rust/module/diff-obiecte` | gata, 53 teste |
+| `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/07-remediere-audit.md` — remedierea constatarilor din
-auditul de la `f561bf9` (Mihai: „ocupa-te tu de ce trebuie facut"). GUI-ul
-ramane la final. Etapa 6 (paritate pe baze reale) e incheiata.
+**Etapa activa:** niciuna. Etapa 7 (remedierea auditului de la `f561bf9`)
+e **incheiata**: toate constatarile critice si inalte reparate, cu teste.
+Detalii: `etape/07-remediere-audit.md`. Urmatoarea: 8 (`module/upgrade`),
+blocata pe specificatie. GUI-ul (9-10) e la final, la decizia lui Mihai.
 
 ---
 
 ## Urmatorul pas concret
 
-Mihai a decis (2026-11-17): **GUI-ul (etapele 7-8) se lasa la final** si se
-discuta mai tarziu. Singura etapa ramasa fara interfata e **9,
-`module/upgrade`** — si **nu are specificatie nicaieri** (nici in
-`mostenire/`, nici in documente). Nu se incepe pana nu spune Mihai ce face
-modulul: ce compara/aplica, pe ce baze, ce iese. O fraza ajunge ca sa se
-scrie criteriile.
+1. **Mihai ruleaza din nou `unelte/etapa6.ps1`** pe bazele reale. Asteptat:
+   0 regresii; o lista „de verificat" — obiecte pe care v3.4 le declara
+   identice, sau cu alt scor, din cauza string-urilor sau a dimensiunii.
+   Acelea sunt **modificari pe care v3.4 le ascundea**; cateva se verifica de
+   mana cu `gmotion diferente`, si fiecare categorie confirmata intra intr-un
+   fisier de asteptari.
+2. **Decizii de la Mihai:**
+   - implicitul pentru `--certificat` (acum `nevalidat`, ca v3.4, cu
+     avertisment in jurnal la fiecare conexiune);
+   - specificatia modulului `upgrade` (o fraza: ce compara/aplica, pe ce
+     baze, ce iese) — fara ea etapa 8 nu incepe;
+   - repo-ul e **public**: nume de servere, baze, email. Privat sau mutat?
+     Commit-ul vechi cu lungimea parolei se mai poate accesa dupa SHA pana il
+     curata GitHub; stergerea imediata o face doar suportul GitHub.
+3. Ramase deschise (documentate, nereparate): performanta patratica pe obiecte
+   uriase (doar optimizari ieftine facute), `SET ANSI_NULLS/QUOTED_IDENTIFIER`
+   per obiect in deploy, ordinea dependentelor, verificarea versiunii
+   serverului (`CREATE OR ALTER` cere 2016 SP1+), nume case-insensitive intre
+   baze, divergentele Unicode fata de JS (in afara de BOM), serverul in cheia
+   sesiunii, nume rezervate Windows ca nume de modul.
 
-Pentru discutia despre GUI, cand va fi:
-
-- **README.md, „Decizii nerezolvate", exclude deja Tauri/WebView2**: rescrierea
-  scapa tocmai de WebView2 (artefacte pe RDP fara GPU); cerinta e renderer
-  software (Slint il are). In sesiunea din 2026-11-17 am propus gresit
-  WebView2/Tauri — de corectat la discutie. Oricare ar fi toolkit-ul: un
-  singur motor (`core`) pentru lista si editor; asta era bug-ul din v3.4.
-- Tot ce face aplicatia e accesibil din `cli` si din metodele platformei; GUI-ul
-  e un consumator, nu locul logicii.
-- `jurnal::linii` are acum index absolut — gata pentru un panou de jurnal.
-- Capcana din `STARE` despre ancorele de scroll (`linii_start_blocuri`)
-  conteaza la editor.
-- Pe Windows exista RDP fara GPU (v3.4 forteaza randare software in
-  WebView2) — orice tehnologie aleasa trebuie probata pe server prin RDP.
+**Nu se deschide etapa de interfata fara discutia despre GUI ceruta de Mihai.**
 
 ---
 
 ## Ce aștept de la Mihai
 
-1. **Ce face modulul `upgrade`** — blocheaza etapa 9, singura ramasa fara
-   interfata.
-2. Mai tarziu: discutia despre GUI (ce pastrezi din v3.4, ce te-a deranjat,
-   unde ruleaza, cine o foloseste).
-3. Optional, nu mai blocheaza nimic: in editorul v3.4,
-   `TESTSIMILITUDINE_CaseB_Imbricat` -> `1 modificate`,
-   `Payment_BankAccountListAllBanks` -> `1 modificate, 5 adaugate`.
-4. Istoricul branch-ului a fost rescris (lungimea parolei scoasa). Clona de
-   pe Windows trebuie readusa: `git fetch`, apoi
-   `git reset --hard origin/claude/upbeat-ramanujan-dm6j8c`.
+```
+git pull
+```
+
+```
+powershell -ExecutionPolicy Bypass -File unelte\etapa6.ps1
+```
+
+Trimite `etapa6-rezultat.txt`, plus deciziile de la punctul 2. Daca o comanda
+cade, mesajul exact (are un cod `GM-...`).
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
@@ -82,6 +84,14 @@ Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 
+- **Paritatea cu v3.4 nu mai e totala, deliberat.** Normalizarea nu mai atinge
+  string-urile, „identic" nu mai foloseste scorul, criptatele au categorie
+  proprie. Orice diferenta noua fata de v3.4 intra in `*.asteptari.json` cu
+  motivul ei — niciodata „ca sa treaca poarta". Divergentele fata de JS stau
+  in `DIVERGENTE_DELIBERATE` din `core/tests/conformitate.rs`.
+- **Granitele cod / string / comentariu se decid intr-un singur loc:**
+  `core/src/lexer.rs`. O regula noua pe text (in motor sau in deploy) care nu
+  trece prin el reintroduce clasa de bug-uri reparata la etapa 7.
 - **Testul de conformitate care cade nu inseamna fixture greșit.** Presupunerea
   implicita e ca portul Rust e greșit. Fixture-ul se regenereaza doar explicit,
   prin `unelte/regenereaza-fixture.sh`, cu motivul in `JURNAL.md`.

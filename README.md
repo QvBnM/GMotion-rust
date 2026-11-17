@@ -60,11 +60,11 @@ explicatia sunt in `referinta/README.md`.
 | `mostenire/` — GMotion v3.4 in Python | inghetat, referinta de paritate |
 | `referinta/` — harness de conformitate + bench | **gata** |
 | `unelte/` — poarta de verificare | **gata** |
-| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 37 teste** |
-| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (35 teste) |
-| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (35 teste) |
-| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 42 teste** |
-| `rust/cli` — binarul headless | **gata, 29 teste** |
+| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 50 teste** |
+| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (45 teste) |
+| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (40 teste) |
+| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 53 teste** |
+| `rust/cli` — binarul headless | **gata, 31 teste** |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
 | `rust/app` — binarul cu interfata | de scris |
 | `rust/module/upgrade` — modulul 2 | de scris |
@@ -210,9 +210,12 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 | 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture. *(facut)* |
 | 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila.** *(facut)* |
 | 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python. *(facut: 0 regresii pe 21.193 obiecte reale)* |
-| 7 | **Prototip editor diff** | doar editorul, in toolkitul candidat. Scop: aflat costul real al partii grele |
-| 8 | **`fereastra` + interfata** | UI complet, cu `cli` ramas permanent ca mod de depanare |
-| 9 | **`module/upgrade`** | primul test real al contractului de modul. Daca cere modificari in platforma, contractul de la etapa 3 era greșit si se corecteaza acum, cat e ieftin |
+| 7 | **Remedierea auditului** | constatarile critice si inalte din auditul de la `f561bf9` reparate, cu teste vazute cazand pe codul vechi; divergentele deliberate fata de v3.4 listate explicit. *(facut)* |
+| 8 | **`module/upgrade`** | primul test real al contractului de modul. Daca cere modificari in platforma, contractul de la etapa 3 era greșit si se corecteaza acum, cat e ieftin. **Asteapta specificatia de la Mihai.** |
+| 9 | **Prototip editor diff** | doar editorul, in toolkitul candidat. Scop: aflat costul real al partii grele. Dupa discutia despre GUI |
+| 10 | **`fereastra` + interfata** | UI complet, cu `cli` ramas permanent ca mod de depanare |
+
+GUI-ul (9-10) e la final, la decizia lui Mihai din 2026-11-17.
 
 Harness-ul din `referinta/` e plasa de siguranta pentru tot ce urmeaza. Orice
 etapa care atinge motorul trebuie sa treaca `cargo test -p gmotion-core`.
