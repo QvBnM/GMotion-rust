@@ -62,7 +62,7 @@ explicatia sunt in `referinta/README.md`.
 | `unelte/` — poarta de verificare | **gata** |
 | `rust/core` — `gmotion-core`, motorul de comparare | **gata, 37 teste** |
 | `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata functional, neverificat pe tinta** (29 teste) |
-| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | de scris |
+| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata functional, DPAPI neverificat pe tinta** (32 teste) |
 | `rust/module/diff-obiecte` — modulul 1, ca biblioteca | de scris |
 | `rust/cli` — binarul headless | de scris |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
@@ -99,7 +99,8 @@ unelte/verifica.sh rapid        # fara wasm si fara harness
 ```
 
 Verifica format, clippy fara avertismente, toate testele, tinta `wasm32` pentru
-`core`, direcția dependentelor, sincronizarea fiecarui `CRATE.md` cu API-ul lui
+`core`, `cargo check` pe `x86_64-pc-windows-msvc` (codul `cfg(windows)` nu e
+verificat de nimic altceva pe Linux), direcția dependentelor, sincronizarea fiecarui `CRATE.md` cu API-ul lui
 public, coerenta stării (`STARE.md` plus exact o etapa activa), si faptul ca
 `mostenire/` n-a fost atins.
 
@@ -197,7 +198,7 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 | 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta, urmarirea stării. `core` mutat neatins. *(facut)* |
 | 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
 | 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decis `tiberius`. *(facut; verificarea pe server real rămâne)* |
-| 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix |
+| 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix. *(facut)* |
 | 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture |
 | 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila** |
 | 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python |

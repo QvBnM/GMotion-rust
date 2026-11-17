@@ -7,40 +7,49 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (66 teste, `core` compileaza pe wasm32)
+**Poarta:** verde (98 teste; `core` pe wasm32, tot codul si pe windows-msvc)
 
 ---
 
 ## Unde suntem
 
-Etapele 0, 1 si 2 incheiate. Vezi `etape/`.
+Etapele 0-3 incheiate. Vezi `etape/`.
 
-- `rust/core` — motorul, gata si consolidat: 37 teste, inclusiv fuzz pe
-  invariante.
-- `rust/db` — accesul la date, gata **functional, neverificat pe tinta**: 29 de
-  teste, toate fara SQL Server si fara retea. `SursaObiecte` ca trait, cu baza
-  reala (TDS nativ, fara ODBC) si instantaneu din fisier.
+| Crate | Stare |
+|---|---|
+| `rust/core` | gata, 37 teste, fuzz pe invariante |
+| `rust/db` | gata functional, **neverificat pe tinta**, 29 teste |
+| `rust/platforma` | gata functional, **DPAPI neverificat pe tinta**, 32 teste |
 
-**Etapa activa:** niciuna. Urmatoarea la rand e etapa 3, `platforma`.
+Poarta verifica si `cargo check --target x86_64-pc-windows-msvc`, deci codul
+`cfg(windows)` (DPAPI, auth integrata) e corect la compilare, nu scris orb.
+
+**Etapa activa:** niciuna. Urmatoarea la rand e etapa 4,
+`module/diff-obiecte` ca biblioteca, fara interfata.
 
 ---
 
 ## Urmatorul pas concret
 
-Etapa 3 — `rust/platforma`. Patru lucruri:
+Etapa 4 — `rust/module/diff-obiecte`, **ca biblioteca, fara nicio interfata**.
+Orchestrarea completa a modulului 1, portata din `mostenire/app.py`:
 
-1. **configurare** — ce se citeste de unde, cu valori implicite sanatoase;
-2. **sesiuni** — cheia `<modul>/<slug>.dat` din start, ca sa nu se repete
-   coliziunea din versiunea Python. DPAPI pe Windows; pe alt sistem **nu se
-   salveaza secrete**, se refuza cinstit (vezi regula de la `Debug` din
-   `JURNAL.md`);
-3. **jurnal** — `tracing`, cu tinta per crate, filtrabil din mediu;
-4. **registru de module + rutare cu prefix** — metodele comune o singura data,
-   cele specifice inregistrate cu prefix de modul.
+1. **compararea** — pentru fiecare baza fata de referinta: obiecte lipsa, in
+   plus, identice, modificate; scor si rezumat per obiect (`_comparatie`);
+2. **rezultatele** — lista pentru ecran, plus diff-ul la cerere
+   (`rezultate`, `elemente`);
+3. **export CSV** (`exporta_csv`);
+4. **generatorul de deploy** (`genereaza_deployer`, `_scrie_deployer`,
+   `_aplica_create_or_alter`) — partea cu cel mai mare risc de a produce ceva
+   greșit si de a se observa tarziu, deci cea cu cele mai multe teste;
+5. implementarea `Modul` pentru registru.
+
+Testat integral pe instantanee, fara baza de date. Atentie: modulul poate
+depinde de `core`, `db`, `platforma` — **de niciun alt modul**. Poarta verifica.
 
 ```
 unelte/verifica.sh
-cp etape/SABLON.md etape/03-platforma.md     # si pune Stare: ACTIVA
+cp etape/SABLON.md etape/04-diff-obiecte.md     # si pune Stare: ACTIVA
 ```
 
 ---
@@ -85,6 +94,14 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   `linii_start_blocuri` are o ramura de rezerva. Conteaza la etapa de editor:
   ancorele de scroll degradeaza silentios acolo. Vezi
   `etape/01-core-consolidat.md`.
+- **Codul in spatele unui `cfg` pe alta tinta nu e verificat de nimic local.**
+  Nici `build`, nici `clippy`, nici testele se uita la el. Poarta ruleaza
+  `cargo check` si pe windows-msvc, dar verificarea e **sarita in modul
+  `rapid`** — deci inainte de a declara gata cod `cfg(windows)`, rulezi poarta
+  completa.
+- **Un test care umbla la variabile de mediu trebuie serializat cu un lacat.**
+  `cargo test` ruleaza in paralel in acelasi proces. Vezi
+  `rust/platforma/tests/sesiuni.rs`.
 - **Un tip care tine acreditari nu are `Debug` derivat.** Ar tipari parola la
   primul `dbg!` sau in orice mesaj de panica. Se scrie de mana, cu redactare.
   Vezi `rust/db/src/sqlserver.rs`.

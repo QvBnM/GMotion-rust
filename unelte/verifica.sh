@@ -74,7 +74,23 @@ else
   ruleaza "core compileaza pe wasm32" cargo build --manifest-path rust/Cargo.toml -p gmotion-core --target wasm32-unknown-unknown
 fi
 
-# ---------------------------------------------------------------- 5. dependente
+# ---------------------------------------------------------------- 5. tinta Windows
+# Tinta reala de rulare e Windows, dar dezvoltarea se face pe Linux. Codul
+# `#[cfg(windows)]` — DPAPI, auth integrata, apeluri Win32 — nu e nici compilat
+# nici vazut de clippy aici, deci s-ar strica fara sa se observe pana la build
+# pe Windows. `cargo check` pe tinta nu cere linker, doar biblioteca standard.
+titlu "tinta Windows (codul cfg(windows))"
+if [ "$MOD" = rapid ]; then
+  sare "windows-msvc" "mod rapid"
+elif ! command -v cargo >/dev/null; then
+  sare "windows-msvc" "cargo nu e instalat"
+elif ! rustup target list --installed 2>/dev/null | grep -qx x86_64-pc-windows-msvc; then
+  sare "windows-msvc" "tinta lipseste: rustup target add x86_64-pc-windows-msvc"
+else
+  ruleaza "cargo check pe windows-msvc" cargo check --manifest-path rust/Cargo.toml --all-targets --target x86_64-pc-windows-msvc
+fi
+
+# ---------------------------------------------------------------- 6. dependente
 # Direcția e: core <- db <- platforma <- module/* <- app, cli.
 # Nimic nu depinde la dreapta, si niciun modul nu depinde de alt modul.
 titlu "direcția dependentelor"
@@ -111,7 +127,7 @@ if probleme:
 PY
 if [ $? -eq 0 ]; then pas "direcția dependentelor"; else cade "direcția dependentelor"; fi
 
-# ---------------------------------------------------------------- 6. CRATE.md
+# ---------------------------------------------------------------- 7. CRATE.md
 # Cauza de eroare proprie: documentatia rămasa in urma codului. Singurul fel de
 # bug pe care nu-l prinde niciun test.
 titlu "CRATE.md sincronizat cu API-ul public"
@@ -130,7 +146,7 @@ for crate in rust/*/ rust/module/*/; do
   fi
 done
 
-# ---------------------------------------------------------------- 7. stare
+# ---------------------------------------------------------------- 8. stare
 # Cauza de eroare proprie: sesiunea care nu stie de unde sa continue. Un
 # asistent pornește de la zero la fiecare sesiune, iar utilizatorul poate intra
 # de pe alt cont — daca STARE.md minte sau doua etape se cred active, se reia
@@ -189,7 +205,7 @@ if git rev-parse --git-dir >/dev/null 2>&1 && [ -f STARE.md ]; then
   fi
 fi
 
-# ---------------------------------------------------------------- 8. mostenire
+# ---------------------------------------------------------------- 9. mostenire
 titlu "mostenire/ nemodificat"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:
@@ -204,7 +220,7 @@ else
   sare "mostenire/" "nu e repo git"
 fi
 
-# ---------------------------------------------------------------- 9. conformitate Python/JS
+# ---------------------------------------------------------------- 10. conformitate Python/JS
 # Nu valideaza Rust-ul (asta o face cargo test), ci verifica faptul ca harness-ul
 # de referinta inca ruleaza — plasa de siguranta pentru tot ce urmeaza.
 titlu "harness de referinta"

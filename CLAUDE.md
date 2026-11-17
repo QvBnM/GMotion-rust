@@ -136,6 +136,15 @@ sau din `unelte/api-hash.sh <crate>`.
 - Textele catre utilizator in romana. Identificatorii din cod in romana,
   consecvent cu ce exista deja. Fara diacritice in identificatori.
 - `cargo clippy --all-targets -- -D warnings` trebuie sa taca.
+- **Cod in spatele unui `cfg` pentru alta tinta nu e verificat de nimic pe
+  masina de dezvoltare** — nici `build`, nici `clippy`, nici testele se uita la
+  el. Poarta ruleaza `cargo check` si pe `x86_64-pc-windows-msvc` tocmai pentru
+  asta. Cand scrii `#[cfg(windows)]`, rulezi poarta inainte sa spui ca merge.
+- **Un tip care tine acreditari nu are `Debug` derivat.** Ar tipari parola la
+  primul `dbg!` sau in orice mesaj de panica. Se scrie de mana, cu redactare.
+- **Un test care umbla la variabile de mediu trebuie serializat cu un lacat.**
+  `cargo test` ruleaza in paralel in acelasi proces. Fara lacat, testul trece
+  azi si cade aleator peste o luna.
 
 ## 7. Dependente
 

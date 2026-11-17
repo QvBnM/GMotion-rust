@@ -163,6 +163,58 @@ Normalizarea o face cine are nevoie de ea.
 
 ---
 
+## 2026-11-17 — Poarta verifica si tinta Windows
+
+**Context.** Tinta de rulare e Windows; dezvoltarea se face pe Linux. Codul
+`#[cfg(windows)]` — DPAPI, auth integrata, viitorul strat Win32 — nu e nici
+compilat nici analizat aici.
+
+**Motiv.** `cargo check --target x86_64-pc-windows-msvc` nu cere linker, doar
+biblioteca standard a tintei, si functioneaza inclusiv cu `tiberius` pe
+SChannel. Deci codul de Windows poate fi verificat la compilare fara Windows.
+
+**Consecinte.** S-a plătit in aceeasi zi: prima versiune a FFI-ului DPAPI nu
+compila pe Windows (closure Rust pasat unde se cerea pointer `extern "system"`)
+si nimic de pe Linux nu o arata. Regula generala a intrat in `CLAUDE.md`.
+Verificarea e sarita in modul `rapid` al porții, deci inainte de a declara
+gata cod de Windows se ruleaza poarta completa.
+
+---
+
+## 2026-11-17 — Sesiunile au spatiu de nume per modul
+
+**Context.** In versiunea Python cheia de sesiune era numele bazei de referinta
+(`_cale_sesiune(referinta)` -> `<slug>.dat`).
+
+**Motiv.** Cu patru module, al doilea care salveaza progres pe aceeasi baza
+suprascrie sesiunea primului. Era un bug garantat, nu probabil.
+
+**Consecinte.** Cheia e `<date>/sesiuni/<modul>/<slug>.dat`, iar un `Sesiuni` e
+legat de un modul: un modul nu poate ajunge la sesiunile altuia nici din
+greseala. Identificatorul de modul e validat strict, fiindca devine nume de
+director.
+
+---
+
+## 2026-11-17 — O sesiune nu conține secrete, deci clar pe non-Windows e acceptabil
+
+**Context.** DPAPI exista doar pe Windows. Pe Linux ar trebui ori criptare cu
+altceva, ori nimic.
+
+**Alternative.** (a) un alt mecanism de criptare pe Linux; (b) refuz de a salva;
+(c) scriere in clar, cu marcaj.
+
+**Motiv.** (c), dar **numai** fiindca o sesiune nu conține secrete prin
+construcție: `Sesiune` nu are camp de parola, iar `Autentificare` nu
+implementeaza `Serialize`. Parola se cere la fiecare pornire, ca in versiunea
+Python. Non-Windows e oricum doar mediu de dezvoltare.
+
+**Consecinte.** Daca vreodata trebuie salvat un secret, calea de non-Windows
+din `protejare.rs` trebuie sa **refuze**, nu sa scrie in clar. Scris in
+`protejare.rs` si in `CRATE.md`, ca invariant.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
@@ -172,7 +224,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 |---|---|
 | `GM-CORE-*` | motorul de comparare |
 | `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-010**, vezi `rust/db/CRATE.md` |
-| `GM-PLAT-*` | configurare, sesiuni, rutare |
+| `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
 | `GM-MOD-*` | module |
 | `GM-UI-*` | fereastra, randare |
 
