@@ -1,0 +1,127 @@
+//! De unde vin obiectele: de pe un server sau din un instantaneu.
+//!
+//! **Se strica astfel:** o comanda merge pe server dar nu pe instantaneu (sau
+//! invers), si atunci se pierde exact proprietatea pentru care exista
+//! `SursaObiecte` — ca tot ce face aplicatia sa poată fi reluat offline.
+//!
+//! De-aia construirea sursei e intr-un singur loc, si fiecare comanda care are
+//! nevoie de obiecte o foloseste. Daca apare o comanda care accepta doar
+//! server, asta e bug-ul.
+
+use gmotion_db::{Autentificare, SursaFixture, SursaObiecte, SursaSqlServer, Tinta};
+
+use crate::acreditari::ArgumenteAuth;
+
+#[derive(Debug, Clone, clap::Args)]
+pub struct ArgumenteSursa {
+    /// Serverul SQL: `SRV01`, `SRV01\SQLEXPRESS` sau `srv.domeniu.local`.
+    #[arg(long, value_name = "SERVER", conflicts_with = "sursa")]
+    pub server: Option<String>,
+
+    /// Port, daca nu e cel implicit.
+    #[arg(long, requires = "server")]
+    pub port: Option<u16>,
+
+    /// Citeste dintr-un instantaneu in loc de pe un server. Asa se reia un bug
+    /// de pe o baza reala, pe orice masina.
+    #[arg(long, value_name = "CALE")]
+    pub sursa: Option<std::path::PathBuf>,
+
+    #[command(flatten)]
+    pub auth: ArgumenteAuth,
+}
+
+impl ArgumenteSursa {
+    pub fn deschide(&self) -> Result<Box<dyn SursaObiecte>, String> {
+        match (&self.sursa, &self.server) {
+            (Some(cale), _) => {
+                let s = SursaFixture::din_fisier(cale).map_err(|e| e.to_string())?;
+                tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc din instantaneu");
+                Ok(Box::new(s))
+            }
+            (None, Some(server)) => {
+                let auth: Autentificare = self.auth.rezolva()?;
+                let s = SursaSqlServer::nou(
+                    Tinta {
+                        server: server.clone(),
+                        port: self.port,
+                    },
+                    auth,
+                )
+                .map_err(|e| e.to_string())?;
+                tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc de pe server");
+                Ok(Box::new(s))
+            }
+            (None, None) => Err("da ori --server <SERVER>, ori --sursa <instantaneu.json>".into()),
+        }
+    }
+}
+
+/// Imparte o lista data pe linia de comanda: `A,B,C`.
+///
+/// Spatiile se taie si elementele goale se arunca, fiindca `--baze "A, B,"` e
+/// ce scrie un om.
+pub fn lista(s: &str) -> Vec<String> {
+    s.split(',')
+        .map(str::trim)
+        .filter(|x| !x.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+#[cfg(test)]
+mod teste {
+    use super::*;
+
+    /// `unwrap_err()` ar cere `Debug` pe `Box<dyn SursaObiecte>`, care nu-l are
+    /// si nici nu trebuie sa-l aiba: ar insemna o reprezentare a unui tip care
+    /// tine acreditari.
+    fn eroarea(a: &ArgumenteSursa) -> String {
+        match a.deschide() {
+            Err(e) => e,
+            Ok(_) => panic!("ar fi trebuit sa eșueze"),
+        }
+    }
+
+    #[test]
+    fn lista_tolereaza_spatii_si_virgule_in_plus() {
+        assert_eq!(lista("A,B"), ["A", "B"]);
+        assert_eq!(lista("A, B , C"), ["A", "B", "C"]);
+        assert_eq!(lista("A,,B,"), ["A", "B"]);
+        assert_eq!(lista(""), Vec::<String>::new());
+        assert_eq!(lista("  "), Vec::<String>::new());
+    }
+
+    #[test]
+    fn fara_server_si_fara_sursa_e_eroare_explicata() {
+        let a = ArgumenteSursa {
+            server: None,
+            port: None,
+            sursa: None,
+            auth: ArgumenteAuth {
+                utilizator: None,
+                parola_fisier: None,
+                parola_stdin: false,
+            },
+        };
+        let e = eroarea(&a);
+        assert!(e.contains("--server"), "{e}");
+        assert!(e.contains("--sursa"), "{e}");
+    }
+
+    #[test]
+    fn instantaneu_inexistent_da_codul_de_la_db() {
+        let a = ArgumenteSursa {
+            server: None,
+            port: None,
+            sursa: Some(std::path::PathBuf::from("/nu/exista.json")),
+            auth: ArgumenteAuth {
+                utilizator: None,
+                parola_fisier: None,
+                parola_stdin: false,
+            },
+        };
+        let e = eroarea(&a);
+        assert!(e.contains("GM-DB-007"), "codul nu trebuie pierdut: {e}");
+    }
+}

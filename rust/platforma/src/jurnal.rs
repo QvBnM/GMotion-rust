@@ -95,7 +95,16 @@ pub fn porneste() {
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let _ = tracing_subscriber::registry()
         .with(env)
-        .with(tracing_subscriber::fmt::layer().with_target(true))
+        // La ieșirea de ERORI, nu la cea standard. Linia de comanda scrie
+        // JSON la ieșirea standard, iar o linie de jurnal amestecata acolo il
+        // face neparsabil. S-a intamplat: prima versiune folosea implicitul
+        // `fmt::layer()`, care scrie la stdout, si `gmotion ... --json` nu se
+        // putea citi.
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(true)
+                .with_writer(std::io::stderr),
+        )
         .with(StratTampon)
         .try_init();
 }

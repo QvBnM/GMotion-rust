@@ -1,0 +1,25 @@
+[package]
+name = "gmotion-cli"
+description = "Binarul headless: tot ce face GMotion, fara interfata grafica. Si modul de depanare permanent."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "gmotion"
+path = "src/main.rs"
+
+[dependencies]
+gmotion-core = { path = "../core" }
+gmotion-db = { path = "../db" }
+gmotion-platforma = { path = "../platforma" }
+gmotion-modul-diff-obiecte = { path = "../module/diff-obiecte" }
+clap = { version = "4", features = ["derive", "wrap_help"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+
+[dev-dependencies]
+serde_json = "1"
+gmotion-core = { path = "../core" }

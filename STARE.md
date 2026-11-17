@@ -7,80 +7,100 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (140 teste; `core` pe wasm32, tot codul si pe windows-msvc)
+**Poarta:** verde (168 teste; `core` pe wasm32, tot codul si pe windows-msvc)
 
 ---
 
 ## Unde suntem
 
-Etapele 0-3 incheiate. Vezi `etape/`.
+Etapele 0-5 incheiate. **Exista o aplicatie completa si utilizabila**, fara
+interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
 |---|---|
 | `rust/core` | gata, 37 teste, fuzz pe invariante |
-| `rust/db` | gata functional, **neverificat pe tinta**, 29 teste |
+| `rust/db` | gata functional, **neverificat pe tinta**, 30 teste |
 | `rust/platforma` | gata functional, **DPAPI neverificat pe tinta**, 32 teste |
-| `rust/module/diff-obiecte` | **gata**, 42 teste, flux complet pe instantaneu |
+| `rust/module/diff-obiecte` | gata, 42 teste |
+| `rust/cli` | gata, 27 teste, din care 10 pe binarul adevarat |
 
-Poarta verifica si `cargo check --target x86_64-pc-windows-msvc`, deci codul
-`cfg(windows)` (DPAPI, auth integrata) e corect la compilare, nu scris orb.
+```
+cd rust && cargo build --release -p gmotion-cli
+./rust/target/release/gmotion --help
+```
 
-Modulul 1 e functional cap-coada ca biblioteca: comparare, diff, deploy,
-export. Ce lipseste e un **binar** care sa-l cheme.
-
-**Etapa activa:** niciuna. Urmatoarea la rand e etapa 5, `cli` — si la finalul
-ei exista o aplicatie completa si utilizabila.
+**Etapa activa:** niciuna. Urmatoarea la rand e etapa 6, **paritate pe baze
+reale** — si pentru ea e nevoie de tine (vezi mai jos). Dupa ea urmeaza
+interfata, despre care Mihai a cerut explicit sa vorbim inainte de a incepe.
 
 ---
 
 ## Urmatorul pas concret
 
-Etapa 5 — `rust/cli`. **La finalul ei exista o aplicatie completa si
-utilizabila**, fara interfata grafica.
+**Etapa 6 — paritate pe baze reale.** Nu se poate face de aici: are nevoie de o
+rulare pe un SQL Server adevarat. Pasii, in ordine:
 
-Comenzi:
+1. Mihai construieste binarul pe Windows si ruleaza comenzile din secțiunea
+   urmatoare.
+2. Trimite incoace: ieșirea lui `gmotion diagnostic --json`, un
+   `gmotion instantaneu`, si lista de obiecte din versiunea Python pe aceleasi
+   baze.
+3. Eu compar cele doua liste. Fiecare diferenta se explica: ori e o corectura
+   de bug (motorul JS era corect, `motor.py` nu), ori e o regresie si se
+   repara.
+4. Instantaneul devine fixture de regresie in repo (anonimizat, daca e nevoie).
 
-| Comanda | Ce face |
-|---|---|
-| `gmotion diagnostic` | ce vede GMotion: versiune, cai, configurare, conexiune daca se da un server |
-| `gmotion servere` | descoperirea instantelor in retea |
-| `gmotion baze --server S` | bazele de pe un server |
-| `gmotion instantaneu --server S --baze A,B -o f.json` | obiectele brute intr-un fisier |
-| `gmotion compara --sursa f.json --referinta R --baze A,B` | compararea; sursa poate fi un instantaneu **sau** un server |
-| `gmotion deploy ...` | scripturile de deploy |
-| `gmotion export ...` | CSV |
-
-Doua lucruri de respectat:
-
-1. **Parola nu se da ca argument de linie de comanda** — ar ajunge in istoricul
-   shell-ului si in lista de procese. Se citeste din `GMOTION_PAROLA` sau de la
-   terminal.
-2. Fiecare comanda trebuie sa mearga si cu `--sursa <instantaneu>`, nu doar cu
-   un server. Altfel se pierde exact proprietatea pentru care s-a facut
-   `SursaObiecte`.
-
-```
-unelte/verifica.sh
-cp etape/SABLON.md etape/05-cli.md      # si pune Stare: ACTIVA
-```
+**Nu se trece la interfata inainte de paritate.** Dupa paritate, versiunea
+Python poate fi retrasa, si abia asta face rescrierea sa aiba sens.
 
 ---
 
 ## Ce aștept de la Mihai
 
-**O rulare pe un SQL Server real**, cand ai timp. Nu blocheaza nimic: continui
-pe fixture. Valideaza etapa 2 — conectarea, auth integrata si descoperirea sunt
-scrise si compilate, dar netestate pe tinta, fiindca aici nu exista SQL Server.
+Acum e nevoie de tine, prima data in tot proiectul. Pe Windows, cu Rust
+instalat:
 
-Comanda exacta o pregatesc la finalul etapei 5, care urmeaza acum. Pana atunci
-nu ai nimic de facut.
+```
+git clone <repo> && cd GMotion-rust/rust
+cargo build --release -p gmotion-cli
+```
 
-La etapa 6 (paritate) va fi nevoie de: aceleasi baze comparate cu versiunea
-Python si cu `gmotion`, plus un `gmotion instantaneu` trimis incoace ca sa am
-fixture-ul.
+Binarul iese in `rust/target/release/gmotion.exe`. Apoi, in ordine:
 
-Daca vrei paritate completa a porții pe `cmd` (acum cere Git Bash sau WSL),
-spune si o rescriu.
+```
+gmotion diagnostic --json
+```
+
+```
+gmotion servere
+```
+
+```
+set GMOTION_PAROLA=parola-ta
+gmotion baze --server SRV01 --utilizator sa
+```
+
+(Pentru autentificare integrata Windows, lasa `--utilizator` afara de tot.)
+
+```
+gmotion instantaneu --server SRV01 --baze Referinta,Client1,Client2 -o instantaneu.json --nota "paritate"
+```
+
+```
+gmotion compara --sursa instantaneu.json --referinta Referinta --json > rust.json
+```
+
+Trimite incoace `diagnostic`, `rust.json` si `instantaneu.json`, plus lista de
+obiecte pe care o da versiunea Python pe aceleasi baze (exportul CSV din
+`mostenire/app.py` ajunge).
+
+**Daca o comanda cade, trimite mesajul exact.** Are un cod de forma
+`GM-DB-001`, si din el ajung direct la cauza.
+
+Daca `instantaneu.json` conține cod pe care nu vrei sa-l pui in repo, spune si
+fac un fixture anonimizat din el, ori il folosesc doar pentru verificare.
+
+Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 
 ---
 

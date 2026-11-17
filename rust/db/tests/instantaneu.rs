@@ -94,7 +94,7 @@ fn obiecte_multe_merge_prin_trait_fara_baza_de_date() {
 
     let mut progres = Vec::new();
     let rez = sursa
-        .obiecte_multe(&baze, |i, n, b| progres.push(format!("{i}/{n} {b}")))
+        .obiecte_multe(&baze, &mut |i, n, b| progres.push(format!("{i}/{n} {b}")))
         .unwrap();
 
     assert_eq!(rez.len(), 3);

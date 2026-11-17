@@ -245,6 +245,39 @@ rămână un singur loc. Notat ca neacoperit in `CRATE.md`.
 
 ---
 
+## 2026-11-17 — Jurnalul scrie la ieșirea de erori, nu la cea standard
+
+**Context.** `tracing_subscriber::fmt::layer()` scrie implicit la ieșirea
+standard. Linia de comanda scrie JSON tot acolo.
+
+**Motiv.** `gmotion compara --json` producea o ieșire neparsabila, fiindca
+liniile de jurnal se amestecau cu JSON-ul. Niciun test de unitate nu o arata:
+toate chemau functii, nu procese.
+
+**Consecinte.** Jurnalul merge la erori. In mod text progresul merge la ieșirea
+standard; pe `--json` se muta si el la erori. Acoperit de un test care parseaza
+ieșirea binarului. Regula generala in `CLAUDE.md`: un binar se probeaza
+rulandu-l.
+
+---
+
+## 2026-11-17 — `SursaObiecte::obiecte_multe` ia `&mut dyn FnMut`, nu `impl FnMut`
+
+**Context.** Scris la etapa 2 cu un parametru generic, ceea ce face traitul
+incompatibil cu `dyn`.
+
+**Motiv.** Linia de comanda alege intre server si instantaneu **la rulare**,
+deci are nevoie de `Box<dyn SursaObiecte>`. Defectul era in `db` de la etapa 2 si
+nu putea fi observat pana la primul consumator care avea nevoie de asta la
+rulare.
+
+**Consecinte.** Schimbat in `db`, nu ocolit in CLI, plus un test in `db` care
+verifica explicit compatibilitatea cu `dyn`. E si un argument in plus pentru
+ordinea aleasa (CLI inainte de interfata): daca primul consumator ar fi fost
+interfata, defectul s-ar fi descoperit mult mai tarziu.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

@@ -35,15 +35,19 @@ pub trait SursaObiecte {
     fn obiecte(&mut self, baza: &str) -> Rezultat<Vec<Obiect>>;
 
     /// Citeste mai multe baze, raportand progresul. Implementarea implicita
-    /// ajunge pentru ambele surse; existe ca sa nu repete fiecare apelant bucla
+    /// ajunge pentru ambele surse; exista ca sa nu repete fiecare apelant bucla
     /// si raportarea.
     ///
     /// Prima eroare oprește citirea: o comparare pe baze incomplete ar da
     /// rezultate false, ceea ce e mai rau decat sa nu dea nimic.
+    ///
+    /// `progres` e `&mut dyn FnMut`, nu `impl FnMut`: un parametru generic ar
+    /// face traitul incompatibil cu `dyn`, iar `Box<dyn SursaObiecte>` e exact
+    /// cum alege linia de comanda intre server si instantaneu la rulare.
     fn obiecte_multe(
         &mut self,
         baze: &[String],
-        mut progres: impl FnMut(usize, usize, &str),
+        progres: &mut dyn FnMut(usize, usize, &str),
     ) -> Rezultat<Vec<(String, Vec<Obiect>)>> {
         let mut out = Vec::with_capacity(baze.len());
         for (i, baza) in baze.iter().enumerate() {
@@ -95,7 +99,7 @@ mod teste {
         let baze = vec!["A".to_string(), "B".to_string()];
         let mut pasi = Vec::new();
         let rez = s
-            .obiecte_multe(&baze, |i, n, b| pasi.push((i, n, b.to_string())))
+            .obiecte_multe(&baze, &mut |i, n, b| pasi.push((i, n, b.to_string())))
             .unwrap();
         assert_eq!(rez.len(), 2);
         assert_eq!(rez[0].0, "A");
@@ -103,6 +107,20 @@ mod teste {
         // un pas per baza, plus unul final de incheiere
         assert_eq!(pasi.len(), 3);
         assert_eq!(pasi[2], (2, 2, String::new()));
+    }
+
+    /// Traitul trebuie sa rămână folosibil ca `Box<dyn SursaObiecte>`: asa
+    /// alege linia de comanda intre server si instantaneu la rulare. Un
+    /// parametru generic intr-o metoda ar rupe asta, si s-a intamplat o data.
+    #[test]
+    fn traitul_rămâne_compatibil_cu_dyn() {
+        let mut cutie: Box<dyn SursaObiecte> = Box::new(SursaTest { esueaza_la: None });
+        assert_eq!(cutie.baze().unwrap().len(), 3);
+        let baze = vec!["A".to_string()];
+        assert_eq!(
+            cutie.obiecte_multe(&baze, &mut |_, _, _| {}).unwrap().len(),
+            1
+        );
     }
 
     #[test]
@@ -113,7 +131,7 @@ mod teste {
         let baze = vec!["A".to_string(), "B".to_string(), "C".to_string()];
         let mut vazute = Vec::new();
         let e = s
-            .obiecte_multe(&baze, |_, _, b| vazute.push(b.to_string()))
+            .obiecte_multe(&baze, &mut |_, _, b| vazute.push(b.to_string()))
             .unwrap_err();
         assert_eq!(e.cod(), "GM-DB-004");
         // C nu a mai fost cerut

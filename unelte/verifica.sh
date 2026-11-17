@@ -98,7 +98,7 @@ python3 - <<'PY'
 import os, re, sys, glob
 
 NIVEL = {"gmotion-core": 0, "gmotion-db": 1, "gmotion-platforma": 2,
-         "gmotion-cli": 4, "gmotion-app": 4}
+         "gmotion-cli": 4, "gmotion-app": 4, "gmotion-fereastra": 4}
 probleme = []
 
 for cale in glob.glob("rust/**/Cargo.toml", recursive=True):

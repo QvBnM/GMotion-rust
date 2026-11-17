@@ -145,6 +145,13 @@ sau din `unelte/api-hash.sh <crate>`.
 - **Un test care umbla la variabile de mediu trebuie serializat cu un lacat.**
   `cargo test` ruleaza in paralel in acelasi proces. Fara lacat, testul trece
   azi si cade aleator peste o luna.
+- **Cand un test cade pe un numar, prima ipoteza e ca numarul din test e
+  greșit.** Intr-un test cu date construite de mana, cifra asteptata e cel putin
+  la fel de ușor de greșit ca si codul. S-a intamplat de trei ori la etapele 4-5.
+  Numara din nou inainte sa „repari" codul.
+- **Un binar se probeaza rulandu-l.** Compilarea si testele de unitate nu spun
+  nimic despre ce ajunge pe ieșirea standard, pe cea de erori, sau in codul de
+  ieșire. `--json` a fost rupt o data exact asa.
 
 ## 7. Dependente
 

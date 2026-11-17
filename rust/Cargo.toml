@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "db", "platforma", "module/diff-obiecte"]
+members = ["core", "db", "platforma", "module/diff-obiecte", "cli"]
 
 [workspace.package]
 version = "0.1.0"
