@@ -6,7 +6,7 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
-**Actualizat:** 2026-11-17 · commit `db801ee` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Actualizat:** 2026-11-17 · commit `ecd2b8c` · branch `claude/upbeat-ramanujan-dm6j8c`
 **Poarta:** verde (31 teste, `core` compileaza pe wasm32)
 
 ---
@@ -18,9 +18,10 @@ Etapa 0 — **restructurare + reguli** — incheiata. Vezi
 
 Repo-ul are acum: Python-ul v3.4 inghetat in `mostenire/`, harness-ul de
 conformitate in `referinta/`, documentele de regula (`CLAUDE.md`,
-`ARHITECTURA.md`, `HARTA.md`, `JURNAL.md`), si o poarta de verificare
-(`unelte/verifica.sh`) care prinde si ce niciun test nu prinde: tinta wasm,
-direcția dependentelor, documentatia rămasa in urma codului.
+`ARHITECTURA.md`, `HARTA.md`, `JURNAL.md`), urmarirea stării (`STARE.md` plus
+`etape/`), si o poarta de verificare (`unelte/verifica.sh`) care prinde si ce
+niciun test nu prinde: tinta wasm, direcția dependentelor, documentatia rămasa
+in urma codului, si starea incoerenta.
 
 Singurul cod Rust care exista e `rust/core` — motorul de comparare, gata, 31 de
 teste, validat contra fixture-ului produs de motorul JS.
