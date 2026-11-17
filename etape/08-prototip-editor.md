@@ -49,6 +49,11 @@ deploy-ul din interfata, sesiunile.
   `referinta/captura_v34/` (Api-ul Python vechi pe fixture-ul
   `TESTSIMILITUDINE`, pagina reala `ui.PAGINA` in Chromium headless). Slint
   probat in scratchpad: compileaza si randeaza fara ecran in PNG.
+- **2026-11-17** Cercetare de design si simulare in doua runde; Mihai a
+  aprobat varianta a doua (`cercetare/design-aprobat.md`). Etapa se termina pe
+  designul aprobat, nu pe aspectul v3.4: jetoanele si fonturile din
+  `design-aprobat.md` inlocuiesc culorile v3.4 din `editor.slint`; captura v3.4
+  ramane referinta de continut (aceleasi informatii), nu de aspect.
 
 ## Ce a ieșit altfel decat planul
 

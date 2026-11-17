@@ -485,6 +485,26 @@ exemplul de captura).
 
 ---
 
+## 2026-11-17 — Designul interfetei: aprobat pe machete
+
+**Context.** Dupa cercetarea de design (`cercetare/design-interfata.md`), o
+simulare cu cinci ecrane. Prima varianta (paleta GitHub, insigne rotunjite,
+texte explicative peste tot) a fost respinsa de Mihai: „sa nu para facut cu
+AI-ul".
+
+**Decizie.** Varianta a doua: unealta densa, fond cald, linii subtiri, IBM
+Plex, starea prin litere si text colorat, mediul tintei ca banda sus. Fara
+comutatoare de zgomot (Mihai: „asta trb deja filtrata asa") — ce motorul
+considera zgomot nu se arata deloc. Detaliile si jetoanele:
+`cercetare/design-aprobat.md`; machetele: `cercetare/machete/`.
+
+**Consecinte.** Fonturile IBM Plex (OFL) se includ in binar, cu licenta.
+Ecranele cer si lucru in motor: clasificarea „difera in" (prin `core::lexer`),
+starea de revizuire si sesiunile (`platforma`), verificarea ca baza nu s-a
+schimbat si scriptul de revenire la deploy.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

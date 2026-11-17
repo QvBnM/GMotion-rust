@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<title>Conectare</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2b4a6f}a:hover{color:#1c1b18}
+button,input,select{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #f5f4f0; color: #1c1b18; font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; font-size: 13px; overflow: hidden;">
+  <div style="height: 3px; flex-shrink: 0; background: #b3261e;"></div>
+
+  <header style="height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 0 16px; border-bottom: 1px solid #dedbd3; background: #fbfaf7;">
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; font-size: 13px; letter-spacing: -0.2px;">gmotion</span>
+    <div style="flex-grow: 1;"></div>
+    <a href="#" style="font-size: 13px;">Deschide un instantaneu…</a>
+  </header>
+
+  <div style="flex-grow: 1; display: flex; justify-content: center; padding: 56px 40px 0; box-sizing: border-box; min-height: 0;">
+    <div style="width: 920px; display: flex; flex-direction: column; gap: 40px;">
+
+      <section aria-label="Comparare nouă" style="display: flex; flex-direction: column; gap: 22px;">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); align-items: start;">
+          <sc-for list="{{parti}}" as="p" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid #1c1b18;">
+                <span style="font-size: 16px; font-weight: 600;">{{p.eticheta}}</span>
+                <span style="color: #6b675e;">{{p.rol}}</span>
+                <div style="flex-grow: 1;"></div>
+                <span style="{{p.envSty}}">{{p.env}}</span>
+              </div>
+              <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">
+                <span style="color: #6b675e;">Server</span>
+                <input value="{{p.server}}" style="height: 30px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; font-size: 13px; font-family: 'IBM Plex Mono', Consolas, monospace; color: #1c1b18;">
+              </label>
+              <div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">
+                <span style="color: #6b675e;">Autentificare</span>
+                <div role="radiogroup" aria-label="Autentificare" style="display: flex; gap: 16px;">
+                  <label style="display: flex; align-items: center; gap: 6px;"><input type="radio" checked="{{p.win}}" style="margin: 0; accent-color: #1c1b18;">Windows</label>
+                  <label style="display: flex; align-items: center; gap: 6px;"><input type="radio" checked="{{p.sql}}" style="margin: 0; accent-color: #1c1b18;">SQL Server</label>
+                </div>
+              </div>
+              <sc-if value="{{p.sql}}" hint-placeholder-val="{{false}}">
+                <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span style="color: #6b675e;">Utilizator</span><input value="deploy_ro" style="height: 30px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; font-size: 13px;"></label>
+                <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span style="color: #6b675e;">Parolă</span><input type="password" value="xxxxxxxxxx" style="height: 30px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; font-size: 13px;"></label>
+              </sc-if>
+              <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">
+                <span style="color: #6b675e;">Baza</span>
+                <select style="height: 30px; padding: 0 6px; border: 1px solid #dedbd3; border-radius: 3px; font-size: 13px; background: #ffffff; color: #1c1b18;"><option>{{p.baza}}</option></select>
+              </label>
+              <div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 12px;">
+                <span></span>
+                <span style="color: #3d6b35;">{{p.stare}}</span>
+              </div>
+            </div>
+            <sc-if value="{{p.sageata}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; justify-content: center; padding-top: 2px;">
+                <button aria-label="Inversează" style="width: 28px; height: 28px; border: 1px solid #dedbd3; border-radius: 3px; background: #fbfaf7; display: flex; align-items: center; justify-content: center;">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b675e" stroke-width="1.5" aria-hidden="true"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg>
+                </button>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 14px; padding-top: 16px; border-top: 1px solid #dedbd3;">
+          <span style="color: #6b675e;">Certificatul serverului nu se verifică.</span>
+          <a href="#" style="font-size: 13px;">Schimbă</a>
+          <div style="flex-grow: 1;"></div>
+          <span style="color: #6b675e; font-size: 12px;">Se citește, nu se scrie nimic.</span>
+          <a href="Main.dc.html" style="height: 32px; padding: 0 18px; border-radius: 3px; background: #1c1b18; color: #fbfaf7; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; text-decoration: none;">Compară</a>
+        </div>
+      </section>
+
+      <section aria-label="Comparări recente" style="display: flex; flex-direction: column;">
+        <div style="font-weight: 600; padding-bottom: 8px; border-bottom: 1px solid #1c1b18;">Recente</div>
+        <sc-for list="{{sesiuni}}" as="s" hint-placeholder-count="3">
+          <a href="Main.dc.html" style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 200px 90px; align-items: center; gap: 12px; height: 38px; border-bottom: 1px solid #ebe8e1; color: #1c1b18; text-decoration: none;">
+            <span><span style="font-weight: 500;">{{s.sursa}}</span> <span style="color: #6b675e;">→</span> <span style="font-weight: 500;">{{s.baza}}</span> <span style="{{s.envSty}}">{{s.env}}</span></span>
+            <span style="color: #6b675e;">{{s.cand}}</span>
+            <span style="color: #6b675e;">{{s.rev}}</span>
+            <span style="text-align: right; color: #2b4a6f;">Continuă</span>
+          </a>
+        </sc-for>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const env = (c) => "font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.6px; color: " + c;
+const ENV = { PROD: env('#b3261e'), TEST: env('#2b4a6f'), DEV: env('#6b675e') };
+class Component extends DCLogic {
+  renderVals() {
+    const parti = [
+      { eticheta: 'Sursa', rol: 'de unde vine codul', env: 'DEV', envSty: ENV.DEV, server: 'SRV-DEV\\SQL2019', win: true, sql: false, baza: 'CharismaDev', stare: 'conectat · SQL Server 2019 · 21.204 obiecte', sageata: true },
+      { eticheta: 'Baza', rol: 'unde ajunge', env: 'PROD', envSty: ENV.PROD, server: 'srv-prod.firma.local,1433', win: false, sql: true, baza: 'CharismaProd', stare: 'conectat · SQL Server 2016 SP2 · 21.183 obiecte', sageata: false },
+    ];
+    const sesiuni = [
+      { sursa: 'CharismaDev', baza: 'CharismaProd', env: 'PROD', envSty: ENV.PROD, cand: 'ieri, 17:40', rev: '124 din 336 revizuite' },
+      { sursa: 'CharismaDev', baza: 'CharismaTest', env: 'TEST', envSty: ENV.TEST, cand: 'luni, 10:12', rev: 'deploy făcut' },
+      { sursa: 'Charisma_Copy', baza: 'CharismaDev', env: 'DEV', envSty: ENV.DEV, cand: '12 noiembrie', rev: '96 din 1.204 revizuite' },
+    ];
+    return { parti, sesiuni };
+  }
+}
+</script>
+</body>
+</html>

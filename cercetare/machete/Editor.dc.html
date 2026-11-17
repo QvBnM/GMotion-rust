@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<title>Editorul de diferențe</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2b4a6f}a:hover{color:#1c1b18}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #f5f4f0; color: #1c1b18; font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; font-size: 13px; overflow: hidden;">
+  <div style="height: 3px; flex-shrink: 0; background: #b3261e;"></div>
+
+  <header style="height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid #dedbd3; background: #fbfaf7;">
+    <a href="Main.dc.html" style="color: #6b675e; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b675e" stroke-width="1.5" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>Listă
+    </a>
+    <span style="width: 1px; height: 20px; background: #dedbd3;"></span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; font-size: 13px;"><span style="color: #9c978b; font-weight: 400;">dbo.</span>usp_CalculeazaStoc</span>
+    <span style="color: #6b675e; font-size: 12px;">procedură · 4 diferențe, una doar în comentariu</span>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 2px;">
+      <button aria-label="Diferența anterioară" style="height: 26px; width: 26px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#1c1b18" stroke-width="1.8" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg></button>
+      <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12px; padding: 0 8px;">2/4</span>
+      <button aria-label="Diferența următoare" style="height: 26px; width: 26px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; display: flex; align-items: center; justify-content: center;"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#1c1b18" stroke-width="1.8" aria-hidden="true"><path d="M3 6l5 5 5-5"/></svg></button>
+    </div>
+    <span style="width: 1px; height: 20px; background: #dedbd3;"></span>
+    <button style="height: 28px; padding: 0 10px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; color: #1c1b18; font-size: 13px;">Revizuit</button>
+    <button style="height: 28px; padding: 0 12px; border: 0; border-radius: 3px; background: #1c1b18; color: #fbfaf7; font-size: 13px; font-weight: 500;">În plan</button>
+  </header>
+
+  <div style="height: 34px; flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 0 16px; border-bottom: 1px solid #dedbd3; font-size: 12.5px;">
+    <div role="group" aria-label="Afișare" style="display: flex; gap: 14px;">
+      <button style="border: 0; background: transparent; padding: 0; height: 33px; font-size: 12.5px; color: #1c1b18; font-weight: 600; border-bottom: 2px solid #1c1b18;">Alăturat</button>
+      <button style="border: 0; background: transparent; padding: 0; height: 33px; font-size: 12.5px; color: #6b675e; border-bottom: 2px solid transparent;">Unificat</button>
+    </div>
+    <span style="width: 1px; height: 16px; background: #dedbd3;"></span>
+    <label style="display: flex; align-items: center; gap: 6px;"><input type="checkbox" checked="{{true}}" style="margin: 0; accent-color: #1c1b18;">pliază identicul</label>
+    <div style="flex-grow: 1;"></div>
+    <button style="border: 0; background: transparent; padding: 0; font-size: 12.5px; color: #2b4a6f; text-decoration: underline; text-underline-offset: 3px;">editează textul final</button>
+  </div>
+
+  <div style="flex-grow: 1; min-height: 0; display: flex; background: #ffffff;">
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 26px; flex-shrink: 0; border-bottom: 1px solid #dedbd3; background: #fbfaf7; font-size: 12px; color: #6b675e;">
+        <div style="display: flex; align-items: center; gap: 8px; padding-left: 57px; border-right: 1px solid #dedbd3;"><span style="color: #1c1b18; font-weight: 500;">CharismaDev</span>srv-dev · 47 linii</div>
+        <div style="display: flex; align-items: center; gap: 8px; padding-left: 57px;"><span style="color: #1c1b18; font-weight: 500;">CharismaProd</span>srv-prod · 48 linii<span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; font-weight: 600; color: #b3261e; letter-spacing: 0.6px;">PROD</span></div>
+      </div>
+      <div style="flex-grow: 1; overflow: hidden; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12.5px;">
+        <sc-for list="{{rows}}" as="d" hint-placeholder-count="28">
+          <sc-if value="{{d.fold}}" hint-placeholder-val="{{false}}">
+            <button style="width: 100%; height: 22px; display: flex; align-items: center; padding-left: 57px; background: #f5f4f0; border: 0; color: #6b675e; font-family: 'IBM Plex Sans', sans-serif; font-size: 11.5px; text-align: left;">{{d.text}}</button>
+          </sc-if>
+          <sc-if value="{{d.line}}" hint-placeholder-val="{{true}}">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 22px;">
+              <div style="{{d.bgL}}">
+                <span style="{{d.barL}}"></span>
+                <span style="width: 44px; flex-shrink: 0; text-align: right; padding-right: 10px; color: #9c978b; box-sizing: border-box;">{{d.nL}}</span>
+                <span style="white-space: pre;"><sc-for list="{{d.L}}" as="k"><span style="{{k.s}}">{{k.t}}</span></sc-for></span>
+              </div>
+              <div style="{{d.bgR}}">
+                <span style="{{d.barR}}"></span>
+                <span style="width: 44px; flex-shrink: 0; text-align: right; padding-right: 10px; color: #9c978b; box-sizing: border-box;">{{d.nR}}</span>
+                <span style="white-space: pre;"><sc-for list="{{d.R}}" as="k"><span style="{{k.s}}">{{k.t}}</span></sc-for></span>
+              </div>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+    <div aria-label="Harta diferențelor" style="width: 14px; flex-shrink: 0; border-left: 1px solid #dedbd3; background: #f5f4f0; position: relative;">
+      <div style="position: absolute; left: 0; right: 0; top: 0; height: 78%; background: rgba(28, 27, 24, 0.06);"></div>
+      <sc-for list="{{harta}}" as="h" hint-placeholder-count="4"><div style="{{h.sty}}"></div></sc-for>
+    </div>
+  </div>
+
+  <footer style="height: 24px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-top: 1px solid #dedbd3; font-size: 11.5px; color: #6b675e;">
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">n p</span><span style="margin-left: -10px;">diferență</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">j k</span><span style="margin-left: -10px;">obiect</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">u</span><span style="margin-left: -10px;">unificat</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">esc</span><span style="margin-left: -10px;">listă</span>
+    <div style="flex-grow: 1;"></div>
+    <span>obiectul 4 din 212 nerevizuite</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const KW = new Set('CREATE OR ALTER PROCEDURE AS BEGIN END IF SELECT FROM WHERE AND INTO SET DECLARE INT DATE NULL NOCOUNT ON CAST ISNULL GETDATE SUM MIN GROUP BY HAVING MERGE USING WHEN MATCHED THEN UPDATE NOT INSERT VALUES DROP TABLE EXEC'.split(' '));
+const COL = { kw: '#2a4d8f', str: '#7a3e0f', num: '#7a3e0f', var: '#6a3d8f', com: '#8a857a', txt: '#1c1b18' };
+function hl(src, chgBg) {
+  let text = ''; const chg = []; let on = false;
+  for (const ch of src) { if (ch === '⟦') { on = true; continue; } if (ch === '⟧') { on = false; continue; } text += ch; chg.push(on); }
+  const kind = new Array(text.length).fill('txt');
+  const re = /(--.*$)|('(?:[^']|'')*')|(@@?\w+)|(\b\d+\b)|([A-Za-z_]\w*)/g; let m;
+  while ((m = re.exec(text))) {
+    let k = 'txt';
+    if (m[1]) k = 'com'; else if (m[2]) k = 'str'; else if (m[3]) k = 'var'; else if (m[4]) k = 'num'; else if (m[5] && KW.has(m[5].toUpperCase())) k = 'kw';
+    for (let i = m.index; i < m.index + m[0].length; i++) kind[i] = k;
+  }
+  const out = []; let i = 0;
+  while (i < text.length) {
+    let j = i; while (j < text.length && kind[j] === kind[i] && chg[j] === chg[i]) j++;
+    out.push({ t: text.slice(i, j), s: 'color:' + COL[kind[i]] + (kind[i] === 'com' ? ';font-style:italic' : '') + (chg[i] ? ';background:' + chgBg : '') });
+    i = j;
+  }
+  return out;
+}
+const T = {
+  chg: { bg: '#f8efd9', bar: '#c48a1a', in: '#ecd49a' },
+  add: { bg: '#e8f0e0', bar: '#5a8a4c', in: '#c9dfb6' },
+  del: { bg: '#f8e6e1', bar: '#b8543f', in: '#efc3b8' },
+};
+const HATCH = 'background: repeating-linear-gradient(135deg, #ffffff 0 6px, #ebe8e1 6px 7px)';
+const row = 'display: flex; align-items: center; overflow: hidden; ';
+const bar = (c, cur) => 'width: 3px; height: 22px; flex-shrink: 0; background: ' + (c || 'transparent') + (cur ? '; width: 5px; margin-right: -2px' : '');
+function ctx(nL, nR, s) { return { line: true, fold: false, nL, nR, L: hl(s, ''), R: hl(s, ''), bgL: row + 'border-right: 1px solid #dedbd3', bgR: row, barL: bar(''), barR: bar('') }; }
+function chg(nL, nR, a, b, cur) { return { line: true, fold: false, nL, nR, L: hl(a, T.chg.in), R: hl(b, T.chg.in), bgL: row + 'background: ' + T.chg.bg + '; border-right: 1px solid #dedbd3', bgR: row + 'background: ' + T.chg.bg, barL: bar(T.chg.bar, cur), barR: bar(T.chg.bar, cur) }; }
+function add(nL, s, cur) { return { line: true, fold: false, nL, nR: '', L: hl(s, ''), R: [], bgL: row + 'background: ' + T.add.bg + '; border-right: 1px solid #dedbd3', bgR: row + HATCH, barL: bar(T.add.bar, cur), barR: bar('') }; }
+function del(nR, s) { return { line: true, fold: false, nL: '', nR, L: [], R: hl(s, ''), bgL: row + HATCH + '; border-right: 1px solid #dedbd3', bgR: row + 'background: ' + T.del.bg, barL: bar(''), barR: bar(T.del.bar) }; }
+class Component extends DCLogic {
+  renderVals() {
+    const rows = [
+      ctx(1, 1, 'CREATE OR ALTER PROCEDURE dbo.usp_CalculeazaStoc'),
+      ctx(2, 2, '    @IdGestiune INT,'),
+      ctx(3, 3, '    @LaData DATE = NULL'),
+      ctx(4, 4, 'AS'),
+      ctx(5, 5, 'BEGIN'),
+      ctx(6, 6, '    SET NOCOUNT ON;'),
+      ctx(7, 7, '    DECLARE @Data DATE = ISNULL(@LaData, CAST(GETDATE() AS DATE));'),
+      ctx(8, 8, ''),
+      chg(9, 9, '    -- stocul se calculeaza pe ⟦loturi, FIFO⟧', '    -- stocul se calculeaza pe ⟦articol⟧', false),
+      chg(10, 10, '    SELECT m.IdArticol⟦, m.IdLot⟧,', '    SELECT m.IdArticol,', true),
+      ctx(11, 11, '           SUM(m.Cantitate * m.Semn) AS Stoc'),
+      add(12, '         , MIN(m.DataIntrare) AS PrimaIntrare', true),
+      ctx(13, 12, '    INTO #Stoc'),
+      ctx(14, 13, '    FROM dbo.MiscariStoc m'),
+      ctx(15, 14, '    WHERE m.IdGestiune = @IdGestiune'),
+      chg(16, 15, '      AND m.DataDocument <⟦=⟧ @Data', '      AND m.DataDocument < @Data', false),
+      chg(17, 16, '    GROUP BY m.IdArticol⟦, m.IdLot⟧', '    GROUP BY m.IdArticol', false),
+      ctx(18, 17, '    HAVING SUM(m.Cantitate * m.Semn) <> 0;'),
+      ctx(19, 18, ''),
+      ctx(20, 19, '    MERGE dbo.StocCurent AS t'),
+      ctx(21, 20, '    USING #Stoc AS s ON t.IdArticol = s.IdArticol'),
+      ctx(22, 21, '    WHEN MATCHED THEN UPDATE SET t.Stoc = s.Stoc'),
+      ctx(23, 22, '    WHEN NOT MATCHED THEN INSERT (IdArticol, Stoc) VALUES (s.IdArticol, s.Stoc);'),
+      { fold: true, line: false, text: '22 de linii identice, 24–45' },
+      ctx(46, 45, '    DROP TABLE #Stoc;'),
+      del(46, '    -- TODO: de scos dupa migrarea din 2024'),
+      del(47, '    EXEC dbo.usp_LogVechi @IdGestiune;'),
+      ctx(47, 48, 'END'),
+    ];
+    const pos = (top, h, c) => ({ sty: 'position: absolute; left: 3px; right: 3px; top: ' + top + '%; height: ' + h + '%; background: ' + c });
+    const harta = [pos(18, 2, T.chg.bar), pos(20, 3, T.add.bar), pos(33, 3, T.chg.bar), pos(94, 3, T.del.bar)];
+    return { rows, harta };
+  }
+}
+</script>
+</body>
+</html>

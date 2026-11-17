@@ -34,8 +34,13 @@ editorului de diferente. Mihai a decis (2026-11-17): interfata nativa, fara
 WebView2, aspect apropiat de v3.4 dar poate fi mai frumos, si se incepe acum,
 inaintea modulului `upgrade`. Cercetarea de design (tool-uri de referinta,
 vizualizarea diferentelor, review la scara, deploy sigur, design vizual,
-fezabilitate Slint): `cercetare/design-interfata.md` — de citit inainte de
-orice ecran.
+fezabilitate Slint): `cercetare/design-interfata.md`.
+
+**Designul e aprobat** (Mihai, 2026-11-17): `cercetare/design-aprobat.md` +
+machetele din `cercetare/machete/`. E contractul vizual; nu se deseneaza un
+ecran care nu e acolo fara sa intrebi. Atentie: prototipul existent din
+`rust/fereastra/ui/editor.slint` foloseste inca culorile v3.4 — se aliniaza la
+jetoanele aprobate.
 
 ---
 
@@ -63,7 +68,9 @@ din string-uri).
    afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca nume de
    modul, dependentele prin SQL dinamic sau sinonime.
 
-**Nu se deschide etapa de interfata fara discutia despre GUI ceruta de Mihai.**
+**Urmatorul pas:** etapa 8 se termina pe designul aprobat (jetoanele si
+fonturile in `editor.slint`, navigare, virtualizare pe 20.000 de linii, captura
+noua), apoi se deschide etapa 9 — lista si previzualizarea (`Main.dc.html`).
 
 ---
 

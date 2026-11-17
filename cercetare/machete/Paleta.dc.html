@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<title>Paleta de comenzi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2b4a6f}a:hover{color:#1c1b18}
+input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; position: relative; background: #f5f4f0; color: #1c1b18; font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; font-size: 13px; overflow: hidden;">
+
+  <div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+    <div style="height: 3px; background: #b3261e;"></div>
+    <div style="height: 48px; background: #fbfaf7; border-bottom: 1px solid #dedbd3; display: flex; align-items: center; padding: 0 16px; gap: 18px;">
+      <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600;">gmotion</span>
+      <span style="font-weight: 600; font-size: 14px;">CharismaDev → CharismaProd</span>
+    </div>
+    <div style="flex-grow: 1; display: flex;">
+      <div style="width: 200px; border-right: 1px solid #dedbd3;"></div>
+      <div style="flex-grow: 1; background: #fbfaf7; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12.5px; color: #9c978b;">
+        <sc-for list="{{fundal}}" as="f" hint-placeholder-count="20">
+          <div style="height: 29px; border-bottom: 1px solid #ebe8e1; display: flex; align-items: center; padding: 0 16px 0 44px;">{{f.t}}</div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(28, 27, 24, 0.32);"></div>
+
+  <div role="dialog" aria-label="Paleta de comenzi" style="position: absolute; left: 420px; top: 96px; width: 600px; background: #fbfaf7; border: 1px solid #1c1b18; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">
+    <label style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border-bottom: 1px solid #dedbd3;">
+      <span style="font-family: 'IBM Plex Mono', Consolas, monospace; color: #9c978b;">›</span>
+      <input aria-label="Comandă sau obiect" value="plan" style="border: 0; outline: none; flex-grow: 1; font-size: 15px; color: #1c1b18; background: transparent;">
+    </label>
+    <sc-for list="{{grupuri}}" as="g" hint-placeholder-count="3">
+      <div style="padding: 6px 0;">
+        <div style="font-size: 12px; color: #6b675e; padding: 4px 16px;">{{g.titlu}}</div>
+        <sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+          <div style="{{i.sty}}">
+            <span style="flex-grow: 1;"><sc-for list="{{i.parti}}" as="p"><span style="{{p.s}}">{{p.t}}</span></sc-for></span>
+            <span style="{{i.detSty}}">{{i.det}}</span>
+            <span style="{{i.tastaSty}}">{{i.tasta}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+function evid(text, q, sel) {
+  const i = text.toLowerCase().indexOf(q);
+  if (i < 0) return [{ t: text, s: '' }];
+  const u = 'text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: ' + (sel ? '#ffffff' : '#c48a1a');
+  return [{ t: text.slice(0, i), s: '' }, { t: text.slice(i, i + q.length), s: u }, { t: text.slice(i + q.length), s: '' }];
+}
+class Component extends DCLogic {
+  renderVals() {
+    const nume = ['dbo.usp_RaportVanzariLunar', 'dbo.usp_ImportClienti', 'dbo.fn_CursVechi', 'dbo.usp_CalculeazaStoc', 'dbo.usp_InchideLuna', 'dbo.fn_PretCuTva', 'dbo.vw_FacturiNeincasate', 'dbo.GenerateOrderByRecommendedOrder', 'rpt.usp_SoldParteneri', 'dbo.trg_Comenzi_Audit', 'dbo.usp_Facturare', 'dbo.usp_ExportAnaf', 'dbo.usp_PlanificaProductie', 'rpt.usp_PlanVanzariLunar', 'dbo.fn_StocLot', 'dbo.usp_AlocaPlati', 'dbo.vw_StocPeGestiuni', 'dbo.usp_RecalculeazaPreturi', 'dbo.usp_ArhiveazaComenzi', 'dbo.fn_ZileLucratoare', 'dbo.usp_TransferGestiune', 'dbo.vw_ComenziDeschise', 'rpt.usp_Balanta', 'dbo.usp_ValideazaFactura', 'dbo.usp_CurataLog', 'dbo.fn_CodFiscal', 'dbo.usp_SincronizeazaCurs', 'rpt.usp_FisaCont'];
+    const fundal = nume.map((t) => ({ t }));
+    const q = 'plan';
+    const it = (text, det, tasta, sel, mono) => ({
+      det, tasta, parti: evid(text, q, sel),
+      detSty: 'font-size: 12px; color: ' + (sel ? '#d5dee9' : '#6b675e'),
+      tastaSty: "font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11.5px; min-width: 48px; text-align: right; color: " + (sel ? '#ffffff' : '#6b675e'),
+      sty: 'display: flex; align-items: center; gap: 12px; height: 32px; padding: 0 16px; ' + (mono ? "font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12.5px; " : '') + (sel ? 'background: #2b4a6f; color: #ffffff' : ''),
+    });
+    const grupuri = [
+      { titlu: 'Comenzi', items: [
+        it('Deschide planul de deploy', '12 obiecte', 'ctrl d', true, false),
+        it('Pune în plan obiectul curent', '', 'a', false, false),
+        it('Pune în plan tot ce e revizuit', '124', '', false, false),
+        it('Salvează planul ca .sql', '', 'ctrl e', false, false),
+      ] },
+      { titlu: 'Obiecte', items: [
+        it('dbo.usp_PlanificaProductie', 'modificat', '', false, true),
+        it('rpt.usp_PlanVanzariLunar', 'modificat', '', false, true),
+      ] },
+    ];
+    return { fundal, grupuri };
+  }
+}
+</script>
+</body>
+</html>

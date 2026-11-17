@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<title>Lista de diferențe</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#2b4a6f}a:hover{color:#1c1b18}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; flex-direction: column; background: #f5f4f0; color: #1c1b18; font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; font-size: 13px; overflow: hidden;">
+  <div style="height: 3px; flex-shrink: 0; background: #b3261e;"></div>
+
+  <header style="height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 0 16px; border-bottom: 1px solid #dedbd3; background: #fbfaf7;">
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; font-size: 13px; letter-spacing: -0.2px;">gmotion</span>
+    <span style="width: 1px; height: 20px; background: #dedbd3;"></span>
+    <div style="display: flex; align-items: baseline; gap: 8px;">
+      <span style="font-weight: 600; font-size: 14px;">CharismaDev</span>
+      <span style="color: #6b675e;">→</span>
+      <span style="font-weight: 600; font-size: 14px;">CharismaProd</span>
+      <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; font-weight: 600; color: #b3261e; letter-spacing: 0.6px;">PROD</span>
+    </div>
+    <span style="color: #6b675e; font-size: 12px;">srv-dev → srv-prod · comparat la 14:32</span>
+    <div style="flex-grow: 1;"></div>
+    <label style="display: flex; align-items: center; gap: 8px; width: 260px; height: 28px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; box-sizing: border-box;">
+      <input aria-label="Caută" placeholder="Caută" style="border: 0; outline: none; flex-grow: 1; font-size: 13px; color: #1c1b18; background: transparent;">
+      <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; color: #6b675e;">Ctrl K</span>
+    </label>
+    <button style="height: 28px; padding: 0 10px; border: 1px solid #dedbd3; border-radius: 3px; background: #fbfaf7; color: #1c1b18; font-size: 13px;">Recompară</button>
+    <a href="Deploy.dc.html" style="height: 28px; padding: 0 12px; border-radius: 3px; background: #1c1b18; color: #fbfaf7; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">Deploy <span style="font-family: 'IBM Plex Mono', Consolas, monospace; color: #bdb8ad;">12</span></a>
+  </header>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0;">
+
+    <nav aria-label="Filtre" style="width: 200px; flex-shrink: 0; border-right: 1px solid #dedbd3; padding: 16px 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 22px;">
+      <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;"><span style="color: #6b675e;">Revizuite</span><span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12px;">124/336</span></div>
+        <div style="height: 2px; background: #dedbd3;"><div style="width: 37%; height: 2px; background: #1c1b18;"></div></div>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <sc-for list="{{categorii}}" as="c" hint-placeholder-count="5">
+          <button style="{{c.sty}}">
+            <span style="{{c.litSty}}">{{c.lit}}</span>
+            <span style="flex-grow: 1; text-align: left;">{{c.nume}}</span>
+            <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12px; color: #6b675e;">{{c.nr}}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <div style="padding: 0 16px 6px; color: #6b675e; font-size: 12px;">Tip</div>
+        <sc-for list="{{tipuri}}" as="t" hint-placeholder-count="4">
+          <div style="display: flex; justify-content: space-between; height: 24px; align-items: center; padding: 0 16px;"><span>{{t.nume}}</span><span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12px; color: #6b675e;">{{t.nr}}</span></div>
+        </sc-for>
+      </div>
+    </nav>
+
+    <main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #fbfaf7;">
+      <div role="table" aria-label="Obiecte" style="flex-shrink: 0;">
+        <div role="row" style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 96px 96px 200px 40px; align-items: center; height: 30px; padding: 0 16px; border-bottom: 1px solid #dedbd3; color: #6b675e; font-size: 12px;">
+          <span role="columnheader"></span>
+          <span role="columnheader">Obiect <span style="color: #9c978b;">· 212 nerevizuite din 312 modificate</span></span>
+          <span role="columnheader">Tip</span>
+          <span role="columnheader">Linii ↓</span>
+          <span role="columnheader">Diferă în</span>
+          <span role="columnheader"></span>
+        </div>
+        <sc-for list="{{randuri}}" as="r" hint-placeholder-count="10">
+          <div role="row" style="{{r.sty}}">
+            <span role="cell" style="{{r.litSty}}" aria-label="{{r.stare}}">{{r.lit}}</span>
+            <span role="cell" style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><span style="{{r.schSty}}">{{r.schema}}.</span>{{r.nume}}</span>
+            <span role="cell" style="{{r.mutSty}}">{{r.tip}}</span>
+            <span role="cell" style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12px; display: flex; gap: 8px;"><span style="{{r.plusSty}}">{{r.plus}}</span><span style="{{r.minusSty}}">{{r.minus}}</span></span>
+            <span role="cell" style="{{r.mutSty}}">{{r.why}}</span>
+            <span role="cell" style="display: flex; justify-content: center;">
+              <sc-if value="{{r.rev}}" hint-placeholder-val="{{false}}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3d6b35" stroke-width="2" aria-label="revizuit"><path d="M3 8.5l3 3 7-7"/></svg></sc-if>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+
+      <section aria-label="Previzualizare" style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid #1c1b18;">
+        <div style="height: 40px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid #dedbd3;">
+          <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12.5px; font-weight: 600;">dbo.GenerateOrderByRecommendedOrder</span>
+          <span style="color: #8a5a00;">un singur caracter, într-un șir: <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">Nu → nu</span></span>
+          <div style="flex-grow: 1;"></div>
+          <button style="height: 26px; padding: 0 10px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; color: #1c1b18; font-size: 12.5px;">Revizuit</button>
+          <button style="height: 26px; padding: 0 10px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; color: #1c1b18; font-size: 12.5px;">În plan</button>
+          <a href="Editor.dc.html" style="height: 26px; padding: 0 10px; border: 1px solid #1c1b18; border-radius: 3px; background: #ffffff; color: #1c1b18; font-size: 12.5px; display: inline-flex; align-items: center; text-decoration: none;">Deschide</a>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 24px; flex-shrink: 0; border-bottom: 1px solid #dedbd3; font-size: 12px; color: #6b675e;">
+          <div style="display: flex; align-items: center; padding-left: 52px; border-right: 1px solid #dedbd3;">CharismaDev</div>
+          <div style="display: flex; align-items: center; padding-left: 52px;">CharismaProd</div>
+        </div>
+        <div style="flex-grow: 1; overflow: hidden; font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 12px; background: #ffffff;">
+          <sc-for list="{{diff}}" as="d" hint-placeholder-count="16">
+            <sc-if value="{{d.fold}}" hint-placeholder-val="{{false}}">
+              <div style="height: 20px; display: flex; align-items: center; padding-left: 52px; background: #f5f4f0; color: #6b675e; font-size: 11.5px;">{{d.text}}</div>
+            </sc-if>
+            <sc-if value="{{d.line}}" hint-placeholder-val="{{true}}">
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: 20px;">
+                <div style="{{d.bgL}}">
+                  <span style="{{d.barL}}"></span>
+                  <span style="width: 40px; flex-shrink: 0; text-align: right; padding-right: 10px; color: #9c978b; box-sizing: border-box;">{{d.nL}}</span>
+                  <span style="white-space: pre;"><sc-for list="{{d.L}}" as="k"><span style="{{k.s}}">{{k.t}}</span></sc-for></span>
+                </div>
+                <div style="{{d.bgR}}">
+                  <span style="{{d.barR}}"></span>
+                  <span style="width: 40px; flex-shrink: 0; text-align: right; padding-right: 10px; color: #9c978b; box-sizing: border-box;">{{d.nR}}</span>
+                  <span style="white-space: pre;"><sc-for list="{{d.R}}" as="k"><span style="{{k.s}}">{{k.t}}</span></sc-for></span>
+                </div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer style="height: 24px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 16px; border-top: 1px solid #dedbd3; font-size: 11.5px; color: #6b675e;">
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">j k</span><span style="margin-left: -10px;">obiect</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">n p</span><span style="margin-left: -10px;">diferență</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">spațiu</span><span style="margin-left: -10px;">revizuit</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">a</span><span style="margin-left: -10px;">în plan</span>
+    <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">?</span><span style="margin-left: -10px;">restul</span>
+    <div style="flex-grow: 1;"></div>
+    <span>21.183 obiecte · 12,3 s</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+const KW = new Set('CREATE OR ALTER PROCEDURE AS BEGIN END IF ELSE SELECT FROM WHERE AND INSERT INTO VALUES UPDATE SET RETURN DECLARE INT DATE NOT NULL EXISTS NOCOUNT ON RAISERROR ISNULL GETDATE'.split(' '));
+const COL = { kw: '#2a4d8f', str: '#7a3e0f', num: '#7a3e0f', var: '#6a3d8f', com: '#8a857a', txt: '#1c1b18' };
+function hl(src, chgBg) {
+  let text = ''; const chg = []; let on = false;
+  for (const ch of src) { if (ch === '⟦') { on = true; continue; } if (ch === '⟧') { on = false; continue; } text += ch; chg.push(on); }
+  const kind = new Array(text.length).fill('txt');
+  const re = /(--.*$)|('(?:[^']|'')*')|(@@?\w+)|(\b\d+\b)|([A-Za-z_]\w*)/g; let m;
+  while ((m = re.exec(text))) {
+    let k = 'txt';
+    if (m[1]) k = 'com'; else if (m[2]) k = 'str'; else if (m[3]) k = 'var'; else if (m[4]) k = 'num'; else if (m[5] && KW.has(m[5].toUpperCase())) k = 'kw';
+    for (let i = m.index; i < m.index + m[0].length; i++) kind[i] = k;
+  }
+  const out = []; let i = 0;
+  while (i < text.length) {
+    let j = i; while (j < text.length && kind[j] === kind[i] && chg[j] === chg[i]) j++;
+    out.push({ t: text.slice(i, j), s: 'color:' + COL[kind[i]] + (kind[i] === 'com' ? ';font-style:italic' : '') + (chg[i] ? ';background:' + chgBg : '') });
+    i = j;
+  }
+  return out;
+}
+const MONO = "font-family: 'IBM Plex Mono', Consolas, monospace;";
+class Component extends DCLogic {
+  renderVals() {
+    const cat = [
+      ['M', 'Modificate', '312', '#8a5a00', true],
+      ['S', 'Doar în sursă', '18', '#3d6b35', false],
+      ['B', 'Doar în bază', '6', '#a3392b', false],
+      ['=', 'Identice', '20.843', '#6b675e', false],
+      ['#', 'Criptate', '4', '#6b675e', false],
+    ];
+    const categorii = cat.map(([lit, nume, nr, col, sel]) => ({
+      lit, nume, nr,
+      litSty: MONO + ' width: 14px; font-weight: 600; font-size: 12px; color: ' + col,
+      sty: 'display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 16px; border: 0; font-size: 13px; color: #1c1b18; text-align: left; background: ' + (sel ? '#e9e6de; font-weight: 600' : 'transparent'),
+    }));
+    const tipuri = [{ nume: 'Proceduri', nr: '241' }, { nume: 'Funcții', nr: '38' }, { nume: 'View-uri', nr: '27' }, { nume: 'Triggere', nr: '6' }];
+    const R = [
+      ['M', 'dbo', 'usp_RaportVanzariLunar', 'procedură', '+48', '−31', 'cod, șiruri', false, false],
+      ['S', 'dbo', 'usp_ImportClienti', 'procedură', '+96', '', '—', false, false],
+      ['B', 'dbo', 'fn_CursVechi', 'funcție', '', '−22', '—', false, false],
+      ['M', 'dbo', 'usp_CalculeazaStoc', 'procedură', '+14', '−6', 'cod, comentariu', false, false],
+      ['M', 'dbo', 'usp_InchideLuna', 'procedură', '+7', '−2', 'cod', false, false],
+      ['M', 'dbo', 'fn_PretCuTva', 'funcție', '+3', '−3', 'cod', true, false],
+      ['M', 'dbo', 'vw_FacturiNeincasate', 'view', '+2', '−1', 'cod', false, false],
+      ['M', 'dbo', 'GenerateOrderByRecommendedOrder', 'procedură', '+1', '−1', 'un șir', false, true],
+      ['M', 'rpt', 'usp_SoldParteneri', 'procedură', '+1', '−1', 'comentariu', true, false],
+      ['M', 'dbo', 'trg_Comenzi_Audit', 'trigger', '0', '0', 'QUOTED_IDENTIFIER', true, false],
+    ];
+    const lcol = { M: '#8a5a00', S: '#3d6b35', B: '#a3392b' };
+    const stare = { M: 'modificat', S: 'doar în sursă', B: 'doar în bază' };
+    const randuri = R.map(([lit, schema, nume, tip, plus, minus, why, rev, sel]) => ({
+      lit, schema, nume, tip, plus, minus, why, rev, stare: stare[lit],
+      sty: 'display: grid; grid-template-columns: 28px minmax(0, 1fr) 96px 96px 200px 40px; align-items: center; height: 29px; padding: 0 16px; border-bottom: 1px solid ' + (sel ? '#2b4a6f' : '#ebe8e1') + '; background: ' + (sel ? '#2b4a6f; color: #ffffff' : 'transparent') + (rev && !sel ? '; color: #6b675e' : ''),
+      litSty: MONO + ' font-weight: 600; font-size: 12px; color: ' + (sel ? '#ffffff' : lcol[lit]),
+      schSty: 'color: ' + (sel ? '#b9c7d8' : '#9c978b'),
+      mutSty: 'font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ' + (sel ? '#d5dee9' : '#6b675e'),
+      plusSty: 'color: ' + (sel ? '#cfe3c4' : '#3d6b35'),
+      minusSty: 'color: ' + (sel ? '#f2c9c0' : '#a3392b'),
+    }));
+    const row = 'display: flex; align-items: center; overflow: hidden; ';
+    const ctx = (n, s) => ({ line: true, fold: false, nL: n, nR: n, L: hl(s, ''), R: hl(s, ''), bgL: row + 'border-right: 1px solid #dedbd3', bgR: row, barL: 'width: 3px; height: 20px; flex-shrink: 0', barR: 'width: 3px; height: 20px; flex-shrink: 0' });
+    const chg = (n, a, b) => ({ line: true, fold: false, nL: n, nR: n, L: hl(a, '#ecd49a'), R: hl(b, '#ecd49a'), bgL: row + 'background: #f8efd9; border-right: 1px solid #dedbd3', bgR: row + 'background: #f8efd9', barL: 'width: 3px; height: 20px; flex-shrink: 0; background: #c48a1a', barR: 'width: 3px; height: 20px; flex-shrink: 0; background: #c48a1a' });
+    const fold = (t) => ({ fold: true, line: false, text: t });
+    const diff = [
+      ctx(1, 'CREATE OR ALTER PROCEDURE dbo.GenerateOrderByRecommendedOrder'),
+      ctx(2, '    @IdPartener INT,'),
+      ctx(3, '    @DataComanda DATE = NULL'),
+      ctx(4, 'AS'),
+      ctx(5, 'BEGIN'),
+      ctx(6, '    SET NOCOUNT ON;'),
+      fold('34 de linii identice'),
+      ctx(41, '    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari WHERE IdPartener = @IdPartener)'),
+      ctx(42, '    BEGIN'),
+      chg(43, "        RAISERROR('⟦N⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);", "        RAISERROR('⟦n⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);"),
+      ctx(44, '        RETURN;'),
+      ctx(45, '    END'),
+      ctx(46, ''),
+      ctx(47, '    INSERT INTO dbo.Comenzi (IdPartener, DataComanda, Stare)'),
+      ctx(48, '    SELECT @IdPartener, ISNULL(@DataComanda, GETDATE()), 0;'),
+      fold('18 linii identice'),
+      ctx(67, 'END'),
+    ];
+    return { categorii, tipuri, randuri, diff };
+  }
+}
+</script>
+</body>
+</html>
