@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (250 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (281 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -23,59 +23,52 @@ interfata grafica: binarul `gmotion`.
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
 | `rust/module/diff-obiecte` | gata, 59 teste |
 | `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
-| `rust/fereastra` | editorul de diferente: gata (etapa 8), 19 teste; restul ecranelor, de scris |
+| `rust/fereastra` | editorul si lista: gata (etapele 8-9), 32 teste; conectarea, deploy-ul si paleta, de scris |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/09-lista-si-previzualizare.md` — ecranul principal
-(lista de diferente + previzualizarea), dupa macheta `Main.dc.html`.
+**Etapa activa:** `etape/10-aplicatia-lista-editor.md` — din lista in editor
+si inapoi, cu starea de revizuire care tine minte.
 
-**Etapa 8 e incheiata.** Editorul nativ e pe designul aprobat
-(`cercetare/design-aprobat.md`): jetoanele si fonturile IBM Plex in locul
-culorilor v3.4, plierea sirurilor identice, modul unificat, navigare de la
-tastatura, harta diferentelor. Capturi, langa machete:
-`cercetare/machete/capturi/`. Cifrele pe obiecte uriase si ce a ieșit altfel:
-`etape/08-prototip-editor.md`.
+**Etapele 8 si 9 sunt incheiate.** Exista doua ecrane native pe designul
+aprobat (`cercetare/design-aprobat.md`): editorul de diferente si lista cu
+previzualizare. Capturi, langa machete: `cercetare/machete/capturi/`. Cifrele
+masurate (20.000 de linii, 50.000 de obiecte) si ce a ieșit altfel:
+`etape/08-prototip-editor.md`, `etape/09-lista-si-previzualizare.md`.
 
 ---
 
 ## Urmatorul pas concret
 
-**Etapa 9, pasul 1: clasificarea „difera in" in `core`** (cod / sir /
-comentariu / setari SET, prin `core::lexer`), cu teste pe cazurile care au
-pacalit v3.4 — mai ales `GenerateOrderByRecommendedOrder`, unde singura
-diferenta e o majuscula intr-un mesaj din sir. Apoi expusa in `cli` si
-folosita in coloana „Difera in" din lista. Criteriile complete:
-`etape/09-lista-si-previzualizare.md`.
+**Etapa 10, pasul 1: starea de revizuire in `diff-obiecte`,** legata de
+amprenta continutului — un obiect marcat revizuit nu mai e revizuit daca
+definitia lui s-a schimbat intre timp pe server. Se salveaza prin sesiunile
+care exista deja in `platforma` (`sesiune.rs`, campul `date` e opac pentru
+platforma, deci e exact locul). Apoi comanda din `cli` si rutarea lista ↔
+editor in crate-ul nou `rust/app`. Criteriile complete:
+`etape/10-aplicatia-lista-editor.md`.
 
-Rulari pe Windows: nimic de cerut acum. Ultima (`b4b0e30`) a confirmat
-citirea paralela (12,3 s fata de 29,3 s in v3.4), garda de versiune, cele
-~4.440 de obiecte (21%) cu `QUOTED_IDENTIFIER OFF` si 401 cu `ANSI_NULLS OFF`,
-si 0 regresii.
+Rulari pe Windows: nimic de cerut acum.
 
 Ramase deschise, documentate: performanta patratica pe obiecte uriase (se
-vede acum si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura
-data, la deschidere), nume case-insensitive intre baze, divergentele Unicode
-fata de JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate
-Windows ca nume de modul, dependentele prin SQL dinamic sau sinonime.
+vede si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura data,
+la deschidere), nume case-insensitive intre baze, divergentele Unicode fata de
+JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
+nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
 
-**Doua intrebari de design, din etapa 8** (nu blocheaza etapa 9):
-
-1. In modul **unificat** al editorului, cum se marcheaza care linie e din
-   sursa si care din baza? Macheta are tabul „Unificat", dar nu si randarea.
-   Acum liniile apar una dupa alta, cu numarul lor de linie si culoarea
-   blocului, fara alt semn. Un semn in plus (de pildă o litera `S` / `B` in
-   jgheab) ar fi un element care nu e in machete, deci nu l-am facut.
-2. „47 linii" din macheta sau „47 de linii"? In cod e a doua (forma corecta
-   gramatical, ca „22 de linii identice" din aceeasi macheta).
+Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
+`JURNAL.md`): contrastul se repara intunecand minim doua jetoane; modul
+unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
+filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
+nefolosit.
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 

@@ -546,6 +546,55 @@ se **scoate**. Incrucisarea se face intr-un singur loc, `cod_stare` din
 
 ---
 
+## 2026-11-17 — Comentariul singur ramane zgomot filtrat
+
+**Context.** Machetele arata un obiect care difera doar intr-un comentariu
+(`rpt.usp_SoldParteneri`, „comentariu", +1 −1) si, in editor, „4 diferențe,
+una doar în comentariu". Motorul insa sterge comentariile la normalizare, ca
+in v3.4: un asemenea obiect iese „identic" si nu ajunge nici in lista, nici in
+editor. Alternativa era sa pastram comentariile in hash si in segmentare.
+
+**Decizie (Mihai).** Ramane ca azi. Motorul nu se atinge; randul doar-comentariu
+din macheta ramane nefolosit. Coloana „Difera in" arata „comentariu" doar cand
+comentariul s-a schimbat intr-un bloc care difera si in cod („cod, comentariu").
+
+**De ce conteaza.** A schimba regula ar fi insemnat obiecte noi in lista pe
+baza reala (cate, nu se stie fara o rulare pe Windows), o abatere noua fata de
+v3.4 in `*.asteptari.json`, si fixture-uri de regenerat. Testul
+`comentariul_singur_ramane_zgomot_filtrat` din `core/src/clasificare.rs` tine
+regula pe loc: daca cineva o schimba, testul cade si intrebarea se pune din nou.
+
+---
+
+## 2026-11-17 — Modul unificat: doua jgheaburi de numere
+
+**Context.** Macheta editorului are tabul „Unificat", dar nu arata randarea.
+Fara niciun semn, nu se vede care linie e din sursa si care din baza.
+
+**Decizie (Mihai).** Doua coloane de numere (sursa | baza), ca in diff-urile
+clasice: linia din sursa are numar doar in stanga, cea din baza doar in
+dreapta, iar randurile egale au amandoua. Niciun element nou (litere, semne
+`+` / `−`) in afara machetelor.
+
+---
+
+## 2026-11-17 — „Difera in" si „+N −M" se calculeaza la cerere
+
+**Context.** Lista are nevoie, pentru fiecare obiect, de clasificarea
+diferentei si de numarul de linii mutate. Amandoua cer alinierea completa a
+obiectului (`diff_aliniat`), adica partea scumpa — pe comparari cu zeci de mii
+de obiecte ar fi fost calculata pentru tot si aruncata aproape toata.
+
+**Decizie.** Se calculeaza la cerere, ca si diff-ul: `detalii_obiect` in
+`diff-obiecte`, chemat de lista doar pentru randurile de pe ecran
+(`Lista::fara_detalii`) si de `cli` doar cu `compara --detalii`. Compararea
+simpla ramane la fel de rapida ca pana acum (hash, apoi scor).
+
+**Masurat:** pe 50.000 de obiecte, lista se construieste in 84 ms, un filtru ia
+13 ms, o cautare 3 ms, iar un cadru ramane la ~8 ms.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
