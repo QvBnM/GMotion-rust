@@ -23,6 +23,7 @@ pub mod diferente;
 pub mod eroare;
 pub mod export;
 mod modul;
+pub mod revizuire;
 
 pub use comparare::{
     compara, pregateste, setari_diferite, Baza, Categorie, Comparare, Numaratoare, Progres, Rand,
@@ -32,6 +33,7 @@ pub use diferente::{detalii_obiect, diferente_obiect, Bucata, Detalii, Diferenta
 pub use eroare::{Eroare, Rezultat};
 pub use export::{scrie_csv, Stare};
 pub use modul::ModulDiffObiecte;
+pub use revizuire::{Amprenta, Revizuire};
 
 /// Identificatorul modulului. Devine prefix de ruta si nume de director pentru
 /// sesiuni, deci e un singur loc de adevar.

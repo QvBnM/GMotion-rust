@@ -87,7 +87,7 @@ retur.
 **Dependentele curg intr-o singura direcție:**
 
 ```
-core  <-  db  <-  platforma  <-  module/*  <-  app, cli
+core  <-  db  <-  platforma  <-  module/*  <-  fereastra, cli  <-  app
 ```
 
 - Niciun crate nu depinde de unul aflat la dreapta lui.

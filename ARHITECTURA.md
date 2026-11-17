@@ -55,13 +55,13 @@ mecanic de `unelte/verifica.sh`.
 |---|---|---|
 | `mostenire/` | GMotion v3.4 in Python, **inghetat**. Referinta de paritate. | inghetat |
 | `referinta/` | Harness de conformitate: aceleasi cazuri prin motorul Python si prin cel JS, plus fixture-ul contra caruia se valideaza Rust-ul. Si bench. | gata |
-| `rust/core/` | `gmotion-core` — motorul de comparare. Logica pura. | gata, 31 teste |
-| `rust/db/` | Conexiune SQL Server, descoperire instante, citire obiecte. `SursaObiecte` ca trait, cu implementare reala si una din fixture. | de scris |
-| `rust/platforma/` | Configurare, sesiuni (DPAPI), jurnal, registru de module, rutare. | de scris |
-| `rust/module/` | Un crate per unealta. | de scris |
-| `rust/cli/` | Binarul headless: `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. | de scris |
-| `rust/fereastra/` | Fereastra nativa, teme, componente comune. | de scris |
-| `rust/app/` | Binarul cu interfata: porneste fereastra, ruteaza catre module. | de scris |
+| `rust/core/` | `gmotion-core` — motorul de comparare. Logica pura. | gata |
+| `rust/db/` | Conexiune SQL Server, descoperire instante, citire obiecte. `SursaObiecte` ca trait, cu implementare reala si una din fixture. | gata |
+| `rust/platforma/` | Configurare, sesiuni (DPAPI), jurnal, registru de module, rutare. | gata |
+| `rust/module/` | Un crate per unealta. | `diff-obiecte` gata |
+| `rust/cli/` | Binarul headless: `compara`, `instantaneu`, `diagnostic`, `diferente`, `revizuire`, `deploy`, `export`. | gata |
+| `rust/fereastra/` | Ferestrele native, tema, componentele comune, modelele lor. | editorul si lista, gata |
+| `rust/app/` | Binarul cu interfata (`gmotion-ui`): leaga ferestrele de module si tine starea. | lista ↔ editor, gata |
 | `unelte/` | Poarta de verificare, urmarirea stării, scripturile de regenerare. | gata |
 | `etape/` | Scopul, criteriile de terminare si jurnalul fiecarei etape. Exact una e `ACTIVA`. | gata |
 

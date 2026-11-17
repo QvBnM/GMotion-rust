@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: cd5830605ecc124f -->
+<!-- api-hash: 9a5ed78449f2d3bf -->
 
 ## Rol
 
@@ -30,6 +30,7 @@ Doua lucruri trebuie sa rămână adevarate:
 | `baze` | bazele disponibile |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
+| `revizuire` | ce s-a marcat ca revizuit; bifa cade cand obiectul s-a schimbat |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
 | `deploy` | scripturile, cu codul din referinta |
 | `export` | CSV pentru Excel |

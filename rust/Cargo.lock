@@ -1609,6 +1609,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "gmotion-app"
+version = "0.1.0"
+dependencies = [
+ "gmotion-core",
+ "gmotion-db",
+ "gmotion-fereastra",
+ "gmotion-modul-diff-obiecte",
+ "gmotion-platforma",
+ "image",
+ "slint",
+ "tracing",
+]
+
+[[package]]
 name = "gmotion-cli"
 version = "0.1.0"
 dependencies = [

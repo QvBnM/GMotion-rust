@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: f12ff2d6933b9c94 -->
+<!-- api-hash: 7157612d0e6aa0d7 -->
 
 ## Rol
 
@@ -28,6 +28,7 @@ biblioteca** — fara nicio interfata.
 | `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `Fel`, `Bucata`, `Marcaj` |
 | `deploy` | `aplica_create_or_alter`, `scrie(...)`, `DeDeployat`, `ModImpartire`, `Raport` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
+| `revizuire` | `Revizuire` — ce s-a revizuit, legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | rădăcină | `NUME` = `"diff-obiecte"` |
 

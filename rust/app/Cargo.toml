@@ -1,0 +1,24 @@
+[package]
+name = "gmotion-app"
+description = "Binarul cu interfata: porneste fereastra si leaga ecranele intre ele."
+version.workspace = true
+edition.workspace = true
+# prin gmotion-fereastra (Slint 1.19).
+rust-version = "1.95"
+license.workspace = true
+
+[[bin]]
+name = "gmotion-ui"
+path = "src/main.rs"
+
+[dependencies]
+gmotion-core = { path = "../core" }
+gmotion-db = { path = "../db" }
+gmotion-fereastra = { path = "../fereastra" }
+gmotion-modul-diff-obiecte = { path = "../module/diff-obiecte" }
+gmotion-platforma = { path = "../platforma" }
+tracing = "0.1"
+slint = { version = "1.19", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "software-renderer-systemfonts"] }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

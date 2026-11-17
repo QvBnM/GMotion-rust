@@ -119,6 +119,32 @@ enum Comanda {
         detalii: bool,
     },
 
+    /// Ce ai marcat ca revizuit, pe o comparare. Bifa e legata de continutul
+    /// obiectului: daca definitia s-a schimbat pe server, bifa cade singura.
+    Revizuire {
+        #[command(flatten)]
+        sursa: ArgumenteSursa,
+
+        #[arg(long, value_name = "BAZA")]
+        referinta: String,
+
+        /// Bazele de comparat. Lipsa lor inseamna toate celelalte.
+        #[arg(long, value_name = "A,B,C")]
+        baze: Option<String>,
+
+        /// Marcheaza obiectele astea ca revizuite.
+        #[arg(long, value_name = "schema.obiect,...")]
+        marcheaza: Option<String>,
+
+        /// Scoate bifa de pe obiectele astea.
+        #[arg(long, value_name = "schema.obiect,...")]
+        scoate: Option<String>,
+
+        /// Sterge tot progresul salvat pentru referinta asta.
+        #[arg(long)]
+        goleste: bool,
+    },
+
     /// Arata diferentele unui singur obiect, linie cu linie.
     Diferente {
         #[command(flatten)]
@@ -202,6 +228,22 @@ fn main() -> std::process::ExitCode {
             baze,
             detalii,
         } => comenzi::compara(sursa, referinta, baze.as_deref(), *detalii, format),
+        Comanda::Revizuire {
+            sursa,
+            referinta,
+            baze,
+            marcheaza,
+            scoate,
+            goleste,
+        } => comenzi::revizuire(
+            sursa,
+            referinta,
+            baze.as_deref(),
+            marcheaza.as_deref(),
+            scoate.as_deref(),
+            *goleste,
+            format,
+        ),
         Comanda::Diferente {
             sursa,
             referinta,

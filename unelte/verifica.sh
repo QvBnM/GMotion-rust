@@ -93,14 +93,15 @@ else
 fi
 
 # ---------------------------------------------------------------- 6. dependente
-# Direcția e: core <- db <- platforma <- module/* <- app, cli.
+# Direcția e: core <- db <- platforma <- module/* <- fereastra, cli <- app.
 # Nimic nu depinde la dreapta, si niciun modul nu depinde de alt modul.
+# `app` e deasupra tuturor: el compune ferestrele cu modulele.
 titlu "direcția dependentelor"
 python3 - <<'PY'
 import os, re, sys, glob
 
 NIVEL = {"gmotion-core": 0, "gmotion-db": 1, "gmotion-platforma": 2,
-         "gmotion-cli": 4, "gmotion-app": 4, "gmotion-fereastra": 4}
+         "gmotion-cli": 4, "gmotion-fereastra": 4, "gmotion-app": 5}
 probleme = []
 
 for cale in glob.glob("rust/**/Cargo.toml", recursive=True):

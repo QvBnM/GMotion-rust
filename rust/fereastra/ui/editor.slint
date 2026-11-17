@@ -39,11 +39,15 @@ component AntetPanou inherits Rectangle {
             vertical-alignment: center;
         }
         Text {
+            // serverul poate fi o cale lunga (instantaneu): se taie, ca sa nu
+            // impinga eticheta mediului afara din panou
+            max-width: 260px;
             text: root.detaliu;
             font-family: Tema.font-ui;
             font-size: 12px;
             color: Tema.text-secundar;
             vertical-alignment: center;
+            overflow: elide;
         }
         if root.mediu != "": Text {
             text: root.mediu;

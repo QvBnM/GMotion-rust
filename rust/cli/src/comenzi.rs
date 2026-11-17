@@ -360,6 +360,154 @@ fn detalii_randuri(r: &Rulare) -> afisare::Detalii {
     rez
 }
 
+/// Ce ai marcat ca revizuit, pe o comparare: arata, marcheaza, scoate, sterge.
+///
+/// Compararea se reface de fiecare data, fiindca bifa e legata de amprenta
+/// continutului: fara definitiile de acum nu se poate spune daca mai e
+/// valabila. Asa se vede si cate bife au cazut fiindca obiectul s-a schimbat
+/// pe server — informatia pentru care exista comanda.
+#[allow(clippy::too_many_arguments)]
+pub fn revizuire(
+    args: &ArgumenteSursa,
+    referinta: &str,
+    baze_cerute: Option<&str>,
+    marcheaza: Option<&str>,
+    scoate: Option<&str>,
+    goleste: bool,
+    format: Format,
+) -> Result<(), String> {
+    let sesiuni =
+        gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
+    if goleste {
+        let sters = sesiuni.sterge(referinta).map_err(|e| e.to_string())?;
+        format.progres(if sters {
+            "Progresul salvat a fost sters."
+        } else {
+            "Nu exista progres salvat pentru referinta asta."
+        });
+        return Ok(());
+    }
+
+    let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
+    let mut sesiune = sesiuni
+        .incarca(referinta)
+        .map_err(|e| e.to_string())?
+        .unwrap_or_else(|| {
+            gmotion_platforma::Sesiune::noua(
+                args.eticheta_server()
+                    .unwrap_or_else(|| "instantaneu".to_string()),
+                if args.sursa.is_some() {
+                    "instantaneu"
+                } else if args.auth.utilizator.is_some() {
+                    "SQL"
+                } else {
+                    "Windows"
+                },
+                referinta,
+                acum(),
+            )
+        });
+    let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
+    let (valabile, cazute) = revizuire.valabile(&r.comparare.randuri);
+
+    let mut schimbat = false;
+    let mut necunoscute: Vec<String> = Vec::new();
+    if let Some(l) = marcheaza {
+        for obiect in lista(l) {
+            match r
+                .comparare
+                .randuri
+                .iter()
+                .find(|x| x.obiect.eq_ignore_ascii_case(&obiect))
+            {
+                Some(rand) => {
+                    revizuire.marcheaza(rand);
+                    schimbat = true;
+                }
+                None => necunoscute.push(obiect),
+            }
+        }
+    }
+    if let Some(l) = scoate {
+        for obiect in lista(l) {
+            // pe toate bazele, nu doar pe prima: acelasi obiect poate fi
+            // bifat separat pe fiecare baza comparata (deci fara `any`, care
+            // s-ar opri la prima)
+            let mut gasit = false;
+            for x in r
+                .comparare
+                .randuri
+                .iter()
+                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
+            {
+                gasit |= revizuire.scoate(&x.baza, &x.obiect);
+            }
+            schimbat |= gasit;
+            if !gasit {
+                necunoscute.push(obiect);
+            }
+        }
+    }
+    if !necunoscute.is_empty() {
+        return Err(format!(
+            "obiecte care nu sunt in comparare (sau nu erau bifate): {}",
+            necunoscute.join(", ")
+        ));
+    }
+    if schimbat {
+        revizuire.curata(&r.comparare.randuri);
+        revizuire.in_sesiune(&mut sesiune);
+        sesiune.salvata = acum();
+        sesiune.baze = r.comparare.baze.clone();
+        sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
+    }
+
+    let (valabile_acum, _) = revizuire.valabile(&r.comparare.randuri);
+    let total = r.comparare.randuri.len();
+    match format {
+        Format::Json => {
+            // numai bifele inca valabile: una cazuta nu mai spune nimic
+            // despre ce e acum pe server
+            let obiecte: Vec<&str> = r
+                .comparare
+                .randuri
+                .iter()
+                .filter(|x| revizuire.e_revizuit(x))
+                .map(|x| x.obiect.as_str())
+                .collect();
+            afisare::scrie_json(&serde_json::json!({
+                "referinta": referinta,
+                "revizuite": valabile_acum,
+                "total": total,
+                "cazute": cazute,
+                "obiecte": obiecte,
+            }))
+            .map_err(|e| e.to_string())
+        }
+        Format::Text => {
+            println!("Revizuite: {valabile_acum} din {total} obiecte care difera.");
+            if cazute > 0 {
+                println!(
+                    "{cazute} bife au cazut: obiectele s-au schimbat de cand au fost revizuite."
+                );
+            }
+            if valabile_acum > 0 {
+                println!();
+                for x in r
+                    .comparare
+                    .randuri
+                    .iter()
+                    .filter(|x| revizuire.e_revizuit(x))
+                {
+                    println!("  {}  {}", x.baza, x.obiect);
+                }
+            }
+            let _ = valabile;
+            Ok(())
+        }
+    }
+}
+
 pub fn export(
     args: &ArgumenteSursa,
     referinta: &str,

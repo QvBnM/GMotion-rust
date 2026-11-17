@@ -25,8 +25,17 @@ fn dir(eticheta: &str) -> PathBuf {
 }
 
 fn ruleaza(args: &[&str]) -> Output {
-    Command::new(EXE)
-        .args(args)
+    ruleaza_in(args, None)
+}
+
+/// Ca `ruleaza`, dar cu directorul de date al aplicatiei intr-un loc al
+/// testului: sesiunile salvate nu au voie sa ajunga in cel real.
+fn ruleaza_in(args: &[&str], dir_date: Option<&Path>) -> Output {
+    let mut c = Command::new(EXE);
+    if let Some(d) = dir_date {
+        c.env("GMOTION_DIR_DATE", d);
+    }
+    c.args(args)
         // Fara jurnal in teste: nu schimba ieșirea standard, dar face
         // diagnosticarea unui eșec mai curata.
         .env("GMOTION_JURNAL", "error")
@@ -526,4 +535,89 @@ fn compara_cu_detalii_spune_in_ce_difera_obiectul() {
     ]);
     let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
     assert!(v.get("detalii").is_none(), "{v}");
+}
+
+/// Bifa de revizuit, pe binarul adevarat: se salveaza, se reia, si **cade
+/// singura** cand obiectul s-a schimbat pe server. Ultima parte e tot rostul
+/// amprentei, deci se probeaza, nu se presupune.
+#[test]
+fn revizuirea_se_tine_minte_si_cade_cand_obiectul_se_schimba() {
+    let d = dir("revizuire");
+    let date = d.join("date");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let args = |extra: &[&str]| -> Vec<String> {
+        let mut v: Vec<String> = vec![
+            "revizuire".into(),
+            "--sursa".into(),
+            i.to_string(),
+            "--referinta".into(),
+            "Referinta".into(),
+        ];
+        v.extend(extra.iter().map(|x| x.to_string()));
+        v
+    };
+    let ruleaza_rev = |extra: &[&str]| -> Output {
+        let v = args(extra);
+        let refs: Vec<&str> = v.iter().map(String::as_str).collect();
+        ruleaza_in(&refs, Some(&date))
+    };
+
+    // la inceput, nimic bifat
+    let o = ruleaza_rev(&["--json"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON valid");
+    assert_eq!(v["revizuite"], 0);
+    assert_eq!(v["cazute"], 0);
+
+    // marcam obiectul modificat
+    let o = ruleaza_rev(&["--marcheaza", "dbo.pClienti"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ruleaza_rev(&["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["revizuite"], 1, "bifa trebuie sa se fi salvat: {v}");
+    assert_eq!(v["obiecte"][0], "dbo.pClienti");
+
+    // acelasi obiect, alta definitie in baza comparata: bifa cade
+    let schimbat = d.join("schimbat.json");
+    let text = std::fs::read_to_string(&inst).unwrap();
+    std::fs::write(
+        &schimbat,
+        text.replace("WHERE activ = 0", "WHERE activ = 0 AND sters = 0"),
+    )
+    .unwrap();
+    let o = ruleaza_in(
+        &[
+            "revizuire",
+            "--sursa",
+            schimbat.to_str().unwrap(),
+            "--referinta",
+            "Referinta",
+            "--json",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(
+        v["revizuite"], 0,
+        "obiectul s-a schimbat, bifa nu mai e valabila"
+    );
+    assert_eq!(v["cazute"], 1);
+    assert_eq!(v["obiecte"].as_array().unwrap().len(), 0);
+
+    // un obiect care nu e in comparare: eroare clara, nu bifa tacuta
+    let o = ruleaza_rev(&["--marcheaza", "dbo.nuExista"]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("dbo.nuExista"), "{}", err(&o));
+
+    // scoaterea si golirea
+    let o = ruleaza_rev(&["--scoate", "dbo.pClienti"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ruleaza_rev(&["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["revizuite"], 0);
+    let o = ruleaza_rev(&["--goleste"]);
+    assert!(o.status.success(), "{}", err(&o));
 }

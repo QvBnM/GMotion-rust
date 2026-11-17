@@ -496,14 +496,16 @@ export component FereastraLista inherits Window {
                         VerticalLayout {
                             vertical-stretch: 0;
                             spacing: 0px;
-                            Text {
-                                text: "Tip";
-                                font-size: 12px;
-                                color: Tema.text-secundar;
-                                horizontal-alignment: left;
-                                vertical-alignment: center;
-                                height: 22px;
-                                x: 16px;
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-bottom: 6px;
+                                Text {
+                                    text: "Tip";
+                                    font-size: 12px;
+                                    color: Tema.text-secundar;
+                                    vertical-alignment: center;
+                                    height: 16px;
+                                }
                             }
                             for t[i] in root.tipuri: Rectangle {
                                 height: 24px;
