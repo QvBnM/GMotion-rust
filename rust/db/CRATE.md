@@ -82,6 +82,8 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 | Cod | Simptom | Unde caut |
 |---|---|---|
 | `GM-DB-001` | conexiunea nu se deschide: retea, port, firewall, instanta oprita | `src/sqlserver.rs` |
+| `GM-DB-001` cu „No such host is known” la `SRV\INSTANTA` | numele intreg a ajuns la DNS: instanta nu a trecut prin `interpreteaza_server` | `src/sqlserver.rs` |
+| `GM-DB-001` cu „SQL browser timeout” | instanta numita fara port: serviciul SQL Browser (UDP 1434) oprit, blocat de firewall, sau instanta nu exista. Ocolire: `--port` | `src/sqlserver.rs`, `deschide_tcp` |
 | `GM-DB-002` | autentificare refuzata: parola, utilizator, drepturi pe baza | `src/sqlserver.rs` |
 | `GM-DB-003` | auth integrata cerută pe un sistem care nu o are (orice non-Windows) | `src/sqlserver.rs` |
 | `GM-DB-004` | interogarea cade: drepturi lipsa pe `sys.sql_modules`, baza offline | `src/sqlserver.rs` |

@@ -14,7 +14,7 @@
 
 use std::time::Duration;
 
-use tiberius::{AuthMethod, Client, Config};
+use tiberius::{AuthMethod, Client, Config, SqlBrowser};
 use tokio::net::TcpStream;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
@@ -94,9 +94,13 @@ impl SursaSqlServer {
         // `ADO string` ar fi mai scurt, dar numele de server si baza ar intra
         // intr-un text cu `;` ca separator — exact locul in care un nume
         // ostil poate injecta. Setarea campurilor evita problema.
-        c.host(&self.tinta.server);
-        if let Some(p) = self.tinta.port {
-            c.port(p);
+        let a = interpreteaza_server(&self.tinta.server, self.tinta.port)?;
+        c.host(&a.gazda);
+        match (a.port, &a.instanta) {
+            (Some(p), _) => c.port(p),
+            // Portul il spune SQL Browser. Cu port dat, Browser-ul nu se intreaba.
+            (None, Some(i)) => c.instance_name(i),
+            (None, None) => {}
         }
         c.database(baza);
         // Certificate autosemnate sunt norma pe serverele interne, iar
@@ -116,7 +120,9 @@ impl SursaSqlServer {
         }
         let config = self.configuratie(baza)?;
         let server = self.tinta.server.clone();
-        let adresa = config.get_addr().to_string();
+        let instanta = interpreteaza_server(&server, self.tinta.port)?
+            .instanta
+            .filter(|_| self.tinta.port.is_none());
 
         tracing::info!(
             target: "gmotion::db",
@@ -125,17 +131,7 @@ impl SursaSqlServer {
         );
 
         let client = self.runtime.block_on(async {
-            let tcp = tokio::time::timeout(TIMEOUT_CONECTARE, TcpStream::connect(&adresa))
-                .await
-                .map_err(|_| Eroare::Conectare {
-                    server: server.clone(),
-                    detaliu: format!("timeout dupa {} s", TIMEOUT_CONECTARE.as_secs()),
-                })?
-                .map_err(|e| Eroare::Conectare {
-                    server: server.clone(),
-                    detaliu: e.to_string(),
-                })?;
-            tcp.set_nodelay(true).ok();
+            let tcp = deschide_tcp(&config, &server, instanta.as_deref()).await?;
 
             Client::connect(config, tcp.compat_write())
                 .await
@@ -298,6 +294,94 @@ pub fn auth_integrata_disponibila() -> bool {
     cfg!(windows)
 }
 
+/// Unde se deschide conexiunea TCP, din ce a scris utilizatorul.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Adresa {
+    gazda: String,
+    port: Option<u16>,
+    instanta: Option<String>,
+}
+
+/// Interpreteaza numele de server cum o face si driverul ODBC folosit de
+/// versiunea Python: `GAZDA`, `GAZDA\INSTANTA`, `GAZDA,PORT`, iar `.` e
+/// calculatorul curent. Alte forme ODBC (`tcp:`, `(local)`, spatii) nu trec de
+/// `valideaza_nume`, care ruleaza inainte, in `SursaSqlServer::nou`.
+///
+/// Fara asta, `SRV01\SQLEXPRESS` ajungea intreg la DNS („No such host is
+/// known") — regresie fata de Python, gasita la prima rulare pe o baza reala.
+fn interpreteaza_server(server: &str, port: Option<u16>) -> Rezultat<Adresa> {
+    let gresit = |detaliu: String| Eroare::Conectare {
+        server: server.to_string(),
+        detaliu,
+    };
+    let (rest, port_din_nume) = match server.rsplit_once(',') {
+        Some((r, p)) => {
+            let p: u16 = p
+                .parse()
+                .map_err(|_| gresit(format!("portul {p:?} dupa virgula nu e un numar valid")))?;
+            (r, Some(p))
+        }
+        None => (server, None),
+    };
+    let port = match (port, port_din_nume) {
+        (Some(a), Some(b)) if a != b => {
+            return Err(gresit(format!(
+                "portul e dat de doua ori, diferit: --port {a} si ,{b} in nume"
+            )))
+        }
+        (a, b) => a.or(b),
+    };
+    let (gazda, instanta) = match rest.split_once('\\') {
+        Some((g, "")) => return Err(gresit(format!("lipseste numele instantei dupa {g:?}\\"))),
+        Some((g, i)) => (g, Some(i.to_string())),
+        None => (rest, None),
+    };
+    let gazda = match gazda {
+        "" | "." => "localhost",
+        g => g,
+    };
+    Ok(Adresa {
+        gazda: gazda.to_string(),
+        port,
+        instanta,
+    })
+}
+
+/// Deschide socket-ul TCP. Cu instanta numita, portul se afla intai de la SQL
+/// Browser (UDP 1434, sau portul din `config` cand e dat explicit).
+async fn deschide_tcp(
+    config: &Config,
+    server: &str,
+    instanta: Option<&str>,
+) -> Rezultat<TcpStream> {
+    let timeout = || Eroare::Conectare {
+        server: server.to_string(),
+        detaliu: format!("timeout dupa {} s", TIMEOUT_CONECTARE.as_secs()),
+    };
+    let Some(instanta) = instanta else {
+        let tcp = tokio::time::timeout(TIMEOUT_CONECTARE, TcpStream::connect(config.get_addr()))
+            .await
+            .map_err(|_| timeout())?
+            .map_err(|e| Eroare::Conectare {
+                server: server.to_string(),
+                detaliu: e.to_string(),
+            })?;
+        tcp.set_nodelay(true).ok();
+        return Ok(tcp);
+    };
+    tokio::time::timeout(TIMEOUT_CONECTARE, TcpStream::connect_named(config))
+        .await
+        .map_err(|_| timeout())?
+        .map_err(|e| Eroare::Conectare {
+            server: server.to_string(),
+            detaliu: format!(
+                "{e}. Instanta numita {instanta:?}: portul ei il spune serviciul \
+                 SQL Browser (UDP 1434). Verifica ca SQL Browser ruleaza pe server \
+                 si ca instanta exista, sau da portul direct cu --port"
+            ),
+        })
+}
+
 #[cfg(windows)]
 fn auth_integrata() -> Rezultat<AuthMethod> {
     Ok(AuthMethod::Integrated)
@@ -311,6 +395,142 @@ fn auth_integrata() -> Rezultat<AuthMethod> {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    fn adresa(gazda: &str, port: Option<u16>, instanta: Option<&str>) -> Adresa {
+        Adresa {
+            gazda: gazda.into(),
+            port,
+            instanta: instanta.map(Into::into),
+        }
+    }
+
+    #[test]
+    fn numele_de_server_se_interpreteaza_ca_in_odbc() {
+        let cazuri = [
+            ("SRV01", None, adresa("SRV01", None, None)),
+            (
+                r"TS2409\MIHAIG",
+                None,
+                adresa("TS2409", None, Some("MIHAIG")),
+            ),
+            ("srv,1500", None, adresa("srv", Some(1500), None)),
+            (
+                r"srv\inst,1500",
+                None,
+                adresa("srv", Some(1500), Some("inst")),
+            ),
+            (
+                r".\SQLEXPRESS",
+                None,
+                adresa("localhost", None, Some("SQLEXPRESS")),
+            ),
+            (".", None, adresa("localhost", None, None)),
+            ("srv", Some(1433), adresa("srv", Some(1433), None)),
+            ("srv,1433", Some(1433), adresa("srv", Some(1433), None)),
+        ];
+        for (nume, port, asteptat) in cazuri {
+            assert_eq!(
+                interpreteaza_server(nume, port).unwrap(),
+                asteptat,
+                "{nume:?}"
+            );
+        }
+    }
+
+    /// Prin `nou`, ca sa treaca si de `valideaza_nume`. `get_addr` arata portul
+    /// spre care pleaca primul pachet: 1434 = SQL Browser, deci instanta a
+    /// ajuns in configuratie.
+    #[test]
+    fn configuratia_pentru_instanta_numita_intreaba_sql_browser() {
+        let sursa = |server: &str, port| {
+            SursaSqlServer::nou(
+                Tinta {
+                    server: server.into(),
+                    port,
+                },
+                Autentificare::Sql {
+                    utilizator: "sa".into(),
+                    parola: "x".into(),
+                },
+            )
+            .unwrap()
+        };
+        let c = sursa(r"TS2409\MIHAIG", None)
+            .configuratie("master")
+            .unwrap();
+        assert_eq!(c.get_addr(), "TS2409:1434");
+        let c = sursa(r"TS2409\MIHAIG", Some(1500))
+            .configuratie("master")
+            .unwrap();
+        assert_eq!(c.get_addr(), "TS2409:1500", "cu port dat, direct pe el");
+        let c = sursa("srv,1500", None).configuratie("master").unwrap();
+        assert_eq!(c.get_addr(), "srv:1500");
+        let c = sursa("SRV01", None).configuratie("master").unwrap();
+        assert_eq!(c.get_addr(), "SRV01:1433");
+    }
+
+    #[test]
+    fn nume_de_server_rupte_dau_eroare_explicata() {
+        for (nume, port) in [("srv,abc", None), (r"srv\", None), ("srv,1500", Some(1433))] {
+            let e = interpreteaza_server(nume, port).unwrap_err();
+            assert_eq!(e.cod(), "GM-DB-001", "{nume:?}");
+        }
+    }
+
+    /// SQL Browser fals pe localhost: raspunde cu portul unui `TcpListener`.
+    /// Verifica tot drumul: intrebarea catre Browser, raspunsul, conectarea.
+    #[test]
+    fn instanta_numita_se_rezolva_prin_sql_browser() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let tcp = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port_tcp = tcp.local_addr().unwrap().port();
+            let udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            let port_browser = udp.local_addr().unwrap().port();
+            let browser = tokio::spawn(async move {
+                let mut b = [0u8; 256];
+                let (n, de) = udp.recv_from(&mut b).await.unwrap();
+                let r = format!(
+                    "ServerName;TS2409;InstanceName;MIHAIG;IsClustered;No;Version;16.0;tcp;{port_tcp};;"
+                );
+                let mut msg = vec![5u8, 0, 0];
+                msg.extend_from_slice(r.as_bytes());
+                udp.send_to(&msg, de).await.unwrap();
+                b[..n].to_vec()
+            });
+            let mut c = Config::new();
+            c.host("127.0.0.1");
+            c.port(port_browser);
+            c.instance_name("MIHAIG");
+            let s = deschide_tcp(&c, r"127.0.0.1\MIHAIG", Some("MIHAIG")).await.unwrap();
+            assert_eq!(s.peer_addr().unwrap().port(), port_tcp, "portul de la Browser");
+            assert_eq!(browser.await.unwrap(), b"\x04MIHAIG", "intrebarea catre Browser");
+        });
+    }
+
+    #[test]
+    fn browser_care_nu_raspunde_da_mesaj_despre_sql_browser() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let mut c = Config::new();
+            // Socket deschis care nu raspunde niciodata: Browser oprit.
+            let mut_udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            c.host("127.0.0.1");
+            c.port(mut_udp.local_addr().unwrap().port());
+            c.instance_name("NUEXISTA");
+            let e = deschide_tcp(&c, r"127.0.0.1\NUEXISTA", Some("NUEXISTA"))
+                .await
+                .unwrap_err();
+            assert_eq!(e.cod(), "GM-DB-001");
+            assert!(e.to_string().contains("SQL Browser"), "{e}");
+        });
+    }
 
     #[test]
     fn interogarea_acopera_toate_tipurile_din_core() {
