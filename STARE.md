@@ -64,7 +64,8 @@ instantaneu, cu codul vechi. Pe Windows mai e nevoie de **instantaneu**, plus
 dovezi pe care nu le pot face de aici. In PowerShell, cu Rust instalat:
 
 ```
-git clone <repo>; cd GMotion-rust\rust; git checkout claude/upbeat-ramanujan-dm6j8c
+git clone --branch claude/upbeat-ramanujan-dm6j8c https://github.com/QvBnM/GMotion-rust.git
+cd GMotion-rust\rust
 cargo test --all
 cargo build --release -p gmotion-cli
 cd target\release
