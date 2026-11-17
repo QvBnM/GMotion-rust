@@ -22,7 +22,7 @@ interfata grafica: binarul `gmotion`.
 | `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), 35 teste |
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 35 teste |
 | `rust/module/diff-obiecte` | gata, 42 teste |
-| `rust/cli` | gata, 27 teste, din care 10 pe binarul adevarat |
+| `rust/cli` | gata, 28 teste, din care 11 pe binarul adevarat |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
