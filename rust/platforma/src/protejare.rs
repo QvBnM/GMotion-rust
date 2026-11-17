@@ -191,4 +191,26 @@ mod teste {
         assert!(p.starts_with(MARCAJ_CLAR));
         assert!(!e_criptat(), "pe non-Windows nu avem criptare, si o spunem");
     }
+
+    /// `dus_intors` ar trece si daca `protejeaza` ar intoarce textul neschimbat.
+    /// Asta e singurul test care spune ca DPAPI chiar cripteaza.
+    #[cfg(windows)]
+    #[test]
+    fn pe_windows_datele_nu_apar_in_clar() {
+        let clar = b"{\"server\": \"SRV-DE-TEST-GMOTION\"}";
+        let p = protejeaza(clar).expect("DPAPI nu ar trebui sa refuze");
+        assert!(e_criptat());
+        assert!(
+            !p.starts_with(MARCAJ_CLAR),
+            "marcajul de clar nu are ce cauta pe Windows"
+        );
+        assert!(
+            !p.windows(clar.len()).any(|f| f == clar),
+            "textul in clar apare in datele protejate"
+        );
+        assert!(
+            !p.windows(16).any(|f| f == b"SRV-DE-TEST-GMOT"),
+            "fragmente din text apar in datele protejate"
+        );
+    }
 }
