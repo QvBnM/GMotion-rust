@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (168 teste; `core` pe wasm32, tot codul si pe windows-msvc)
+**Poarta:** verde (168 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic)
 
 ---
 
@@ -29,70 +29,74 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Urmatoarea la rand e etapa 6, **paritate pe baze
-reale** — si pentru ea e nevoie de tine (vezi mai jos). Dupa ea urmeaza
-interfata, despre care Mihai a cerut explicit sa vorbim inainte de a incepe.
+**Etapa activa:** `etape/06-paritate.md` — **paritate pe baze reale**. Partea
+care se putea face fara Windows e gata: `referinta/paritate.py` ruleaza codul
+Python v3.4 **neatins** (`Api._comparatie` din `mostenire/app.py`) pe un
+instantaneu si compara cu `gmotion compara`; poarta il ruleaza pe un
+instantaneu sintetic. Restul asteapta rulari de la Mihai. Dupa etapa 6 urmeaza
+interfata, despre care Mihai a cerut explicit sa vorbim **inainte** de a
+incepe — nu se deschide etapa 7 fara discutia asta.
 
 ---
 
 ## Urmatorul pas concret
 
-**Etapa 6 — paritate pe baze reale.** Nu se poate face de aici: are nevoie de o
-rulare pe un SQL Server adevarat. Pasii, in ordine:
+Cand vine `instantaneu.json` de la Mihai:
 
-1. Mihai construieste binarul pe Windows si ruleaza comenzile din secțiunea
-   urmatoare.
-2. Trimite incoace: ieșirea lui `gmotion diagnostic --json`, un
-   `gmotion instantaneu`, si lista de obiecte din versiunea Python pe aceleasi
-   baze.
-3. Eu compar cele doua liste. Fiecare diferenta se explica: ori e o corectura
-   de bug (motorul JS era corect, `motor.py` nu), ori e o regresie si se
-   repara.
-4. Instantaneul devine fixture de regresie in repo (anonimizat, daca e nevoie).
+```
+cd rust && cargo build --release -p gmotion-cli && cd ..
+python3 -I referinta/paritate.py instantaneu.json --referinta <Ref> --gmotion rust/target/release/gmotion --csv export.csv --json raport.json
+```
 
-**Nu se trece la interfata inainte de paritate.** Dupa paritate, versiunea
-Python poate fi retrasa, si abia asta face rescrierea sa aiba sens.
+Fiecare `regresie` se repara in Rust (intai `comparare.rs`, apoi `core`).
+`corectura` = JS confirma Rust-ul, se noteaza doar. Apoi fixture de regresie
+din instantaneu (anonimizat daca Mihai cere) si timpul de citire comparat cu
+Python-ul (criteriu in etapa).
+
+**Nu se trece la interfata inainte de paritate.**
 
 ---
 
 ## Ce aștept de la Mihai
 
-Acum e nevoie de tine, prima data in tot proiectul. Pe Windows, cu Rust
-instalat:
+Lista Python nu mai trebuie produsa pe Windows: o produce `paritate.py` din
+instantaneu, cu codul vechi. Pe Windows mai e nevoie de **instantaneu**, plus
+dovezi pe care nu le pot face de aici. In PowerShell, cu Rust instalat:
 
 ```
-git clone <repo> && cd GMotion-rust/rust
+git clone <repo>; cd GMotion-rust\rust; git checkout claude/upbeat-ramanujan-dm6j8c
+cargo test --all
 cargo build --release -p gmotion-cli
-```
-
-Binarul iese in `rust/target/release/gmotion.exe`. Apoi, in ordine:
-
-```
-gmotion diagnostic --json
+cd target\release
 ```
 
 ```
-gmotion servere
+.\gmotion.exe diagnostic --json
 ```
 
 ```
-set GMOTION_PAROLA=parola-ta
-gmotion baze --server SRV01 --utilizator sa
+$env:GMOTION_PAROLA = "parola-ta"
+.\gmotion.exe baze --server SRV01 --utilizator sa
 ```
 
-(Pentru autentificare integrata Windows, lasa `--utilizator` afara de tot.)
+(Pentru autentificare integrata Windows, lasa `--utilizator` afara de tot si
+nu seta parola. Daca poti, ruleaza `baze` o data in fiecare fel.)
 
 ```
-gmotion instantaneu --server SRV01 --baze Referinta,Client1,Client2 -o instantaneu.json --nota "paritate"
+Measure-Command { .\gmotion.exe instantaneu --server SRV01 --utilizator sa --baze Referinta,Client1,Client2 -o instantaneu.json --nota "paritate" } | Select-Object TotalSeconds
 ```
 
-```
-gmotion compara --sursa instantaneu.json --referinta Referinta --json > rust.json
-```
+Trimite incoace:
 
-Trimite incoace `diagnostic`, `rust.json` si `instantaneu.json`, plus lista de
-obiecte pe care o da versiunea Python pe aceleasi baze (exportul CSV din
-`mostenire/app.py` ajunge).
+1. ultimele ~20 de randuri din `cargo test --all` (pe Windows e singura proba
+   ca DPAPI cripteaza si decripteaza; daca pica ceva, tot textul testului);
+2. ieșirea lui `diagnostic --json` si a lui `baze`;
+3. `instantaneu.json` si numarul de secunde din `Measure-Command`;
+4. **optional, dar util:** in aplicatia Python, aceleasi baze si aceeasi
+   referinta, export CSV **fara niciun filtru activ** in lista, plus cat a
+   durat incarcarea (ora din primul si ultimul rand de jurnal). Asta dovedeste
+   ca driverul Rust aduce aceleasi obiecte ca `pyodbc`, si da comparatia de
+   viteza.
 
 **Daca o comanda cade, trimite mesajul exact.** Are un cod de forma
 `GM-DB-001`, si din el ajung direct la cauza.
@@ -111,6 +115,12 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 - **Testul de conformitate care cade nu inseamna fixture greșit.** Presupunerea
   implicita e ca portul Rust e greșit. Fixture-ul se regenereaza doar explicit,
   prin `unelte/regenereaza-fixture.sh`, cu motivul in `JURNAL.md`.
+- **Un container nou nu are tintele wasm32 si windows-msvc.** Poarta le sare
+  si iese tot „verde". Citeste lista de verificari sarite; instaleaza-le cu
+  `rustup target add wasm32-unknown-unknown x86_64-pc-windows-msvc`.
+- **`paritate.py` ruleaza binarul pe care i-l dai, nu sursa.** Dupa o
+  modificare in Rust, reconstruieste inainte de a citi raportul — altfel
+  masori binarul vechi. (Poarta il reconstruieste singura.)
 - **`mostenire/` nu se atinge.** Poarta cade pe orice modificare de conținut
   acolo. Daca ai nevoie de o schimbare in Python, discuta intai: probabil
   insemna ca trebuie regenerate fixture-urile.
