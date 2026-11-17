@@ -159,13 +159,11 @@ fn fluxul_complet_pe_instantaneu() {
     let t = out(&o);
     // un bloc modificat apare cu ambele versiuni si cu bucata schimbata marcata
     assert!(
-        t.lines()
-            .any(|l| l.starts_with("- ") && l.contains("[-1-]")),
+        t.lines().any(|l| l.contains(" - ") && l.contains("[-1-]")),
         "lipseste versiunea veche marcata:\n{t}"
     );
     assert!(
-        t.lines()
-            .any(|l| l.starts_with("+ ") && l.contains("{+0+}")),
+        t.lines().any(|l| l.contains(" + ") && l.contains("{+0+}")),
         "lipseste versiunea noua marcata:\n{t}"
     );
 

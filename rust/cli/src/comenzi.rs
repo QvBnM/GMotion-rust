@@ -465,10 +465,9 @@ pub fn diferente(
             "obiectul {obiect:?} nu exista in ambele baze ({referinta} si {baza})"
         ));
     };
-    let (d, rezumat) = modul::diferente_obiect(
-        &gmotion_core::pregateste_afisare(&r.definitie),
-        &gmotion_core::pregateste_afisare(&c.definitie),
-    );
+    let text_ref = gmotion_core::pregateste_afisare(&r.definitie);
+    let text_tinta = gmotion_core::pregateste_afisare(&c.definitie);
+    let (d, rezumat) = modul::diferente_obiect(&text_ref, &text_tinta);
 
     match format {
         Format::Json => {
@@ -490,70 +489,219 @@ pub fn diferente(
             .map_err(|e| e.to_string())
         }
         Format::Text => {
-            println!("{obiect}: {referinta} -> {baza}");
-            println!("{rezumat}\n");
-            for rand in &d {
-                for linie in randuri_text(rand) {
-                    println!("{}", afisare::fara_control(&linie));
-                }
+            use std::io::IsTerminal;
+            let culori = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
+            let (linii, locuri) = text_diferente(&d, &text_ref, &text_tinta, culori);
+            println!(
+                "{}",
+                afisare::fara_control(&format!("{obiect}: {referinta} -> {baza}"))
+            );
+            println!("{rezumat}");
+            if !locuri.is_empty() {
+                let lista: Vec<&str> = locuri.iter().take(20).map(String::as_str).collect();
+                let rest = locuri.len().saturating_sub(20);
+                println!(
+                    "Diferente la liniile (referinta/tinta): {}{}",
+                    lista.join(", "),
+                    if rest > 0 {
+                        format!(" si inca {rest}")
+                    } else {
+                        String::new()
+                    }
+                );
+            }
+            println!();
+            for linie in linii {
+                println!("{linie}");
             }
             Ok(())
         }
     }
 }
 
-/// Randurile de text pentru un bloc din `diferente`.
+/// Textul lui `gmotion diferente`: tot obiectul, ca in editorul din v3.4, cu
+/// numerele de linie din referinta si din tinta, plus locurile diferentelor
+/// (pentru rezumatul de sus).
 ///
-/// Un bloc modificat se arata cu **ambele** versiuni, ca `git diff
-/// --word-diff`: `-` referinta, `+` baza comparata, iar bucatile schimbate in
-/// interiorul liniei intre `[-...-]` / `{+...+}`. Inainte se arata doar
-/// versiunea noua cu `~`, deci nu se vedea ce s-a schimbat — iar o diferenta
-/// de un spatiu intr-un string era invizibila. Gasit pe
-/// `GenerateOrderByRecommendedOrder`, la a doua rulare pe Windows.
-fn randuri_text(rand: &modul::Diferenta) -> Vec<String> {
-    let cu_semn = |semn: &str, text: &str| -> Vec<String> {
-        text.lines().map(|l| format!("{semn} {l}")).collect()
+/// Un bloc modificat se arata cu **ambele** versiuni: `-` referinta, `+` baza
+/// comparata. Bucatile schimbate din linie se evidentiaza: pe terminal cu
+/// culoare inversata (rosu / verde), redirectat in fisier cu `[-...-]` /
+/// `{+...+}`, ca `git diff --word-diff`. Pana la a doua rulare pe Windows se
+/// arata doar versiunea noua cu `~`, deci nu se vedea ce s-a schimbat.
+fn text_diferente(
+    d: &[modul::Diferenta],
+    text_ref: &str,
+    text_tinta: &str,
+    culori: bool,
+) -> (Vec<String>, Vec<String>) {
+    // Linia reala de start a fiecarui bloc: segmentarea arunca liniile goale si
+    // blocurile care sunt doar comentariu, deci numararea pe blocuri ar da
+    // numere gresite si ar ascunde liniile acelea. Golurile se completeaza din
+    // textul original, ca context.
+    let start_ref = gmotion_core::linii_start_blocuri(
+        text_ref,
+        &gmotion_core::split_statements(text_ref, false),
+    );
+    let start_tinta = gmotion_core::linii_start_blocuri(
+        text_tinta,
+        &gmotion_core::split_statements(text_tinta, false),
+    );
+    let original_ref: Vec<&str> = text_ref.lines().collect();
+    let original_tinta: Vec<&str> = text_tinta.lines().collect();
+    const ROSU: &str = "\x1b[31m";
+    const VERDE: &str = "\x1b[32m";
+    const INVERS: &str = "\x1b[7m";
+    const FARA_INVERS: &str = "\x1b[27m";
+    const NORMAL: &str = "\x1b[0m";
+    // Caracterele de control din cod (venit din baze) nu ajung pe terminal;
+    // culorile se adauga abia dupa curatare.
+    let curat = |s: &str| afisare::fara_control(s);
+    let evidentiat =
+        |bucati: &Option<Vec<modul::Bucata>>, simplu: &Option<String>, semn: char| -> String {
+            let (deschis, inchis) = match (culori, semn) {
+                (true, _) => (INVERS, FARA_INVERS),
+                (false, '-') => ("[-", "-]"),
+                (false, _) => ("{+", "+}"),
+            };
+            match bucati {
+                Some(b) => b
+                    .iter()
+                    .map(|x| {
+                        let text = curat(&x.text);
+                        if x.marcaj.is_some() {
+                            // marcajul se inchide la capat de linie si se redeschide
+                            // pe urmatoarea, ca fiecare linie sa fie completa
+                            text.split('\n')
+                                .map(|bucata| format!("{deschis}{bucata}{inchis}"))
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        } else {
+                            text
+                        }
+                    })
+                    .collect(),
+                None => curat(simplu.as_deref().unwrap_or("")),
+            }
+        };
+    let rand = |r: Option<usize>, t: Option<usize>, semn: char, text: &str| -> String {
+        let nr = |n: Option<usize>| n.map_or("     ".to_string(), |n| format!("{n:>5}"));
+        let culoare = match (culori, semn) {
+            (true, '-') => ROSU,
+            (true, '+') => VERDE,
+            _ => "",
+        };
+        let sfarsit = if culoare.is_empty() { "" } else { NORMAL };
+        format!("{} {} {culoare}{semn} {text}{sfarsit}", nr(r), nr(t))
     };
-    let evidentiat = |bucati: &Option<Vec<modul::Bucata>>,
-                      simplu: &Option<String>,
-                      deschis: &str,
-                      inchis: &str| {
-        match bucati {
-            Some(b) => b
-                .iter()
-                .map(|x| {
-                    if x.marcaj.is_some() {
-                        format!("{deschis}{}{inchis}", x.text)
-                    } else {
-                        x.text.clone()
-                    }
-                })
-                .collect::<String>(),
-            None => simplu.clone().unwrap_or_default(),
+
+    // Numarul de linie (1-based) al liniei `k` din blocul `b`; daca blocul nu
+    // are start cunoscut, continua dupa ultima linie scrisa.
+    let mut bloc_ref = 0usize;
+    let mut bloc_tinta = 0usize;
+    let (mut ultim_ref, mut ultim_tinta) = (0usize, 0usize);
+    let start = |starturi: &[usize], bloc: &mut usize, ultim: usize| -> usize {
+        let s = starturi.get(*bloc).map_or(ultim, |&s| s.max(ultim));
+        *bloc += 1;
+        s
+    };
+    // Liniile originale dintre doua blocuri (goale sau doar comentariu), ca
+    // context: intervale 0-based, capatul din dreapta exclusiv.
+    let completeaza = |linii: &mut Vec<String>, r: (usize, usize), t: (usize, usize)| {
+        let nr = r.1.saturating_sub(r.0).max(t.1.saturating_sub(t.0));
+        for i in 0..nr {
+            let lr = (r.0 + i < r.1).then_some(r.0 + i);
+            let lt = (t.0 + i < t.1).then_some(t.0 + i);
+            let text = lt
+                .and_then(|k| original_tinta.get(k))
+                .or_else(|| lr.and_then(|k| original_ref.get(k)))
+                .copied()
+                .unwrap_or("");
+            linii.push(rand(
+                lr.map(|k| k + 1),
+                lt.map(|k| k + 1),
+                ' ',
+                &curat(text),
+            ));
         }
     };
-    match rand.fel {
-        modul::Fel::Egal => cu_semn(
-            " ",
-            rand.stanga
-                .as_deref()
-                .or(rand.dreapta.as_deref())
-                .unwrap_or(""),
-        ),
-        modul::Fel::Sters => cu_semn("-", rand.stanga.as_deref().unwrap_or("")),
-        modul::Fel::Adaugat => cu_semn("+", rand.dreapta.as_deref().unwrap_or("")),
-        modul::Fel::Modificat => {
-            let mut v = cu_semn(
-                "-",
-                &evidentiat(&rand.bucati_stanga, &rand.stanga, "[-", "-]"),
-            );
-            v.extend(cu_semn(
-                "+",
-                &evidentiat(&rand.bucati_dreapta, &rand.dreapta, "{+", "+}"),
-            ));
-            v
+    let mut linii = Vec::new();
+    let mut locuri = Vec::new();
+    for x in d {
+        let are_ref = x.stanga.is_some();
+        let are_tinta = x.dreapta.is_some();
+        let s_ref = if are_ref {
+            start(&start_ref, &mut bloc_ref, ultim_ref)
+        } else {
+            ultim_ref
+        };
+        let s_tinta = if are_tinta {
+            start(&start_tinta, &mut bloc_tinta, ultim_tinta)
+        } else {
+            ultim_tinta
+        };
+        completeaza(&mut linii, (ultim_ref, s_ref), (ultim_tinta, s_tinta));
+        match x.fel {
+            modul::Fel::Egal => {
+                let s: Vec<String> = x
+                    .stanga
+                    .as_deref()
+                    .unwrap_or("")
+                    .lines()
+                    .map(curat)
+                    .collect();
+                let dr: Vec<String> = x
+                    .dreapta
+                    .as_deref()
+                    .unwrap_or("")
+                    .lines()
+                    .map(curat)
+                    .collect();
+                for i in 0..s.len().max(dr.len()) {
+                    let r = (i < s.len()).then_some(s_ref + i + 1);
+                    let t = (i < dr.len()).then_some(s_tinta + i + 1);
+                    let text = dr.get(i).or(s.get(i)).map(String::as_str).unwrap_or("");
+                    linii.push(rand(r, t, ' ', text));
+                }
+                ultim_ref = s_ref + s.len();
+                ultim_tinta = s_tinta + dr.len();
+            }
+            modul::Fel::Sters => {
+                locuri.push(format!("{}/-", s_ref + 1));
+                let text = curat(x.stanga.as_deref().unwrap_or(""));
+                for (i, l) in text.lines().enumerate() {
+                    linii.push(rand(Some(s_ref + i + 1), None, '-', l));
+                }
+                ultim_ref = s_ref + text.lines().count();
+            }
+            modul::Fel::Adaugat => {
+                locuri.push(format!("-/{}", s_tinta + 1));
+                let text = curat(x.dreapta.as_deref().unwrap_or(""));
+                for (i, l) in text.lines().enumerate() {
+                    linii.push(rand(None, Some(s_tinta + i + 1), '+', l));
+                }
+                ultim_tinta = s_tinta + text.lines().count();
+            }
+            modul::Fel::Modificat => {
+                locuri.push(format!("{}/{}", s_ref + 1, s_tinta + 1));
+                let vechi = evidentiat(&x.bucati_stanga, &x.stanga, '-');
+                for (i, l) in vechi.lines().enumerate() {
+                    linii.push(rand(Some(s_ref + i + 1), None, '-', l));
+                }
+                let nou = evidentiat(&x.bucati_dreapta, &x.dreapta, '+');
+                for (i, l) in nou.lines().enumerate() {
+                    linii.push(rand(None, Some(s_tinta + i + 1), '+', l));
+                }
+                ultim_ref = s_ref + vechi.lines().count();
+                ultim_tinta = s_tinta + nou.lines().count();
+            }
         }
     }
+    completeaza(
+        &mut linii,
+        (ultim_ref, original_ref.len()),
+        (ultim_tinta, original_tinta.len()),
+    );
+    (linii, locuri)
 }
 
 #[cfg(test)]
@@ -562,26 +710,40 @@ mod teste {
 
     #[test]
     fn randul_modificat_arata_ambele_versiuni_si_ce_s_a_schimbat() {
-        let (d, _) = modul::diferente_obiect(
-            "SELECT 1\n\nSELECT dbo.ResStr('Nu s-au gasit detalii pentru partenerul ') + x",
-            "SELECT 1\n\nSELECT dbo.ResStr('Nu s-au gasit detalii pentru partenerul  ') + x",
-        );
-        let text: Vec<String> = d.iter().flat_map(randuri_text).collect();
-        let vechi = text
+        let a = "SELECT 1\n\nSELECT dbo.ResStr('nu s-au gasit detalii') + x";
+        let b = "SELECT 1\n\nEXEC p\n\nSELECT dbo.ResStr('Nu s-au gasit detalii') + x";
+        let (d, _) = modul::diferente_obiect(a, b);
+        let (linii, locuri) = text_diferente(&d, a, b, false);
+        let vechi = linii
             .iter()
-            .find(|l| l.starts_with("- "))
-            .expect("lipseste versiunea veche");
-        let noua = text
+            .find(|l| l.contains("- SELECT dbo"))
+            .expect("versiunea veche");
+        let noua = linii
             .iter()
-            .find(|l| l.starts_with("+ "))
-            .expect("lipseste versiunea noua");
+            .find(|l| l.contains("+ SELECT dbo"))
+            .expect("versiunea noua");
+        assert!(vechi.contains("[-nu-]"), "{vechi}");
+        assert!(noua.contains("{+Nu+}"), "{noua}");
+        // numerele de linie: referinta are 3 linii, tinta 5
+        assert!(vechi.trim_start().starts_with('3'), "{vechi}");
+        assert!(noua.trim_start().starts_with('5'), "{noua}");
+        assert!(linii.iter().any(|l| l.contains("+ EXEC p")));
+        assert_eq!(locuri, ["-/3", "3/5"], "{linii:#?}");
         assert!(
-            vechi.contains("[-") || noua.contains("{+"),
-            "schimbarea nu e marcata:\n{vechi}\n{noua}"
+            !linii.iter().any(|l| l.contains('\u{1b}')),
+            "fara culori cand nu se cer"
         );
-        assert_ne!(
-            vechi.trim_start_matches("- "),
-            noua.trim_start_matches("+ ")
+        // tot obiectul, inclusiv linia goala dintre blocuri, fiecare o data
+        assert_eq!(linii.iter().filter(|l| l.contains("SELECT 1")).count(), 1);
+        // linia goala 2 din referinta corespunde liniei goale 4 din tinta; linia
+        // goala 2 din tinta e inaintea lui EXEC p, adaugat
+        assert!(linii.iter().any(|l| l.trim() == "2     4"), "{linii:#?}");
+        assert!(linii.iter().any(|l| l.trim() == "2"), "{linii:#?}");
+        assert_eq!(linii.len(), 6, "{linii:#?}");
+        let (cu_culori, _) = text_diferente(&d, a, b, true);
+        assert!(
+            cu_culori.iter().any(|l| l.contains("\u{1b}[7mNu")),
+            "{cu_culori:#?}"
         );
     }
 
