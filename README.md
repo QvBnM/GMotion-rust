@@ -1,202 +1,198 @@
-# GMotion — SQL Diff & Deploy
+# GMotion — rescriere in Rust
 
-Aplicatie desktop (Windows) care compara obiectele de cod dintre baze SQL
-Server. Alegi o baza de **REFERINTA** si una sau mai multe baze **TINTA**,
-aplicatia arata diferentele intr-un editor side-by-side editabil, iar la final
-genereaza scripturi `.sql` de deploy (`CREATE OR ALTER`) pentru obiectele pe
-care le-ai rezolvat.
+Rescrierea GMotion in Rust, ca platforma pe module.
 
-Obiecte acoperite: proceduri (`P`), view-uri (`V`), functii (`FN`, `IF`, `TF`),
-triggere (`TR`) — citite din `sys.sql_modules`.
+Porneste din aceleasi commit-uri ca repo-ul original (`GMotion`), care rămâne
+versiunea Python in productie. Codul Python e pastrat aici neatins, ca
+referinta: din el se valideaza fiecare bucata portata.
 
-Versiunea curenta: **3.4** (tag `v3.4`).
-
-> Rescrierea in Rust se face separat, in repo-ul `GMotion-rust`, care porneste
-> din aceleasi commit-uri de baza. Acest repo rămâne versiunea Python, in
-> productie.
+**Originalul:** `QvBnM/GMotion`, tag `v3.4`. Problemele versiunii Python sunt
+documentate in README-ul de acolo; aici le reiau doar cand explica o decizie de
+proiectare.
 
 ---
 
-## Structura
+## De ce rescriere, si nu reparatii
 
-| Fisier | Linii | Rol |
-|---|---:|---|
-| `app.py` | 1102 | backend: pyodbc, sesiuni DPAPI, deployer, controale fereastra, `main()` |
-| `motor.py` | 280 | motorul de comparare (normalizare, segmentare, aliniere) |
-| `ui.py` | 5224 | interfata completa: HTML + CSS (6 teme) + ~3500 linii JS |
-| `GMotion.spec` | — | specificatia PyInstaller |
-| `BUILD.bat` | — | scriptul de build |
-| `docs/README-original.md` | — | documentatia care insotea versiunea 3.4 |
+Trei motive, in ordinea greutatii.
 
-Stack: Python + pywebview, interfata randata de WebView2 (motorul Edge).
+**1. Motorul de comparare exista in doua copii care au divergat deja.**
+`motor.py` (backend: lista, scoruri, rezumate) si portul lui din `ui.py`
+(editorul live) ar trebui sa dea rezultate identice. Masurat pe 24 de cazuri:
+8 diverg. In doua, diferenta ajunge in fata utilizatorului — un comentariu bloc
+pe mai multe linii face `motor.py` sa raporteze doua blocuri sterse care nu
+exista. Vezi `rust/referinta/README.md`.
+
+Rust rezolva asta structural: acelasi cod compileaza in binar nativ si in
+WebAssembly, deci backendul si editorul live folosesc fizic acelasi motor. Nu
+mai pot diverge.
+
+**2. Dependentele de pe masina tinta.** Versiunea Python cere WebView2 Runtime
+si un driver ODBC instalate pe server. O fereastra nativa cu renderer software
+nu cere niciunul, iar un driver TDS nativ (`tiberius`) ar scoate si ODBC din
+ecuatie. Rezultatul e un binar mic, autonom, care merge si pe un Server 2012
+curat.
+
+**3. Memoria.** `aduce_obiecte()` tine, pentru fiecare obiect din fiecare baza,
+o lista Python de token-uri pe langa text. Fiecare token e un obiect separat cu
+antetul lui. In Rust token-urile sunt felii din acelasi tampon.
+
+Viteza bruta **nu** e un motiv puternic: masurat, castigul pe munca
+comparabila e ~4x, nu ordinele de magnitudine la care te-ai aștepta. Cifrele si
+explicatia sunt in `rust/referinta/README.md`.
+
+---
+
+## Stare
+
+| Componenta | Stare |
+|---|---|
+| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 31 teste** |
+| `rust/referinta` — harness de conformitate + bench | **gata** |
+| `rust/db` — conexiune SQL Server, descoperire instante, citire obiecte | de scris |
+| `rust/platforma` — sesiuni DPAPI, configurare, registru de module | de scris |
+| `rust/fereastra` — fereastra nativa, teme, componente | de scris |
+| `rust/module/diff-obiecte` — modulul 1 | de scris |
+| `rust/app` — binarul | de scris |
+
+### Ce acopera `gmotion-core`
+
+```
+seqmatch.rs     difflib.SequenceMatcher fidel (autojunk=False)
+normalizare.rs  norm, pregateste_afisare, hash, rotunjire bancara, scor
+segmentare.rs   split pe instructiuni, cu urmarirea literalelor,
+                comentariilor bloc, parantezelor si stivei CASE/BEGIN/END
+diff.rs         diferente in interiorul blocului, aliniere DP, rezumate
+```
+
+Porteaza **semantica JS**, nu pe cea din `motor.py`. Portul JS e varianta mai
+noua si corecta; `motor.py` a rams in urma. Testul de conformitate verifica
+toate cele 24 de cazuri pe 8 campuri contra fixture-ului produs de motorul JS,
+si trece.
 
 ---
 
 ## Rulare
 
 ```
-pip install -r requirements.txt
-python app.py
+cd rust
+cargo test                              # 31 teste, inclusiv conformitatea cu motorul JS
+cargo clippy --all-targets              # fara avertismente
+cargo run --release --example bench     # masuratori (cere corpus_bench.json)
 ```
 
-`GMOTION_GUI` suprascrie motorul de randare. Implicit `qt` — vezi problema 1.
-
-## Build
-
-Dublu-click pe `BUILD.bat`, sau direct:
+Regenerarea fixture-urilor, cand se schimba `ui.py` sau `motor.py` in original:
 
 ```
-pyinstaller --clean GMotion.spec
+python3 -I rust/referinta/genereaza_corpus.py   # corpus de bench (negitat)
+node     rust/referinta/genereaza.mjs           # fixture de referinta (motorul JS)
+python3 -I rust/referinta/genereaza.py          # rezultatele motorului Python
+python3 -I rust/referinta/compara.py            # raport de divergente
 ```
 
-Rezultat: `dist\GMotion.exe`, un singur fisier, de copiat la client.
-
-Build-ul **nu** se ruleaza ca Administrator; `BUILD.bat` refuza explicit.
-Executabilul final nu cere UAC.
-
-## Cerinte pe masina clientului
-
-- Windows
-- Un driver ODBC pentru SQL Server (18, 17, Native Client sau generic).
-  `gaseste_driver_sql()` alege automat cel mai nou instalat.
-- **WebView2 Runtime** (motorul Edge). Prezent pe Windows 10/11 modern; pe
-  Windows vechi se instaleaza separat de la Microsoft.
+Versiunea Python se ruleaza ca inainte: `pip install -r requirements.txt`,
+`python app.py`.
 
 ---
 
-## Probleme cunoscute
+## Structura tinta
 
-### 1. Codul cere Qt, executabilul livreaza WebView2
+Doua decizii stau la baza:
 
-`app.py` porneste implicit pe `gui='qt'` (`gui_disponibil()` returneaza `'qt'`
-daca `GMOTION_GUI` nu e setat), iar comentariile din el explica de ce: pe
-servere fara WebView2 pywebview cadea pe motorul Internet Explorer, care nu
-suporta variabile CSS, si interfata ieșea alb-negru. Solutia descrisa e
-includerea Qt WebEngine in executabil.
+1. **Platforma vs module.** Ce e comun tuturor uneltelor sta in platforma.
+   Fiecare unealta e un crate separat. Adaugarea modulului 2 nu trebuie sa
+   atinga modulul 1.
+2. **Un fisier se separa daca are o cauza de eroare proprie.** Nu despart ca sa
+   bifez module. De-asta `core` are `normalizare` / `segmentare` / `diff`
+   separat — se strica fiecare altfel: fals „modificat", blocuri taiate prost,
+   blocuri imperecheate greșit. Partea de Win32, in schimb, va fi un singur
+   fisier: DPI, monitoare, DWM si handle-uri sunt aceeasi categorie de bug.
 
-**Solutia nu a fost construita.** Verificat in log-ul de build al versiunii 3.4:
+```
+rust/
+  Cargo.toml                workspace
+  core/          GATA      normalizare, segmentare, diff, seqmatch
+  referinta/     GATA      harness de conformitate + bench
+  db/                      conexiune, descoperire instante, citire obiecte
+  platforma/               sesiuni (DPAPI), configurare, registru de module
+  fereastra/               fereastra nativa, teme, componente comune
+  module/
+    diff-obiecte/          modulul 1: orchestrare + ecrane + generator de deploy
+    upgrade/               modulul 2
+    alocare-multidim/      modulul 3
+    stoc/                  modulul 4
+  app/                     binarul: porneste fereastra si ruteaza catre module
+```
 
-- `GMotion.spec` declara `hiddenimports=[..., 'webview.platforms.edgechromium', ...]`
-  — WebView2, nu Qt
-- `Analysis-00.toc` nu conține **niciun** modul `PyQt5.Qt*` colectat
-- `QtWebEngineProcess.exe`, procesul auxiliar de care Qt WebEngine are nevoie,
-  lipseste complet
-- build-ul a raportat `missing module named 'qtpy.QtWebEngineWidgets'`,
-  `missing module named 'qtpy.QtWebEngineCore'` si
-  `missing module named 'PyQt5.QtWebKitWidgets'`
-- `BUILD.bat` instaleaza `pyinstaller pyodbc pywebview` — fara `PyQt5` si
-  `PyQtWebEngine`
-- `BUILD.bat` opreste `msedgewebview2.exe`, proces fara rol dupa trecerea pe Qt
+### Contractul de modul
 
-Cronologia confirma: `GMotion.spec` si `BUILD.bat` sunt din 21 iulie, `app.py`
-din 29 iulie. Codul a fost schimbat, pipeline-ul de build nu.
+**Platforma ofera:** o conexiune deja stabilita (modulul nu reintreaba
+utilizatorul), un spatiu de nume propriu pentru persistenta, o zona de ecran si
+navigatia catre ea, jurnalul, temele si fereastra.
 
-Consecinta practica: pe o masina fara WebView2 Runtime aplicatia nu are cu ce sa
-randeze, desi codul crede ca motorul vine inclus.
+**Modulul declara:** nume si iconita, ecranele lui si cel de intrare, ce expune
+catre interfata, si de ce are nevoie de la platforma (ex: „una sau mai multe
+baze", „o singura baza", „doua baze si o mapare").
 
-**Decizie deschisa.** Doua variante, fiecare cu un cost real:
+### Doua lucruri de corectat fata de versiunea Python
 
-| | Independent de masina tinta | Dimensiune exe | `--onefile` |
-|---|---|---|---|
-| Qt impachetat, cum cere `app.py` | da | 46 MB -> ~250 MB | nu, obligatoriu `--onedir` |
-| WebView2, cum e acum | nu, cere Runtime instalat | 46 MB | da |
+**Sesiunile se vor ciocni.** Cheia de sesiune e acum doar numele bazei de
+referinta (`_cale_sesiune(referinta)` -> `<slug>.dat`). Daca modulul Upgrade
+salveaza progres pe aceeasi baza, suprascrie sesiunea modulului de diff. Cheia
+trebuie sa devina `<modul>/<slug>.dat`.
 
-Pana la decizie, `GMotion.spec` si `BUILD.bat` rămân neatinse, ca sa nu se
-schimbe in liniste comportamentul livrat.
-
-Daca se merge pe Qt, de corectat si: instalarea sa vina din
-`requirements.txt`, o verificare de import a `PyQt5.QtWebEngineWidgets` inainte
-de compilare, si `taskkill` pe `QtWebEngineProcess.exe` in loc de
-`msedgewebview2.exe`.
-
-### 2. Motorul de comparare e implementat de doua ori, si a divergat
-
-`motor.py` (Python, folosit de backend pentru lista si rezumate) si portul lui
-din `ui.py` (JavaScript, folosit de editorul live) ar trebui sa dea rezultate
-identice. Portul JS include o reimplementare de mana a lui
-`difflib.SequenceMatcher`, un MD5 scris manual si `_round_py()` — o imitatie a
-rotunjirii bancare din Python, fiindca `Math.round` din JS ar da alte scoruri.
-
-Masurat pe 24 de cazuri T-SQL: **8 diverg**. Normalizarea si scorul de
-similaritate sunt identice; toata divergenta vine din segmentarea in blocuri si
-de acolo se propaga in tipurile de diferenta. Doua ajung in fata
-utilizatorului:
-
-| Caz | Lista (`motor.py`) | Editor (JS) |
-|---|---|---|
-| `DECLARE` sters din antet | `1 modificate` | `1 sterse` |
-| comentariu bloc pe mai multe linii | `2 sterse` | `diferente minore` |
-
-In al doilea, un comentariu bloc multiline face `motor.py` sa raporteze doua
-blocuri sterse **care nu exista** — fals pozitiv in lista, care dispare cand
-deschizi obiectul.
-
-Cauza: portul JS a fost dezvoltat mai departe si nu a fost adus inapoi in
-Python. Are, in plus:
-
-- splitare si pe `CREATE` si `DECLARE`
-- urmarirea literalelor, a comentariilor bloc, a adancimii parantezelor si a
-  stivei `CASE`/`BEGIN`/`END`, deci nu mai taie in mijlocul lor
-- `_blocEsteContinuat` (cursor `FOR`, `INSERT ... SELECT`)
-- `_unesteBlocuriCompuse`, `_unesteCicluriCursor`
-- `_perechiReplace` — aliniere prin programare dinamica pe similaritate, in loc
-  de imperechere pozitionala
-
-Daca se face o corectie in Python fara migrare, portul JS e varianta corecta de
-copiat. Harness-ul care masoara divergenta se afla in repo-ul `GMotion-rust`,
-sub `rust/referinta/`.
-
-### 3. Consum de memorie la incarcare
-
-In `aduce_obiecte()`, pentru fiecare obiect din fiecare baza se pastreaza
-simultan `afisare`, `normalizat`, `hash` **si `tok`** — o lista Python de
-token-uri. Lista de string-uri e partea scumpa: fiecare token e un obiect
-Python separat, cu antetul lui. Inmultit cu numarul de cuvinte, de obiecte si
-de baze. Fetch-ul ruleaza pe 4 fire in paralel, deci varful e simultan.
-
-Practic, cea mai mare problema de rulare — nu GPU-ul si nu viteza CPU.
-
-**Fix tintit:** `tok` se calculeaza la cerere, doar pentru obiectele la care
-hash-ul difera. Pentru cele identice, hash-ul e suficient si token-urile nu sunt
-niciodata folosite.
-
-### 4. Performanta CPU
-
-`difflib.SequenceMatcher` e Python pur. Per obiect diferit se ruleaza un diff pe
-token-uri (`scor_similaritate`) plus unul pe blocuri (`rezumat_rapid`), pe un
-singur fir. Masurat pe 400 perechi de proceduri (~20.500 linii): 887 ms pentru
-scor + rezumat.
-
-### 5. GPU
-
-Accelerarea GPU produce artefacte pe RDP si pe masini fara GPU real, si e deja
-dezactivata explicit in `app.py` prin
-`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`. **Nu** e cauza incetinelii — vezi
-punctele 3 si 4.
-
-### 6. Inchiderea procesului
-
-Trei locuri din `app.py` folosesc `os._exit(0)`, plus fire de kill cu
-`time.sleep`, fiindca motorul de randare lasa procese copil si handle-uri
-deschise pe `.exe`, iar fara ele executabilul rămâne „in uz" si nu poate fi
-suprascris de scriptul de build.
-
-### 7. Minor
-
-Mesajul de eroare la pornire cere „ODBC Driver 17", dar `gaseste_driver_sql()`
-prefera versiunea cea mai noua (18 > 17 > ... > Native Client > generic).
-Mesajul ar trebui sa reflecte logica reala.
+**Expunerea catre interfata trebuie sa devina rutare.** Clasa `Api` din
+`app.py` expune metodele modulului de diff direct la nivelul de sus. Cu patru
+module, metodele comune (`test_conexiune`, `cauta_servere`, `progres`,
+`log_lines`, controalele de fereastra) stau la nivelul platformei si se scriu o
+singura data, iar cele specifice se inregistreaza cu prefix.
 
 ---
 
-## Securitate
+## Decizii nerezolvate
 
-- Nu cere drepturi de Administrator.
-- Parola SQL nu se scrie niciodata pe disc; se cere manual la fiecare
-  conectare si rămâne doar in memorie.
-- Sesiunile (progresul: ce e rezolvat, ce a fost trimis la deploy) se salveaza
-  criptate cu Windows DPAPI, legate de userul si masina curenta.
-- Numele bazelor sunt validate strict inainte de a intra in interogari.
-  Conexiunile folosesc `Encrypt=yes`.
-- Deployer-ul e doar **generat** ca fisier `.sql`; nu se aplica automat.
-- Fara server HTTP, fara port deschis, fara internet, fara telemetrie.
+**Driver SQL Server.** `tiberius` (TDS nativ, pur Rust) ar elimina complet
+cerinta de driver ODBC pe masina tinta, si are suport pentru descoperirea
+instantelor prin SQL Browser — ceea ce inlocuieste broadcast-ul UDP 1434 scris
+de mana in `app.py`. Alternativa, `odbc-api`, pastreaza comportamentul identic
+cu cel de azi, inclusiv autentificarea integrata Windows, dar rămâne dependenta
+de driverul instalat. De testat pe un server real inainte de a alege.
+
+**Toolkit-ul de interfata — riscul principal.** Lista de obiecte, filtrele,
+conectarea si deployer-ul se fac direct in orice toolkit nativ. Editorul de
+diferente nu: cel actual e un `textarea` cu un strat de evidentiere suprapus
+exact peste el, cu evidentiere pe token in interiorul liniei, numere de linie,
+minimap, conectori SVG intre panouri si scroll sincronizat pe ancore. Niciun
+toolkit nativ nu da asta din cutie — va fi nevoie de un view de text desenat
+manual.
+
+Pentru RDP si servere fara GPU, toolkit-ul trebuie sa aiba **renderer
+software** (Slint are). **Tauri nu e o opțiune:** foloseste WebView2 pe
+Windows, deci ar reintroduce exact dependenta pe care rescrierea o elimina.
+
+---
+
+## Plan
+
+Fiecare etapa = un branch si un PR, cu codul functional la final.
+
+1. **Harness de conformitate** — dovada divergentei, fixture de referinta.
+   *(facut)*
+2. **`gmotion-core`** — motorul, validat contra motorului JS. *(facut)*
+3. **Prototip de editor de diferente** in toolkit-ul ales. Scop: aflat cat
+   costa partea grea, inainte de a investi in restul. E singura componenta cu
+   incertitudine mare de efort.
+4. **`db`** — conexiune, descoperire instante, citire obiecte. Decizia
+   tiberius vs odbc-api se ia aici, cu un test pe un server real.
+5. **`platforma`** + contractul de modul — sesiuni cu spatiu de nume, registru,
+   rutare.
+6. **`module/diff-obiecte`** — orchestrare, ecrane, generator de deploy.
+   Primul modul complet in Rust.
+7. **Paritate verificata** — aceleasi baze comparate cu ambele versiuni,
+   rezultate identice. Abia dupa asta se retrage versiunea Python.
+8. **`module/upgrade`** — primul test real al contractului. Daca are nevoie de
+   modificari in platforma, contractul de la etapa 5 era greșit si se
+   corecteaza acum, cat e ieftin.
+
+Harness-ul de la etapa 1 e plasa de siguranta pentru tot ce urmeaza. Orice
+etapa care atinge motorul trebuie sa treaca `cargo test -p gmotion-core`.
