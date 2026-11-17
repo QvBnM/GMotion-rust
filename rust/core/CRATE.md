@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 14af2056368f4067 -->
+<!-- api-hash: 493aa5492cbdf985 -->
 
 ## Rol
 
@@ -21,10 +21,17 @@ proiectul.
 
 ## API public
 
+### `lexer`
+| Functie / tip | Ce face |
+|---|---|
+| `segmente(text) -> Vec<Segment>` | granitele cod / string / identificator / comentariu, in octeti |
+| `linii_go(text)` | liniile pe care `sqlcmd` le-ar lua drept separator `GO` |
+| `Segment`, `Fel` | tipurile rezultatului |
+
 ### `normalizare`
 | Functie | Ce face |
 |---|---|
-| `norm(s)` | normalizare pentru comparare: spatii, majuscule, comentarii |
+| `norm(s)` | normalizare pentru comparare: spatii, majuscule, comentarii — **doar pe cod**; string-urile si identificatorii ne-simpli raman neatinsi |
 | `normalizeaza(cod)` | forma canonica a unui obiect intreg |
 | `pregateste_afisare(cod)` | forma pentru afisare, pastreaza structura |
 | `unifica_linii(cod)` | normalizeaza terminatorii de linie |
@@ -61,7 +68,14 @@ proiectul.
 
 1. **Semantica portata e cea a motorului JS** din `mostenire/ui.py`, nu cea din
    `mostenire/motor.py`. Diferentele fata de `motor.py` sunt intentionate: sunt
-   corecturi de bug. Vezi `referinta/README.md`.
+   corecturi de bug. Vezi `referinta/README.md`. **Exceptie, din 2026-11-17:**
+   normalizarea nu mai atinge string-urile, identificatorii ne-simpli si
+   comentariile din string-uri (JS si v3.4 aveau bug-ul). Divergentele sunt
+   listate in `tests/conformitate.rs` (`DIVERGENTE_DELIBERATE`), nu ascunse
+   prin regenerarea fixture-ului.
+1b. **Doua texte cu aceeasi forma normalizata sunt identice; orice alta
+   diferenta e diferenta.** Decizia „identic" nu foloseste scorul (rotunjit).
+   `cheie_bloc` egala inseamna text normalizat egal (128 de biti de SHA-256).
 2. `scor_similaritate(x, x) == 100.0` pentru orice `x`.
 3. `norm` e idempotenta: `norm(norm(s)) == norm(s)`.
 4. `split_statements` nu taie niciodata in interiorul unui literal, al unui
@@ -85,6 +99,7 @@ proiectul.
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
 | Obiecte identice raportate ca „modificate" | normalizarea nu curata ceva | `src/normalizare.rs` |
+| O modificare reala raportata „identic" | o regula de cod a lovit intr-un string / comentariu: granitele din `lexer` | `src/lexer.rs`, `src/normalizare.rs` |
 | Scor absurd | `scor_similaritate` sau `round_py` | `src/normalizare.rs` |
 | Bloc taiat in mijlocul unui string / comentariu / `CASE` | urmarirea stivei si a literalelor | `src/segmentare.rs` |
 | `UNION`, cursor `FOR`, `INSERT ... SELECT` rupt in doua | `bloc_este_continuat` si uniunile de blocuri | `src/segmentare.rs` |

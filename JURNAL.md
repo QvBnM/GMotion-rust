@@ -370,6 +370,42 @@ versiunile livrate. Actualizarea dependentelor devine un commit vizibil
 
 ---
 
+## 2026-11-17 — Normalizarea nu mai atinge string-urile; „identic" fara scor
+
+**Context.** Auditul de la `f561bf9` a gasit modificari reale raportate
+„identic" (deci absente si din lista si din deploy), toate mostenite din v3.4
+si prezente si in motorul JS: regulile de normalizare mergeau pe tot textul,
+deci `'--- x'` sau `'/*'` stergeau codul de dupa, `'Activ'` = `'ACTIV'`,
+`[a b]` = `a b`, `Sales.dbo.Orders` = `Sales.Orders`; iar pe obiecte de
+10.000+ token-uri scorul 99,995 se rotunjea la 100 si „scor 100 -> identic".
+
+**Alternative.** (a) pastrat semantica JS/v3.4 (paritate perfecta, bug-ul
+ramane); (b) reparat in Rust si listat explicit fiecare divergenta; (c)
+reparat si regenerat fixture-ul JS.
+
+**Motiv.** (b). Paritatea a dovedit ca portul e fidel; nu face un bug corect.
+(c) e exact mecanismul interzis de regula 2 din `CLAUDE.md`: fixture-ul JS
+descrie ce face JS, si JS are bug-ul.
+
+**Ce s-a facut.** `core/src/lexer.rs` (granite cod / string / identificator /
+comentariu, comentarii bloc imbricate); regulile de normalizare se aplica doar
+pe cod; string-urile si identificatorii ne-simpli se pastreaza (identificatorii
+in litere mici). `comparare`: hash diferit = diferit, scorul afisat al unui
+obiect diferit e cel mult 99,99. `cheie_bloc`: 128 de biti de SHA-256 in loc de
+32 de MD5 (coliziune gasita la audit in 0,1 s); dependenta `md-5` scoasa din
+`core`.
+
+**Consecinte.** Conformitatea cu JS: 4 divergente, toate in `norm` pe cazuri cu
+string-uri, listate in `DIVERGENTE_DELIBERATE`. Paritatea cu v3.4:
+`paritate.py` clasifica diferentele pe obiecte cu constructii tratate altfel ca
+„de verificat", nu regresie; poarta ruleaza strict, cu `*.asteptari.json`.
+Pe fixture-ul real: 4 scoruri schimbate, verificate manual (diferente doar in
+string-uri; la `CaseM` v3.4 stergea cod dupa un `--` din string). Pe bazele
+reale ale lui Mihai: numarul de obiecte „diferite" poate creste — acelea sunt
+exact modificarile pe care v3.4 le ascundea.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

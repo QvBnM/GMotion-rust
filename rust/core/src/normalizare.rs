@@ -10,7 +10,14 @@
 //! **Se strica astfel:** doua obiecte identice apar drept „modificate" (sau
 //! invers, o diferenta reala e inghitita), si scoruri de similaritate absurde.
 //! Simptomul e in lista de obiecte, nu in editor.
+//!
+//! Regulile se aplica **doar pe cod**: string-urile, identificatorii care nu
+//! sunt simpli si comentariile sunt delimitate de `lexer`. Pana la auditul din
+//! 2026-11-17 regulile mergeau pe tot textul (ca in v3.4 si in motorul JS), si
+//! `'--- x'` sau `'/*'` stergeau cod real, iar `'Activ'` = `'ACTIV'`. Vezi
+//! `JURNAL.md`, „Normalizarea nu mai atinge string-urile".
 
+use crate::lexer::Fel;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use sha2::{Digest, Sha256};
@@ -21,8 +28,6 @@ pub const HINTURI: &str = concat!(
     "READUNCOMMITTED|READCOMMITTED|REPEATABLEREAD|SERIALIZABLE|PAGLOCK|NOWAIT"
 );
 
-static RE_COMENTARIU_BLOC: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?s)/\*.*?\*/").unwrap());
-static RE_COMENTARIU_LINIE: Lazy<Regex> = Lazy::new(|| Regex::new(r"--[^\n]*").unwrap());
 static RE_WITH_HINTURI: Lazy<Regex> = Lazy::new(|| {
     Regex::new(&format!(
         r"(?i)\bWITH\s*\(\s*(?:{h})(?:\s*,\s*(?:{h}))*\s*\)",
@@ -32,13 +37,26 @@ static RE_WITH_HINTURI: Lazy<Regex> = Lazy::new(|| {
 });
 static RE_HINTURI: Lazy<Regex> =
     Lazy::new(|| Regex::new(&format!(r"(?i)\b(?:{h})\b", h = HINTURI)).unwrap());
-static RE_DBO_PARANTEZAT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\[dbo\]\.").unwrap());
-static RE_DBO: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bdbo\.").unwrap());
+// `dbo.` se sterge doar cand e prima parte a numelui: in `Sales.dbo.Orders`
+// (baza.schema.tabel) nu e prefix, si stergerea il facea egal cu
+// `Sales.Orders` (schema.tabel). Crate-ul `regex` nu are lookbehind, deci
+// caracterul dinainte se captureaza si se pune la loc.
+static RE_DBO_PARANTEZAT: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)(^|[^.\w\]])\[dbo\]\.").unwrap());
+static RE_DBO: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(^|[^.\w\]])dbo\.").unwrap());
+static RE_IDENTIFICATOR_SIMPLU: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\[[\p{L}_@#][\p{L}\p{N}_@#$]*\]$").unwrap());
 static RE_COLLATE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\bCOLLATE\s+database_default\b").unwrap());
 static RE_PARANTEZE_DREPTE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[([^\[\]]+)\]").unwrap());
 static RE_SPATII: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").unwrap());
 static RE_SPATIU_ORFAN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+([,;)])").unwrap());
+
+/// Marcajele pentru bucatile care trec neatinse prin regulile de cod. Din zona
+/// de uz privat Unicode; aparitiile lor in cod se inlocuiesc inainte, ca un
+/// text sa nu poata fabrica un marcaj.
+const MARCAJ_START: char = '\u{E000}';
+const MARCAJ_SFARSIT: char = '\u{E001}';
 
 /// Normalizare, pe text care are deja terminatoarele de linie unificate.
 ///
@@ -47,21 +65,66 @@ static RE_SPATIU_ORFAN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+([,;)])").unw
 /// virgula sau de paranteza inchisa (ex: `char(24) ,`). Fara el, doua blocuri
 /// identice semantic ieseau cu normalizari diferite si erau marcate greșit ca
 /// `modificat`.
+///
+/// Pastrate exact: string-urile (`'...'`) si identificatorii in ghilimele.
+/// Identificatorii in paranteze: `[simplu]` devine `simplu` ca inainte, iar
+/// `[cu spatiu]` isi pastreaza parantezele (doar literele mici), fiindca
+/// `[a b]` (o coloana) nu e `a b` (coloana cu alias).
 pub fn norm(s: &str) -> String {
     if s.is_empty() {
         return String::new();
     }
-    let s = RE_COMENTARIU_BLOC.replace_all(s, " ");
-    let s = RE_COMENTARIU_LINIE.replace_all(&s, " ");
-    let s = RE_WITH_HINTURI.replace_all(&s, " ");
+    let mut cod = String::with_capacity(s.len());
+    let mut pastrate: Vec<String> = Vec::new();
+    // Marcajul nu e litera, cifra sau spatiu pentru regulile de cod (`\b`,
+    // `\s`), deci nu schimba nimic in jurul lui: restaurarea e exacta.
+    let mut pastreaza = |cod: &mut String, text: String| {
+        cod.push(MARCAJ_START);
+        cod.push_str(&pastrate.len().to_string());
+        cod.push(MARCAJ_SFARSIT);
+        pastrate.push(text);
+    };
+    for seg in crate::lexer::segmente(s) {
+        let t = &s[seg.start..seg.sfarsit];
+        match seg.fel {
+            Fel::Cod => cod.extend(t.chars().map(|c| match c {
+                MARCAJ_START | MARCAJ_SFARSIT => '\u{FFFD}',
+                // BOM-ul e spatiu pentru JS si pentru SQL Server; nu e cod.
+                '\u{FEFF}' => ' ',
+                c => c,
+            })),
+            Fel::ComentariuLinie | Fel::ComentariuBloc => cod.push(' '),
+            Fel::IdentificatorParanteze if RE_IDENTIFICATOR_SIMPLU.is_match(t) => cod.push_str(t),
+            Fel::IdentificatorParanteze => pastreaza(&mut cod, t.to_lowercase()),
+            Fel::Sir | Fel::IdentificatorGhilimele => pastreaza(&mut cod, t.to_string()),
+        }
+    }
+    let s = RE_WITH_HINTURI.replace_all(&cod, " ");
     let s = RE_HINTURI.replace_all(&s, " ");
-    let s = RE_DBO_PARANTEZAT.replace_all(&s, "");
-    let s = RE_DBO.replace_all(&s, "");
+    let s = RE_DBO_PARANTEZAT.replace_all(&s, "$1");
+    let s = RE_DBO.replace_all(&s, "$1");
     let s = RE_COLLATE.replace_all(&s, "");
     let s = RE_PARANTEZE_DREPTE.replace_all(&s, "$1");
     let s = RE_SPATII.replace_all(&s, " ");
     let s = RE_SPATIU_ORFAN.replace_all(&s, "$1");
-    s.trim().to_lowercase()
+    let s = s.trim().to_lowercase();
+    if pastrate.is_empty() {
+        return s;
+    }
+    let mut rez = String::with_capacity(s.len());
+    let mut rest = s.as_str();
+    while let Some(i) = rest.find(MARCAJ_START) {
+        let dupa = &rest[i + MARCAJ_START.len_utf8()..];
+        let Some(j) = dupa.find(MARCAJ_SFARSIT) else {
+            break;
+        };
+        rez.push_str(&rest[..i]);
+        let idx: usize = dupa[..j].parse().unwrap_or(usize::MAX);
+        rez.push_str(pastrate.get(idx).map(String::as_str).unwrap_or(""));
+        rest = &dupa[j + MARCAJ_SFARSIT.len_utf8()..];
+    }
+    rez.push_str(rest);
+    rez
 }
 
 /// Unifica terminatoarele de linie, apoi normalizeaza.
@@ -184,6 +247,95 @@ mod teste {
             norm("SELECT a FROM t")
         );
         assert_eq!(norm("/* bloc\npe linii */SELECT a"), norm("SELECT a"));
+    }
+
+    /// Perechi care **difera** si trebuie sa ramana diferite. Toate erau
+    /// raportate „identic" inainte de auditul din 2026-11-17 (si in v3.4).
+    #[test]
+    fn diferentele_din_string_uri_si_identificatori_nu_dispar() {
+        let perechi = [
+            // comentariu in string: tot codul de dupa disparea
+            (
+                "PRINT '--- start'; DELETE FROM Clienti",
+                "PRINT '--- start'; SELECT 1",
+            ),
+            ("SET @s = '--' + @a", "SET @s = '--' + @b"),
+            (
+                "SET @p = '/*'\nDELETE FROM t\nSET @q = '*/'",
+                "SET @p = '/*'\nSELECT 1\nSET @q = '*/'",
+            ),
+            // comentariu de linie care contine /*
+            (
+                "-- vezi /*\nDELETE FROM Clienti WHERE 1=1\n-- */",
+                "-- vezi /*\nDELETE FROM Clienti WHERE id=@id\n-- */",
+            ),
+            ("SELECT \"a--b\", x FROM t", "SELECT \"a--b\", y FROM u"),
+            // continutul literalelor
+            ("WHERE s = 'Activ'", "WHERE s = 'ACTIV'"),
+            ("SELECT N'Ăla'", "SELECT N'ăla'"),
+            ("SELECT 'a  b'", "SELECT 'a b'"),
+            ("SELECT 'a ,b'", "SELECT 'a,b'"),
+            ("WHERE c LIKE '[0-9]%'", "WHERE c LIKE '0-9%'"),
+            ("EXEC('SELECT * FROM dbo.t')", "EXEC('SELECT * FROM t')"),
+            ("PRINT 'NOLOCK'", "PRINT ' '"),
+            // identificatori
+            (
+                "SELECT * FROM Sales.dbo.Orders",
+                "SELECT * FROM Sales.Orders",
+            ),
+            ("SELECT [a b] FROM t", "SELECT a b FROM t"),
+            ("SELECT [a]]b] FROM t", "SELECT a]b] FROM t"),
+        ];
+        for (a, b) in perechi {
+            assert_ne!(norm(a), norm(b), "ar trebui sa difere:\n  {a:?}\n  {b:?}");
+        }
+    }
+
+    /// Cosmeticele raman cosmetice: reparatia nu are voie sa faca „modificat"
+    /// ce era corect „identic".
+    #[test]
+    fn cosmeticele_raman_identice() {
+        let perechi = [
+            ("SELECT  a\n  FROM t", "select a from t"),
+            ("SELECT a -- x\nFROM t", "SELECT a /* y */ FROM t"),
+            ("/* a /* b */ c */ SELECT 2", "SELECT 2"),
+            ("SELECT [a] FROM [dbo].[t]", "SELECT a FROM t"),
+            ("SELECT a FROM dbo.t WITH (NOLOCK)", "SELECT a FROM t"),
+            ("SELECT x COLLATE database_default , y", "SELECT x, y"),
+            ("\u{FEFF}SELECT 1", "SELECT 1"),
+            ("WHERE s = 'Activ'", "where S = 'Activ'"),
+            ("SELECT [Coloana_1] FROM t", "SELECT coloana_1 FROM t"),
+        ];
+        for (a, b) in perechi {
+            assert_eq!(
+                norm(a),
+                norm(b),
+                "ar trebui sa fie egale:\n  {a:?}\n  {b:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn norm_e_idempotenta_si_pe_string_uri_si_paranteze() {
+        for t in [
+            "[[a]]",
+            "[a]]b]",
+            "SELECT 'x -- y', [a b] FROM \"q\"",
+            "'neinchis -- x",
+            "a \u{E000}0\u{E001} b",
+        ] {
+            let o = norm(t);
+            assert_eq!(norm(&o), o, "{t:?}");
+        }
+    }
+
+    #[test]
+    fn marcajele_din_text_nu_pot_fabrica_un_string() {
+        // Textul contine chiar caracterele folosite ca marcaj.
+        assert_ne!(
+            norm("SELECT \u{E000}0\u{E001}, 'x'"),
+            norm("SELECT 'x', 'x'")
+        );
     }
 
     #[test]

@@ -25,6 +25,7 @@
 //! ```
 
 pub mod diff;
+pub mod lexer;
 pub mod normalizare;
 pub mod segmentare;
 pub mod seqmatch;
