@@ -60,8 +60,8 @@ explicatia sunt in `referinta/README.md`.
 | `mostenire/` — GMotion v3.4 in Python | inghetat, referinta de paritate |
 | `referinta/` — harness de conformitate + bench | **gata** |
 | `unelte/` — poarta de verificare | **gata** |
-| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 31 teste** |
-| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | de scris |
+| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 37 teste** |
+| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata functional, neverificat pe tinta** (29 teste) |
 | `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | de scris |
 | `rust/module/diff-obiecte` — modulul 1, ca biblioteca | de scris |
 | `rust/cli` — binarul headless | de scris |
@@ -196,7 +196,7 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 |---|---|---|
 | 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta, urmarirea stării. `core` mutat neatins. *(facut)* |
 | 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
-| 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decizia `tiberius` vs `odbc-api`, cu test pe server real |
+| 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decis `tiberius`. *(facut; verificarea pe server real rămâne)* |
 | 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix |
 | 4 | **`module/diff-obiecte`, fara UI** | orchestrarea completa ca biblioteca, testata integral pe fixture |
 | 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila** |
@@ -212,14 +212,8 @@ etapa care atinge motorul trebuie sa treaca `cargo test -p gmotion-core`.
 
 ## Decizii nerezolvate
 
-Toate sunt notate, cu alternativele si motivul, in `JURNAL.md`.
-
-**Driver SQL Server.** `tiberius` (TDS nativ, pur Rust) ar elimina complet
-cerinta de driver ODBC pe masina tinta, si are suport pentru descoperirea
-instantelor prin SQL Browser — ceea ce inlocuieste broadcast-ul UDP 1434 scris
-de mana in `app.py`. Alternativa, `odbc-api`, pastreaza comportamentul identic
-cu cel de azi, inclusiv autentificarea integrata Windows, dar rămâne dependenta
-de driverul instalat. Se decide la etapa 2, cu test pe un server real.
+Toate sunt notate, cu alternativele si motivul, in `JURNAL.md`. Driverul SQL
+Server s-a decis la etapa 2: `tiberius`, TDS nativ, fara ODBC pe masina tinta.
 
 **Toolkit-ul de interfata — riscul principal.** Lista de obiecte, filtrele,
 conectarea si deployer-ul se fac direct in orice toolkit nativ. Editorul de

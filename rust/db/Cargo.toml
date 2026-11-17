@@ -1,0 +1,37 @@
+[package]
+name = "gmotion-db"
+description = "Acces la SQL Server: descoperire instante, listare baze, citire obiecte. Singurul crate cu I/O de retea."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+gmotion-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+
+# Driver TDS nativ, pur Rust: scoate complet cerinta de driver ODBC instalat pe
+# masina tinta. Vezi JURNAL.md pentru decizia tiberius vs odbc-api.
+#
+# TLS pe tinta de rulare: native-tls, adica SChannel pe Windows. E deja in
+# sistem si vorbeste si TLS 1.0/1.1, de care un SQL Server vechi pe Server 2012
+# poate avea nevoie. rustls ar fi mai predictibil, dar nu coboara sub TLS 1.2,
+# deci ar putea refuza exact serverele vechi pe care rescrierea trebuie sa mearga.
+[target.'cfg(windows)'.dependencies]
+tiberius = { version = "0.12", default-features = false, features = ["tds73", "native-tls", "winauth", "sql-browser-tokio"] }
+
+# Pe Linux (doar dezvoltare si teste) se foloseste rustls: native-tls ar cere
+# headerele de OpenSSL. Auth integrata nu exista aici - vezi `sqlserver.rs`.
+[target.'cfg(not(windows))'.dependencies]
+tiberius = { version = "0.12", default-features = false, features = ["tds73", "rustls", "sql-browser-tokio"] }
+
+[dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "net", "macros", "time"]
+
+[dependencies.tokio-util]
+version = "0.7"
+features = ["compat"]

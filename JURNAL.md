@@ -90,6 +90,79 @@ face I/O si trebuie sa ramana compilabil pe wasm.
 
 ---
 
+## 2026-11-17 — Driver SQL Server: `tiberius`
+
+**Context.** Decizia deschisa din etapa 0. Versiunea Python foloseste ODBC si
+cere un driver instalat pe masina tinta.
+
+**Alternative.** (a) `odbc-api` — comportament identic cu azi, dar rămâne
+dependenta de driver; (b) `tiberius` — TDS nativ, pur Rust.
+
+**Motiv.** (b), si nu pentru argumentul din plan. Scoaterea ODBC de pe masina
+tinta era stiuta. Ce a cantarit mai mult: `tiberius` **se compileaza pe Linux**,
+in 15 secunde, deci stratul de date poate fi scris si verificat pe masina pe
+care se scrie codul. `odbc-api` ar cere headerele de unixODBC, deci ar fi fost
+cod pe care nu-l pot nici compila. Verificat intr-un proiect de proba inainte de
+a decide: `tiberius` are SQL auth, `AuthMethod::Integrated` prin SSPI pe Windows
+(feature `winauth`), si descoperire prin SQL Browser — acopera tot ce face
+versiunea Python.
+
+**Consecinte.** Testul pe server real rămâne necesar, dar ca **validare**, nu ca
+alegere, si nu blocheaza etapele urmatoare. Daca validarea cade pe
+autentificarea integrata intr-un domeniu, alternativa nu e intoarcerea la ODBC
+ci `integrated-auth-gssapi`.
+
+---
+
+## 2026-11-17 — TLS: `native-tls` pe Windows, `rustls` pe Linux
+
+**Context.** `tiberius` cere un furnizor de TLS.
+
+**Motiv.** Tinta de rulare e si un Server 2012 curat, unde SQL Server poate
+vorbi doar TLS 1.0/1.1. `rustls` nu coboara sub TLS 1.2, deci ar refuza exact
+serverele vechi pe care rescrierea trebuie sa mearga. `native-tls` pe Windows e
+SChannel, deja in sistem, fara dependinta de instalat.
+
+Pe Linux (doar dezvoltare si teste) se foloseste `rustls`, fiindca `native-tls`
+ar cere headerele de OpenSSL. Selectia e pe `[target.'cfg(windows)']` in
+`rust/db/Cargo.toml`.
+
+**Consecinte.** Codul de conectare e acelasi; doar furnizorul difera. O
+conectare care merge pe Linux nu dovedeste nimic despre TLS pe Windows, si
+invers.
+
+---
+
+## 2026-11-17 — Un tip care tine acreditari nu are `Debug` derivat
+
+**Context.** Un test avea nevoie de `Debug` pe `SursaSqlServer`. Reflexul ar fi
+fost `#[derive(Debug)]`.
+
+**Motiv.** Ar fi tiparit parola la primul `dbg!` si in orice mesaj de panica.
+Scris de mana, cu redactare (`parola` devine numarul de caractere), plus test
+care verifica. `Autentificare` nu implementeaza `Serialize` deloc, tot
+deliberat.
+
+**Consecinte.** Regula generala, de aplicat la `platforma` cand ajunge la
+sesiuni.
+
+---
+
+## 2026-11-17 — `db` intoarce text brut, nenormalizat
+
+**Context.** `aduce_obiecte()` din versiunea Python normaliza, calcula hash-ul
+si tinea token-ii la citire, pentru fiecare obiect din fiecare baza.
+
+**Motiv.** Memoria era motivul initial (punctul 3 din `README.md`). Dar e si un
+motiv mai bun: daca `db` ar intoarce text deja normalizat, un instantaneu ar fi
+legat de versiunea de motor care l-a produs, deci nefolositor ca test de
+regresie dupa o schimbare in `core`.
+
+**Consecinte.** `Obiect` tine doar `schema`, `nume`, `tip`, `definitie`.
+Normalizarea o face cine are nevoie de ea.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
@@ -98,10 +171,15 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | Prefix | Zona |
 |---|---|
 | `GM-CORE-*` | motorul de comparare |
-| `GM-DB-*` | conexiune, driver, citire obiecte |
+| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-010**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare |
 | `GM-MOD-*` | module |
 | `GM-UI-*` | fereastra, randare |
 
-Niciun cod alocat deocamdata: `core` nu intoarce erori tipate (functiile lui
-sunt totale pe intrari valide UTF-8).
+`core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide
+UTF-8.
+
+`GM-DB-001` conectare · `002` autentificare · `003` auth integrata indisponibila
+· `004` interogare · `005` baza lipsa · `006` descoperire · `007` citire
+instantaneu · `008` scriere instantaneu · `009` versiune instantaneu · `010`
+nume invalid.

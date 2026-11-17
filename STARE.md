@@ -7,65 +7,59 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (37 teste, `core` compileaza pe wasm32)
+**Poarta:** verde (66 teste, `core` compileaza pe wasm32)
 
 ---
 
 ## Unde suntem
 
-Etapele 0 si 1 incheiate. Vezi `etape/`.
+Etapele 0, 1 si 2 incheiate. Vezi `etape/`.
 
-`gmotion-core` e gata si consolidat: 37 de teste in trei straturi — unitare,
-conformitate cu motorul JS (24 cazuri x 8 campuri), si fuzz dirijat pe
-invariante (400 de intrari per test). Fuzz-ul a fost pus la proba cu bug-uri
-introduse deliberat si le prinde.
+- `rust/core` — motorul, gata si consolidat: 37 teste, inclusiv fuzz pe
+  invariante.
+- `rust/db` — accesul la date, gata **functional, neverificat pe tinta**: 29 de
+  teste, toate fara SQL Server si fara retea. `SursaObiecte` ca trait, cu baza
+  reala (TDS nativ, fara ODBC) si instantaneu din fisier.
 
-Repo-ul are documentele de regula, urmarirea stării (`STARE.md` + `etape/`), si
-o poarta (`unelte/verifica.sh`) care verifica si ce niciun test nu prinde:
-tinta wasm, direcția dependentelor, documentatia rămasa in urma codului, starea
-incoerenta.
-
-**Etapa activa:** niciuna. Urmatoarea la rand e etapa 2, `db`. Nu are inca
-fisier de etapa — se deschide din `etape/SABLON.md`.
+**Etapa activa:** niciuna. Urmatoarea la rand e etapa 3, `platforma`.
 
 ---
 
 ## Urmatorul pas concret
 
-Etapa 2 — `rust/db`. Crate nou. Trei lucruri, in ordine:
+Etapa 3 — `rust/platforma`. Patru lucruri:
 
-1. **`SursaObiecte` ca trait**, plus implementarea din fixture (JSON). Se scrie
-   prima, fiindca tot ce urmeaza se testeaza prin ea, fara baza de date.
-2. **Implementarea pe SQL Server** + descoperirea instantelor. Aici se ia
-   decizia `tiberius` vs `odbc-api` — vezi „ce aștept de la Mihai".
-3. **`CRATE.md`**, codurile de eroare `GM-DB-*` in `JURNAL.md`, poarta verde.
-
-Pornire:
+1. **configurare** — ce se citeste de unde, cu valori implicite sanatoase;
+2. **sesiuni** — cheia `<modul>/<slug>.dat` din start, ca sa nu se repete
+   coliziunea din versiunea Python. DPAPI pe Windows; pe alt sistem **nu se
+   salveaza secrete**, se refuza cinstit (vezi regula de la `Debug` din
+   `JURNAL.md`);
+3. **jurnal** — `tracing`, cu tinta per crate, filtrabil din mediu;
+4. **registru de module + rutare cu prefix** — metodele comune o singura data,
+   cele specifice inregistrate cu prefix de modul.
 
 ```
 unelte/verifica.sh
-cp etape/SABLON.md etape/02-db.md        # si pune Stare: ACTIVA
+cp etape/SABLON.md etape/03-platforma.md     # si pune Stare: ACTIVA
 ```
-
-Atentie la direcția dependentelor: `db` poate depinde de `core`, nu invers.
-Poarta verifica.
 
 ---
 
 ## Ce aștept de la Mihai
 
-Nimic blocant acum. Ce va fi nevoie, cand ajungem acolo:
+**O rulare pe un SQL Server real**, cand ai timp. Nu blocheaza nimic: continui
+pe fixture. Valideaza etapa 2 — conectarea, auth integrata si descoperirea sunt
+scrise si compilate, dar netestate pe tinta, fiindca aici nu exista SQL Server.
 
-- **Etapa 2 (`db`), in curs de pornire** — o rulare pe un SQL Server real, ca
-  sa se decida `tiberius` vs `odbc-api`. Scriu intai partea care nu depinde de
-  decizie (traitul si implementarea din fixture), apoi iti dau comanda exacta.
-  Nu e nevoie de nimic pregatit dinainte.
-- **Etapa 6 (paritate)** — aceleasi baze comparate cu versiunea Python si cu
-  `cli`, plus un `gmotion instantaneu` ca sa am fixture-ul aici.
+Comanda exacta o pregatesc la etapa 5, cand exista binarul de linie de comanda.
+Pana atunci nu ai nimic de facut.
 
-Daca vrei paritate completa a porții pe `cmd` (acum verificarile de direcție a
-dependentelor si de `CRATE.md` cer bash — Git Bash sau WSL), spune si le rescriu
-in Python la etapa 1.
+La etapa 6 (paritate) va fi nevoie de: aceleasi baze comparate cu versiunea
+Python si cu `gmotion`, plus un `gmotion instantaneu` trimis incoace ca sa am
+fixture-ul.
+
+Daca vrei paritate completa a porții pe `cmd` (acum cere Git Bash sau WSL),
+spune si o rescriu.
 
 ---
 
@@ -91,6 +85,12 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   `linii_start_blocuri` are o ramura de rezerva. Conteaza la etapa de editor:
   ancorele de scroll degradeaza silentios acolo. Vezi
   `etape/01-core-consolidat.md`.
+- **Un tip care tine acreditari nu are `Debug` derivat.** Ar tipari parola la
+  primul `dbg!` sau in orice mesaj de panica. Se scrie de mana, cu redactare.
+  Vezi `rust/db/src/sqlserver.rs`.
+- **O conectare care merge pe Linux nu dovedeste nimic despre Windows.**
+  Furnizorul de TLS difera intre tinte (`rustls` vs SChannel), si auth integrata
+  nu exista pe Linux deloc.
 - **Un fuzz care trece nu e un fuzz care functioneaza.** Cand adaugi un test de
   invariante, strica deliberat codul si uita-te daca il prinde. Prima versiune a
   fuzz-ului de segmentare trecea si cu urmarirea literalelor scoasa complet.
