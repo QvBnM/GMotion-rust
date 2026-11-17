@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (219 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (228 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -19,9 +19,9 @@ interfata grafica: binarul `gmotion`.
 | Crate | Stare |
 |---|---|
 | `rust/core` | gata, 50 teste, fuzz pe invariante, lexer T-SQL |
-| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), 45 teste |
+| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 48 teste |
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
-| `rust/module/diff-obiecte` | gata, 53 teste |
+| `rust/module/diff-obiecte` | gata, 59 teste |
 | `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
 
 ```
@@ -38,26 +38,30 @@ blocata pe specificatie. GUI-ul (9-10) e la final, la decizia lui Mihai.
 
 ## Urmatorul pas concret
 
-1. **Mihai ruleaza din nou `unelte/etapa6.ps1`** pe bazele reale. Asteptat:
-   0 regresii; o lista „de verificat" — obiecte pe care v3.4 le declara
-   identice, sau cu alt scor, din cauza string-urilor sau a dimensiunii.
-   Acelea sunt **modificari pe care v3.4 le ascundea**; cateva se verifica de
-   mana cu `gmotion diferente`, si fiecare categorie confirmata intra intr-un
-   fisier de asteptari.
-2. **Decizii de la Mihai:**
-   - implicitul pentru `--certificat` (acum `nevalidat`, ca v3.4, cu
-     avertisment in jurnal la fiecare conexiune);
-   - specificatia modulului `upgrade` (o fraza: ce compara/aplica, pe ce
-     baze, ce iese) — fara ea etapa 8 nu incepe;
-   - repo-ul e **public**: nume de servere, baze, email. Privat sau mutat?
-     Commit-ul vechi cu lungimea parolei se mai poate accesa dupa SHA pana il
-     curata GitHub; stergerea imediata o face doar suportul GitHub.
-3. Ramase deschise (documentate, nereparate): performanta patratica pe obiecte
-   uriase (doar optimizari ieftine facute), `SET ANSI_NULLS/QUOTED_IDENTIFIER`
-   per obiect in deploy, ordinea dependentelor, verificarea versiunii
-   serverului (`CREATE OR ALTER` cere 2016 SP1+), nume case-insensitive intre
-   baze, divergentele Unicode fata de JS (in afara de BOM), serverul in cheia
-   sesiunii, nume rezervate Windows ca nume de modul.
+A doua rulare pe Windows (dupa etapa 7): **0 regresii**, aceleasi 42.427 de
+obiecte prin pyodbc si tiberius, instanta numita rezolvata de codul propriu,
+auth SQL si Windows. 45 de diferente „de verificat" (scoruri si rezumate pe
+obiecte cu string-uri) si **o modificare pe care v3.4 o ascundea**:
+`dbo.GenerateOrderByRecommendedOrder` (v3.4: identic, v4: diferit).
+
+Dupa rulare s-au facut si cele trei puncte deschise ale deploy-ului (setarile
+de creare per obiect, ordinea dupa dependente, garda de versiune) si citirea
+paralela (pe reteaua lui Mihai v4 era mai lent decat v3.4: 48,6 s fata de
+28,9 s).
+
+1. **Mihai ruleaza din nou `unelte/etapa6.ps1`.** Pasi noi: 7 (garda de
+   versiune rulata pe `master`, doar citire, ca atare si cu versiunea
+   simulata 12.0) si 8 (cate obiecte au `ANSI_NULLS`/`QUOTED_IDENTIFIER` OFF).
+   De urmarit: timpul de la 4a (asteptat sub 48,6 s), pasul 7 „GARDA
+   CORECTA".
+2. **Mihai se uita la `GenerateOrderByRecommendedOrder`** (comanda in „Ce
+   astept"), si spune doar daca diferenta e reala — nu trebuie trimis codul.
+3. **Decizii de la Mihai:** implicitul pentru `--certificat`; specificatia
+   modulului `upgrade`; repo-ul public.
+4. Ramase deschise (documentate): performanta patratica pe obiecte uriase,
+   nume case-insensitive intre baze, divergentele Unicode fata de JS (in
+   afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca nume de
+   modul, dependentele prin SQL dinamic sau sinonime (nu se vad in cod).
 
 **Nu se deschide etapa de interfata fara discutia despre GUI ceruta de Mihai.**
 
@@ -73,8 +77,15 @@ git pull
 powershell -ExecutionPolicy Bypass -File unelte\etapa6.ps1
 ```
 
-Trimite `etapa6-rezultat.txt`, plus deciziile de la punctul 2. Daca o comanda
-cade, mesajul exact (are un cod `GM-...`).
+Si, pentru obiectul ascuns de v3.4 (in aceeasi fereastra, din radacina):
+
+```
+rust\target\release\gmotion.exe diferente --sursa rust\target\release\instantaneu.json --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy --obiect dbo.GenerateOrderByRecommendedOrder
+```
+
+Trimite `etapa6-rezultat.txt`; despre `diferente` ajunge o propozitie (ce
+difera: majuscule intr-un string, cod dupa un `--` dintr-un string, alt
+lucru). Daca o comanda cade, mesajul exact (are un cod `GM-...`).
 
 Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 

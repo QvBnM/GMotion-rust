@@ -118,6 +118,13 @@ repo-ul public (decizia lui Mihai).
   reprodusa de auditor (panica, raspuns strain, blocare 45 s+). `lista` din
   CLI: verificata prin rationament (codul vechi nu se compila izolat).
 
+- **2026-11-17, dupa incheiere** A doua rulare pe Windows: 0 regresii, o
+  modificare ascunsa de v3.4 gasita pe date reale
+  (`GenerateOrderByRecommendedOrder`). La cererea lui Mihai s-au facut si cele
+  trei puncte lasate deschise: setarile de creare per obiect in deploy, ordinea
+  dupa dependente, garda de versiune (`CREATE OR ALTER` cere 13.0.4001+), plus
+  citirea paralela (v4 era mai lent decat v3.4 pe o retea cu latenta mare).
+
 ## Ce a ieșit altfel decat planul
 
 **Paritatea perfecta cu v3.4 nu mai e tinta, si asta a cerut unelte noi.**

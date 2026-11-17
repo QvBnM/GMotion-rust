@@ -61,9 +61,9 @@ explicatia sunt in `referinta/README.md`.
 | `referinta/` — harness de conformitate + bench | **gata** |
 | `unelte/` — poarta de verificare | **gata** |
 | `rust/core` — `gmotion-core`, motorul de comparare | **gata, 50 teste** |
-| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (45 teste) |
+| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (48 teste) |
 | `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (40 teste) |
-| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 53 teste** |
+| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 59 teste** |
 | `rust/cli` — binarul headless | **gata, 31 teste** |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
 | `rust/app` — binarul cu interfata | de scris |
