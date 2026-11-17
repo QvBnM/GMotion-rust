@@ -1,0 +1,13 @@
+# Runtime
+pyodbc>=5.0
+pywebview>=4.4
+
+# Motorul de randare Qt. app.py porneste implicit pe gui='qt', dar
+# GMotion.spec NU impacheteaza Qt - vezi problema 1 din README.
+# Pana la rezolvarea acelei inconsistente, aceste doua linii descriu ce cere
+# codul, nu ce ajunge in executabil.
+PyQt5>=5.15
+PyQtWebEngine>=5.15
+
+# Build
+pyinstaller>=6.0

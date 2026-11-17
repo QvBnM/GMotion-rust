@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.manifest
+
+# Sesiuni locale criptate DPAPI (date reale, nu intra in repo)
+*.dat
+sesiuni/
+
+# Export-uri si deployere generate
+deploy_*/
+sqldiff_export_*.csv
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
