@@ -83,6 +83,10 @@ Optional `--csv export.csv` (exportul aplicatiei Python pe aceleasi baze) si
 prin motorul JS (`rezumat_js.mjs`): daca JS da ce da Rust, e `corectura`;
 orice altceva e `regresie`. Cod de ieșire 0 / 1 (regresii) / 2 (intrare).
 
+Un instantaneu mare se micsoreaza la obiectele de interes cu
+`extrage.py instantaneu.json --filtru TEXT -o mic.json` (pastreaza obiectul din
+toate bazele, ca lipsa/extra sa ramana lipsa/extra).
+
 Pe instantaneul din `cazuri.json`: 0 regresii, o corectura
 (`declare_in_header`). `comentariu_bloc_multiline` nu apare: normalizat e
 identic, deci in lista e identic si nu primeste rezumat — falsul pozitiv din
