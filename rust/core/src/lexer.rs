@@ -142,6 +142,17 @@ pub fn linii_go(text: &str) -> Vec<usize> {
     let mut poz = 0usize;
     for (nr, linie) in text.split('\n').enumerate() {
         let l = linie.trim_end_matches('\r').trim();
+        // `GO -- gata` si `GO /* gata */` sunt tot separatoare de batch
+        // pentru sqlcmd si SSMS (C7 din auditul QA): se taie de la primul
+        // inceput de comentariu si se cantareste ce ramane. O linie cu cod
+        // dupa comentariu („GO /*x*/ SELECT 1") iese tot GO — si asa
+        // deploy-ul o refuza, adica partea sigura.
+        let pana_la = [l.find("--"), l.find("/*")]
+            .into_iter()
+            .flatten()
+            .min()
+            .unwrap_or(l.len());
+        let l = l[..pana_la].trim();
         let mut cuv = l.split_whitespace();
         let e_go = cuv.next().is_some_and(|c| c.eq_ignore_ascii_case("go"))
             && match cuv.next() {
@@ -236,5 +247,21 @@ mod teste {
     fn go_pe_linie_proprie_inclusiv_in_string() {
         let t = "SELECT 'a\nGO\nb'\n  go 5 \r\n/* \nGO\n */\nGOTO x\nGO";
         assert_eq!(linii_go(t), vec![2, 4, 9]);
+    }
+
+    /// C7 din `cercetare/audit-qa-2026-11-18.md`: `GO` urmat de un comentariu
+    /// e tot separator de batch pentru `sqlcmd` si SSMS. Nerecunoscut, textul
+    /// final trecea de garda GM-MOD-009 si procedura se taia in doua la
+    /// rulare: restul codului ajungea batch separat, direct pe baza tinta.
+    #[test]
+    fn go_urmat_de_comentariu_e_tot_go() {
+        assert_eq!(linii_go("SELECT 42\nGO -- gata\nSELECT 43"), vec![2]);
+        assert_eq!(linii_go("SELECT 42\nGO /* gata */\nSELECT 43"), vec![2]);
+        assert_eq!(linii_go("SELECT 42\ngo 3 --x\nSELECT 43"), vec![2]);
+        assert_eq!(linii_go("SELECT 42\n  GO\t/*x*/  \nSELECT 43"), vec![2]);
+        // ce nu e separator ramane asa: GO cu cod dupa comentariu e oricum
+        // refuzat, dar GOTO si GO dintr-un comentariu bloc nu sunt GO
+        assert!(linii_go("GOTO x -- GO").is_empty());
+        assert!(linii_go("/*\nGO -- x\n*/").is_empty());
     }
 }

@@ -25,7 +25,7 @@ proiectul.
 | Functie / tip | Ce face |
 |---|---|
 | `segmente(text) -> Vec<Segment>` | granitele cod / string / identificator / comentariu, in octeti |
-| `linii_go(text)` | liniile pe care `sqlcmd` le-ar lua drept separator `GO` |
+| `linii_go(text)` | liniile pe care `sqlcmd` le-ar lua drept separator `GO`, inclusiv `GO -- comentariu` |
 | `Segment`, `Fel` | tipurile rezultatului |
 
 ### `normalizare`

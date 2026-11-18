@@ -1064,6 +1064,31 @@ mod teste {
         assert!(!d.exists());
     }
 
+    /// C7, partea vazuta de utilizator: `GO -- gata` trecea de garda, iar
+    /// scriptul taia procedura in doua — `SELECT 43` rula ca batch separat pe
+    /// baza tinta.
+    #[test]
+    fn go_urmat_de_comentariu_e_refuzat() {
+        for cod in [
+            "CREATE OR ALTER PROC dbo.pGo AS\nSELECT 42\nGO -- gata\nSELECT 43",
+            "CREATE OR ALTER PROC dbo.pGo AS\nSELECT 42\nGO /* gata */\nSELECT 43",
+        ] {
+            let d = dir("go-comentariu");
+            let e = scrie(
+                &d,
+                "Ref",
+                &o_baza("B", o("dbo.pGo", cod)),
+                ModImpartire::Unul,
+                0,
+                "t",
+            )
+            .unwrap_err();
+            assert_eq!(e.cod(), "GM-MOD-009", "{cod}");
+            assert!(e.to_string().contains('3'), "{e}");
+            assert!(!d.exists(), "nimic nu se scrie cand se refuza");
+        }
+    }
+
     #[test]
     fn obiect_fara_cod_e_refuzat() {
         let d = dir("gol");
