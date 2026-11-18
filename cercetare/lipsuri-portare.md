@@ -31,7 +31,6 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde in v3.4 | Rust | Nota |
 |---|---|---|---|
-| „Testeaza conexiunea" cu detalii server (editie, OS, uptime, nr. baze) | `app.py:320`, `ui.py:1764` | partial: se citesc bazele, fara detalii | |
 | Progres la **Recompara** (din lista) si la garda de deploy | — | inca sincrone: fereastra sta cat se recitesc bazele | compararea din conectare are deja fir, progres si Anuleaza |
 | Deschiderea unui instantaneu din fereastra | — (nou) | GUI doar prin `--sursa` la pornire | asteapta decizia pe `rfd` |
 
@@ -56,7 +55,8 @@ filtrate, „Toate in plan" cu optiunea pentru cele deja trimise. O referinta
 comparata cu mai multe baze (bife in conectare), cu filtrul si coloana Baza.
 Compararea din conectare pe alt fir: mesaj, bara, timp, Anuleaza, formularul
 blocat cat ruleaza. Deconecteaza (din lista, cu confirmare), Sterge in banda
-de jurnal, etichetele CLUSTER / IMPLICITA (si in `gmotion servere`).
+de jurnal, etichetele CLUSTER / IMPLICITA (si in `gmotion servere`), Testeaza
+conexiunea cu detaliile serverului (neverificat inca pe server real).
 
 ## 4. Editorul de diferente
 

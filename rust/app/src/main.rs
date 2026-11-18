@@ -469,6 +469,7 @@ fn ruleaza() -> Result<(), String> {
             p.baza.clear();
             p.alese.clear();
             p.stare = StareConexiune::Neincercat;
+            p.detalii.clear();
             drop(st);
             d();
         });
@@ -480,6 +481,7 @@ fn ruleaza() -> Result<(), String> {
             p.auth_windows = windows;
             p.baze.clear();
             p.stare = StareConexiune::Neincercat;
+            p.detalii.clear();
             drop(st);
             d();
         });
@@ -530,6 +532,26 @@ fn ruleaza() -> Result<(), String> {
             drop(st);
             d();
         });
+        // „Testeaza conexiunea": editia, versiunea, de cand ruleaza, cate baze
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_testeaza(move |sursa| {
+            let c = s.borrow().conectare.clone();
+            let p = if sursa { &c.sursa } else { &c.baza };
+            let (stare_noua, detalii) = pornire::testeaza(&c, p);
+            match &stare_noua {
+                StareConexiune::Eroare(e) => {
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "testul de conexiune a esuat");
+                }
+                _ => tracing::info!(target: "gmotion::app", %detalii, "conexiunea merge"),
+            }
+            let mut st = s.borrow_mut();
+            let tinta = st.parte(sursa);
+            tinta.stare = stare_noua;
+            tinta.detalii = detalii;
+            drop(st);
+            d();
+        });
         // cautarea serverelor in retea (SQL Browser), ca `gmotion servere`
         let s = stare.clone();
         let d = deseneaza.clone();
@@ -576,6 +598,7 @@ fn ruleaza() -> Result<(), String> {
             p.baza.clear();
             p.alese.clear();
             p.stare = StareConexiune::Neincercat;
+            p.detalii.clear();
             drop(st);
             d();
         });

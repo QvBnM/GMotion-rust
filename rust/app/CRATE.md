@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 107e56c73cdbd1fd -->
+<!-- api-hash: 94855e8a23047ac5 -->
 
 ## Rol
 
@@ -39,6 +39,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `deploy::StareDeploy` (`nou`, `pasi_in_ordine`, `aplica_verificarea`, `verificare_esuata`, `poate_scrie`, `scrie`, `alege_impartirea`) | ecranul de deploy: garda pe obiectele recitite, scrierea cu revenirea inainte, aceleasi functii ca `gmotion deploy --plan` |
 | `deploy::{ecran, impartire_din, pozitia_impartirii}`, `Garda`, `PasAfisat` | ce se deseneaza pe ecranul de deploy |
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
+| `pornire::testeaza(c, parte)`, `descrie_serverul(info)` | „Testeaza conexiunea": starea si detaliile serverului (editie, versiune, de cand ruleaza, cate baze) |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
 | `pornire::compara_cu(c, progres, anulat)`, `ANULATA` | ca `compara`, cu fiecare pas raportat si anularea verificata intre pasi |
 | `fir::CompararePornita` (`porneste`, `citeste`, `anuleaza`), `fir::Mesaj` | compararea din ecranul de conectare, pe alt fir: progresul si rezultatul vin printr-un canal; anularea il taie |
@@ -56,7 +57,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
    integral.
 4. **Un obiect care exista doar intr-o parte nu deschide editorul:** nu are cu
    ce fi comparat. `ObiectUrmator` sare peste el.
-5. **Parola iese din `Acreditari` intr-un singur loc:** `pornire::deschide`.
+5. **Parola iese din `Acreditari` intr-un singur loc:** `pornire::deschide_server`.
    Nu ajunge in starea afisata, in sesiuni sau in mesajele de eroare — exista
    test.
 6. **Un rand e `(baza, schema.nume)`, nu numele.** Cu mai multe baze comparate,

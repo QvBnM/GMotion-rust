@@ -54,7 +54,7 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 - [x] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
 - [x] compararea pe alt fir: progres, timp, mesaj, Anuleaza
 - [x] Deconecteaza (inapoi la conectare, cu confirmare)
-- [ ] Testeaza conexiunea, cu detaliile serverului
+- [x] Testeaza conexiunea, cu detaliile serverului (de probat pe server real)
 - [x] etichetele CLUSTER / IMPLICITA pe serverele gasite
 - [x] Sterge log in banda de jurnal
 - [ ] Sesiuni: lista, Reia, Ignora
@@ -161,6 +161,12 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   de `gmotion servere`). Un test a cazut pe datele lui: `InstanceName;;` taia
   raspunsul in doua, fiindca `;;` e separatorul de blocuri.
   Ramane „Testeaza conexiunea" cu detaliile serverului.
+- **2026-11-18** Testeaza conexiunea: legatura langa „Server SQL" (un buton
+  separat lua ~40 px si taia comparatiile recente pe 900 px), pe
+  `SursaSqlServer::verifica` care exista deja. Pe Linux s-a probat doar
+  calea de eroare si instantaneul; interogarea foloseste
+  `sys.dm_os_sys_info`, care cere VIEW SERVER STATE — pe un utilizator fara
+  drept, testul ar cadea cu totul. De probat pe Windows.
 
 ## Ce a iesit altfel decat planul
 

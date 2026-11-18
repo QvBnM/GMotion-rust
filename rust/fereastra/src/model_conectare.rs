@@ -116,6 +116,9 @@ pub struct Parte {
     /// Bazele citite de pe server, pentru lista de alegere.
     pub baze: Vec<String>,
     pub stare: StareConexiune,
+    /// Ce a spus serverul despre el la „Testeaza conexiunea" (editie,
+    /// versiune, de cand ruleaza, cate baze). Gol pana la test.
+    pub detalii: String,
     pub auth_windows: bool,
     /// Instantele gasite in retea (SQL Browser), de ales cu un clic. Goala
     /// pana se apasa cautarea.
@@ -378,7 +381,7 @@ mod teste {
             baze: vec![baza.into()],
             stare: StareConexiune::Conectat("conectat".into()),
             auth_windows: true,
-            servere_gasite: Vec::new(),
+            ..Parte::default()
         }
     }
 

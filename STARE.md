@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (432 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (435 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,18 +47,15 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1, D2 si D3 (fara
-„Testeaza conexiunea") gata.**
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1, D2, D3 gata. Urmeaza
+D4.**
 
 D — conectarea, in ordinea asta:
 
 1. ~~o referinta comparata cu mai multe baze~~ (gata);
 2. ~~compararea pe alt fir~~ (gata, din conectare; Recompara si garda inca
    sincrone);
-3. ~~Deconecteaza, etichetele, Sterge log~~ (gata). Ramane **Testeaza
-   conexiunea** cu detaliile serverului: `SursaSqlServer::verifica` exista
-   deja si intoarce `InfoServer`; de vazut ce are, de legat butonul (schita:
-   sub parola) si de cerut lui Mihai o rulare pe server real;
+3. ~~Deconecteaza, Testeaza conexiunea, etichetele, Sterge log~~ (gata);
 4. Sesiuni: lista, Reia, Ignora; compararea offline (doua bucati de cod
    lipite); Ajutor (F1), Despre, ecran complet (F11).
 
@@ -69,6 +66,13 @@ Apoi F (cele grele in Slint) si E (modul de previzualizare).
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
+
+**„Testeaza conexiunea" pe un server real**, cu utilizatorul obisnuit (nu
+`sa`): `gmotion-ui`, completat serverul, clic pe „Testeaza conexiunea" de
+langa „Server SQL". Imi trebuie textul de sub starea conexiunii (sau
+eroarea, cu codul ei). Interogarea citeste `sys.dm_os_sys_info`, care cere
+VIEW SERVER STATE; daca utilizatorul n-are dreptul, testul cade cu totul si
+trebuie facut sa sara doar uptime-ul.
 
 **Rulare pe Windows, de cerut lui Mihai cand are timp** (ce n-am putut proba
 pe Linux): `gmotion-ui --tema intunecat` si `--tema luminos` pe un server

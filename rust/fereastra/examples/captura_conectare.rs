@@ -34,6 +34,7 @@ fn main() {
         baza: "CharismaDev".into(),
         baze: vec!["CharismaDev".into(), "CharismaDev_Copy".into()],
         stare: StareConexiune::Conectat("conectat · SQL Server 2019 · 21.204 obiecte".into()),
+        detalii: "Standard Edition (64-bit) · 15.0.2000.5 · pornit de 12 zile · 34 de baze".into(),
         auth_windows: true,
         ..Parte::default()
     };

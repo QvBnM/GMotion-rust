@@ -961,6 +961,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         )),
         stare: p.stare.text().into(),
         fel_stare: fel(&p.stare),
+        detalii: p.detalii.as_str().into(),
         servere_gasite: ModelRc::new(VecModel::from(
             p.servere_gasite
                 .iter()
@@ -1909,6 +1910,12 @@ mod teste {
         ui.on_anuleaza(move || a.set(a.get() + 1));
         ui.invoke_anuleaza();
         assert_eq!(apasat.get(), 1);
+        // „Testeaza conexiunea" spune si partea
+        let a = apasat.clone();
+        ui.on_testeaza(move |sursa| a.set(a.get() + if sursa { 100 } else { 1000 }));
+        ui.invoke_testeaza(false);
+        assert_eq!(apasat.get(), 1001);
+        apasat.set(1);
         // „Sterge" din banda de jurnal are si el actiune
         let a = apasat.clone();
         ui.on_sterge_jurnalul(move || a.set(a.get() + 10));

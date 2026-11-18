@@ -6,7 +6,9 @@
 //! sursei sta intr-un singur loc, si ce se arata vine din ce chiar s-a
 //! intamplat (bazele citite), nu din ce s-a cerut.
 
-use gmotion_db::{Autentificare, Certificat, SursaFixture, SursaObiecte, SursaSqlServer, Tinta};
+use gmotion_db::{
+    Autentificare, Certificat, InfoServer, SursaFixture, SursaObiecte, SursaSqlServer, Tinta,
+};
 use gmotion_fereastra::model_conectare::{Conectare, Parte, StareConexiune};
 use gmotion_modul_diff_obiecte as modul;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -21,6 +23,12 @@ pub fn deschide(c: &Conectare, p: &Parte) -> Result<Box<dyn SursaObiecte>, Strin
             .map(|s| Box::new(s) as Box<dyn SursaObiecte>)
             .map_err(|e| e.to_string());
     }
+    deschide_server(c, p).map(|s| Box::new(s) as Box<dyn SursaObiecte>)
+}
+
+/// Conexiunea la serverul unei parti (nu la un instantaneu). **Singurul**
+/// loc unde parola iese din `Acreditari`.
+fn deschide_server(c: &Conectare, p: &Parte) -> Result<SursaSqlServer, String> {
     let auth = if p.auth_windows {
         Autentificare::Integrata
     } else {
@@ -38,8 +46,71 @@ pub fn deschide(c: &Conectare, p: &Parte) -> Result<Box<dyn SursaObiecte>, Strin
         },
         auth,
     )
-    .map(|s| Box::new(s) as Box<dyn SursaObiecte>)
     .map_err(|e| e.to_string())
+}
+
+/// „Testeaza conexiunea": se conecteaza si intreaba serverul despre el.
+/// Intoarce starea de afisat si detaliile (goale la eroare). Pe un
+/// instantaneu nu exista server: spune ce e in fisier.
+pub fn testeaza(c: &Conectare, p: &Parte) -> (StareConexiune, String) {
+    if c.instantaneu.is_some() {
+        let (baze, stare) = citeste_bazele(c, p);
+        let detalii = if stare.e_conectat() {
+            format!("instantaneu, {} {}", baze.len(), plural_baze(baze.len()))
+        } else {
+            String::new()
+        };
+        return (stare, detalii);
+    }
+    if let Some(ce) = p.ce_lipseste() {
+        return (
+            StareConexiune::Eroare(format!("completeaza {ce}")),
+            String::new(),
+        );
+    }
+    let mut s = match deschide_server(c, p) {
+        Ok(s) => s,
+        Err(e) => return (StareConexiune::Eroare(e), String::new()),
+    };
+    match s.verifica("master") {
+        Ok(info) => (
+            StareConexiune::Conectat("conexiunea merge".into()),
+            descrie_serverul(&info),
+        ),
+        Err(e) => (StareConexiune::Eroare(e.to_string()), String::new()),
+    }
+}
+
+/// „Standard Edition (64-bit) · 15.0.2000.5 · pornit de 12 zile · 34 de baze".
+/// Ce nu se stie (drept lipsa la `sys.dm_os_sys_info`) nu apare.
+pub fn descrie_serverul(i: &InfoServer) -> String {
+    let mut v = vec![i.editie.clone(), i.sistem.clone()];
+    if let Some(s) = i.pornit_de_secunde.filter(|s| *s >= 0) {
+        let (zile, ore) = (s / 86_400, s / 3_600);
+        v.push(match (zile, ore) {
+            (0, 0) => "pornit de mai putin de o ora".to_string(),
+            (0, 1) => "pornit de o ora".to_string(),
+            (0, h) => format!("pornit de {h} ore"),
+            (1, _) => "pornit de o zi".to_string(),
+            (z, _) if z < 20 => format!("pornit de {z} zile"),
+            (z, _) => format!("pornit de {z} de zile"),
+        });
+    }
+    if let Some(n) = i.nr_baze {
+        let n = usize::try_from(n).unwrap_or(0);
+        v.push(format!("{n} {}", plural_baze(n)));
+    }
+    v.join(" · ")
+}
+
+fn plural_baze(n: usize) -> &'static str {
+    if n == 1 {
+        "baza"
+    } else if n < 20 {
+        "baze"
+    } else {
+        "de baze"
+    }
 }
 
 /// Ce alege ecranul ajunge in conexiune. Pana la 2026-11-18 aici era mereu
@@ -78,13 +149,7 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
             let stare = StareConexiune::Conectat(format!(
                 "conectat · {} {}",
                 baze.len(),
-                if baze.len() == 1 {
-                    "baza"
-                } else if baze.len() < 20 {
-                    "baze"
-                } else {
-                    "de baze"
-                }
+                plural_baze(baze.len())
             ));
             (baze, stare)
         }
@@ -308,6 +373,65 @@ mod teste {
         // o baza bifata care nu exista: eroare, nu o comparare pe jumatate
         c.comuta_baza("NuExista");
         assert!(compara(&c).is_err());
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn detaliile_serverului_se_scriu_pentru_om() {
+        let i = InfoServer {
+            editie: "Standard Edition (64-bit)".into(),
+            sistem: "15.0.2000.5".into(),
+            pornit_de_secunde: Some(12 * 86_400 + 5),
+            nr_baze: Some(34),
+        };
+        assert_eq!(
+            descrie_serverul(&i),
+            "Standard Edition (64-bit) · 15.0.2000.5 · pornit de 12 zile · 34 de baze"
+        );
+        let ore = InfoServer {
+            pornit_de_secunde: Some(3 * 3_600),
+            nr_baze: Some(1),
+            ..i.clone()
+        };
+        assert!(descrie_serverul(&ore).ends_with("pornit de 3 ore · 1 baza"));
+        // ce nu se stie nu apare (nu „pornit de 0 ore")
+        let necunoscut = InfoServer {
+            pornit_de_secunde: None,
+            nr_baze: None,
+            ..i
+        };
+        assert_eq!(
+            descrie_serverul(&necunoscut),
+            "Standard Edition (64-bit) · 15.0.2000.5"
+        );
+    }
+
+    #[test]
+    fn testul_de_conexiune_spune_ce_lipseste_si_nu_arata_parola() {
+        let mut c = Conectare::noua();
+        c.sursa.auth_windows = false;
+        let (stare, detalii) = testeaza(&c, &c.sursa);
+        assert_eq!(stare.text(), "completeaza serverul");
+        assert!(detalii.is_empty());
+        c.sursa.server = "server.care.nu.exista.invalid".into();
+        c.sursa.acreditari = Acreditari::noi("deploy_ro", "parola-secreta");
+        let (stare, detalii) = testeaza(&c, &c.sursa);
+        assert!(!stare.e_conectat());
+        assert!(detalii.is_empty());
+        assert!(!stare.text().contains("parola-secreta"), "{}", stare.text());
+    }
+
+    #[test]
+    fn pe_instantaneu_testul_spune_ce_e_in_fisier() {
+        let d = std::env::temp_dir().join(format!("gmotion-pornire-test-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        instantaneu(&cale);
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        let (stare, detalii) = testeaza(&c, &c.sursa);
+        assert!(stare.e_conectat());
+        assert_eq!(detalii, "instantaneu, 2 baze");
         std::fs::remove_dir_all(&d).ok();
     }
 }

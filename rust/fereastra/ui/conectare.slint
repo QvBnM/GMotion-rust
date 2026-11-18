@@ -34,6 +34,8 @@ export struct ParteUi {
     // paralel cu `baze`: bifata sau nu
     bifate: [bool],
     stare: string,
+    // ce a spus serverul la „Testeaza conexiunea"; gol pana atunci
+    detalii: string,
     // 0 neincercat, 1 se conecteaza, 2 conectat, 3 eroare
     fel-stare: int,
     // instantele gasite in retea, de ales cu un clic
@@ -285,6 +287,7 @@ component PanouParte inherits Card {
     callback baza-schimbata(string);
     callback cere-bazele();
     callback cauta-servere();
+    callback testeaza();
     callback server-ales(string);
 
     VerticalLayout {
@@ -305,7 +308,19 @@ component PanouParte inherits Card {
         }
         if !root.fara-servere: VerticalLayout {
             spacing: 5px;
-            Eticheta { text: "Server SQL"; }
+            // „Testeaza conexiunea" ca legatura langa eticheta: nu ia loc in
+            // inaltime (pe 900 px, lista de comparari recente e deja stransa)
+            HorizontalLayout {
+                Eticheta { text: "Server SQL"; horizontal-stretch: 1; vertical-alignment: center; }
+                Rectangle {
+                    height: 20px;
+                    width: tt.preferred-width + 12px;
+                    border-radius: 6px;
+                    background: zt.has-hover ? Tema.strat : transparent;
+                    tt := Text { text: "Testeaza conexiunea"; font-family: Tema.font-ui; font-size: 12px; color: Tema.accent-text; }
+                    zt := TouchArea { clicked => { root.testeaza(); } }
+                }
+            }
             Camp {
                 text: p.server;
                 mono: true;
@@ -394,6 +409,13 @@ component PanouParte inherits Card {
                 wrap: word-wrap;
             }
         }
+        if p.detalii != "": Text {
+            text: p.detalii;
+            font-family: Tema.font-ui;
+            font-size: 12px;
+            color: Tema.text-secundar;
+            wrap: word-wrap;
+        }
     }
 }
 
@@ -428,6 +450,7 @@ export component FereastraConectare inherits Window {
     callback parola-schimbata(bool, string);
     callback baza-schimbata(bool, string);
     callback cere-bazele(bool);
+    callback testeaza(bool);
     callback cauta-servere(bool);
     callback server-ales(bool, string);
     callback inverseaza();
@@ -485,6 +508,7 @@ export component FereastraConectare inherits Window {
                     parola-schimbata(t) => { root.parola-schimbata(true, t); }
                     baza-schimbata(t) => { root.baza-schimbata(true, t); }
                     cere-bazele => { root.cere-bazele(true); }
+                    testeaza => { root.testeaza(true); }
                     cauta-servere => { root.cauta-servere(true); }
                     server-ales(t) => { root.server-ales(true, t); }
                 }
@@ -520,6 +544,7 @@ export component FereastraConectare inherits Window {
                     parola-schimbata(t) => { root.parola-schimbata(false, t); }
                     baza-schimbata(t) => { root.baza-schimbata(false, t); }
                     cere-bazele => { root.cere-bazele(false); }
+                    testeaza => { root.testeaza(false); }
                     cauta-servere => { root.cauta-servere(false); }
                     server-ales(t) => { root.server-ales(false, t); }
                 }
