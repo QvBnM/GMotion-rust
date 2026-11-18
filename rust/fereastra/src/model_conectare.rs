@@ -84,6 +84,25 @@ impl StareConexiune {
     }
 }
 
+/// Un server gasit in retea, cu etichetele din v3.4.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ServerGasit {
+    pub nume: String,
+    /// AlwaysOn / FCI.
+    pub cluster: bool,
+    /// Instanta implicita (`MSSQLSERVER`).
+    pub implicita: bool,
+}
+
+impl ServerGasit {
+    pub fn nou(nume: impl Into<String>) -> Self {
+        ServerGasit {
+            nume: nume.into(),
+            ..ServerGasit::default()
+        }
+    }
+}
+
 /// O parte a compararii: de unde vine codul (sursa) sau unde ajunge (baza).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Parte {
@@ -100,7 +119,7 @@ pub struct Parte {
     pub auth_windows: bool,
     /// Instantele gasite in retea (SQL Browser), de ales cu un clic. Goala
     /// pana se apasa cautarea.
-    pub servere_gasite: Vec<String>,
+    pub servere_gasite: Vec<ServerGasit>,
 }
 
 impl Parte {

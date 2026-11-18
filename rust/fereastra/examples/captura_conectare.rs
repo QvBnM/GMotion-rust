@@ -7,7 +7,7 @@
 use std::rc::Rc;
 
 use gmotion_fereastra::model_conectare::{
-    Acreditari, Conectare, Parte, ProgresComparare, Recenta, StareConexiune,
+    Acreditari, Conectare, Parte, ProgresComparare, Recenta, ServerGasit, StareConexiune,
 };
 use gmotion_fereastra::{aplica_tema, incarca_conectare, incarca_jurnal, FereastraConectare, Mod};
 use slint::platform::software_renderer::{
@@ -45,9 +45,16 @@ fn main() {
         stare: StareConexiune::Conectat("conectat · SQL Server 2016 SP2 · 21.183 obiecte".into()),
         auth_windows: false,
         servere_gasite: vec![
-            "srv-prod.firma.local,1433".into(),
-            "SRV-PROD\\SQL2019".into(),
-            "SRV-TEST".into(),
+            ServerGasit {
+                cluster: true,
+                implicita: true,
+                ..ServerGasit::nou("srv-prod.firma.local,1433")
+            },
+            ServerGasit::nou("SRV-PROD\\SQL2019"),
+            ServerGasit {
+                implicita: true,
+                ..ServerGasit::nou("SRV-TEST")
+            },
         ],
         ..Parte::default()
     };

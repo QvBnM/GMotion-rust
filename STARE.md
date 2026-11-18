@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (431 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (432 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,16 +47,18 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1 (mai multe baze) si D2
-(compararea pe alt fir) gata. Urmeaza D3.**
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1, D2 si D3 (fara
+„Testeaza conexiunea") gata.**
 
 D — conectarea, in ordinea asta:
 
 1. ~~o referinta comparata cu mai multe baze~~ (gata);
 2. ~~compararea pe alt fir~~ (gata, din conectare; Recompara si garda inca
    sincrone);
-3. Deconecteaza (cu confirmare), Testeaza conexiunea cu detaliile serverului,
-   etichetele CLUSTER / IMPLICITA, Sterge log;
+3. ~~Deconecteaza, etichetele, Sterge log~~ (gata). Ramane **Testeaza
+   conexiunea** cu detaliile serverului: `SursaSqlServer::verifica` exista
+   deja si intoarce `InfoServer`; de vazut ce are, de legat butonul (schita:
+   sub parola) si de cerut lui Mihai o rulare pe server real;
 4. Sesiuni: lista, Reia, Ignora; compararea offline (doua bucati de cod
    lipite); Ajutor (F1), Despre, ecran complet (F11).
 

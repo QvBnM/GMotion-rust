@@ -964,7 +964,11 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         servere_gasite: ModelRc::new(VecModel::from(
             p.servere_gasite
                 .iter()
-                .map(|s| SharedString::from(s.as_str()))
+                .map(|s| ServerGasitUi {
+                    nume: s.nume.as_str().into(),
+                    cluster: s.cluster,
+                    implicita: s.implicita,
+                })
                 .collect::<Vec<_>>(),
         )),
     };
@@ -1162,6 +1166,8 @@ mod teste {
         ui.on_pune_vizibilele_in_plan(move |cu| a.borrow_mut().push(format!("plan{cu}")));
         let a = apeluri.clone();
         ui.on_alege_baza(move |i| a.borrow_mut().push(format!("baza{i}")));
+        let a = apeluri.clone();
+        ui.on_deconecteaza(move || a.borrow_mut().push("deconectare".into()));
 
         ui.invoke_sorteaza_coloana(cod_ordine(model_lista::Ordine::Scor));
         ui.invoke_alege_starea(2);
@@ -1169,9 +1175,18 @@ mod teste {
         ui.invoke_exporta_csv();
         ui.invoke_pune_vizibilele_in_plan(true);
         ui.invoke_alege_baza(1);
+        ui.invoke_deconecteaza();
         assert_eq!(
             *apeluri.borrow(),
-            ["sort3", "stare2", "scor40-90", "csv", "plantrue", "baza1"],
+            [
+                "sort3",
+                "stare2",
+                "scor40-90",
+                "csv",
+                "plantrue",
+                "baza1",
+                "deconectare"
+            ],
             "fiecare element nou din bara de filtre are actiune"
         );
 
@@ -1783,7 +1798,14 @@ mod teste {
             baze: vec!["CharismaDev".into(), "Altceva".into()],
             stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
             auth_windows: false,
-            servere_gasite: vec!["SRV-DEV\\SQL2019".into(), "SRV-PROD".into()],
+            servere_gasite: vec![
+                model_conectare::ServerGasit::nou("SRV-DEV\\SQL2019"),
+                model_conectare::ServerGasit {
+                    cluster: true,
+                    implicita: true,
+                    ..model_conectare::ServerGasit::nou("SRV-PROD")
+                },
+            ],
             ..Parte::default()
         };
         c.baza = Parte {
@@ -1804,6 +1826,8 @@ mod teste {
         assert_eq!(ui.get_sursa().fel_stare, 2);
         // ce a gasit cautarea in retea ajunge in lista de sub camp
         assert_eq!(ui.get_sursa().servere_gasite.row_count(), 2);
+        let prod = ui.get_sursa().servere_gasite.row_data(1).unwrap();
+        assert!(prod.cluster && prod.implicita, "etichetele ajung pe ecran");
         assert_eq!(ui.get_baza().servere_gasite.row_count(), 0);
         assert_eq!(ui.get_baza().baza, "CharismaProd");
         // mediul tintei da banda si eticheta
@@ -1880,11 +1904,16 @@ mod teste {
         assert_eq!(ui.get_progres_text(), "Citesc CharismaProd (1 din 2)...");
         assert_eq!(ui.get_progres_timp(), "0:12");
         assert!((ui.get_progres() - 0.42).abs() < 1e-6);
-        let apasat = Rc::new(Cell::new(false));
+        let apasat = Rc::new(Cell::new(0));
         let a = apasat.clone();
-        ui.on_anuleaza(move || a.set(true));
+        ui.on_anuleaza(move || a.set(a.get() + 1));
         ui.invoke_anuleaza();
-        assert!(apasat.get());
+        assert_eq!(apasat.get(), 1);
+        // „Sterge" din banda de jurnal are si el actiune
+        let a = apasat.clone();
+        ui.on_sterge_jurnalul(move || a.set(a.get() + 10));
+        ui.invoke_sterge_jurnalul();
+        assert_eq!(apasat.get(), 11);
         c.ruleaza = None;
         incarca_progres(&ui, &c, t0);
         assert!(!ui.get_ruleaza() && ui.get_progres_text().is_empty());

@@ -53,10 +53,10 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 **D. Conectarea**
 - [x] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
 - [x] compararea pe alt fir: progres, timp, mesaj, Anuleaza
-- [ ] Deconecteaza (inapoi la conectare, cu confirmare)
+- [x] Deconecteaza (inapoi la conectare, cu confirmare)
 - [ ] Testeaza conexiunea, cu detaliile serverului
-- [ ] etichetele CLUSTER / IMPLICITA pe serverele gasite
-- [ ] Sterge log in banda de jurnal
+- [x] etichetele CLUSTER / IMPLICITA pe serverele gasite
+- [x] Sterge log in banda de jurnal
 - [ ] Sesiuni: lista, Reia, Ignora
 - [ ] compararea offline: doua bucati de cod lipite
 - [ ] Ajutor (F1), Despre (cerut de licenta Slint), ecran complet (F11)
@@ -153,6 +153,14 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   mai are unde ajunge. Esc pentru Anuleaza (din schita) nu e legat: ecranul
   de conectare n-are `FocusScope`. Recompara si garda de deploy raman
   sincrone (in `lipsuri-portare.md`).
+
+- **2026-11-18** D3, trei din patru: Deconecteaza (salveaza, apoi inapoi la
+  conectare cu tot ce era completat), Sterge (ascunde ce era in banda; tamponul
+  din `platforma` nu se goleste, e partajat de tot procesul si de teste),
+  etichetele serverelor (parsate din SQL Browser in `db::Instanta`, aratate si
+  de `gmotion servere`). Un test a cazut pe datele lui: `InstanceName;;` taia
+  raspunsul in doua, fiindca `;;` e separatorul de blocuri.
+  Ramane „Testeaza conexiunea" cu detaliile serverului.
 
 ## Ce a iesit altfel decat planul
 

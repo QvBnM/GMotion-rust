@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 3e2cd0c021ec8243 -->
+<!-- api-hash: c041df46a21e7ea0 -->
 
 ## Rol
 
@@ -39,7 +39,7 @@ se testeaza fara SQL Server.
 
 `Obiect` (`schema`, `nume`, `tip`, `definitie`, plus `id()` = `schema.nume`),
 `Tinta` (server + port optional), `Autentificare` (`Sql` sau `Integrata`),
-`Instanta`, `InfoServer`.
+`Instanta` (cu `cluster` si `implicita`, etichetele din v3.4), `InfoServer`.
 
 ### Surse
 

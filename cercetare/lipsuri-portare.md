@@ -31,11 +31,8 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde in v3.4 | Rust | Nota |
 |---|---|---|---|
-| Etichete CLUSTER / IMPLICITA in lista de servere | `ui.py:1737` | nu | |
 | „Testeaza conexiunea" cu detalii server (editie, OS, uptime, nr. baze) | `app.py:320`, `ui.py:1764` | partial: se citesc bazele, fara detalii | |
 | Progres la **Recompara** (din lista) si la garda de deploy | — | inca sincrone: fereastra sta cat se recitesc bazele | compararea din conectare are deja fir, progres si Anuleaza |
-| „Sterge log" in banda de jurnal | `ui.py:5043` | nu: banda exista (etapa 13), fara stergere | `platforma::jurnal` n-are inca golire |
-| Blocarea formularului cat ruleaza, „Deconecteaza" cu confirmare | `ui.py:1980,2056` | nu: din lista nu te mai intorci la conectare | |
 | Deschiderea unui instantaneu din fereastra | — (nou) | GUI doar prin `--sursa` la pornire | asteapta decizia pe `rfd` |
 
 ## 2. Comparare offline
@@ -58,7 +55,8 @@ ambele sensuri, coloana Deploy, contorul „% deploy", Export CSV al listei
 filtrate, „Toate in plan" cu optiunea pentru cele deja trimise. O referinta
 comparata cu mai multe baze (bife in conectare), cu filtrul si coloana Baza.
 Compararea din conectare pe alt fir: mesaj, bara, timp, Anuleaza, formularul
-blocat cat ruleaza.
+blocat cat ruleaza. Deconecteaza (din lista, cu confirmare), Sterge in banda
+de jurnal, etichetele CLUSTER / IMPLICITA (si in `gmotion servere`).
 
 ## 4. Editorul de diferente
 

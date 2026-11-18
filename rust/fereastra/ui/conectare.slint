@@ -11,6 +11,12 @@
 import { ListView } from "std-widgets.slint";
 import { Tema, Chevron, Buton, ButonPrincipal, Antet, ButonTema, EticMediu, Card } from "comune.slint";
 
+export struct ServerGasitUi {
+    nume: string,
+    cluster: bool,
+    implicita: bool,
+}
+
 export struct ParteUi {
     eticheta: string,
     rol: string,
@@ -31,8 +37,9 @@ export struct ParteUi {
     // 0 neincercat, 1 se conecteaza, 2 conectat, 3 eroare
     fel-stare: int,
     // instantele gasite in retea, de ales cu un clic
-    servere-gasite: [string],
+    servere-gasite: [ServerGasitUi],
 }
+
 
 export struct RecentaUi {
     sursa: string,
@@ -225,6 +232,20 @@ component Alegere inherits Rectangle {
     }
 }
 
+// Eticheta unui server gasit (CLUSTER / IMPLICITA), ca in schita.
+component EticServer inherits VerticalLayout {
+    in property <string> text;
+    alignment: center;
+    Rectangle {
+        height: 18px;
+        width: et.preferred-width + 10px;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: Tema.linie;
+        et := Text { text: root.text; font-family: Tema.font-ui; font-size: 10.5px; font-weight: 600; color: Tema.text-secundar; letter-spacing: 0.4px; }
+    }
+}
+
 // SQL Server / Windows, ca un comutator in doua.
 component Segment inherits Rectangle {
     in property <bool> windows;
@@ -309,9 +330,13 @@ component PanouParte inherits Card {
                     background: zs.has-hover ? Tema.strat : transparent;
                     HorizontalLayout {
                         padding-left: 10px;
-                        Text { text: s; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; overflow: elide; }
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Text { text: s.nume; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                        if s.cluster: EticServer { text: "CLUSTER"; }
+                        if s.implicita: EticServer { text: "IMPLICITA"; }
                     }
-                    zs := TouchArea { clicked => { root.server-ales(s); } }
+                    zs := TouchArea { clicked => { root.server-ales(s.nume); } }
                 }
             }
         }
@@ -410,6 +435,7 @@ export component FereastraConectare inherits Window {
     callback deschide-instantaneu();
     callback compara();
     callback anuleaza();
+    callback sterge-jurnalul();
     callback reia(int);
     callback alege-tema(bool);
 
@@ -657,6 +683,13 @@ export component FereastraConectare inherits Window {
                     spacing: 12px;
                     Text { text: "Jurnal"; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
                     Text { text: "ce face aplicatia, pas cu pas"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; horizontal-stretch: 1; }
+                    Rectangle {
+                        width: ts.preferred-width + 20px;
+                        border-radius: 7px;
+                        background: zs.has-hover ? Tema.strat : transparent;
+                        ts := Text { text: "Sterge"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                        zs := TouchArea { clicked => { root.sterge-jurnalul(); } }
+                    }
                     Rectangle {
                         width: ta.preferred-width + 20px;
                         border-radius: 7px;

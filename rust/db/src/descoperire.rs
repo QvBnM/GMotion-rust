@@ -62,6 +62,8 @@ pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
         let instanta = valoare("InstanceName");
         let tcp = valoare("tcp");
         let versiune = valoare("Version");
+        let cluster = valoare("IsClustered").is_some_and(|v| v.eq_ignore_ascii_case("Yes"));
+        let implicita = !matches!(instanta, Some(i) if !i.is_empty() && i != "MSSQLSERVER");
 
         let Some(server) = nume.filter(|s| !s.is_empty()) else {
             continue;
@@ -89,6 +91,8 @@ pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
             ip: ip.to_string(),
             port: tcp.and_then(|p| p.parse().ok()).filter(|p: &u16| *p != 0),
             versiune: versiune.filter(|v| !v.is_empty()).map(str::to_string),
+            cluster,
+            implicita,
         });
     }
     out
@@ -224,6 +228,22 @@ mod teste {
         assert_eq!(i[0].server, "SRV01");
         assert_eq!(i[0].port, Some(1433));
         assert_eq!(i[0].versiune.as_deref(), Some("15.0.2000.5"));
+        assert!(i[0].implicita && !i[0].cluster);
+    }
+
+    #[test]
+    fn clusterul_si_instanta_numita_se_recunosc() {
+        let d = raspuns(
+            "ServerName;SRV03;InstanceName;PROD;IsClustered;Yes;Version;16.0;tcp;1433;;\
+             ServerName;SRV04;IsClustered;yes;tcp;1433;;",
+        );
+        let i = parseaza_raspuns(&d, "10.0.0.7");
+        assert_eq!(i.len(), 2);
+        assert!(i[0].cluster && !i[0].implicita, "PROD e numita");
+        assert!(
+            i[1].cluster && i[1].implicita,
+            "fara InstanceName = implicita; `yes` mic e tot da"
+        );
     }
 
     #[test]

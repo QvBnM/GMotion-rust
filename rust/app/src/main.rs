@@ -21,7 +21,9 @@ use std::rc::Rc;
 
 use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
 use gmotion_app::{fir, pornire};
-use gmotion_fereastra::model_conectare::{Conectare, ProgresComparare, Recenta, StareConexiune};
+use gmotion_fereastra::model_conectare::{
+    Conectare, ProgresComparare, Recenta, ServerGasit, StareConexiune,
+};
 use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
@@ -48,6 +50,9 @@ struct Stare {
     salvat_la: String,
     /// Compararea pornita din ecranul de conectare, cat ruleaza.
     comparare: Option<fir::CompararePornita>,
+    /// „Sterge" din banda de jurnal: de aici incolo se arata. Tamponul din
+    /// `platforma` nu se goleste: e al intregului proces (si al CLI-ului).
+    jurnal_de_la: usize,
 }
 
 impl Stare {
@@ -158,6 +163,7 @@ fn ruleaza() -> Result<(), String> {
         deploy: None,
         salvat_la: String::new(),
         comparare: None,
+        jurnal_de_la: 0,
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
@@ -257,7 +263,7 @@ fn ruleaza() -> Result<(), String> {
             };
             if s.app.is_none() {
                 incarca_conectare(&c_ui, &s.conectare);
-                incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(0).0);
+                incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(s.jurnal_de_la).0);
                 let _ = l_ui.hide();
                 let _ = e_ui.hide();
                 let _ = d_ui.hide();
@@ -542,7 +548,14 @@ fn ruleaza() -> Result<(), String> {
                 }
                 Ok(v) => {
                     tracing::info!(target: "gmotion::app", gasite = v.len(), "servere gasite");
-                    p.servere_gasite = v.into_iter().map(|i| i.server).collect();
+                    p.servere_gasite = v
+                        .into_iter()
+                        .map(|i| ServerGasit {
+                            nume: i.server,
+                            cluster: i.cluster,
+                            implicita: i.implicita,
+                        })
+                        .collect();
                 }
                 Err(e) => {
                     p.servere_gasite.clear();
@@ -686,6 +699,13 @@ fn ruleaza() -> Result<(), String> {
             );
             d();
         });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_sterge_jurnalul(move || {
+            let (_, urmatoarea) = gmotion_platforma::jurnal::linii(usize::MAX);
+            s.borrow_mut().jurnal_de_la = urmatoarea;
+            d();
+        });
         // Anuleaza: firul se opreste la pasul urmator, rezultatul lui se pierde
         let s = stare.clone();
         let d = deseneaza.clone();
@@ -725,6 +745,22 @@ fn ruleaza() -> Result<(), String> {
 
     // --- lista
     {
+        // Deconecteaza (dupa confirmarea din fereastra): progresul se salveaza,
+        // apoi inapoi la conectare, cu tot ce era completat acolo
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        let sv = salveaza.clone();
+        lista_ui.on_deconecteaza(move || {
+            sv();
+            let mut st = s.borrow_mut();
+            st.app = None;
+            st.deploy = None;
+            st.server.clear();
+            st.conectare.recente = recente(&st.sesiuni);
+            tracing::info!(target: "gmotion::app", "deconectat");
+            drop(st);
+            d();
+        });
         let c = comanda.clone();
         lista_ui.on_alege_randul(move |i| c(Comanda::Selecteaza(i.max(0) as usize)));
         let c = comanda.clone();

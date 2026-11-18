@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 05b65bff27d4fe9d -->
+<!-- api-hash: bac8b9a0778ee70e -->
 
 ## Rol
 
@@ -29,6 +29,7 @@ si editorul de diferente (etapa 8).
 |---|---|
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie |
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta}` | modelul lui; `Acreditari` **nu are `Debug` derivat** |
+| `model_conectare::ServerGasit` | un server gasit in retea, cu etichetele CLUSTER / IMPLICITA |
 | `model_conectare::ProgresComparare` (`nou`, `pas`, `timp`), `Conectare::ruleaza`, `incarca_progres(ui, c, acum)` | compararea care ruleaza: mesajul, bara (nu da inapoi), timpul; formularul blocat, Anuleaza |
 | `Conectare::{baze_tinta, comuta_baza, pune_baze_tinta, eticheta_tinta}`, `eticheta_baze(v)` | bazele comparate cu referinta, bifate (una sau mai multe); prima ramane in `baza.baza` |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
