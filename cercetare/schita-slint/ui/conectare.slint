@@ -1,0 +1,198 @@
+// Ecranul de conectare, in stilul hartii. Pastreaza tot ce avea v3.4:
+// SQL / Windows, cautarea serverelor (cu CLUSTER / IMPLICITA), testul cu
+// detaliile serverului, referinta + mai multe baze, sesiunile (Reia / Ignora,
+// bannerul sesiunii gasite), compararea offline, progresul cu Anuleaza,
+// „Conexiune activa — Deconecteaza" si jurnalul cu „Sterge". Plus ce are deja
+// Rust: certificatul si deschiderea unui instantaneu.
+
+import { P, Antet, ButonH, CampH, EticMediu } from "comune.slint";
+
+export struct ServerUi { nume: string, eticheta: string }
+export struct BazaUi { nume: string, mediu: string, referinta: bool, bifata: bool }
+export struct LogUi { ora: string, nivel: int /* 0 info 1 ok 2 atentie 3 eroare */, text: string }
+export struct SesiuneUi { referinta: string, server: string, progres: string, cand: string }
+
+component Card inherits Rectangle {
+    background: P.h-strat; border-radius: 14px; border-width: 1px; border-color: P.h-linie;
+}
+
+component Tab inherits VerticalLayout {
+    in property <string> eticheta;
+    in property <string> insigna;
+    in property <bool> activ;
+    spacing: 6px; horizontal-stretch: 0;
+    HorizontalLayout { spacing: 6px;
+        Text { text: eticheta; font-size: 13px; font-weight: activ ? 600 : 400; color: activ ? P.h-text : P.h-sec; }
+        if insigna != "": Rectangle { width: 18px; height: 16px; border-radius: 8px; background: P.mod;
+            Text { text: insigna; font-size: 10.5px; font-weight: 600; color: P.pe-mod; } } }
+    Rectangle { height: 2px; border-radius: 1px; background: activ ? P.mod : transparent; }
+}
+
+component Segment inherits Rectangle {
+    in property <[string]> optiuni;
+    in property <int> ales;
+    height: 36px; border-radius: 9px; background: P.h-fond; border-width: 1px; border-color: P.h-linie;
+    HorizontalLayout { padding: 3px; spacing: 3px;
+        for o[i] in optiuni: Rectangle {
+            border-radius: 7px; background: i == ales ? P.h-strat-2 : transparent;
+            Text { text: o; font-size: 13px; font-weight: i == ales ? 600 : 400; color: i == ales ? P.h-text : P.h-sec; } } }
+}
+
+export component Conectare inherits Window {
+    preferred-width: 1440px; preferred-height: 900px;
+    background: P.h-fond;
+    default-font-family: P.ui;
+
+    in property <bool> windows-auth;
+    in property <string> server;
+    in property <string> utilizator;
+    in property <string> parola;
+    in property <[ServerUi]> servere-gasite;
+    in property <string> stare-server;
+    in property <string> detalii-server;
+    in property <string> certificat;
+    in property <string> server-baze;
+    in property <[BazaUi]> baze;
+    in property <string> rezumat-pornire;
+    in property <[LogUi]> jurnal;
+    in property <string> nr-sesiuni;
+    in property <SesiuneUi> sesiune-gasita;
+    // progresul: doar cat ruleaza compararea
+    in property <bool> ruleaza;
+    in property <float> progres;
+    in property <string> progres-text;
+    in property <string> progres-timp;
+
+    VerticalLayout {
+        Antet {
+            loc: "Conectare";
+            VerticalLayout { alignment: center; ButonH { eticheta: "Ajutor"; tasta: "F1"; fel: 3; } }
+        }
+        HorizontalLayout {
+            padding: 24px; spacing: 20px;
+
+            // ---------- serverul
+            Card {
+                width: 380px;
+                VerticalLayout {
+                    padding: 22px; spacing: 16px; alignment: start;
+                    HorizontalLayout { spacing: 22px; alignment: start;
+                        Tab { eticheta: "Conectare"; activ: true; }
+                        Tab { eticheta: "Sesiuni"; insigna: nr-sesiuni; } }
+                    // sesiunea gasita pentru referinta aleasa
+                    if sesiune-gasita.referinta != "": Rectangle {
+                        height: sb.preferred-height; border-radius: 10px; background: P.h-strat-2;
+                        Rectangle { x: 0; width: 3px; border-radius: 1.5px; background: P.mod; }
+                        sb := HorizontalLayout { padding: 12px; padding-left: 16px; spacing: 10px;
+                            VerticalLayout { spacing: 2px; horizontal-stretch: 1;
+                                Text { text: "Sesiune găsită: " + sesiune-gasita.referinta; font-size: 13px; font-weight: 600; color: P.h-text; }
+                                Text { text: sesiune-gasita.progres + ", " + sesiune-gasita.cand; font-size: 12px; color: P.h-sec; wrap: word-wrap; } }
+                            VerticalLayout { alignment: center; ButonH { eticheta: "Anulează"; fel: 0; inalt: 28px; } } }
+                    }
+                    Segment { optiuni: ["SQL Server", "Windows"]; ales: windows-auth ? 1 : 0; }
+                    HorizontalLayout { spacing: 8px; alignment: stretch;
+                        CampH { eticheta: "Server SQL"; valoare: server; indiciu: "SERVER\\INSTANȚĂ"; mono: true; horizontal-stretch: 1; }
+                        VerticalLayout { alignment: end; ButonH { eticheta: "Caută în rețea"; inalt: 38px; } } }
+                    // rezultatul cautarii in retea (SQL Browser, UDP 1434)
+                    if servere-gasite.length > 0: Rectangle {
+                        height: sg.preferred-height; border-radius: 10px; background: P.h-fond; border-width: 1px; border-color: P.h-linie;
+                        sg := VerticalLayout { padding: 4px;
+                            for s[i] in servere-gasite: Rectangle {
+                                height: 32px; border-radius: 7px; background: i == 0 ? P.h-strat-2 : transparent;
+                                HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 8px;
+                                    Text { text: s.nume; font-family: P.mono; font-size: 12.5px; color: P.h-text; vertical-alignment: center; horizontal-stretch: 1; }
+                                    if s.eticheta != "": VerticalLayout { alignment: center; Rectangle { height: 18px; width: es.preferred-width + 10px; border-radius: 4px; border-width: 1px; border-color: P.h-linie;
+                                        es := Text { text: s.eticheta; font-size: 10.5px; font-weight: 600; color: P.h-sec; letter-spacing: 0.4px; } } } } } } }
+                    if !windows-auth: HorizontalLayout { spacing: 10px;
+                        CampH { eticheta: "Utilizator"; valoare: utilizator; indiciu: "sa"; }
+                        CampH { eticheta: "Parolă"; valoare: parola; parola: true; } }
+                    ButonH { eticheta: "Testează conexiunea"; inalt: 38px; }
+                    if stare-server != "": HorizontalLayout { spacing: 10px;
+                        VerticalLayout { alignment: start; padding-top: 5px; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: P.add; } }
+                        VerticalLayout { spacing: 3px; horizontal-stretch: 1;
+                            Text { text: stare-server; font-size: 13px; font-weight: 600; color: P.h-text; }
+                            Text { text: detalii-server; font-size: 12px; color: P.h-sec; wrap: word-wrap; }
+                            HorizontalLayout { spacing: 6px; alignment: start; padding-top: 4px;
+                                Text { text: certificat; font-size: 12px; color: P.h-tert; }
+                                Text { text: "Schimbă"; font-size: 12px; color: P.mod; } } } }
+                }
+            }
+
+            // ---------- bazele: referinta + cele comparate
+            Card {
+                horizontal-stretch: 1;
+                VerticalLayout {
+                    padding: 22px; spacing: 0;
+                    Text { text: "Bazele de pe " + server-baze; font-size: 20px; font-weight: 600; color: P.h-text; letter-spacing: -0.4px; }
+                    Text { text: "Alege o referință și bifează bazele pe care le compari cu ea."; font-size: 13px; color: P.h-sec; }
+                    HorizontalLayout { padding-top: 18px; padding-bottom: 8px; spacing: 12px;
+                        Text { width: 28px; text: ""; }
+                        Text { text: "Baza de date"; font-size: 12px; color: P.h-tert; horizontal-stretch: 1; }
+                        Text { width: 70px; text: "Mediu"; font-size: 12px; color: P.h-tert; }
+                        Text { width: 96px; text: "Referință"; font-size: 12px; color: P.h-tert; horizontal-alignment: right; } }
+                    Rectangle { height: 1px; background: P.h-linie; }
+                    for b in baze: Rectangle {
+                        height: 44px;
+                        background: b.referinta ? P.h-strat-2 : transparent; border-radius: 8px;
+                        if b.referinta: Rectangle { x: 0; width: 3px; height: 24px; border-radius: 1.5px; background: P.mod; }
+                        HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 12px;
+                            // bifa: se compara cu referinta
+                            VerticalLayout { alignment: center; width: 18px;
+                                Rectangle { width: 18px; height: 18px; border-radius: 5px;
+                                    border-width: b.bifata || b.referinta ? 0 : 1.5px; border-color: P.h-tert;
+                                    background: b.referinta ? transparent : b.bifata ? P.mod : transparent;
+                                    if b.bifata && !b.referinta: Path { width: 12px; height: 12px; viewbox-width: 12; viewbox-height: 12; stroke: P.pe-mod; stroke-width: 2px; commands: "M 2.5 6.2 L 5 8.6 L 9.6 3.4"; } } }
+                            Text { text: b.nume; font-family: P.mono; font-size: 13px; color: b.bifata || b.referinta ? P.h-text : P.h-sec; vertical-alignment: center; horizontal-stretch: 1; }
+                            VerticalLayout { alignment: center; width: 70px; HorizontalLayout { alignment: start; EticMediu { mediu: b.mediu; } } }
+                            HorizontalLayout { width: 96px; alignment: end; spacing: 8px;
+                                if b.referinta: Text { text: "referință"; font-size: 12px; color: P.mod; vertical-alignment: center; }
+                                VerticalLayout { alignment: center;
+                                    Rectangle { width: 18px; height: 18px; border-radius: 9px; border-width: 1.5px; border-color: b.referinta ? P.mod : P.h-tert;
+                                        if b.referinta: Rectangle { width: 8px; height: 8px; border-radius: 4px; background: P.mod; } } } }
+                        }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                    // pornirea, sau progresul cat ruleaza
+                    if !ruleaza: HorizontalLayout { spacing: 10px; padding-top: 16px;
+                        Rectangle {
+                            height: 56px; border-radius: 12px; background: P.mod; horizontal-stretch: 1;
+                            HorizontalLayout { padding-left: 18px; padding-right: 18px; spacing: 12px;
+                                VerticalLayout { alignment: center; spacing: 1px; horizontal-stretch: 1;
+                                    Text { text: "Pornește verificarea"; font-size: 15px; font-weight: 600; color: P.pe-mod; }
+                                    Text { text: rezumat-pornire; font-size: 12px; color: #1a1200b3; } }
+                                Text { text: "Ctrl ↵"; font-family: P.mono; font-size: 12px; color: #1a120099; vertical-alignment: center; } } }
+                        VerticalLayout { alignment: center; ButonH { eticheta: "Comparare offline"; inalt: 56px; } }
+                        VerticalLayout { alignment: center; ButonH { eticheta: "Deschide un instantaneu"; inalt: 56px; } } }
+                    if ruleaza: VerticalLayout { spacing: 10px; padding-top: 16px;
+                        HorizontalLayout { spacing: 12px;
+                            Text { text: progres-text; font-size: 13px; color: P.h-text; horizontal-stretch: 1; vertical-alignment: center; }
+                            Text { text: progres-timp; font-family: P.mono; font-size: 12px; color: P.h-sec; vertical-alignment: center; }
+                            ButonH { eticheta: "Anulează"; tasta: "Esc"; inalt: 30px; } }
+                        Rectangle { height: 6px; border-radius: 3px; background: P.h-strat-2;
+                            Rectangle { x: 0; width: parent.width * progres; border-radius: 3px; background: P.mod; } }
+                        HorizontalLayout { spacing: 6px; alignment: start;
+                            Text { text: "Conexiune activă, formularul e blocat cât rulează."; font-size: 12px; color: P.h-tert; }
+                            Text { text: "Deconectează"; font-size: 12px; color: P.mod; } } }
+                }
+            }
+
+            // ---------- jurnalul
+            Card {
+                width: 340px;
+                VerticalLayout {
+                    padding: 22px; spacing: 12px;
+                    HorizontalLayout {
+                        Text { text: "Jurnal"; font-size: 13px; font-weight: 600; color: P.h-text; vertical-alignment: center; horizontal-stretch: 1; }
+                        ButonH { eticheta: "Șterge"; fel: 3; inalt: 26px; } }
+                    Rectangle {
+                        vertical-stretch: 1; border-radius: 10px; background: P.h-fond; clip: true;
+                        VerticalLayout { padding: 12px; spacing: 6px; alignment: start;
+                            for l in jurnal: HorizontalLayout { spacing: 10px;
+                                Text { text: l.ora; font-family: P.mono; font-size: 11.5px; color: P.h-tert; }
+                                Text { text: l.text; font-family: P.mono; font-size: 11.5px; wrap: word-wrap; horizontal-stretch: 1;
+                                    color: l.nivel == 1 ? P.add : l.nivel == 2 ? P.mod : l.nivel == 3 ? P.del : P.h-sec; } } } }
+                }
+            }
+        }
+    }
+}

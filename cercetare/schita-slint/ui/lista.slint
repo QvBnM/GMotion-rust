@@ -1,0 +1,222 @@
+// Lista obiectelor: harta sus (ansamblul, pe grupuri), tabelul din v3.4
+// dedesubt, cu toate coloanele si filtrele lui: cautare, baza, tip,
+// categorie, stare, similaritate min–max, CSV, Deployer (N), sortare pe
+// coloane, contoarele dif / lipsa / ok si procentele rezolvate / deploy.
+// Harta si tabelul sunt legate: patratul selectat e randul selectat.
+
+import { ListView } from "std-widgets.slint";
+import { P, Antet, ButonH } from "comune.slint";
+
+export struct GrupUi {
+    x: length, y: length, w: length,
+    titlu: string, contor: string,
+    imagine: image, proportie: float,
+}
+
+// stare: 0 nerezolvat, 1 rezolvat, 2 omis
+// deploy: 0 neintrodus, 1 pregatit, 2 trimis, 3 versiune noua, 4 omis
+// cat: 1 modificat (dif), 2 lipsa din baza, 3 extra in baza, 4 doar SET
+export struct RandUi {
+    nr: string, schema: string, nume: string, baza: string, tip: string,
+    cat: int, similaritate: float, sim-text: string, diferente: string,
+    stare: int, modificat: string, deploy: int,
+}
+
+export struct ColoanaUi { titlu: string, latime: length, sortata: int /* 0 nu, 1 cresc, 2 descresc */ }
+
+component Filtru inherits Rectangle {
+    in property <string> text;
+    in property <bool> activ;
+    height: 36px; width: ft.preferred-width + 40px; border-radius: 9px;
+    background: activ ? P.h-strat-2 : P.h-strat; border-width: 1px; border-color: activ ? P.mod : P.h-linie;
+    HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 8px;
+        ft := Text { text: text; font-size: 13px; color: activ ? P.h-text : P.h-sec; vertical-alignment: center; }
+        Path { width: 8px; height: 5px; y: (parent.height - 5px) / 2; viewbox-width: 8; viewbox-height: 5; stroke: P.h-tert; stroke-width: 1.5px; commands: "M 0.5 0.5 L 4 4 L 7.5 0.5"; } }
+}
+
+component Contor inherits HorizontalLayout {
+    in property <string> n;
+    in property <string> e;
+    in property <color> c;
+    spacing: 6px; alignment: start;
+    Text { text: n; font-size: 20px; font-weight: 600; color: c; vertical-alignment: center; letter-spacing: -0.4px; }
+    Text { text: e; font-size: 12px; color: P.h-sec; vertical-alignment: center; }
+}
+
+component Procent inherits VerticalLayout {
+    in property <float> f;
+    in property <string> e;
+    in property <color> c;
+    spacing: 5px; alignment: center; width: 120px;
+    HorizontalLayout {
+        Text { text: Math.round(f * 100) + "%"; font-size: 13px; font-weight: 600; color: P.h-text; }
+        Text { text: e; font-size: 12px; color: P.h-sec; horizontal-alignment: right; horizontal-stretch: 1; } }
+    Rectangle { height: 3px; border-radius: 1.5px; background: P.h-strat-2;
+        Rectangle { x: 0; width: parent.width * max(0.02, f); border-radius: 1.5px; background: c; } }
+}
+
+export component Lista inherits Window {
+    preferred-width: 1440px; preferred-height: 900px;
+    background: P.h-fond;
+    default-font-family: P.ui;
+
+    in property <string> sursa;
+    in property <string> tinta;
+    in property <string> mediu;
+    in property <string> nr-dif; in property <string> nr-lipsa; in property <string> nr-extra; in property <string> nr-ok;
+    in property <float> rezolvate; in property <float> deployate;
+    in property <string> cautare;
+    in property <string> f-baza; in property <string> f-tip; in property <string> f-categorie; in property <string> f-stare;
+    in property <string> sim-min; in property <string> sim-max;
+    in property <string> nr-deploy;
+    in property <[GrupUi]> grupuri;
+    in property <length> harta-h;
+    in property <length> sel-x; in property <length> sel-y;
+    in property <[ColoanaUi]> coloane;
+    in property <[RandUi]> randuri;
+    in property <int> selectat;
+    in property <string> subsol;
+    in-out property <string> bula;
+    in-out property <length> bula-x; in-out property <length> bula-y;
+    callback mouse(int, length, length);
+
+    VerticalLayout {
+        Antet {
+            sursa: sursa; tinta: tinta; mediu: mediu;
+            HorizontalLayout { spacing: 20px; alignment: end;
+                Contor { n: nr-dif; e: "dif"; c: P.mod; }
+                Contor { n: nr-lipsa; e: "lipsă"; c: P.add; }
+                Contor { n: nr-extra; e: "extra"; c: P.del; }
+                Contor { n: nr-ok; e: "ok"; c: P.h-sec; }
+                Rectangle { width: 1px; background: P.h-linie; }
+                Procent { f: rezolvate; e: "rezolvate"; c: P.add; }
+                Procent { f: deployate; e: "deploy"; c: P.test; }
+                Rectangle { width: 1px; background: P.h-linie; }
+                VerticalLayout { alignment: center; ButonH { eticheta: "Temă"; fel: 3; } }
+                VerticalLayout { alignment: center; ButonH { eticheta: "Ajutor"; tasta: "F1"; fel: 3; } }
+                VerticalLayout { alignment: center; ButonH { eticheta: "Deconectare"; } }
+            }
+        }
+
+        // ---------- filtrele, ca in v3.4
+        HorizontalLayout {
+            padding-left: 28px; padding-right: 20px; padding-top: 14px; padding-bottom: 14px; spacing: 8px;
+            Rectangle {
+                width: 300px; height: 36px; border-radius: 9px; background: P.h-strat; border-width: 1px; border-color: P.h-linie;
+                HorizontalLayout { padding-left: 12px; padding-right: 10px; spacing: 8px;
+                    Path { width: 14px; height: 14px; y: (parent.height - 14px) / 2; viewbox-width: 14; viewbox-height: 14; stroke: P.h-tert; stroke-width: 1.5px;
+                        commands: "M 6 1.5 A 4.5 4.5 0 1 1 5.99 1.5 M 9.3 9.3 L 12.5 12.5"; }
+                    Text { text: cautare != "" ? cautare : "Caută obiect sau diferență"; font-size: 13px; color: cautare != "" ? P.h-text : P.h-tert; vertical-alignment: center; horizontal-stretch: 1; }
+                    Text { text: "Ctrl F"; font-family: P.mono; font-size: 11px; color: P.h-tert; vertical-alignment: center; } } }
+            Filtru { text: f-baza; activ: f-baza != "Toate bazele"; }
+            Filtru { text: f-tip; activ: f-tip != "Toate tipurile"; }
+            Filtru { text: f-categorie; activ: f-categorie != "Toate categoriile"; }
+            Filtru { text: f-stare; activ: f-stare != "Toate stările"; }
+            Rectangle {
+                height: 36px; width: sm.preferred-width + 24px; border-radius: 9px; background: P.h-strat; border-width: 1px; border-color: P.h-linie;
+                sm := HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 8px;
+                    Text { text: "Similaritate"; font-size: 13px; color: P.h-sec; vertical-alignment: center; }
+                    Text { text: sim-min + "–" + sim-max + "%"; font-family: P.mono; font-size: 12.5px; color: P.h-text; vertical-alignment: center; } } }
+            VerticalLayout { alignment: center; ButonH { eticheta: "CSV"; inalt: 36px; } }
+            Rectangle { horizontal-stretch: 1; }
+            VerticalLayout { alignment: center; ButonH { eticheta: "Deployer (" + nr-deploy + ")"; fel: 1; inalt: 36px; } }
+        }
+
+        // ---------- harta: ansamblul, pe grupuri
+        Rectangle {
+            height: harta-h + 28px;
+            Rectangle { x: 20px; width: parent.width - 40px; border-radius: 14px; background: P.h-strat; border-width: 1px; border-color: P.h-linie; }
+            for g[i] in grupuri: Rectangle {
+                x: g.x; y: g.y; width: g.w; height: harta-h;
+                Text { x: 0; y: 0; text: g.titlu; font-size: 12px; font-weight: 600; color: P.h-sec; }
+                img := Image { x: 0; y: 22px; source: g.imagine; image-rendering: pixelated; }
+                TouchArea { x: img.x; y: img.y; width: img.width; height: img.height;
+                    moved => { mouse(i, self.mouse-x, self.mouse-y); } }
+                // cat difera din grup: o bara, cu numarul
+                Rectangle { x: 0; y: parent.height - 18px; width: parent.width; height: 3px; border-radius: 1.5px; background: P.ident;
+                    Rectangle { x: 0; width: parent.width * max(0.03, g.proportie); border-radius: 1.5px; background: P.h-tert; } }
+                Text { x: 0; y: parent.height - 12px; text: g.contor; font-size: 11px; color: P.h-tert; }
+            }
+            Rectangle { x: sel-x - 3px; y: sel-y - 3px; width: 20px; height: 20px; border-radius: 5px; border-width: 2px; border-color: white; }
+        }
+
+        // ---------- tabelul din v3.4
+        VerticalLayout {
+            padding-left: 20px; padding-right: 20px; padding-top: 12px;
+            Rectangle {
+                height: 34px;
+                HorizontalLayout { padding-left: 8px; padding-right: 8px;
+                    for c in coloane: HorizontalLayout { min-width: c.latime; max-width: c.latime == 0 ? 100000px : c.latime; spacing: 4px; horizontal-stretch: c.latime == 0 ? 1 : 0;
+                        Text { text: c.titlu; font-size: 12px; font-weight: 600; color: c.sortata > 0 ? P.h-text : P.h-tert; vertical-alignment: center; }
+                        if c.sortata > 0: Text { text: c.sortata == 1 ? "↑" : "↓"; font-family: P.mono; font-size: 12px; color: P.mod; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; } } }
+                Rectangle { y: parent.height - 1px; height: 1px; background: P.h-linie; }
+            }
+            ListView {
+                vertical-stretch: 1;
+                for r[i] in randuri: Rectangle {
+                    height: 38px;
+                    background: i == selectat ? P.h-strat-2 : zona.has-hover ? P.h-rand : transparent;
+                    border-radius: 8px;
+                    if i == selectat: Rectangle { x: 0; width: 3px; height: 22px; border-radius: 1.5px; background: P.mod; }
+                    zona := TouchArea { }
+                    HorizontalLayout { padding-left: 8px; padding-right: 8px;
+                        // #
+                        Text { width: coloane[0].latime; text: r.nr; font-family: P.mono; font-size: 12px; color: P.h-tert; vertical-alignment: center; }
+                        // obiectul, cu patratul lui de pe harta
+                        HorizontalLayout { horizontal-stretch: 1; spacing: 10px;
+                            VerticalLayout { alignment: center;
+                                Rectangle { width: 10px; height: 10px; border-radius: 2.5px;
+                                    background: r.cat == 1 ? P.mod : r.cat == 2 ? P.add : r.cat == 3 ? P.del : P.set;
+                                    opacity: r.stare == 0 ? 1 : 0.4; } }
+                            HorizontalLayout { alignment: start;
+                                Text { text: r.schema; font-family: P.mono; font-size: 12.5px; color: P.h-tert; vertical-alignment: center; }
+                                Text { text: r.nume; font-family: P.mono; font-size: 12.5px; color: P.h-text; vertical-alignment: center; overflow: elide; } } }
+                        Text { width: coloane[2].latime; text: r.baza; font-family: P.mono; font-size: 12px; color: P.h-sec; vertical-alignment: center; overflow: elide; }
+                        HorizontalLayout { width: coloane[3].latime; alignment: start;
+                            VerticalLayout { alignment: center; Rectangle { height: 20px; width: tt.preferred-width + 12px; border-radius: 5px; background: P.h-strat-2;
+                                tt := Text { text: r.tip; font-family: P.mono; font-size: 10.5px; font-weight: 500; color: P.h-sec; letter-spacing: 0.4px; } } } }
+                        // similaritatea: bara + procent
+                        HorizontalLayout { width: coloane[4].latime; spacing: 10px; padding-right: 16px;
+                            VerticalLayout { alignment: center; horizontal-stretch: 1;
+                                Rectangle { height: 4px; border-radius: 2px; background: P.ident;
+                                    Rectangle { x: 0; width: parent.width * r.similaritate; border-radius: 2px; background: r.cat == 1 ? P.mod : r.cat == 2 ? P.add : r.cat == 3 ? P.del : P.set; } } }
+                            Text { width: 44px; text: r.sim-text; font-family: P.mono; font-size: 12px; color: P.h-text; horizontal-alignment: right; vertical-alignment: center; } }
+                        Text { width: coloane[5].latime; text: r.diferente; font-size: 12.5px; color: P.h-sec; vertical-alignment: center; overflow: elide; }
+                        // starea: plin = rezolvat, gol = nerezolvat, gri = omis
+                        HorizontalLayout { width: coloane[6].latime; alignment: start;
+                            VerticalLayout { alignment: center;
+                                Rectangle { width: 14px; height: 14px; border-radius: 7px;
+                                    border-width: r.stare == 0 ? 1.5px : 0; border-color: P.h-tert;
+                                    background: r.stare == 1 ? P.add : r.stare == 2 ? P.h-tert : transparent; } } }
+                        Text { width: coloane[7].latime; text: r.modificat; font-family: P.mono; font-size: 12px; color: P.h-sec; vertical-alignment: center; }
+                        Text { width: coloane[8].latime; vertical-alignment: center; font-size: 12.5px;
+                            text: r.deploy == 1 ? "Pregătit" : r.deploy == 2 ? "Trimis" : r.deploy == 3 ? "Versiune nouă" : r.deploy == 4 ? "Omis" : "Neintrodus";
+                            color: r.deploy == 1 ? P.test : r.deploy == 2 ? P.add : r.deploy == 3 ? P.mod : P.h-tert; }
+                        HorizontalLayout { width: coloane[9].latime; alignment: end;
+                            VerticalLayout { alignment: center; ButonH { eticheta: "Diff"; tasta: i == selectat ? "↵" : ""; inalt: 28px; fel: i == selectat ? 1 : 0; } } }
+                    }
+                }
+            }
+        }
+
+        // ---------- subsolul
+        Rectangle {
+            height: 34px;
+            Rectangle { y: 0; height: 1px; background: P.h-linie; }
+            HorizontalLayout { padding-left: 28px; padding-right: 28px; spacing: 18px;
+                Text { text: subsol; font-size: 12px; color: P.h-sec; vertical-alignment: center; horizontal-stretch: 1; }
+                for k in [{ t: "j k", e: "rând" }, { t: "↵", e: "deschide" }, { t: "r", e: "rezolvat" }, { t: "o", e: "omite" }, { t: "p", e: "în deploy" }, { t: "Ctrl K", e: "comenzi" }]:
+                    HorizontalLayout { spacing: 6px;
+                        Text { text: k.t; font-family: P.mono; font-size: 11.5px; color: P.h-text; vertical-alignment: center; }
+                        Text { text: k.e; font-size: 12px; color: P.h-tert; vertical-alignment: center; } } }
+        }
+    }
+
+    if bula != "": Rectangle {
+        x: bula-x + 14px; y: bula-y + 14px;
+        width: bt.preferred-width + 20px; height: 26px;
+        border-radius: 6px; background: white;
+        bt := Text { text: bula; font-family: P.mono; font-size: 12px; font-weight: 500; color: P.h-fond; }
+    }
+}

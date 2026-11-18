@@ -1,0 +1,309 @@
+// Editorul (panza), cu butoanele din v3.4, fiecare la locul lui:
+//   sus stanga:  inapoi la Lista, obiectul anterior / urmator (17/18)
+//   sus dreapta: Am ajuns la o concluzie, Omite, progresul
+//   jos:         Aplica toate, Reset, diferenta anterioara / urmatoare,
+//                Mod ghidat (cu cate au ramas), Alaturat / Unificat,
+//                Ascunde diferentele, Re-sincronizeaza, Uneste cursorul
+//   pe coloane:  Copiaza sursa, Copiaza rezultatul, legenda culorilor
+//   intre ele:   sageata de aplicare a fiecarui bloc
+//   modul ghidat: Din sursa / Din tinta / Editeaza / Sari peste / Aplica
+// Baza (dreapta) e editabila, ca in v3.4.
+
+import { ListView } from "std-widgets.slint";
+import { P, Semn, EticMediu, BucatiP, BucataUi } from "comune.slint";
+
+// k: 0 identic, 1 modificat, 2 doar in sursa, 3 doar in baza
+// aplicat: blocul a fost adus din sursa in baza (dreapta devine „adus")
+export struct LinieP {
+    k: int, pliu: string, nr-st: string, nr-dr: string, st: [BucataUi], dr: [BucataUi],
+    inceput: bool, aplicat: bool, curent: bool,
+}
+export struct SemnP { k: int /* 0 nimic 1 mod 2 add 3 del 4 curent 5 adus */ }
+export struct ComandaUi { grup: string, text: string, sub: string, punct: color, mono: bool, activ: bool }
+
+component Hud inherits Rectangle {
+    background: P.p-fond;
+    border-radius: 14px; border-width: 1px; border-color: P.p-linie;
+    drop-shadow-blur: 30px; drop-shadow-offset-y: 8px; drop-shadow-color: P.p-umbra;
+}
+
+component Tasta inherits Rectangle {
+    in property <string> t;
+    in property <bool> pe-inchis;
+    height: 18px; width: tx.preferred-width + 10px; border-radius: 5px;
+    background: pe-inchis ? #2a2d35 : #f0f1f4;
+    tx := Text { text: t; font-family: P.mono; font-size: 11px; color: pe-inchis ? #c5c9d2 : P.p-sec; }
+}
+
+// fel: 0 simplu, 1 principal (negru), 2 apasat (comutator pornit)
+component ButonP inherits Rectangle {
+    in property <string> eticheta;
+    in property <string> tasta;
+    in property <string> nota;
+    in property <int> fel;
+    in property <length> inalt: 38px;
+    height: inalt; width: r.preferred-width + 24px; border-radius: 10px;
+    background: fel == 1 ? P.p-text : fel == 2 ? #eceef2 : (z.has-hover ? P.p-hover : transparent);
+    r := HorizontalLayout { alignment: center; spacing: 7px;
+        Text { text: eticheta; font-family: P.ui; font-size: 13.5px; font-weight: fel == 2 ? 500 : 400; color: fel == 1 ? white : P.p-text; vertical-alignment: center; }
+        if nota != "": Text { text: nota; font-family: P.ui; font-size: 12.5px; color: fel == 1 ? #c5c9d2 : P.p-sec; vertical-alignment: center; }
+        if tasta != "": VerticalLayout { alignment: center; Tasta { t: tasta; pe-inchis: fel == 1; } } }
+    z := TouchArea { }
+}
+
+component Despartitor inherits VerticalLayout {
+    alignment: center;
+    Rectangle { width: 1px; height: 22px; background: P.p-linie; }
+}
+
+component Punct inherits HorizontalLayout {
+    in property <color> c;
+    in property <string> t;
+    spacing: 5px; alignment: start;
+    VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: c; } }
+    Text { text: t; font-family: P.ui; font-size: 12px; color: P.p-sec; vertical-alignment: center; }
+}
+
+component Copiaza inherits Rectangle {
+    height: 26px; width: ct.preferred-width + 18px; border-radius: 7px; border-width: 1px; border-color: P.p-linie;
+    background: zc.has-hover ? P.p-hover : P.p-fond;
+    ct := Text { text: "Copiază"; font-family: P.ui; font-size: 12px; color: P.p-text; }
+    zc := TouchArea { }
+}
+
+export component Panza inherits Window {
+    preferred-width: 1440px; preferred-height: 900px;
+    background: P.p-fond;
+    default-font-family: P.ui;
+
+    in property <string> sursa; in property <string> tinta; in property <string> mediu;
+    in property <string> obiect-nav;
+    in property <string> tip; in property <string> schema; in property <string> nume;
+    in property <string> fraza; in property <string> salvat;
+    in property <[LinieP]> linii;
+    in property <[SemnP]> rigla;
+    in property <string> diferenta-nav;
+    in property <string> nerezolvate;
+    in property <string> revizuite; in property <string> din;
+    in property <string> arc;
+    in property <bool> ghidat;
+    // derularea codului: in modul ghidat, blocul curent se aduce in vedere
+    in-out property <length> derulare;
+    in property <string> ghidat-titlu;
+    in property <bool> paleta;
+    in property <string> cautare;
+    in property <[ComandaUi]> comenzi;
+
+    property <length> latime-cod: min(1200px, root.width - 200px);
+    property <length> jgheab: 44px;
+
+    // ---- panza: titlul fix sus, codul virtualizat dedesubt
+    VerticalLayout {
+        x: 0; y: 0; width: root.width; height: root.height;
+        padding-top: 92px;
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                width: latime-cod;
+                spacing: 0;
+                Text { text: tip; font-size: 13px; color: P.p-sec; }
+                HorizontalLayout { alignment: start; padding-top: 2px; padding-bottom: 6px;
+                    Text { text: schema; font-size: 44px; font-weight: 300; color: P.p-stins; letter-spacing: -1.8px; }
+                    Text { text: nume; font-size: 44px; font-weight: 600; color: P.p-text; letter-spacing: -1.8px; overflow: elide; horizontal-stretch: 1; } }
+                HorizontalLayout { spacing: 16px;
+                    Text { text: fraza; font-size: 16px; color: P.p-sec; horizontal-stretch: 1; vertical-alignment: center; }
+                    Text { text: salvat; font-size: 12px; color: P.p-tert; vertical-alignment: center; } }
+                // capetele coloanelor: ce e fiecare parte, legenda, Copiaza
+                HorizontalLayout { padding-top: 20px; padding-bottom: 8px; spacing: jgheab;
+                    HorizontalLayout { horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; spacing: 10px;
+                        Text { text: "Sursă"; font-size: 12px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+                        Text { text: sursa; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; horizontal-stretch: 1; }
+                        Copiaza { } }
+                    HorizontalLayout { horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; spacing: 10px;
+                        Text { text: "Bază"; font-size: 12px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+                        Text { text: tinta; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; }
+                        VerticalLayout { alignment: center; EticMediu { mediu: mediu; } }
+                        Text { text: "editabil"; font-size: 12px; color: P.p-tine; vertical-alignment: center; horizontal-stretch: 1; }
+                        Punct { c: P.p-mod; t: "modificat"; }
+                        Punct { c: P.p-add; t: "adus"; }
+                        Punct { c: P.p-tine; t: "scris de tine"; }
+                        Copiaza { } } }
+            }
+        }
+        HorizontalLayout {
+            alignment: center;
+            vertical-stretch: 1;
+            ListView {
+                width: latime-cod;
+                content-y <=> derulare;
+                for l in linii: Rectangle {
+                    height: l.pliu != "" ? 38px : 24px;
+                    if l.pliu != "": Rectangle {
+                        Rectangle { y: 6px; height: 1px; background: P.p-linie; }
+                        Rectangle { y: parent.height - 7px; height: 1px; background: P.p-linie; }
+                        Text { text: l.pliu; font-size: 12px; color: P.p-tert; }
+                    }
+                    if l.pliu == "": HorizontalLayout {
+                        spacing: 0;
+                        for parte[j] in [{ nr: l.nr-st, b: l.st }, { nr: l.nr-dr, b: l.dr }]: HorizontalLayout {
+                            horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
+                            // jgheabul dintre coloane, cu sageata de aplicare a blocului
+                            if j == 1: Rectangle {
+                                width: jgheab;
+                                if l.inceput && !l.aplicat: Rectangle {
+                                    width: 26px; height: 22px; border-radius: 11px;
+                                    background: l.curent ? P.p-text : P.p-fond; border-width: l.curent ? 0 : 1.5px; border-color: P.p-mod;
+                                    Text { text: "→"; font-family: P.mono; font-size: 13px; font-weight: 500; color: l.curent ? white : P.p-nr-mod; } }
+                                if l.inceput && l.aplicat: Rectangle {
+                                    width: 26px; height: 22px; border-radius: 11px; background: #e3f8ec;
+                                    Text { text: "✓"; font-family: P.ui; font-size: 12px; color: P.p-nr-add; } }
+                            }
+                            Rectangle {
+                                horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
+                                border-radius: 6px; clip: true;
+                                // k: 1 modificat, 2 doar in sursa, 3 doar in baza; adus = blocul aplicat in baza
+                                background: (j == 1 && l.aplicat) ? @linear-gradient(90deg, #17c96433 0%, #17c9640d 100%)
+                                    : (l.k == 1) ? @linear-gradient(90deg, #f5a52429 0%, #f5a5240a 100%)
+                                    : (l.k == 2 && j == 0) ? @linear-gradient(90deg, #17c96429 0%, #17c9640a 100%)
+                                    : (l.k == 3 && j == 1) ? @linear-gradient(90deg, #f3126024 0%, #f312600a 100%)
+                                    : transparent;
+                                if l.curent && !(j == 1 && l.aplicat): Rectangle { x: 0; width: 3px; background: P.p-mod; }
+                                HorizontalLayout {
+                                    Text { width: 40px; text: parte.nr; font-family: P.mono; font-size: 13px; horizontal-alignment: right; vertical-alignment: center;
+                                        color: (j == 1 && l.aplicat) ? P.p-nr-add : (l.k == 1) ? P.p-nr-mod : (l.k == 2 && j == 0) ? P.p-nr-add : (l.k == 3 && j == 1) ? P.p-nr-del : P.p-nr;
+                                        font-weight: l.k == 0 ? 400 : 500; }
+                                    Rectangle { width: 12px; }
+                                    BucatiP { bucati: parte.b; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // modul ghidat isi are locul lui sub cod, nu peste el
+        Rectangle { height: ghidat ? 104px + 150px : 104px; }
+    }
+
+    // ---- rigla diferentelor, in stanga (ca harta din v3.4)
+    VerticalLayout {
+        x: 18px; y: (root.height - self.preferred-height) / 2;
+        spacing: 4px;
+        for s in rigla: Rectangle {
+            width: s.k == 4 ? 34px : 22px; height: 4px; border-radius: 2px;
+            background: s.k == 1 ? P.p-mod : s.k == 2 ? P.p-add : s.k == 3 ? P.p-del : s.k == 4 ? P.p-text : s.k == 5 ? P.p-add : #e3e5ea;
+        }
+    }
+
+    // ---- sus stanga: semnul, inapoi la lista, obiectul anterior / urmator
+    Hud {
+        x: 18px; y: 18px; height: 50px; width: hs.preferred-width + 12px;
+        hs := HorizontalLayout { padding: 6px; padding-left: 14px; spacing: 4px;
+            Semn { culoare: P.p-text; marime: 16px; }
+            Rectangle { width: 10px; }
+            Despartitor { }
+            ButonP { eticheta: "← Lista"; tasta: "Esc"; }
+            Despartitor { }
+            ButonP { eticheta: "‹"; tasta: "PgUp"; }
+            Text { text: obiect-nav; font-family: P.mono; font-size: 12.5px; color: P.p-sec; vertical-alignment: center; }
+            ButonP { eticheta: "›"; tasta: "PgDn"; }
+        }
+    }
+    // ---- sus dreapta: concluzia, Omite, progresul
+    Hud {
+        x: root.width - self.width - 18px; y: 18px; height: 50px; width: hd.preferred-width + 12px;
+        hd := HorizontalLayout { padding: 6px; padding-right: 14px; spacing: 4px;
+            ButonP { eticheta: "Am ajuns la o concluzie"; tasta: "r"; }
+            ButonP { eticheta: "Omite"; tasta: "o"; }
+            Despartitor { }
+            Rectangle { width: 6px; }
+            VerticalLayout { alignment: center;
+                Rectangle { width: 30px; height: 30px;
+                    Path { width: 30px; height: 30px; viewbox-width: 36; viewbox-height: 36; stroke: #eceef2; stroke-width: 4px; commands: "M 18 3 A 15 15 0 1 1 17.99 3"; }
+                    Path { width: 30px; height: 30px; viewbox-width: 36; viewbox-height: 36; stroke: P.p-text; stroke-width: 4px; commands: arc; } } }
+            Rectangle { width: 4px; }
+            Text { text: revizuite; font-size: 12.5px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+            Text { text: din; font-size: 12.5px; color: P.p-sec; vertical-alignment: center; }
+        }
+    }
+    // ---- jos: lucrul pe blocuri, ca bara din v3.4
+    HorizontalLayout {
+        x: (root.width - self.preferred-width) / 2; y: root.height - 50px - 30px; height: 50px;
+        spacing: 12px;
+        Hud {
+            width: hj.preferred-width + 12px;
+            hj := HorizontalLayout { padding: 6px; spacing: 2px;
+                ButonP { eticheta: "Aplică toate"; fel: 1; }
+                ButonP { eticheta: "Reset"; }
+                Despartitor { }
+                ButonP { eticheta: "↑"; tasta: "⇧F7"; }
+                Text { text: diferenta-nav; font-family: P.mono; font-size: 12.5px; color: P.p-sec; vertical-alignment: center; }
+                ButonP { eticheta: "↓"; tasta: "F7"; }
+                Despartitor { }
+                ButonP { eticheta: ghidat ? "Mod ghidat pornit" : "Mod ghidat"; nota: nerezolvate; tasta: "g"; fel: ghidat ? 2 : 0; }
+                Despartitor { }
+                ButonP { eticheta: "Alăturat"; fel: 2; }
+                ButonP { eticheta: "Unificat"; tasta: "u"; }
+            }
+        }
+        Hud {
+            width: hx.preferred-width + 12px;
+            hx := HorizontalLayout { padding: 6px; spacing: 2px;
+                ButonP { eticheta: "Ascunde diferențele"; }
+                ButonP { eticheta: "Re-sincronizează"; }
+                ButonP { eticheta: "Unește cursorul"; }
+            }
+        }
+    }
+
+    // ---- modul ghidat: fereastra de previzualizare din v3.4, langa bloc
+    if ghidat: Rectangle {
+        x: (root.width - self.width) / 2; y: root.height - 80px - 14px - self.height; width: min(760px, root.width - 80px); height: gc.preferred-height;
+        background: P.p-text; border-radius: 16px;
+        drop-shadow-blur: 40px; drop-shadow-offset-y: 14px; drop-shadow-color: #0f111559;
+        gc := VerticalLayout { padding: 18px; spacing: 12px;
+            HorizontalLayout {
+                Text { text: ghidat-titlu; font-size: 13px; font-weight: 600; color: white; horizontal-stretch: 1; }
+                Text { text: "Sus / Jos: altă diferență"; font-size: 12px; color: #c5c9d2; } }
+            Text { text: "Ce pui în bază pentru blocul ăsta?"; font-size: 15px; color: white; }
+            HorizontalLayout { spacing: 6px;
+                for o[i] in ["Din sursă", "Din țintă", "Editează"]: Rectangle {
+                    height: 34px; width: ot.preferred-width + 24px; border-radius: 9px;
+                    background: i == 0 ? #ffffff26 : transparent; border-width: 1px; border-color: #ffffff33;
+                    ot := Text { text: o; font-size: 13px; color: white; } }
+                Rectangle { horizontal-stretch: 1; }
+                Rectangle { height: 34px; width: st.preferred-width + 24px; border-radius: 9px;
+                    st := Text { text: "Sari peste  Esc"; font-size: 13px; color: #c5c9d2; } }
+                Rectangle { height: 34px; width: at.preferred-width + 28px; border-radius: 9px; background: P.p-mod;
+                    at := Text { text: "Aplică  ↵"; font-size: 13px; font-weight: 600; color: P.pe-mod; } } }
+        }
+    }
+
+    // ---- paleta Ctrl K: un strat peste panza, nu o fereastra noua
+    if paleta: Rectangle {
+        background: P.p-voal;
+        TouchArea { }
+        Rectangle {
+            x: (parent.width - self.width) / 2; y: parent.height * 0.14;
+            width: min(640px, parent.width - 32px); height: cv.preferred-height;
+            background: P.p-fond; border-radius: 18px; border-width: 1px; border-color: P.p-linie;
+            drop-shadow-blur: 60px; drop-shadow-offset-y: 24px; drop-shadow-color: #0f111559;
+            cv := VerticalLayout {
+                Rectangle { height: 58px;
+                    Text { x: 20px; text: cautare; font-size: 18px; color: P.p-text; vertical-alignment: center; }
+                    Rectangle { y: parent.height - 1px; height: 1px; background: P.p-linie; } }
+                VerticalLayout { padding: 8px;
+                    for c in comenzi: VerticalLayout {
+                        if c.grup != "": HorizontalLayout { padding-left: 12px; height: 30px; Text { text: c.grup; font-size: 12px; color: P.p-tert; vertical-alignment: bottom; } }
+                        Rectangle { height: 40px; border-radius: 10px; background: c.activ ? P.p-hover : transparent;
+                            HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 12px;
+                                VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: c.punct; } }
+                                Text { text: c.text; font-family: c.mono ? P.mono : P.ui; font-size: c.mono ? 13px : 14px; color: P.p-text; vertical-alignment: center; horizontal-stretch: 1; }
+                                Text { text: c.sub; font-size: 12.5px; color: P.p-tert; vertical-alignment: center; } } }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,187 @@
+// Piesele comune celor trei ecrane: culorile, literele, antetul, butoanele.
+// Continuitatea dintre conectare, lista si editor sta aici: acelasi semn
+// g•motion, acelasi drum sursa → baza, aceleasi culori de stare.
+//
+// Cercetare, nu cod livrat. In aplicatie culorile se muta in
+// rust/fereastra/src/jetoane.rs (regula „nicio culoare in .slint"), unde le
+// vede testul de contrast.
+
+import "../fonturi/Geist-300.ttf";
+import "../fonturi/Geist-400.ttf";
+import "../fonturi/Geist-500.ttf";
+import "../fonturi/Geist-600.ttf";
+import "../fonturi/GeistMono-400.ttf";
+import "../fonturi/GeistMono-500.ttf";
+
+export global P {
+    out property <string> ui: "Geist";
+    out property <string> mono: "Geist Mono";
+    // --- intunecat: conectarea si lista
+    out property <color> h-fond: #0d1120;
+    out property <color> h-strat: #151a2e;
+    out property <color> h-strat-2: #1d2440;
+    out property <color> h-rand: #182039;
+    out property <color> h-linie: #2a3255;
+    out property <color> h-text: #eef1ff;
+    out property <color> h-sec: #a3acd0;
+    out property <color> h-tert: #7f88ae;
+    // starea, aceeasi pe toate ecranele intunecate
+    out property <color> mod: #ffb547;
+    out property <color> add: #3ddc97;
+    out property <color> del: #ff6b81;
+    out property <color> set: #8f9bff;
+    out property <color> ident: #232a45;
+    out property <color> prod: #d92b2b;
+    out property <color> test: #5b8cff;
+    out property <color> dev: #7f88ae;
+    out property <color> pe-mod: #1a1200;
+    out property <color> h-minus: #ff6b8121;
+    out property <color> h-plus: #3ddc9721;
+    out property <color> h-tare: #ffb54759;
+    out property <color> h-cuvant: #8fb4ff;
+    out property <color> h-sir: #ffcf8a;
+    out property <color> h-var: #d6a8ff;
+    // --- luminos: editorul (panza)
+    out property <color> p-fond: #ffffff;
+    out property <color> p-text: #0f1115;
+    out property <color> p-sec: #5d6370;
+    out property <color> p-tert: #5f6572;
+    out property <color> p-stins: #8b919d; // doar text mare (48 px): pragul e 3:1
+    out property <color> p-linie: #e8eaee;
+    out property <color> p-hover: #f3f4f6;
+    out property <color> p-mod: #f5a524;
+    out property <color> p-add: #17c964;
+    out property <color> p-del: #c40e4a;
+    out property <color> p-tine: #7828c8;
+    // numerele de linie: textul trebuie sa treaca 4,5:1 si pe fundalul colorat
+    out property <color> p-nr: #5f6572;
+    out property <color> p-nr-mod: #9a6200;
+    out property <color> p-nr-add: #12703b;
+    out property <color> p-nr-del: #c40e4a;
+    out property <color> p-tare: #f5a52473;
+    out property <color> p-cuvant: #7828c8;
+    out property <color> p-sir: #b13a0a;
+    out property <color> p-var: #005fd1;
+    out property <color> p-umbra: #0f11152e;
+    out property <color> p-voal: #ffffffb3;
+}
+
+// o bucata de text de aceeasi culoare; s: 0 text, 1 cuvant, 2 variabila,
+// 3 numar, 4 sir, 5 comentariu
+export struct BucataUi { text: string, s: int, tare: bool }
+
+// Semnul: acelasi pe toate ecranele (pe panza, in insula din stanga sus)
+export component Semn inherits HorizontalLayout {
+    in property <color> culoare: P.h-text;
+    in property <length> marime: 19px;
+    alignment: start; spacing: 0; horizontal-stretch: 0;
+    Text { text: "g"; font-family: P.ui; font-size: marime; font-weight: 600; color: culoare; vertical-alignment: center; }
+    Rectangle { width: marime * 0.47; Rectangle { width: marime * 0.37; height: self.width; y: parent.height / 2 - 1px; border-radius: self.width / 2; background: P.mod; } }
+    Text { text: "motion"; font-family: P.ui; font-size: marime; font-weight: 600; color: culoare; vertical-alignment: center; letter-spacing: -0.4px; }
+}
+
+export component EticMediu inherits Rectangle {
+    in property <string> mediu; // PROD / TEST / DEV
+    height: 20px; width: et.preferred-width + 14px; border-radius: 4px;
+    background: mediu == "PROD" ? P.prod : mediu == "TEST" ? P.test : P.h-strat-2;
+    et := Text { text: mediu; font-family: P.ui; font-size: 11px; font-weight: 600; color: white; letter-spacing: 0.5px; }
+}
+
+// Antetul intunecat al conectarii si al listei. Copiii se pun in dreapta.
+export component Antet inherits Rectangle {
+    in property <string> loc;          // „Conectare" sau drumul sursa → baza
+    in property <string> sursa;
+    in property <string> tinta;
+    in property <string> mediu;
+    height: 64px;
+    HorizontalLayout {
+        padding-left: 28px; padding-right: 20px; spacing: 24px;
+        Semn { }
+        if loc != "": Text { text: loc; font-family: P.ui; font-size: 13px; color: P.h-sec; vertical-alignment: center; }
+        if sursa != "": HorizontalLayout {
+            spacing: 10px; alignment: start; horizontal-stretch: 0;
+            Text { text: sursa; font-family: P.ui; font-size: 13px; font-weight: 500; color: P.h-text; vertical-alignment: center; }
+            Text { text: "→"; font-family: P.mono; font-size: 13px; color: P.h-tert; vertical-alignment: center; }
+            Text { text: tinta; font-family: P.ui; font-size: 13px; font-weight: 500; color: P.h-text; vertical-alignment: center; }
+            if mediu != "": VerticalLayout { alignment: center; EticMediu { mediu: mediu; } }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        @children
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: P.h-linie; }
+}
+
+// Buton pe fond intunecat. fel: 0 secundar, 1 principal (chihlimbar), 2 pericol, 3 fara contur
+export component ButonH inherits Rectangle {
+    in property <string> eticheta;
+    in property <string> tasta;
+    in property <int> fel;
+    in property <length> inalt: 34px;
+    in property <bool> dezactivat;
+    callback apasat;
+    height: inalt;
+    min-width: rand.preferred-width + 26px;
+    border-radius: 8px;
+    opacity: dezactivat ? 0.45 : 1;
+    background: fel == 1 ? P.mod : fel == 2 ? P.prod : fel == 3 ? (zona.has-hover ? P.h-strat-2 : transparent) : (zona.has-hover ? P.h-linie : P.h-strat-2);
+    border-width: fel == 0 ? 1px : 0;
+    border-color: P.h-linie;
+    rand := HorizontalLayout {
+        alignment: center; spacing: 6px;
+        Text { text: eticheta; font-family: P.ui; font-size: 13px; font-weight: fel == 1 || fel == 2 ? 600 : 400;
+            color: fel == 1 ? P.pe-mod : fel == 2 ? white : P.h-text; vertical-alignment: center; }
+        if tasta != "": Text { text: tasta; font-family: P.mono; font-size: 11px; color: fel == 1 ? #1a120099 : P.h-tert; vertical-alignment: center; }
+    }
+    zona := TouchArea { clicked => { apasat(); } }
+}
+
+// Camp de text pe fond intunecat (eticheta deasupra)
+export component CampH inherits VerticalLayout {
+    in property <string> eticheta;
+    in property <string> valoare;
+    in property <string> indiciu;
+    in property <bool> parola;
+    in property <bool> mono;
+    spacing: 6px;
+    Text { text: eticheta; font-family: P.ui; font-size: 12px; color: P.h-sec; }
+    Rectangle {
+        height: 38px; border-radius: 8px; background: P.h-fond; border-width: 1px;
+        border-color: ti.has-focus ? P.mod : P.h-linie;
+        ti := TextInput {
+            x: 12px; width: parent.width - 24px;
+            text: valoare; input-type: parola ? InputType.password : InputType.text;
+            font-family: mono ? P.mono : P.ui; font-size: 13px; color: P.h-text; vertical-alignment: center;
+        }
+        if valoare == "": Text { x: 12px; text: indiciu; font-family: P.ui; font-size: 13px; color: P.h-tert; vertical-alignment: center; }
+    }
+}
+
+// Lista de bucati colorate, pe fond intunecat
+export component BucatiH inherits HorizontalLayout {
+    in property <[BucataUi]> bucati;
+    for b in bucati: Rectangle {
+        background: b.tare ? P.h-tare : transparent;
+        border-radius: 2px;
+        Text {
+            text: b.text;
+            font-family: P.mono; font-size: 12px;
+            color: b.s == 1 ? P.h-cuvant : b.s == 2 ? P.h-var : (b.s == 3 || b.s == 4) ? P.h-sir : b.s == 5 ? P.h-tert : P.h-text;
+            font-italic: b.s == 5;
+        }
+    }
+}
+
+// Lista de bucati colorate, pe fond luminos
+export component BucatiP inherits HorizontalLayout {
+    in property <[BucataUi]> bucati;
+    for b in bucati: Rectangle {
+        background: b.tare ? P.p-tare : transparent;
+        border-radius: 3px;
+        Text {
+            text: b.text;
+            font-family: P.mono; font-size: 13px;
+            color: b.s == 1 ? P.p-cuvant : b.s == 2 ? P.p-var : (b.s == 3 || b.s == 4) ? P.p-sir : b.s == 5 ? P.p-tert : P.p-text;
+            font-italic: b.s == 5;
+        }
+    }
+}
