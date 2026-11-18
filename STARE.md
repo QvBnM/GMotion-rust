@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
-**Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (316 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (336 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -21,8 +21,8 @@ interfata grafica: binarul `gmotion`.
 | `rust/core` | gata, 50 teste, fuzz pe invariante, lexer T-SQL |
 | `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 48 teste |
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
-| `rust/module/diff-obiecte` | gata, 59 teste |
-| `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
+| `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
+| `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | editorul si lista: gata (etapele 8-9), 32 teste; conectarea, deploy-ul si paleta, de scris |
 | `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea (etapele 10-11), 14 teste |
 
@@ -49,10 +49,18 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 12, pasul 1: garda „baza n-a mai fost atinsa"** — inainte de deploy se
-recitesc obiectele din plan si se compara amprentele cu cele de la comparare.
-Apoi scriptul de revenire, amandoua in `cli`, si ecranul din
-`cercetare/machete/Deploy.dc.html`. Criteriile: `etape/12-plan-de-deploy.md`.
+**Etapa 12, pasul 4: modelul planului in `fereastra`, apoi ecranul.** Garda,
+revenirea si `cli` sunt gata (`gmotion plan`, `gmotion deploy --plan`). Ce
+lipseste din model inainte de Slint: **atentionarile** (setari `OFF` care se
+pastreaza, cicluri de dependente, versiunea serverului) — calculate in
+`diff-obiecte/src/plan.rs`, testate fara fereastra, apoi afisate. Ecranul
+dupa `cercetare/machete/Deploy.dc.html`, apoi captura. Criteriile:
+`etape/12-plan-de-deploy.md`.
+
+**Neclar din macheta, de intrebat inainte de ecran:** macheta arata `DROP`
+(„nu mai e in sursa") si butonul „Rulează". Azi deploy-ul **nu sterge**
+obiecte `extra` si **nu ruleaza** nimic pe server — doar scrie scripturi.
+Amandoua ar fi comportament nou, cu risc mare; nu le fac fara decizie.
 
 Rulari pe Windows: nimic de cerut acum.
 
@@ -72,6 +80,13 @@ Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
 unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
 filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
 nefolosit.
+
+**Doua intrebari noi din etapa 12** (blocheaza ecranul, nu modelul):
+
+4. **Deploy-ul sterge obiectele care nu mai sunt in sursa?** Macheta are un
+   pas `DROP`. Acum obiectele `extra` se sar, ca in v3.4.
+5. **„Rulează" executa scriptul pe server din aplicatie?** Acum GMotion doar
+   scrie `.sql`; rularea e in SSMS / sqlcmd. Daca da, e o etapa proprie.
 
 **Trei intrebari din etapa 11** (niciuna nu blocheaza etapa 12):
 
@@ -161,6 +176,12 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   in model. Incrucisarea e doar in `cod_stare` din `fereastra/src/lib.rs`.
   Daca o muti sau o dublezi, culorile se inverseaza fara ca vreun test de
   motor sa cada.
+- **Directorul de deploy are acum si subdirectorul `revenire/`.** Un test sau
+  un script care ia „primul fisier" sau numara intrarile din director
+  greseste. Revenirea sta separat tocmai ca `*.sql` din director sa nu o
+  includa.
+- **Garda de deploy primeste obiecte recitite.** Data cu cele de la comparare,
+  compara un lucru cu el insusi si trece mereu.
 - **Doua teste care folosesc acelasi director temporar se strica unul pe
   altul.** `cargo test` ruleaza in paralel; un test care sterge directorul la
   final il sterge de sub celalalt. Numele directorului primeste si o eticheta
