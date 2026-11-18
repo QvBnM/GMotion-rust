@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 9a5ed78449f2d3bf -->
+<!-- api-hash: 72f9e9f927cf19f9 -->
 
 ## Rol
 
@@ -32,7 +32,8 @@ Doua lucruri trebuie sa rămână adevarate:
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
 | `revizuire` | ce s-a marcat ca revizuit; bifa cade cand obiectul s-a schimbat |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
-| `deploy` | scripturile, cu codul din referinta |
+| `plan` | ce intra in deploy, cu amprentele de acum, intr-un `.json` |
+| `deploy` | scripturile, cu codul din referinta, si revenirea in `revenire/`. Cu `--plan`, intai verifica ca baza n-a mai fost atinsa (`GM-MOD-012`) |
 | `export` | CSV pentru Excel |
 
 Argumente comune: `--server`/`--port`/`--certificat` sau `--sursa`,
@@ -74,7 +75,7 @@ autoritati de certificare.
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-cli       # 27 teste
+cd rust && cargo test -p gmotion-cli       # 39 teste
 ```
 
 `tests/cli.rs` ruleaza **binarul adevarat**, nu functii interne, si acopera

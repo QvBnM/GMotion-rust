@@ -13,12 +13,12 @@ etapa asta adauga ce ii lipseste ca sa fie sigur de apasat.
 
 ## Criterii de terminare
 
-- [ ] **verificarea „baza n-a mai fost atinsa"**: inainte de deploy se recitesc
+- [x] **verificarea „baza n-a mai fost atinsa"**: inainte de deploy se recitesc
       obiectele din plan si se compara amprentele cu cele de la comparare;
       ce s-a schimbat intre timp se spune pe nume si opreste pasul
-- [ ] **scriptul de revenire**, din definitiile actuale ale bazei tinta,
+- [x] **scriptul de revenire**, din definitiile actuale ale bazei tinta,
       salvat inainte de deploy
-- [ ] amandoua accesibile din `cli` (CLAUDE.md §3), cu test pe binar
+- [x] amandoua accesibile din `cli` (CLAUDE.md §3), cu test pe binar
 - [ ] ecranul in Slint, fidel machetei: taburile Ordinea / Atentionari /
       Script, propozitia de rezumat, pasii numerotati in ordinea
       dependentelor, verificarile (✓ / !), „salvează întâi versiunea actuală",
@@ -41,6 +41,22 @@ etapa asta adauga ce ii lipseste ca sa fie sigur de apasat.
 - **2026-11-17** Etapa deschisa, cu criteriile scrise inainte de cod. Scriptul
   de deploy si ordinea pe dependente exista din etapa 4 (`deploy.rs`); aici se
   adauga garda si revenirea.
+- **2026-11-18** Pasii 1-3 facuti. `diff-obiecte/src/plan.rs`: `Plan` cu
+  amprenta exacta a fiecarei parti (nu hash-ul normalizat — decizia in
+  `JURNAL.md`), garda `verifica` / `GM-MOD-012`, si selectia „ce intra"
+  mutata din `cli` in modul, ca fereastra s-o refoloseasca. Revenirea:
+  `PasRevenire` + `scrie_cu_revenire`, in `<director>/revenire/`, verificata
+  inainte de primul fisier. `cli`: `gmotion plan` si `deploy --plan`, cu trei
+  teste pe binar. Ambele teste noi de ordine/amprenta vazute cazand cu codul
+  stricat deliberat. Doua teste vechi din `cli` presupuneau ca directorul de
+  deploy contine doar fisiere; ajustate sa numere fisierele.
+  Ramas pentru pasul 4: **atentionarile** planului (DROP, `QUOTED_IDENTIFIER
+  OFF`, cicluri) inca nu exista ca model — criteriul „planul are teste fara
+  fereastra" e doar pe jumatate.
+
+- **2026-11-18** Etapa pusa pe pauza dupa pasul 3 (decizia lui Mihai, in
+  `JURNAL.md`): intai paritatea functionala cu v3.4. Ecranul de deploy intra
+  in ordinea lipsurilor din `cercetare/lipsuri-portare.md`.
 
 ## Ce a ieșit altfel decat planul
 

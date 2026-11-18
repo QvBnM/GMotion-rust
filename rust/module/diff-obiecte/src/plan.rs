@@ -1,0 +1,524 @@
+//! Planul de deploy: ce intra, cu amprenta fiecarei parti din momentul
+//! compararii, si garda „baza n-a mai fost atinsa".
+//!
+//! **Se strica astfel:** garda spune „neatins" despre un obiect schimbat intre
+//! comparare si deploy — si atunci deploy-ul suprascrie, fara ca nimeni sa se
+//! fi uitat, munca altcuiva. Sau planul contine alt obiect decat cel ales.
+//! De-aia amprenta e **exacta** (textul din baza plus setarile), nu hash-ul
+//! normalizat al compararii: o schimbare de spatii sau de `QUOTED_IDENTIFIER`
+//! tot o schimbare e, si deploy-ul ar sterge-o.
+
+use std::collections::BTreeMap;
+use std::fmt;
+
+use gmotion_core::calc_hash;
+use serde::{Deserialize, Serialize};
+
+use crate::comparare::{Baza, Categorie, Comparare, ObiectPregatit, Rand};
+use crate::deploy::{aplica_create_or_alter, DeDeployat, PasRevenire};
+use crate::eroare::{Eroare, Rezultat};
+
+/// Amprenta exacta a unui obiect: definitia neatinsa si setarile de creare.
+///
+/// Diferita de `ObiectPregatit::hash`, care e pe forma normalizata si e facut
+/// sa nu vada spatiile. Aici tocmai spatiile conteaza: deploy-ul inlocuieste
+/// textul exact.
+pub fn amprenta_exacta(o: &ObiectPregatit) -> String {
+    let setari = match o.setari {
+        Some(s) => format!(
+            "{}{}",
+            u8::from(s.ansi_nulls),
+            u8::from(s.quoted_identifier)
+        ),
+        None => "--".to_string(),
+    };
+    // Tipul intra si el: acelasi text cu alt tip nu se poate, dar daca se
+    // poate, nu e acelasi obiect.
+    calc_hash(&format!("{}\0{setari}\0{}", o.tip, o.definitie))
+}
+
+/// Un obiect din plan, intr-o baza tinta.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Pas {
+    pub baza: String,
+    pub obiect: String,
+    pub tip: String,
+    /// Amprenta exacta a obiectului in referinta la comparare.
+    pub referinta: String,
+    /// Amprenta exacta in tinta la comparare; `None` — nu exista acolo, deci
+    /// deploy-ul il creeaza si revenirea il sterge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tinta: Option<String>,
+}
+
+/// Ce intra in deploy, cu amprentele de la comparare.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Plan {
+    pub referinta: String,
+    /// Cand s-a facut compararea pe care se sprijina planul. Dat din afara,
+    /// ca peste tot in modul.
+    pub facut_la: String,
+    pub pasi: Vec<Pas>,
+    /// Randuri alese dar nedeployabile: `extra` (exista doar in tinta) sau
+    /// criptate intr-una din parti.
+    pub sarite: usize,
+}
+
+/// Care parte s-a schimbat de la comparare.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Parte {
+    /// Codul care se deployeaza nu mai e cel revizuit.
+    Referinta,
+    /// Baza pe care se deployeaza a fost atinsa.
+    Tinta,
+}
+
+/// Cum s-a schimbat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FelSchimbare {
+    Modificat,
+    /// Nu exista la comparare, exista acum.
+    Aparut,
+    /// Exista la comparare, nu mai exista acum.
+    Disparut,
+}
+
+/// O schimbare gasita de garda. Se spune pe nume, nu „ceva s-a schimbat".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Schimbare {
+    pub baza: String,
+    pub obiect: String,
+    pub parte: Parte,
+    pub fel: FelSchimbare,
+}
+
+impl fmt::Display for Schimbare {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let fel = match self.fel {
+            FelSchimbare::Modificat => "a fost modificat",
+            FelSchimbare::Aparut => "a aparut",
+            FelSchimbare::Disparut => "a disparut",
+        };
+        match self.parte {
+            Parte::Tinta => write!(f, "{}: {} {fel} de la comparare", self.baza, self.obiect),
+            Parte::Referinta => write!(
+                f,
+                "{} {fel} in referinta de la comparare (deploy pe {})",
+                self.obiect, self.baza
+            ),
+        }
+    }
+}
+
+/// Obiectele unei baze tinta, dupa nume.
+fn baza_tinta<'a>(altele: &'a [(String, Baza)], nume: &str) -> Option<&'a Baza> {
+    altele.iter().find(|(b, _)| b == nume).map(|(_, o)| o)
+}
+
+impl Plan {
+    /// Planul din randurile alese ale unei comparari.
+    ///
+    /// Intra doar ce se poate deploia: un rand `extra` n-are cod in referinta,
+    /// unul criptat n-are cod de citit; amandoua se numara la `sarite`.
+    /// Obiectele identice nu sunt randuri, deci nu intra niciodata.
+    pub fn din_comparare(
+        c: &Comparare,
+        referinta: &Baza,
+        altele: &[(String, Baza)],
+        mut alege: impl FnMut(&Rand) -> bool,
+        facut_la: &str,
+    ) -> Plan {
+        let mut pasi = Vec::new();
+        let mut sarite = 0usize;
+        for r in c.randuri.iter().filter(|r| alege(r)) {
+            if matches!(r.categorie, Categorie::Extra | Categorie::Criptat) {
+                sarite += 1;
+                continue;
+            }
+            let Some(o) = referinta.get(&r.obiect) else {
+                // randurile care nu sunt `extra` vin din referinta
+                sarite += 1;
+                continue;
+            };
+            if o.definitie.is_empty() {
+                sarite += 1;
+                continue;
+            }
+            let tinta = baza_tinta(altele, &r.baza)
+                .and_then(|b| b.get(&r.obiect))
+                .map(amprenta_exacta);
+            pasi.push(Pas {
+                baza: r.baza.clone(),
+                obiect: r.obiect.clone(),
+                tip: r.tip.clone(),
+                referinta: amprenta_exacta(o),
+                tinta,
+            });
+        }
+        Plan {
+            referinta: c.referinta.clone(),
+            facut_la: facut_la.to_string(),
+            pasi,
+            sarite,
+        }
+    }
+
+    /// Garda: recitite acum, sunt obiectele din plan exact cum erau la
+    /// comparare? Lista goala inseamna da.
+    ///
+    /// `referinta` si `altele` trebuie sa fie **recitite**, nu cele de la
+    /// comparare — altfel garda compara un lucru cu el insusi. O baza tinta
+    /// care lipseste din `altele` e tratata ca goala: tot ce era in ea a
+    /// „disparut", deci garda opreste.
+    pub fn verifica(&self, referinta: &Baza, altele: &[(String, Baza)]) -> Vec<Schimbare> {
+        let gol = Baza::new();
+        let mut schimbari = Vec::new();
+        for p in &self.pasi {
+            let acum_ref = referinta.get(&p.obiect).map(amprenta_exacta);
+            if let Some(fel) = fel_schimbare(Some(&p.referinta), acum_ref.as_ref()) {
+                schimbari.push(Schimbare {
+                    baza: p.baza.clone(),
+                    obiect: p.obiect.clone(),
+                    parte: Parte::Referinta,
+                    fel,
+                });
+            }
+            let tinta = baza_tinta(altele, &p.baza).unwrap_or(&gol);
+            let acum_tinta = tinta.get(&p.obiect).map(amprenta_exacta);
+            if let Some(fel) = fel_schimbare(p.tinta.as_ref(), acum_tinta.as_ref()) {
+                schimbari.push(Schimbare {
+                    baza: p.baza.clone(),
+                    obiect: p.obiect.clone(),
+                    parte: Parte::Tinta,
+                    fel,
+                });
+            }
+        }
+        if !schimbari.is_empty() {
+            tracing::warn!(
+                target: "gmotion::modul",
+                schimbari = schimbari.len(),
+                "garda: baza s-a schimbat de la comparare"
+            );
+        }
+        schimbari
+    }
+
+    /// Garda ca eroare: `GM-MOD-012` cu fiecare schimbare pe nume.
+    pub fn verifica_sau_opreste(
+        &self,
+        referinta: &Baza,
+        altele: &[(String, Baza)],
+    ) -> Rezultat<()> {
+        let s = self.verifica(referinta, altele);
+        if s.is_empty() {
+            return Ok(());
+        }
+        Err(Eroare::BazaAtinsa {
+            schimbari: s
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("; "),
+        })
+    }
+
+    /// Ce se scrie in scriptul de deploy: codul din referinta, pe baze.
+    ///
+    /// Se cheama dupa garda, cu obiectele recitite; un obiect din plan care
+    /// nu mai e in referinta e `GM-MOD-012`, nu un pas sarit in tacere.
+    pub fn de_deployat(&self, referinta: &Baza) -> Rezultat<BTreeMap<String, Vec<DeDeployat>>> {
+        let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
+        for p in &self.pasi {
+            let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
+                schimbari: format!("{} a disparut din referinta", p.obiect),
+            })?;
+            pe_baza.entry(p.baza.clone()).or_default().push(DeDeployat {
+                obiect: p.obiect.clone(),
+                tip: p.tip.clone(),
+                cod: aplica_create_or_alter(&o.definitie),
+                setari: o.setari,
+            });
+        }
+        Ok(pe_baza)
+    }
+
+    /// Scriptul de revenire, din definitiile **actuale** ale bazelor tinta:
+    /// ce exista se reface exact cum e acum (cu setarile lui), ce nu exista
+    /// — deci deploy-ul il creeaza — se sterge.
+    ///
+    /// `referinta` da codul care se va deploia peste obiectele noi: din el
+    /// se afla in ce ordine se pot sterge.
+    pub fn revenire(
+        &self,
+        referinta: &Baza,
+        altele: &[(String, Baza)],
+    ) -> BTreeMap<String, Vec<PasRevenire>> {
+        let gol = Baza::new();
+        let mut pe_baza: BTreeMap<String, Vec<PasRevenire>> = BTreeMap::new();
+        for p in &self.pasi {
+            let tinta = baza_tinta(altele, &p.baza).unwrap_or(&gol);
+            let pas = match tinta.get(&p.obiect) {
+                Some(o) => PasRevenire::Reface(DeDeployat {
+                    obiect: p.obiect.clone(),
+                    tip: o.tip.clone(),
+                    cod: aplica_create_or_alter(&o.definitie),
+                    setari: o.setari,
+                }),
+                None => PasRevenire::Sterge(DeDeployat {
+                    obiect: p.obiect.clone(),
+                    tip: p.tip.clone(),
+                    cod: referinta
+                        .get(&p.obiect)
+                        .map(|o| aplica_create_or_alter(&o.definitie))
+                        .unwrap_or_default(),
+                    setari: None,
+                }),
+            };
+            pe_baza.entry(p.baza.clone()).or_default().push(pas);
+        }
+        pe_baza
+    }
+}
+
+fn fel_schimbare(atunci: Option<&String>, acum: Option<&String>) -> Option<FelSchimbare> {
+    match (atunci, acum) {
+        (None, None) => None,
+        (Some(a), Some(b)) if a == b => None,
+        (Some(_), Some(_)) => Some(FelSchimbare::Modificat),
+        (None, Some(_)) => Some(FelSchimbare::Aparut),
+        (Some(_), None) => Some(FelSchimbare::Disparut),
+    }
+}
+
+#[cfg(test)]
+mod teste {
+    use super::*;
+    use crate::comparare::{compara, pregateste};
+    use gmotion_db::{Obiect, Setari};
+
+    fn ob(nume: &str, def: &str) -> Obiect {
+        Obiect {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "P".into(),
+            definitie: def.into(),
+            setari: Some(Setari {
+                ansi_nulls: true,
+                quoted_identifier: true,
+            }),
+        }
+    }
+
+    /// Referinta: pA, pB, pC. Tinta: pA diferit, pB lipsa, pC identic, pX extra.
+    fn scena() -> (Baza, Vec<(String, Baza)>) {
+        let r = pregateste(&[
+            ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 1"),
+            ob("pB", "CREATE PROCEDURE dbo.pB AS SELECT 2"),
+            ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3"),
+        ]);
+        let t = pregateste(&[
+            ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 100"),
+            ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3"),
+            ob("pX", "CREATE PROCEDURE dbo.pX AS SELECT 9"),
+        ]);
+        (r, vec![("Tinta".to_string(), t)])
+    }
+
+    fn plan(r: &Baza, a: &[(String, Baza)]) -> Plan {
+        let c = compara("Ref", r, a, |_| {});
+        Plan::din_comparare(&c, r, a, |_| true, "2026-11-18 10:00")
+    }
+
+    #[test]
+    fn planul_ia_doar_ce_se_poate_deploia() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let nume: Vec<&str> = p.pasi.iter().map(|x| x.obiect.as_str()).collect();
+        assert_eq!(nume, ["dbo.pA", "dbo.pB"], "pC e identic, pX e extra");
+        assert_eq!(p.sarite, 1, "pX");
+        assert!(p.pasi[0].tinta.is_some(), "pA exista in tinta");
+        assert!(p.pasi[1].tinta.is_none(), "pB nu exista in tinta");
+    }
+
+    #[test]
+    fn alegerea_filtreaza_randurile() {
+        let (r, a) = scena();
+        let c = compara("Ref", &r, &a, |_| {});
+        let p = Plan::din_comparare(&c, &r, &a, |x| x.obiect == "dbo.pB", "t");
+        assert_eq!(p.pasi.len(), 1);
+        assert_eq!(p.pasi[0].obiect, "dbo.pB");
+        assert_eq!(p.sarite, 0);
+    }
+
+    #[test]
+    fn neatinsa_trece() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        assert!(p.verifica(&r, &a).is_empty());
+        assert!(p.verifica_sau_opreste(&r, &a).is_ok());
+    }
+
+    #[test]
+    fn tinta_modificata_e_spusa_pe_nume() {
+        let (r, mut a) = scena();
+        let p = plan(&r, &a);
+        a[0].1 = pregateste(&[
+            ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 200"),
+            ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3"),
+        ]);
+        let s = p.verifica(&r, &a);
+        assert_eq!(
+            s,
+            vec![Schimbare {
+                baza: "Tinta".into(),
+                obiect: "dbo.pA".into(),
+                parte: Parte::Tinta,
+                fel: FelSchimbare::Modificat,
+            }]
+        );
+        let e = p.verifica_sau_opreste(&r, &a).unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-012");
+        assert!(
+            e.to_string().contains("Tinta: dbo.pA a fost modificat"),
+            "{e}"
+        );
+    }
+
+    #[test]
+    fn obiect_aparut_in_tinta_opreste() {
+        // pB lipsea: deploy-ul l-ar fi creat. Intre timp l-a creat altcineva.
+        let (r, mut a) = scena();
+        let p = plan(&r, &a);
+        a[0].1.extend(pregateste(&[ob(
+            "pB",
+            "CREATE PROCEDURE dbo.pB AS SELECT 7",
+        )]));
+        let s = p.verifica(&r, &a);
+        assert_eq!(s.len(), 1);
+        assert_eq!((s[0].parte, s[0].fel), (Parte::Tinta, FelSchimbare::Aparut));
+    }
+
+    #[test]
+    fn obiect_disparut_din_tinta_opreste() {
+        let (r, mut a) = scena();
+        let p = plan(&r, &a);
+        a[0].1.remove("dbo.pA");
+        let s = p.verifica(&r, &a);
+        assert_eq!(s.len(), 1);
+        assert_eq!(
+            (s[0].obiect.as_str(), s[0].fel),
+            ("dbo.pA", FelSchimbare::Disparut)
+        );
+    }
+
+    #[test]
+    fn referinta_schimbata_opreste() {
+        // Codul care s-ar deploia nu mai e cel revizuit.
+        let (mut r, a) = scena();
+        let p = plan(&r, &a);
+        r = pregateste(&[
+            ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 1 -- altfel"),
+            ob("pB", "CREATE PROCEDURE dbo.pB AS SELECT 2"),
+            ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3"),
+        ]);
+        let s = p.verifica(&r, &a);
+        assert_eq!(s.len(), 1);
+        assert_eq!(
+            (s[0].parte, s[0].fel),
+            (Parte::Referinta, FelSchimbare::Modificat)
+        );
+    }
+
+    #[test]
+    fn schimbarea_doar_de_spatii_sau_setari_tot_opreste() {
+        // Hash-ul compararii nu le vede; deploy-ul le-ar suprascrie.
+        let (r, mut a) = scena();
+        let p = plan(&r, &a);
+        let mut cu_spatii = ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 100   ");
+        a[0].1 = pregateste(&[
+            cu_spatii.clone(),
+            ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3"),
+        ]);
+        assert_eq!(p.verifica(&r, &a).len(), 1, "spatiile de la capat");
+
+        cu_spatii.definitie = "CREATE PROCEDURE dbo.pA AS SELECT 100".into();
+        cu_spatii.setari = Some(Setari {
+            ansi_nulls: true,
+            quoted_identifier: false,
+        });
+        a[0].1 = pregateste(&[cu_spatii, ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3")]);
+        assert_eq!(p.verifica(&r, &a).len(), 1, "QUOTED_IDENTIFIER");
+    }
+
+    #[test]
+    fn baza_tinta_lipsa_opreste() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let s = p.verifica(&r, &[]);
+        assert_eq!(s.len(), 1, "pA a disparut; pB lipsea si inainte");
+        assert_eq!(s[0].fel, FelSchimbare::Disparut);
+    }
+
+    #[test]
+    fn obiectele_neplanificate_nu_conteaza() {
+        // pC (identic) si pX (extra) nu sunt in plan: schimbarea lor nu e
+        // treaba deploy-ului.
+        let (r, mut a) = scena();
+        let p = plan(&r, &a);
+        a[0].1.insert(
+            "dbo.pX".into(),
+            ObiectPregatit::din(&ob("pX", "CREATE PROCEDURE dbo.pX AS SELECT 0")),
+        );
+        a[0].1.remove("dbo.pC");
+        assert!(p.verifica(&r, &a).is_empty());
+    }
+
+    #[test]
+    fn de_deployat_ia_codul_din_referinta() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let d = p.de_deployat(&r).unwrap();
+        let t = &d["Tinta"];
+        assert_eq!(t.len(), 2);
+        assert_eq!(t[0].cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1");
+        assert!(p.de_deployat(&Baza::new()).is_err());
+    }
+
+    #[test]
+    fn revenirea_reface_ce_exista_si_sterge_ce_se_creeaza() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let rev = p.revenire(&r, &a);
+        let t = &rev["Tinta"];
+        assert_eq!(t.len(), 2);
+        match &t[0] {
+            PasRevenire::Reface(o) => {
+                assert_eq!(o.obiect, "dbo.pA");
+                assert_eq!(
+                    o.cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 100",
+                    "revenirea e codul din TINTA, nu din referinta"
+                );
+            }
+            alt => panic!("pA trebuia refacut, nu {alt:?}"),
+        }
+        match &t[1] {
+            PasRevenire::Sterge(o) => {
+                assert_eq!((o.obiect.as_str(), o.tip.as_str()), ("dbo.pB", "P"))
+            }
+            alt => panic!("pB trebuia sters, nu {alt:?}"),
+        }
+    }
+
+    #[test]
+    fn planul_supravietuieste_json() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let text = serde_json::to_string(&p).unwrap();
+        let inapoi: Plan = serde_json::from_str(&text).unwrap();
+        assert_eq!(inapoi, p);
+        assert!(inapoi.verifica(&r, &a).is_empty());
+    }
+}

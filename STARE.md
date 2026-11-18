@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (316 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (336 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -21,10 +21,10 @@ interfata grafica: binarul `gmotion`.
 | `rust/core` | gata, 50 teste, fuzz pe invariante, lexer T-SQL |
 | `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 48 teste |
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
-| `rust/module/diff-obiecte` | gata, 59 teste |
-| `rust/cli` | gata, 31 teste, din care 12 pe binarul adevarat |
-| `rust/fereastra` | editorul si lista: gata (etapele 8-9), 32 teste; conectarea, deploy-ul si paleta, de scris |
-| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea (etapele 10-11), 14 teste |
+| `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
+| `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
+| `rust/fereastra` | editorul, lista, conectarea se deseneaza; **7 butoane/comutatoare nelegate** (vezi `cercetare/lipsuri-portare.md`, sectiunea 0) |
+| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea; **nu e la paritate cu v3.4** |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
@@ -49,10 +49,23 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 12, pasul 1: garda „baza n-a mai fost atinsa"** — inainte de deploy se
-recitesc obiectele din plan si se compara amprentele cu cele de la comparare.
-Apoi scriptul de revenire, amandoua in `cli`, si ecranul din
-`cercetare/machete/Deploy.dc.html`. Criteriile: `etape/12-plan-de-deploy.md`.
+**Directia s-a schimbat pe 2026-11-18 (Mihai): intai functionalitatile, apoi
+aspectul.** Lista completa a ce lipseste fata de v3.4:
+`cercetare/lipsuri-portare.md`. Mihai alege ordinea; pana atunci, nu se
+incepe nimic din ea.
+
+- Ecranul de deploy din etapa 12 e **pus pe pauza**: deploy-ul din fereastra
+  e una dintre lipsuri si intra in ordinea aleasa de Mihai. Garda, revenirea
+  si `cli` (pasii 1-3) sunt facute.
+- **Aspectul vizual se discuta intr-o alta sesiune.** Nu se schimba nimic
+  vizual pana atunci.
+- **Platforma cu module:** deocamdata ramane un singur modul, „comparare
+  obiecte" (`diff-obiecte`). Celelalte module, inclusiv `upgrade`, le decide
+  Mihai mai tarziu.
+
+Candidatul firesc pentru primul pas, daca Mihai nu decide altfel: sectiunea 0
+din `lipsuri-portare.md` (butoanele moarte si cele doua bug-uri de pe
+instantaneu). E mic si nu atinge aspectul.
 
 Rulari pe Windows: nimic de cerut acum.
 
@@ -68,10 +81,11 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 `cercetare/redesign/propunere.md` si prototipul `cercetare/redesign/Banda.html`.
 Lista, editorul si planul ajung pe un singur ecran, cu planul ca placa
 inchisa la culoare, semnatura diferentei in coada si filtru scris. **Intrebarea:**
-o adoptam (inlocuieste `design-aprobat.md` si schimba criteriul de ecran al
-etapei 12), o adoptam partial, sau ramane designul aprobat? Pana la raspuns nu
-se atinge `rust/fereastra`; garda si scriptul de revenire (pasii 1-3 ai etapei
-12) nu depind de raspuns.
+o adoptam (inlocuieste `design-aprobat.md` si schimba criteriul
+ecranului de deploy din etapa 12, acum pe pauza), o adoptam partial, sau
+ramane designul aprobat? Propunerea arata si unde incape fiecare lipsa din
+`lipsuri-portare.md`; nu schimba ordinea „intai paritatea, apoi aspectul".
+Pana la raspuns nu se atinge `rust/fereastra`.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
@@ -81,6 +95,16 @@ Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
 unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
 filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
 nefolosit.
+
+**Ordinea lipsurilor** din `cercetare/lipsuri-portare.md` — asta blocheaza
+urmatorul pas.
+
+**Doua intrebari din etapa 12** (pastrate ca idei, 2026-11-18) (blocheaza ecranul, nu modelul):
+
+4. **Deploy-ul sterge obiectele care nu mai sunt in sursa?** Macheta are un
+   pas `DROP`. Acum obiectele `extra` se sar, ca in v3.4.
+5. **„Rulează" executa scriptul pe server din aplicatie?** Acum GMotion doar
+   scrie `.sql`; rularea e in SSMS / sqlcmd. Daca da, e o etapa proprie.
 
 **Trei intrebari din etapa 11** (niciuna nu blocheaza etapa 12):
 
@@ -170,6 +194,17 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   in model. Incrucisarea e doar in `cod_stare` din `fereastra/src/lib.rs`.
   Daca o muti sau o dublezi, culorile se inverseaza fara ca vreun test de
   motor sa cada.
+- **O captura nu dovedeste ca un buton merge.** Uneltele de captura pornesc
+  ecranul direct in starea ceruta; un comutator nelegat arata perfect in
+  captura. Asa s-au declarat „gata" etapele 8-11 cu 7 butoane moarte. Un
+  buton se probeaza prin handler-ul lui (`on_*` in `app/src/main.rs`) si
+  printr-un test care il apasa.
+- **Directorul de deploy are acum si subdirectorul `revenire/`.** Un test sau
+  un script care ia „primul fisier" sau numara intrarile din director
+  greseste. Revenirea sta separat tocmai ca `*.sql` din director sa nu o
+  includa.
+- **Garda de deploy primeste obiecte recitite.** Data cu cele de la comparare,
+  compara un lucru cu el insusi si trece mereu.
 - **Doua teste care folosesc acelasi director temporar se strica unul pe
   altul.** `cargo test` ruleaza in paralel; un test care sterge directorul la
   final il sterge de sub celalalt. Numele directorului primeste si o eticheta

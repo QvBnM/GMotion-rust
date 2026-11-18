@@ -126,3 +126,28 @@ revizuit, `p` in plan / scoate din plan, `v` salveaza revenirea, `/` filtrul,
   scriptul de revenire raman exact cum sunt planificate.
 - **Jetoanele noi** intra in `jetoane.rs` si trec prin testul de contrast
   existent. Primul pas e sa vad daca vreuna cade.
+
+## Unde incap functiile lipsa fata de v3.4
+
+Decizia din 2026-11-18 (`JURNAL.md`) e: intai paritatea, apoi aspectul, si nicio
+functie din v3.4 nu se mai scoate tacit. Machetele aprobate au pierdut functii
+tocmai pentru ca nu aveau loc pentru ele. Mai jos e locul fiecarei lipse din
+`cercetare/lipsuri-portare.md` in Banda. **Prototipul nu le deseneaza inca**;
+le adaug dupa ce Mihai alege directia.
+
+| Lipsa (v3.4) | Locul in Banda |
+|---|---|
+| Comparare cu mai multe baze | o placa de plan pe baza tinta, cu taburi pe numele bazelor; in filtru, `baza:X` |
+| Progres, Anuleaza | coada se umple pe masura ce se citesc obiectele; linia de 2 px din antet arata progresul, `Esc` anuleaza |
+| Mod ghidat | `n` exista deja; `Enter` aplica blocul curent, `Esc` il sare, iar la final placa iti spune ce a ramas |
+| Tinta editabila, Aplica bloc / toate, Reset, Ctrl+Z | jumatatea dreapta („dupa deploy") devine editabila; sageata de aplicare sta in jgheabul fiecarui bloc |
+| Omite | tasta `o`; in coada, randul se estompeaza cu „omis"; in filtru, `omis` / `neomis` |
+| Filtru pe stare (rezolvate / omise / deployate) | `revizuit`, `omis`, `deployat` in filtru, cu fatetele lor |
+| Interval de similaritate | `scor:<90` in filtru; scorul apare in meta-ul randului |
+| Sortare | `ordine:linii` / `ordine:modificat` in filtru, la fel de reluabil ca restul |
+| Ultima modificare | in meta-ul randului si `modificat:>2026-11-01` |
+| Export CSV | in paleta, „Exporta ce vezi"; foloseste exact textul filtrului, la fel ca `gmotion export --filtru` |
+| Coloana Deploy (deployat / versiune noua) | crestatura de pe marginea randului isi schimba forma: plina = in plan, contur = deployat, contur rupt = versiune noua dupa deploy |
+| Cautarea serverelor, testarea conexiunii | ecranul de conectare ramane separat; primeste doar jetoanele noi |
+| Comparare offline (lipesti doua texte) | in paleta, „Compara doua texte"; deschide Obiectul fara Coada |
+| Jurnal live | in sertarul de jos, `Ctrl J`, ascuns implicit |
