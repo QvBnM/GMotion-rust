@@ -398,7 +398,10 @@ export component EditorDiferente inherits Window {
                                         if r.diferenta >= 0 && r.stare != 0 && !root.ascunde-diferentele: TouchArea {
                                             mouse-cursor: grab;
                                             moved => {
-                                                if (self.pressed) {
+                                                // se considera tragere abia dupa cativa
+                                                // pixeli: altfel un clic obisnuit aprinde
+                                                // zona de plasare si pare un bug
+                                                if (self.pressed && Math.abs(self.mouse-x - self.pressed-x) > 6px) {
                                                     root.trage-diferenta = r.diferenta;
                                                     root.trage-x = self.mouse-x - self.pressed-x;
                                                 }
@@ -406,7 +409,7 @@ export component EditorDiferente inherits Window {
                                             pointer-event(e) => {
                                                 if (e.kind == PointerEventKind.up) {
                                                     // tras destul spre dreapta = pus in baza
-                                                    if (root.trage-diferenta == r.diferenta && root.trage-x > root.jgheab) {
+                                                    if (root.trage-diferenta >= 0 && root.trage-diferenta == r.diferenta && root.trage-x > root.jgheab) {
                                                         root.aplica-diferenta(r.diferenta);
                                                     }
                                                     root.trage-diferenta = -1;
@@ -466,7 +469,11 @@ export component EditorDiferente inherits Window {
                                             tigla: root.tigla-hasura;
                                         }
                                         // unde ajunge blocul tras
-                                        if root.trage-diferenta == r.diferenta: Rectangle {
+                                        // `>= 0` conteaza: randurile de context au
+                                        // `diferenta == -1`, adica exact valoarea
+                                        // „nu se trage nimic" — fara asta, zona de
+                                        // plasare se aprindea pe tot panoul
+                                        if root.trage-diferenta >= 0 && root.trage-diferenta == r.diferenta: Rectangle {
                                             border-radius: 4px;
                                             border-width: 1.5px;
                                             border-color: Tema.accent;
