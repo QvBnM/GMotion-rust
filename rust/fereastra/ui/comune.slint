@@ -394,6 +394,12 @@ export struct RandUi {
     // primul rand al unei diferente (sageata din canal) sau al unui sir de
     // linii aduse (bifa)
     inceput: bool,
+    // cate randuri afisate tine diferenta, pus doar pe randul de inceput:
+    // de aici se deseneaza linia de legatura din canal
+    linii-bloc: int,
+    // in modul unificat: cealalta versiune a liniei, aratata la hover
+    pereche: [BucataUi],
+    pereche-nr: string,
 }
 
 export struct MarcajUi {

@@ -8,7 +8,7 @@
 // panouri pe acelasi rand tine derularea sincronizata fara cod.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Semn, EticMediu, ButonTema, Jumatate, RandUi, MarcajUi } from "comune.slint";
+import { Tema, Semn, EticMediu, ButonTema, Bucati, Jumatate, RandUi, MarcajUi } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Insula inherits Rectangle {
@@ -195,6 +195,9 @@ export component EditorDiferente inherits Window {
     callback ecran-complet();
     callback comuta-omis();
     callback aplica-diferenta(int);
+    // blocul tras acum cu mouse-ul (-1 = niciunul) si cat s-a tras spre dreapta
+    in-out property <int> trage-diferenta: -1;
+    in-out property <length> trage-x;
     callback aplica-toate();
     callback reset();
     callback anuleaza();
@@ -205,6 +208,11 @@ export component EditorDiferente inherits Window {
     callback ghidat-aplica();
     callback ghidat-sari();
     callback resincronizeaza();
+    /// „Uneste ciclul cursor": `DECLARE ... CURSOR` pana la `DEALLOCATE`
+    /// intr-un singur bloc. Taierea e in `core`, aici doar comutatorul.
+    in property <bool> are-cursor;
+    in property <bool> uneste-cursorul;
+    callback comuta-unirea-cursorului(bool);
     callback diferenta-schimbata(int);
 
     property <length> inaltime-rand: 22px;
@@ -371,20 +379,57 @@ export component EditorDiferente inherits Window {
                                 }
                                 if r.fel == 0 && root.alaturat: HorizontalLayout {
                                     spacing: 0px;
-                                    Jumatate {
+                                    Rectangle {
                                         width: (parent.width - root.jgheab) / 2;
-                                        nr: r.st-nr;
-                                        bucati: r.st;
-                                        stare: root.ascunde-diferentele ? 0 : r.stare;
-                                        curenta: r.diferenta == root.diferenta-curenta;
-                                        fara-linie: r.st-nr == "";
-                                        fond: Tema.panou-sursa;
-                                        tigla: root.tigla-hasura;
+                                        Jumatate {
+                                            width: parent.width;
+                                            nr: r.st-nr;
+                                            bucati: r.st;
+                                            stare: root.ascunde-diferentele ? 0 : r.stare;
+                                            curenta: r.diferenta == root.diferenta-curenta;
+                                            fara-linie: r.st-nr == "";
+                                            fond: Tema.panou-sursa;
+                                            tigla: root.tigla-hasura;
+                                        }
+                                        // blocul din sursa se poate **trage**
+                                        // peste panoul din dreapta; e acelasi
+                                        // lucru ca sageata din canal, doar ca
+                                        // se face cu mana
+                                        if r.diferenta >= 0 && r.stare != 0 && !root.ascunde-diferentele: TouchArea {
+                                            mouse-cursor: grab;
+                                            moved => {
+                                                if (self.pressed) {
+                                                    root.trage-diferenta = r.diferenta;
+                                                    root.trage-x = self.mouse-x - self.pressed-x;
+                                                }
+                                            }
+                                            pointer-event(e) => {
+                                                if (e.kind == PointerEventKind.up) {
+                                                    // tras destul spre dreapta = pus in baza
+                                                    if (root.trage-diferenta == r.diferenta && root.trage-x > root.jgheab) {
+                                                        root.aplica-diferenta(r.diferenta);
+                                                    }
+                                                    root.trage-diferenta = -1;
+                                                    root.trage-x = 0px;
+                                                }
+                                            }
+                                        }
                                     }
                                     // canalul dintre panouri: sageata de aplicare a blocului,
                                     // sau bifa unde s-a adus din sursa
                                     Rectangle {
                                         width: root.jgheab;
+                                        // linia de legatura: tine cat tine
+                                        // blocul, ca sa se vada ce bucata din
+                                        // stanga merge peste ce bucata din
+                                        // dreapta
+                                        if r.inceput && r.stare != 0 && r.linii-bloc > 1 && !root.ascunde-diferentele: Rectangle {
+                                            y: root.inaltime-rand / 2;
+                                            width: 1px;
+                                            height: (r.linii-bloc - 1) * root.inaltime-rand;
+                                            background: r.diferenta == root.diferenta-curenta ? Tema.mod-text : Tema.mod-bara;
+                                            opacity: r.diferenta == root.diferenta-curenta ? 1 : 0.5;
+                                        }
                                         if r.inceput && r.stare != 0 && !root.ascunde-diferentele: Rectangle {
                                             width: 24px;
                                             height: 18px;
@@ -408,28 +453,81 @@ export component EditorDiferente inherits Window {
                                             Text { text: "✓"; font-family: Tema.font-ui; font-size: 11px; color: Tema.add-text; }
                                         }
                                     }
-                                    Jumatate {
+                                    Rectangle {
                                         width: (parent.width - root.jgheab) / 2;
-                                        nr: r.dr-nr;
-                                        bucati: r.dr;
-                                        stare: root.ascunde-diferentele ? 0 : r.stare;
-                                        marcaj: root.ascunde-diferentele ? 0 : r.dr-marcaj;
-                                        curenta: r.diferenta == root.diferenta-curenta;
-                                        fara-linie: r.dr-nr == "";
-                                        tigla: root.tigla-hasura;
+                                        Jumatate {
+                                            width: parent.width;
+                                            nr: r.dr-nr;
+                                            bucati: r.dr;
+                                            stare: root.ascunde-diferentele ? 0 : r.stare;
+                                            marcaj: root.ascunde-diferentele ? 0 : r.dr-marcaj;
+                                            curenta: r.diferenta == root.diferenta-curenta;
+                                            fara-linie: r.dr-nr == "";
+                                            tigla: root.tigla-hasura;
+                                        }
+                                        // unde ajunge blocul tras
+                                        if root.trage-diferenta == r.diferenta: Rectangle {
+                                            border-radius: 4px;
+                                            border-width: 1.5px;
+                                            border-color: Tema.accent;
+                                            background: Tema.mod-fundal;
+                                            opacity: 0.85;
+                                            if r.inceput: Text {
+                                                text: root.trage-x > root.jgheab ? "Plaseaza aici" : "Trage peste panoul din dreapta";
+                                                font-family: Tema.font-ui;
+                                                font-size: 11.5px;
+                                                font-weight: 500;
+                                                color: Tema.mod-text;
+                                            }
+                                        }
                                     }
                                 }
                                 // unificat: o singura coloana, cu ambele jgheaburi
-                                if r.fel == 0 && !root.alaturat: Jumatate {
-                                    nr: r.st-nr;
-                                    nr-baza: r.dr-nr;
-                                    doua-numere: true;
-                                    bucati: r.st-nr != "" ? r.st : r.dr;
-                                    stare: root.ascunde-diferentele ? 0 : r.stare;
-                                    marcaj: root.ascunde-diferentele || r.st-nr != "" ? 0 : r.dr-marcaj;
-                                    curenta: r.diferenta == root.diferenta-curenta;
-                                    fara-linie: false;
-                                    tigla: root.tigla-hasura;
+                                if r.fel == 0 && !root.alaturat: Rectangle {
+                                    Jumatate {
+                                        width: parent.width;
+                                        nr: r.st-nr;
+                                        nr-baza: r.dr-nr;
+                                        doua-numere: true;
+                                        bucati: r.st-nr != "" ? r.st : r.dr;
+                                        stare: root.ascunde-diferentele ? 0 : r.stare;
+                                        marcaj: root.ascunde-diferentele || r.st-nr != "" ? 0 : r.dr-marcaj;
+                                        curenta: r.diferenta == root.diferenta-curenta;
+                                        fara-linie: false;
+                                        tigla: root.tigla-hasura;
+                                    }
+                                    // previzualizare la hover: cealalta
+                                    // versiune a liniei, fara sa comuti pe
+                                    // alaturat
+                                    if r.pereche-nr != "" && !root.ascunde-diferentele: TouchArea {
+                                        peste := Rectangle {
+                                            x: 56px;
+                                            y: root.inaltime-rand - 2px;
+                                            width: Math.min(parent.width - 72px, pereche-text.preferred-width + 20px);
+                                            height: root.inaltime-rand + 6px;
+                                            border-radius: 6px;
+                                            border-width: 1px;
+                                            border-color: Tema.linie;
+                                            background: Tema.suprafata;
+                                            drop-shadow-blur: 14px;
+                                            drop-shadow-offset-y: 4px;
+                                            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111526;
+                                            visible: parent.has-hover;
+                                            pereche-text := HorizontalLayout {
+                                                padding-left: 8px;
+                                                padding-right: 8px;
+                                                spacing: 8px;
+                                                Text {
+                                                    text: r.pereche-nr;
+                                                    font-family: Tema.font-mono;
+                                                    font-size: 11.5px;
+                                                    color: Tema.text-tert;
+                                                    vertical-alignment: center;
+                                                }
+                                                Bucati { bucati: r.pereche; }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -610,6 +708,12 @@ export component EditorDiferente inherits Window {
                         apasat => { root.ascunde-diferentele = !root.ascunde-diferentele; }
                     }
                     ButonInsula { text: "Re-sincronizeaza"; apasat => { root.resincronizeaza(); } }
+                    // butonul apare doar pe obiectele care chiar au cursor
+                    if root.are-cursor: ButonInsula {
+                        text: root.uneste-cursorul ? "Desparte ciclul cursor" : "Uneste ciclul cursor";
+                        fel: root.uneste-cursorul ? 2 : 0;
+                        apasat => { root.comuta-unirea-cursorului(!root.uneste-cursorul); }
+                    }
                     ButonInsula { text: "Anuleaza"; tasta: "Ctrl Z"; activ: root.se-poate-anula; apasat => { root.anuleaza(); } }
                 }
             }

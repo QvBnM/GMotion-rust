@@ -285,6 +285,9 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                 diferenta: -1,
                 dr_marcaj: 0,
                 inceput: false,
+                linii_bloc: 0,
+                pereche: gol(),
+                pereche_nr: SharedString::new(),
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -313,6 +316,9 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                     inceput: rand.inceput_bloc
                         || (rand.marcaj != Marcaj::Niciunul
                             && (i == 0 || model.randuri[i - 1].marcaj == Marcaj::Niciunul)),
+                    linii_bloc: 0,
+                    pereche: gol(),
+                    pereche_nr: SharedString::new(),
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     randuri.push(baza);
@@ -320,10 +326,14 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                 }
                 // unificat: blocul modificat se vede de doua ori, intai cum e
                 // in sursa, apoi cum e in baza
+                // cealalta versiune ramane pe rand, in `pereche`: la hover
+                // se vede fara sa comuti pe alaturat (v3.4 facea la fel)
                 if rand.stanga.nr.is_some() {
                     randuri.push(RandUi {
                         dr_nr: SharedString::new(),
                         dr: gol(),
+                        pereche: bucati_ui(&rand.dreapta.bucati),
+                        pereche_nr: nr(rand.dreapta.nr),
                         ..baza.clone()
                     });
                 }
@@ -331,11 +341,26 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                     randuri.push(RandUi {
                         st_nr: SharedString::new(),
                         st: gol(),
+                        pereche: bucati_ui(&rand.stanga.bucati),
+                        pereche_nr: nr(rand.stanga.nr),
                         ..baza
                     });
                 }
             }
         }
+    }
+    // cate randuri afisate tine fiecare diferenta: linia de legatura din
+    // canal se deseneaza de la primul la ultimul rand al blocului
+    let mut cate = vec![0i32; model.diferente.len()];
+    for r in &randuri {
+        if r.diferenta >= 0 {
+            if let Some(n) = cate.get_mut(r.diferenta as usize) {
+                *n += 1;
+            }
+        }
+    }
+    for r in randuri.iter_mut().filter(|r| r.inceput && r.diferenta >= 0) {
+        r.linii_bloc = cate.get(r.diferenta as usize).copied().unwrap_or(0);
     }
     (randuri, start)
 }
@@ -547,6 +572,59 @@ fn cod_deploy(o: &model_lista::Obiect) -> i32 {
         Deploy::Nu if o.in_plan => 1,
         Deploy::Nu => 0,
     }
+}
+
+/// Latimea de care are nevoie o coloana ca sa-si arate tot continutul, in
+/// pixeli logici („autofit", dublu clic pe marginea capului).
+///
+/// Latimea unui text nu se poate masura din Slint, deci se socoteste din
+/// numarul de caractere si latimea unui caracter mono la 12px. E o
+/// aproximare deliberata: mai bine cu cateva zeci de pixeli in plus decat un
+/// nume taiat.
+pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) -> f32 {
+    use model_lista::Ordine;
+    const CARACTER: f32 = 7.3;
+    const PADDING: f32 = 20.0;
+    let text = |o: &model_lista::Obiect| -> usize {
+        match coloana {
+            Ordine::Nume => o.id().chars().count(),
+            Ordine::Baza => o.baza.chars().count(),
+            Ordine::Tip => gmotion_core::nume_tip(&o.tip).chars().count(),
+            Ordine::Linii => o.detalii.as_ref().map_or(0, |d| {
+                format!("+{} −{}", d.linii_plus, d.linii_minus)
+                    .chars()
+                    .count()
+            }),
+            Ordine::Scor => 10,
+            Ordine::DiferaIn => o
+                .detalii
+                .as_ref()
+                .map_or(0, |d| d.difera_in.chars().count()),
+            Ordine::Revizuire => 8,
+            Ordine::Deploy => "Versiune noua".len(),
+        }
+    };
+    // doar randurile vizibile: autofit pe ce se vede, ca in orice tabel
+    let maxim = lista
+        .vizibile()
+        .iter()
+        .map(|&i| text(&lista.obiecte()[i]))
+        .max()
+        .unwrap_or(0);
+    // si capul coloanei trebuie sa incapa
+    let cap = match coloana {
+        Ordine::Nume => "Obiect",
+        Ordine::Baza => "Baza",
+        Ordine::Tip => "Tip",
+        Ordine::Linii => "Linii",
+        Ordine::Scor => "Similar",
+        Ordine::DiferaIn => "Difera in",
+        Ordine::Revizuire => "Revizuit",
+        Ordine::Deploy => "Deploy",
+    }
+    .chars()
+    .count();
+    (maxim.max(cap) as f32) * CARACTER + PADDING
 }
 
 /// Umple ecranul listei din modelul ei. Nu calculeaza nimic: filtrele,
@@ -1099,6 +1177,7 @@ mod teste {
         }
         inregistreaza!(
             on_comuta_omis => "omite",
+            on_resincronizeaza => "resincronizeaza",
             on_ghidat_porneste => "ghidat",
             on_ghidat_opreste => "opreste",
             on_ghidat_aplica => "aplica",
@@ -1107,6 +1186,25 @@ mod teste {
             on_editeaza_textul_final => "editeaza",
             on_inapoi_lista => "lista",
         );
+        // butoanele noi din insula de jos: unirea cursorului si tragerea
+        // unui bloc peste panoul din dreapta
+        let a = apeluri.clone();
+        ui.on_comuta_unirea_cursorului(move |cu| {
+            a.borrow_mut().push(if cu { "uneste" } else { "desparte" })
+        });
+        let a = apeluri.clone();
+        ui.on_aplica_diferenta(move |_| a.borrow_mut().push("aplica-bloc"));
+        ui.invoke_resincronizeaza();
+        ui.invoke_comuta_unirea_cursorului(true);
+        ui.invoke_comuta_unirea_cursorului(false);
+        ui.invoke_aplica_diferenta(0);
+        assert_eq!(
+            *apeluri.borrow(),
+            ["resincronizeaza", "uneste", "desparte", "aplica-bloc"],
+            "butoanele noi din editor au actiune"
+        );
+        apeluri.borrow_mut().clear();
+
         apasa(&ui, "o");
         apasa(&ui, "g");
         apasa(&ui, "e");
@@ -1550,6 +1648,22 @@ mod teste {
 
     /// Coloanele noi din lista (Similar, Deploy) si starea barei de filtre
     /// vin din model, nu din desen.
+    #[test]
+    fn autofitul_tine_cont_si_de_cap_si_de_randuri() {
+        use model_lista::Ordine;
+        let mut lista = lista_de_proba();
+        // capul „Baza" e scurt, dar numele bazei e lung
+        let baza = latime_autofit(&lista, Ordine::Baza);
+        assert!(baza > 80.0, "numele bazei nu incape: {baza}");
+        // o coloana fara continut ramane cat capul ei
+        let tip = latime_autofit(&lista, Ordine::Tip);
+        assert!(tip > 20.0 && tip < baza, "{tip} vs {baza}");
+        // pe o lista filtrata la zero ramane latimea capului
+        lista.cauta("nu-exista");
+        let gol = latime_autofit(&lista, Ordine::DiferaIn);
+        assert!(gol > 20.0, "capul coloanei tot trebuie sa incapa: {gol}");
+    }
+
     #[test]
     fn coloanele_de_scor_si_deploy_vin_din_model() {
         use model_lista::{Deploy, FiltruRevizuire, Ordine};

@@ -296,6 +296,15 @@ fn uneste_cicluri_cursor(blocuri: Vec<String>) -> Vec<String> {
     out
 }
 
+/// Codul are un cursor pe care l-ar putea uni `split_statements(.., true)`:
+/// exista un `DECLARE <nume> CURSOR`. Fereastra arata butonul „Uneste ciclul
+/// cursor" doar atunci — pe restul obiectelor n-ar face nimic.
+pub fn are_cursor(cod: &str) -> bool {
+    split_statements(cod, false)
+        .iter()
+        .any(|b| nume_cursor_din_bloc(b).is_some())
+}
+
 /// Imparte codul in blocuri logice.
 ///
 /// `uneste_cursor` corespunde comutatorului din interfata ("Uneste ciclul
@@ -578,5 +587,19 @@ mod teste {
     fn cod_gol_da_zero_blocuri() {
         assert!(split_statements("", false).is_empty());
         assert!(split_statements("\n\n   \n", false).is_empty());
+    }
+
+    #[test]
+    fn are_cursor_vede_doar_cursoarele_adevarate() {
+        assert!(!are_cursor("SELECT 1"));
+        assert!(!are_cursor(""));
+        // „cursor" ca nume de coloana sau in comentariu nu e un cursor
+        assert!(!are_cursor("SELECT cursor FROM t"));
+        assert!(!are_cursor("-- declare c cursor\nSELECT 1"));
+        assert!(are_cursor(
+            "DECLARE c CURSOR FOR SELECT 1\nOPEN c\nCLOSE c\nDEALLOCATE c"
+        ));
+        // litere mari sau mici, tot aia
+        assert!(are_cursor("declare   Ciclu   cursor for select 1"));
     }
 }

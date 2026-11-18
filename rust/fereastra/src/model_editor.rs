@@ -309,7 +309,15 @@ fn schimbat_pe_caractere(segmente: &[gmotion_core::Segment]) -> Vec<bool> {
 /// Construieste modelul pentru doua texte deja pregatite pentru afisare
 /// (`gmotion_core::pregateste_afisare`).
 pub fn construieste(text_ref: &str, text_tinta: &str) -> ModelEditor {
-    let a = aliniaza(text_ref, text_tinta);
+    construieste_cu(text_ref, text_tinta, false)
+}
+
+/// Ca [`construieste`], cu „uneste ciclul cursorului" (v3.4): blocurile de
+/// cursor se iau intregi, de la `DECLARE ... CURSOR` pana la `DEALLOCATE`.
+/// Taierea blocurilor sta in `core`, nu aici: un al doilea loc care decide
+/// granite ar fi exact bug-ul reparat la etapa 7.
+pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) -> ModelEditor {
+    let a = gmotion_core::aliniaza_cu(text_ref, text_tinta, uneste_cursor);
     // Culorile se calculeaza pe blocul intreg, o data: un comentariu sau un
     // sir pe mai multe linii trebuie sa-si pastreze culoarea pe fiecare linie.
     let mut colorate: Vec<[Option<Vec<Vec<Bucata>>>; 2]> = vec![[None, None]; a.diff.len()];

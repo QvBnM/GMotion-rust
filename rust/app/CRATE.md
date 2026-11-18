@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 16bf090bc04a2456 -->
+<!-- api-hash: 3d80e2ecc84feb3f -->
 
 ## Rol
 
@@ -27,6 +27,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | Element | Ce face |
 |---|---|
 | `Aplicatie::noua(randuri, sursa, tinte, revizuire)` | starea initiala, din randurile unei comparari; `tinte` sunt bazele comparate, una sau mai multe |
+| `Aplicatie::{uneste_cursorul, are_cursor}` | starea comutatorului de unire a ciclului de cursor, si daca obiectul curent are cursor |
 | `Aplicatie::baze()`, `tinte()` | bazele comparate si obiectele lor pregatite |
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
 | `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |

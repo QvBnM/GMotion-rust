@@ -387,6 +387,8 @@ fn ruleaza() -> Result<(), String> {
                         },
                         &model,
                     );
+                    e_ui.set_are_cursor(app.are_cursor());
+                    e_ui.set_uneste_cursorul(app.uneste_cursorul());
                     let (editat, _) = app.stare_text_final();
                     let (text_sursa, text_final) = app.texte_curente().unwrap_or_default();
                     let salvat = if s.salvat_la.is_empty() {
@@ -881,6 +883,19 @@ fn ruleaza() -> Result<(), String> {
             c(Comanda::Sorteaza(gmotion_fereastra::ordine_din_cod(cod)));
         });
         let s = stare.clone();
+        let l = lista_ui.as_weak();
+        let d = deseneaza.clone();
+        lista_ui.on_autofit_coloana(move |cod| {
+            let latime = s.borrow().app.as_ref().map(|a| {
+                gmotion_fereastra::latime_autofit(a.lista(), gmotion_fereastra::ordine_din_cod(cod))
+            });
+            if let (Some(ui), Some(latime)) = (l.upgrade(), latime) {
+                ui.global::<gmotion_fereastra::Coloane>()
+                    .invoke_pune(cod, latime);
+            }
+            d();
+        });
+        let s = stare.clone();
         let c = comanda.clone();
         lista_ui.on_alege_baza(move |i| {
             let baza = usize::try_from(i).ok().and_then(|i| {
@@ -1023,6 +1038,8 @@ fn ruleaza() -> Result<(), String> {
         // reconstruieste la redesenare, din ce arata fereastra acum
         let c = comanda.clone();
         editor_ui.on_comuta_omis(move || c(Comanda::ComutaOmis));
+        let c = comanda.clone();
+        editor_ui.on_comuta_unirea_cursorului(move |cu| c(Comanda::ComutaUnireaCursorului(cu)));
         let c = comanda.clone();
         editor_ui
             .on_aplica_diferenta(move |k| c(Comanda::AplicaDiferenta(usize::try_from(k).ok())));

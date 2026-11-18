@@ -6,7 +6,7 @@
 //! sunt bug-uri de stare, nu de desen — de-aia starea sta aici, fara Slint, si
 //! se testeaza ca atare.
 
-use gmotion_fereastra::model_editor::{construieste, marcheaza_textul_final, ModelEditor};
+use gmotion_fereastra::model_editor::{construieste_cu, marcheaza_textul_final, ModelEditor};
 use gmotion_fereastra::model_lista::{
     Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
 };
@@ -63,6 +63,8 @@ pub enum Comanda {
     SalveazaText(String),
     /// „Omite" (`o`): analizat, lasat in afara deploy-ului.
     ComutaOmis,
+    /// „Uneste ciclul cursor": blocul de cursor se ia intreg.
+    ComutaUnireaCursorului(bool),
     /// Diferenta curenta s-a mutat (n / p, clic pe harta).
     MergiLaDiferenta(usize),
     // ---- modul ghidat: ia diferentele pe rand
@@ -108,6 +110,8 @@ pub struct Aplicatie {
     /// diferenta aplicata dispare si urmatoarea ii ia locul.
     diferenta: usize,
     ghidat: Option<Ghidat>,
+    /// „Uneste ciclul cursor": schimba taierea blocurilor in editor.
+    uneste_cursorul: bool,
 }
 
 impl Aplicatie {
@@ -193,6 +197,7 @@ impl Aplicatie {
             istoric: Vec::new(),
             diferenta: 0,
             ghidat: None,
+            uneste_cursorul: false,
         }
     }
 
@@ -225,6 +230,18 @@ impl Aplicatie {
 
     pub fn ghidat(&self) -> Option<&Ghidat> {
         self.ghidat.as_ref()
+    }
+
+    pub fn uneste_cursorul(&self) -> bool {
+        self.uneste_cursorul
+    }
+
+    /// Obiectul curent are un cursor, deci butonul „Uneste ciclul cursor"
+    /// are ce face.
+    pub fn are_cursor(&self) -> bool {
+        self.obiect()
+            .and_then(|o| self.texte(&o.baza, &o.id()))
+            .is_some_and(|(a, b)| gmotion_core::are_cursor(a) || gmotion_core::are_cursor(b))
     }
 
     /// Obiectul curent are text final (deci „Reset" are ce face), si e scris
@@ -303,10 +320,10 @@ impl Aplicatie {
         let (baza, id) = self.cheia_curenta()?;
         let (a, b) = self.texte(&baza, &id)?;
         let Some(r) = self.rand(&baza, &id) else {
-            return Some(construieste(a, b));
+            return Some(construieste_cu(a, b, self.uneste_cursorul));
         };
         let curent = self.editari.curent(r, b);
-        let mut m = construieste(a, curent);
+        let mut m = construieste_cu(a, curent, self.uneste_cursorul);
         let manual = self.editari.text_final(r).is_some_and(|t| t.manual);
         marcheaza_textul_final(&mut m, b, curent, manual);
         Some(m)
@@ -432,6 +449,13 @@ impl Aplicatie {
                 }
             }
             Comanda::ComutaOmis => return self.comuta_omis(),
+            Comanda::ComutaUnireaCursorului(cu) => {
+                self.uneste_cursorul = cu;
+                // blocurile se taie altfel, deci diferenta curenta poate sa
+                // nu mai existe
+                let n = self.numar_diferente();
+                self.diferenta = self.diferenta.min(n.saturating_sub(1));
+            }
             Comanda::MergiLaDiferenta(k) => self.diferenta = k,
             Comanda::PornesteGhidat => {
                 self.ghidat = Some(Ghidat {
@@ -921,6 +945,58 @@ mod teste {
             "acelasi obiect in alta baza e alta treaba"
         );
         assert_eq!(a.lista().progres_revizuire(), (1, 2));
+    }
+
+    /// „Uneste ciclul cursor": blocurile se taie altfel, deci editorul arata
+    /// mai putine diferente — una singura pe tot ciclul, in loc de cate una
+    /// pe fiecare instructiune.
+    #[test]
+    fn unirea_ciclului_de_cursor_strange_blocurile_intr_unul() {
+        const CICLU: &str = "CREATE PROCEDURE dbo.pC AS\n\
+            DECLARE c CURSOR FOR SELECT id FROM dbo.T;\n\
+            OPEN c;\n\
+            FETCH NEXT FROM c INTO @id;\n\
+            WHILE @@FETCH_STATUS = 0\n\
+            BEGIN\n\
+                FETCH NEXT FROM c INTO @id;\n\
+            END\n\
+            CLOSE c;\n\
+            DEALLOCATE c;";
+        let sursa = modul::pregateste(&[obiect_db("pC", CICLU)]);
+        let tinta = modul::pregateste(&[obiect_db(
+            "pC",
+            &CICLU.replace(
+                "SELECT id FROM dbo.T",
+                "SELECT id FROM dbo.T WHERE activ = 1",
+            ),
+        )]);
+        let tinte = vec![("Client1".to_string(), tinta)];
+        let c = modul::compara("Ref", &sursa, &tinte, |_| {});
+        let mut a = Aplicatie::noua(c.randuri, sursa, tinte, Revizuire::noua());
+        a.comanda(Comanda::Selecteaza(0));
+
+        assert!(a.are_cursor(), "obiectul are cursor, deci butonul are rost");
+        assert!(!a.uneste_cursorul());
+        let separat = a.model_editor().expect("model").diferente.len();
+
+        a.comanda(Comanda::ComutaUnireaCursorului(true));
+        assert!(a.uneste_cursorul());
+        let unit = a.model_editor().expect("model").diferente.len();
+        assert_eq!(unit, 1, "tot ciclul devine o singura diferenta");
+        assert!(
+            separat >= unit,
+            "unirea nu poate da mai multe blocuri: {separat} -> {unit}"
+        );
+
+        a.comanda(Comanda::ComutaUnireaCursorului(false));
+        assert_eq!(a.model_editor().expect("model").diferente.len(), separat);
+    }
+
+    #[test]
+    fn butonul_de_cursor_nu_apare_pe_obiectele_fara_cursor() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Selecteaza(0));
+        assert!(!a.are_cursor(), "pA n-are cursor");
     }
 
     #[test]

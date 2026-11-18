@@ -241,8 +241,20 @@ fn perechi_replace(bv: &[String], bn: &[String]) -> Vec<(usize, usize)> {
 // inlocuit cu un iterator pe elemente
 #[allow(clippy::needless_range_loop)]
 pub fn diff_aliniat(text_referinta: &str, text_curent: &str) -> Vec<RandDiff> {
-    let sv = split_statements(text_referinta, false);
-    let sn = split_statements(text_curent, false);
+    diff_aliniat_cu(text_referinta, text_curent, false)
+}
+
+/// Ca [`diff_aliniat`], dar cu optiunea de segmentare „uneste ciclul
+/// cursorului" (`DECLARE ... CURSOR` pana la `DEALLOCATE` intr-un singur
+/// bloc), ca in v3.4.
+#[allow(clippy::needless_range_loop)]
+pub fn diff_aliniat_cu(
+    text_referinta: &str,
+    text_curent: &str,
+    uneste_cursor: bool,
+) -> Vec<RandDiff> {
+    let sv = split_statements(text_referinta, uneste_cursor);
+    let sn = split_statements(text_curent, uneste_cursor);
     let kv: Vec<String> = sv.iter().map(|b| cheie_bloc(b)).collect();
     let kn: Vec<String> = sn.iter().map(|b| cheie_bloc(b)).collect();
 

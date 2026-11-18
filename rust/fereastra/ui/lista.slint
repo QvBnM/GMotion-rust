@@ -79,15 +79,40 @@ global Stari {
 }
 
 // Latimile coloanelor tabelului, aceleasi in cap si pe randuri.
-global Coloane {
-    out property <length> stare: 34px;
-    out property <length> baza: 152px;
-    out property <length> tip: 84px;
-    out property <length> linii: 84px;
-    out property <length> scor: 118px;
-    out property <length> difera: 124px;
-    out property <length> revizuit: 62px;
-    out property <length> deploy: 100px;
+// Latimile coloanelor. `in-out`, fiindca marginea capului de coloana le
+// trage; dublu clic pune latimea ceruta de continut (calculata in Rust).
+export global Coloane {
+    in-out property <length> stare: 34px;
+    in-out property <length> baza: 152px;
+    in-out property <length> tip: 84px;
+    in-out property <length> linii: 84px;
+    in-out property <length> scor: 118px;
+    in-out property <length> difera: 124px;
+    in-out property <length> revizuit: 62px;
+    in-out property <length> deploy: 100px;
+    /// Sub atat o coloana nu mai are ce arata.
+    out property <length> minim: 48px;
+
+    public function pune(coloana: int, latime: length) {
+        if (coloana == Sortare.baza) { root.baza = Math.max(root.minim, latime); }
+        if (coloana == Sortare.tip) { root.tip = Math.max(root.minim, latime); }
+        if (coloana == Sortare.linii) { root.linii = Math.max(root.minim, latime); }
+        if (coloana == Sortare.scor) { root.scor = Math.max(root.minim, latime); }
+        if (coloana == Sortare.difera) { root.difera = Math.max(root.minim, latime); }
+        if (coloana == Sortare.revizuit) { root.revizuit = Math.max(root.minim, latime); }
+        if (coloana == Sortare.deploy) { root.deploy = Math.max(root.minim, latime); }
+    }
+
+    public pure function ia(coloana: int) -> length {
+        return coloana == Sortare.baza ? root.baza
+             : coloana == Sortare.tip ? root.tip
+             : coloana == Sortare.linii ? root.linii
+             : coloana == Sortare.scor ? root.scor
+             : coloana == Sortare.difera ? root.difera
+             : coloana == Sortare.revizuit ? root.revizuit
+             : coloana == Sortare.deploy ? root.deploy
+             : 0px;
+    }
 }
 
 // Codurile coloanelor sortabile; aceeasi ordine ca `model_lista::Ordine`.
@@ -106,6 +131,9 @@ global Sortare {
 // sensul, ca in v3.4.
 component CapColoana inherits Rectangle {
     in property <string> titlu;
+    /// Codul coloanei (`Sortare`), pentru tragere si autofit.
+    in property <int> coloana;
+    callback autofit();
     // 0 = stretch (coloana „Obiect")
     in property <length> latime;
     in property <bool> sortata;
@@ -139,6 +167,23 @@ component CapColoana inherits Rectangle {
         Rectangle { horizontal-stretch: 1; }
     }
     TouchArea { clicked => { root.apasat(); } }
+    // marginea din dreapta: trasa, schimba latimea; dublu clic o potriveste
+    // dupa continut (`autofit`, calculat in Rust)
+    if root.latime > 0px: Rectangle {
+        x: parent.width - 3px;
+        width: 7px;
+        height: parent.height;
+        background: tragere.has-hover || tragere.pressed ? Tema.linie : transparent;
+        tragere := TouchArea {
+            mouse-cursor: col-resize;
+            moved => {
+                if (self.pressed) {
+                    Coloane.pune(root.coloana, root.latime + (self.mouse-x - self.pressed-x));
+                }
+            }
+            double-clicked => { root.autofit(); }
+        }
+    }
 }
 
 // Filtru cu meniu derulant (v3.4: „Stare"). `-1` = fara filtru.
@@ -477,6 +522,7 @@ export component FereastraLista inherits Window {
     callback adauga-in-plan();
     callback cauta(string);
     callback sorteaza-coloana(int);
+    callback autofit-coloana(int);
     callback alege-starea(int);
     callback schimba-scorul(string, string);
     callback exporta-csv();
@@ -771,6 +817,8 @@ export component FereastraLista inherits Window {
                             Text { width: Coloane.stare; text: ""; }
                             CapColoana {
                                 titlu: "Obiect  " + root.rezumat-lista;
+                                coloana: Sortare.nume;
+                                autofit => { root.autofit-coloana(Sortare.nume); }
                                 latime: 0px;
                                 sortata: root.coloana-sortata == Sortare.nume;
                                 descrescator: root.sens-descrescator;
@@ -778,6 +826,8 @@ export component FereastraLista inherits Window {
                             }
                             if root.mai-multe-baze: CapColoana {
                                 titlu: "Baza";
+                                coloana: Sortare.baza;
+                                autofit => { root.autofit-coloana(Sortare.baza); }
                                 latime: Coloane.baza;
                                 sortata: root.coloana-sortata == Sortare.baza;
                                 descrescator: root.sens-descrescator;
@@ -785,6 +835,8 @@ export component FereastraLista inherits Window {
                             }
                             CapColoana {
                                 titlu: "Tip";
+                                coloana: Sortare.tip;
+                                autofit => { root.autofit-coloana(Sortare.tip); }
                                 latime: Coloane.tip;
                                 sortata: root.coloana-sortata == Sortare.tip;
                                 descrescator: root.sens-descrescator;
@@ -792,6 +844,8 @@ export component FereastraLista inherits Window {
                             }
                             CapColoana {
                                 titlu: "Linii";
+                                coloana: Sortare.linii;
+                                autofit => { root.autofit-coloana(Sortare.linii); }
                                 latime: Coloane.linii;
                                 sortata: root.coloana-sortata == Sortare.linii;
                                 descrescator: root.sens-descrescator;
@@ -799,6 +853,8 @@ export component FereastraLista inherits Window {
                             }
                             CapColoana {
                                 titlu: "Similar";
+                                coloana: Sortare.scor;
+                                autofit => { root.autofit-coloana(Sortare.scor); }
                                 latime: Coloane.scor;
                                 sortata: root.coloana-sortata == Sortare.scor;
                                 descrescator: root.sens-descrescator;
@@ -806,6 +862,8 @@ export component FereastraLista inherits Window {
                             }
                             CapColoana {
                                 titlu: "Difera in";
+                                coloana: Sortare.difera;
+                                autofit => { root.autofit-coloana(Sortare.difera); }
                                 latime: Coloane.difera;
                                 sortata: root.coloana-sortata == Sortare.difera;
                                 descrescator: root.sens-descrescator;
@@ -813,6 +871,8 @@ export component FereastraLista inherits Window {
                             }
                             CapColoana {
                                 titlu: "Revizuit";
+                                coloana: Sortare.revizuit;
+                                autofit => { root.autofit-coloana(Sortare.revizuit); }
                                 latime: Coloane.revizuit;
                                 sortata: root.coloana-sortata == Sortare.revizuit;
                                 descrescator: root.sens-descrescator;
@@ -820,6 +880,8 @@ export component FereastraLista inherits Window {
                             }
                             CapColoana {
                                 titlu: "Deploy";
+                                coloana: Sortare.deploy;
+                                autofit => { root.autofit-coloana(Sortare.deploy); }
                                 latime: Coloane.deploy;
                                 sortata: root.coloana-sortata == Sortare.deploy;
                                 descrescator: root.sens-descrescator;
