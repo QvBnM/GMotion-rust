@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 27ff957a10e8c182 -->
+<!-- api-hash: 889e50f4dd7cdf87 -->
 
 ## Rol
 
@@ -30,7 +30,8 @@ Doua lucruri trebuie sa ramana adevarate:
 | `baze` | bazele disponibile |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
-| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat |
+| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge) |
+| `impact` | impactul estimat al deploy-ului fiecarui obiect care difera; cu `--obiect`, si cine il foloseste |
 | `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--din-fisier` (scris de mana); aceeasi sesiune ca fereastra |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
 | `plan` | ce intra in deploy, cu amprentele de acum, intr-un `.json` |

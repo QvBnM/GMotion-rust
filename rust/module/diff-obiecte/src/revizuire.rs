@@ -54,6 +54,11 @@ pub struct Revizuire {
     /// „versiune noua" fata de ce s-a deployat (coloana Deploy din v3.4).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     deployate: BTreeMap<String, BTreeMap<String, Amprenta>>,
+    /// Notele scrise de utilizator („a ramas aici"), pe `baza` ->
+    /// `schema.nume`. Spre deosebire de bife, se tin pe **nume**: o nota e
+    /// despre obiect, nu despre o versiune a lui, si nu cade cand se schimba.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    note: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl Revizuire {
@@ -109,6 +114,45 @@ impl Revizuire {
         self.deployate
             .get(&r.baza)
             .is_some_and(|b| b.contains_key(&r.obiect))
+    }
+
+    /// Pune nota obiectului; un text gol (sau doar spatii) o sterge.
+    /// Intoarce `true` daca s-a schimbat ceva.
+    pub fn pune_nota(&mut self, baza: &str, obiect: &str, text: &str) -> bool {
+        let text = text.trim_end();
+        if text.trim().is_empty() {
+            let scos = self
+                .note
+                .get_mut(baza)
+                .is_some_and(|b| b.remove(obiect).is_some());
+            self.note.retain(|_, b| !b.is_empty());
+            return scos;
+        }
+        let b = self.note.entry(baza.to_string()).or_default();
+        if b.get(obiect).map(String::as_str) == Some(text) {
+            return false;
+        }
+        b.insert(obiect.to_string(), text.to_string());
+        true
+    }
+
+    /// Nota obiectului, daca are.
+    pub fn nota(&self, baza: &str, obiect: &str) -> Option<&str> {
+        self.note
+            .get(baza)
+            .and_then(|b| b.get(obiect))
+            .map(String::as_str)
+    }
+
+    /// Toate notele, pe `(baza, schema.nume)`, in ordine.
+    pub fn note(&self) -> Vec<(&str, &str, &str)> {
+        self.note
+            .iter()
+            .flat_map(|(b, o)| {
+                o.iter()
+                    .map(move |(n, t)| (b.as_str(), n.as_str(), t.as_str()))
+            })
+            .collect()
     }
 
     pub fn numar_omise(&self) -> usize {
@@ -193,7 +237,10 @@ impl Revizuire {
     }
 
     pub fn e_goala(&self) -> bool {
-        self.numar() == 0 && self.numar_omise() == 0 && self.deployate.is_empty()
+        self.numar() == 0
+            && self.numar_omise() == 0
+            && self.deployate.is_empty()
+            && self.note.is_empty()
     }
 
     /// Obiectele bifate pe o baza, in ordine.
@@ -377,6 +424,32 @@ mod teste {
         let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
         v.in_sesiune(&mut s);
         assert!(Revizuire::din_sesiune(&s).e_deployat(&r));
+    }
+
+    #[test]
+    fn nota_se_tine_pe_nume_supravietuieste_schimbarii_si_curatarii() {
+        let mut v = Revizuire::noua();
+        assert!(v.pune_nota("Client1", "dbo.p", "a ramas aici\n"));
+        assert!(
+            !v.pune_nota("Client1", "dbo.p", "a ramas aici"),
+            "acelasi text"
+        );
+        assert_eq!(v.nota("Client1", "dbo.p"), Some("a ramas aici"));
+        assert!(!v.e_goala());
+        // obiectul se schimba pe server: bifele cad, nota ramane
+        let schimbat = rand_test("a2", "b");
+        v.curata(std::slice::from_ref(&schimbat));
+        let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
+        v.in_sesiune(&mut s);
+        let v2 = Revizuire::din_sesiune(&s);
+        assert_eq!(v2.nota("Client1", "dbo.p"), Some("a ramas aici"));
+        assert_eq!(v2.note(), vec![("Client1", "dbo.p", "a ramas aici")]);
+        assert_eq!(v2.nota("Client2", "dbo.p"), None);
+        // textul gol o sterge
+        let mut v3 = v2.clone();
+        assert!(v3.pune_nota("Client1", "dbo.p", "  \n "));
+        assert!(!v3.pune_nota("Client1", "dbo.p", ""));
+        assert!(v3.e_goala());
     }
 
     fn rand_test(hr: &str, hc: &str) -> Rand {

@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 7517c9331be533c9 -->
+<!-- api-hash: 2eb47172b6340ff8 -->
 
 ## Rol
 
@@ -29,7 +29,8 @@ biblioteca** — fara nicio interfata.
 | `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
-| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
+| `impact` | `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
+| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `din_sesiune` / `in_sesiune` |
 | `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal` |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |
@@ -101,6 +102,13 @@ biblioteca** — fara nicio interfata.
    din `cli` fara `--doar`.
 9. **CSV-ul are BOM UTF-8, separator `;`, CRLF si virgula zecimala** — altfel
    Excel romanesc strica diacriticele sau pune totul pe o coloana.
+10. **Un nume din cod se leaga de un obiect intr-un singur loc**
+   (`deploy::referinte`): ordinea de deploy si impactul estimat il folosesc pe
+   acelasi. Un nume scurt ambiguu nu se leaga; comentariile si string-urile nu
+   sunt referinte.
+11. **Notele se tin pe nume, bifele pe amprenta.** O nota e despre obiect
+   („a ramas aici"), deci nu cade cand obiectul se schimba si nu o sterge
+   `curata`.
 
 ## Erori tipice
 
