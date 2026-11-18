@@ -31,9 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Nicio etapa activa.** Etapa 13 (aspectul nou, in doua moduri) s-a incheiat
-pe 2026-11-18. Capturile, in ambele moduri: `cercetare/capturi/`. Urmatoarea
-etapa o alege Mihai (mai jos).
+**Etapa activa:** `etape/14-paritate-v34.md` — toate functiile din v3.4,
+fara schimbari de design, apoi modul de previzualizare. Etapa 13 (aspectul
+nou) s-a incheiat pe 2026-11-18; capturile: `cercetare/capturi/`.
 
 ```
 cd rust && cargo run --release -p gmotion-app            # implicit intunecat
@@ -47,16 +47,10 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**De ales de Mihai: ce urmeaza.** Trei candidati, in ordinea in care cred
-ca se simt cel mai mult:
-
-1. **Paritatea cu v3.4 in editor** (`lipsuri-portare.md`, sectiunea 4): tinta
-   editabila, Aplica bloc / toate, Reset, Mod ghidat, Omite. Schita le are
-   desenate; aplicatia le arata cand fac ceva.
-2. **Trecerea in engleza.** Intai un singur loc pentru texte (azi sunt in
-   `.slint`, `model_*` si `cli`), apoi traducerea.
-3. **Restul paritatii** din `lipsuri-portare.md`: mai multe baze, progres si
-   Anuleaza la comparare, sesiuni, CSV din fereastra.
+**Etapa 14, pachetul A:** bug-urile de pe instantaneu, apoi B (editorul).
+Ordinea si criteriile: `etape/14-paritate-v34.md`. Mihai a cerut (2026-11-18):
+toate functiile, **fara sa se atinga designul**; elementele noi se iau din
+schita. La final, modul de previzualizare.
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
@@ -82,9 +76,6 @@ Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
 unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
 filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
 nefolosit.
-
-**Ce urmeaza** (cei trei candidati din „Urmatorul pas concret") — asta
-blocheaza urmatoarea etapa.
 
 **Doua intrebari din etapa 12** (ecranul de deploy exista acum; raspunsul
 schimba ce face, nu cum arata):
