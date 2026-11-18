@@ -1,10 +1,14 @@
 //! Randeaza ecranul de conectare fara ecran, intr-un PNG, cu datele din
 //! macheta (`cercetare/machete/Conectare.dc.html`), ca sa se poata compara.
 //!
-//!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png [--tema intunecat|luminos]
+//!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png [--tema intunecat|luminos] [--progres]
+//!
+//! `--progres`: ecranul in timpul unei comparari (bara, timpul, Anuleaza).
 use std::rc::Rc;
 
-use gmotion_fereastra::model_conectare::{Acreditari, Conectare, Parte, Recenta, StareConexiune};
+use gmotion_fereastra::model_conectare::{
+    Acreditari, Conectare, Parte, ProgresComparare, Recenta, StareConexiune,
+};
 use gmotion_fereastra::{aplica_tema, incarca_conectare, incarca_jurnal, FereastraConectare, Mod};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
@@ -85,6 +89,12 @@ fn main() {
         .and_then(|n| Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
+    let inceput = std::time::Instant::now() - std::time::Duration::from_secs(7);
+    if a.iter().any(|x| x == "--progres") {
+        let mut p = ProgresComparare::nou(inceput);
+        p.pas("Citesc CharismaProd (1 din 1)...", 46);
+        c.ruleaza = Some(p);
+    }
     incarca_conectare(&ui, &c);
     incarca_jurnal(
         &ui,

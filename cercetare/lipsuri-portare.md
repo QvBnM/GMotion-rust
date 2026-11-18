@@ -33,7 +33,7 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 |---|---|---|---|
 | Etichete CLUSTER / IMPLICITA in lista de servere | `ui.py:1737` | nu | |
 | „Testeaza conexiunea" cu detalii server (editie, OS, uptime, nr. baze) | `app.py:320`, `ui.py:1764` | partial: se citesc bazele, fara detalii | |
-| Progres, timp, mesaje, **Anuleaza** | `app.py:363`, `ui.py:1933` | GUI **nu**: fereastra sta blocata (~12 s pe baza reala) | intrebarea 3 din `STARE.md` |
+| Progres la **Recompara** (din lista) si la garda de deploy | — | inca sincrone: fereastra sta cat se recitesc bazele | compararea din conectare are deja fir, progres si Anuleaza |
 | „Sterge log" in banda de jurnal | `ui.py:5043` | nu: banda exista (etapa 13), fara stergere | `platforma::jurnal` n-are inca golire |
 | Blocarea formularului cat ruleaza, „Deconecteaza" cu confirmare | `ui.py:1980,2056` | nu: din lista nu te mai intorci la conectare | |
 | Deschiderea unui instantaneu din fereastra | — (nou) | GUI doar prin `--sursa` la pornire | asteapta decizia pe `rfd` |
@@ -57,6 +57,8 @@ intervalul de similaritate si coloana Similar, sortarea pe fiecare coloana in
 ambele sensuri, coloana Deploy, contorul „% deploy", Export CSV al listei
 filtrate, „Toate in plan" cu optiunea pentru cele deja trimise. O referinta
 comparata cu mai multe baze (bife in conectare), cu filtrul si coloana Baza.
+Compararea din conectare pe alt fir: mesaj, bara, timp, Anuleaza, formularul
+blocat cat ruleaza.
 
 ## 4. Editorul de diferente
 

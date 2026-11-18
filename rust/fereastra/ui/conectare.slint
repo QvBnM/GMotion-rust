@@ -388,6 +388,11 @@ export component FereastraConectare inherits Window {
     /// Ce lipseste ca sa se poata compara; gol = se poate.
     in property <string> ce-lipseste;
     in property <int> mediu: 0;
+    // compararea pornita: progresul inlocuieste pornirea, formularul e blocat
+    in property <bool> ruleaza;
+    in property <float> progres;            // 0..1
+    in property <string> progres-text;      // „Citesc CharismaProd (1 din 2)..."
+    in property <string> progres-timp;      // „0:07"
     /// Ultimele linii din jurnalul aplicatiei, cea mai noua la sfarsit.
     in property <[LinieJurnalUi]> jurnal;
     in-out property <bool> jurnal-ascuns: false;
@@ -404,6 +409,7 @@ export component FereastraConectare inherits Window {
     callback schimba-certificatul();
     callback deschide-instantaneu();
     callback compara();
+    callback anuleaza();
     callback reia(int);
     callback alege-tema(bool);
 
@@ -436,9 +442,12 @@ export component FereastraConectare inherits Window {
             padding-bottom: 16px;
             spacing: 14px;
 
-            // cele doua parti, cu inversarea intre ele
-            HorizontalLayout {
+            // cele doua parti, cu inversarea intre ele; cat ruleaza compararea,
+            // blocate (un strat deasupra prinde clicurile)
+            Rectangle {
                 vertical-stretch: 0;
+                opacity: root.ruleaza ? 0.55 : 1;
+            HorizontalLayout {
                 spacing: 0px;
                 PanouParte {
                     horizontal-stretch: 1;
@@ -489,9 +498,51 @@ export component FereastraConectare inherits Window {
                     server-ales(t) => { root.server-ales(false, t); }
                 }
             }
+            if root.ruleaza: TouchArea { }
+            }
+
+            // progresul, cat ruleaza compararea: in locul pornirii
+            if root.ruleaza: VerticalLayout {
+                vertical-stretch: 0;
+                spacing: 10px;
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text {
+                        text: root.progres-text;
+                        font-family: Tema.font-ui;
+                        font-size: 13px;
+                        color: Tema.text;
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: root.progres-timp;
+                        font-family: Tema.font-mono;
+                        font-size: 12px;
+                        color: Tema.text-secundar;
+                        vertical-alignment: center;
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Buton { text: "Anuleaza"; apasat => { root.anuleaza(); } }
+                    }
+                }
+                Rectangle {
+                    height: 6px;
+                    border-radius: 3px;
+                    background: Tema.strat;
+                    Rectangle {
+                        x: 0;
+                        width: parent.width * root.progres;
+                        border-radius: 3px;
+                        background: Tema.accent;
+                    }
+                }
+            }
 
             // certificatul si pornirea
-            HorizontalLayout {
+            if !root.ruleaza: HorizontalLayout {
                 vertical-stretch: 0;
                 spacing: 12px;
                 VerticalLayout {

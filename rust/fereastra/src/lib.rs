@@ -1000,6 +1000,31 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
     ui.set_ce_lipseste(c.ce_lipseste().unwrap_or_default().into());
+    incarca_progres(ui, c, std::time::Instant::now());
+}
+
+/// Doar progresul compararii (mesaj, bara, timp): se cheama des cat ruleaza,
+/// fara sa refaca tot ecranul. `acum` vine din afara, ca timpul sa se poata
+/// proba.
+pub fn incarca_progres(
+    ui: &FereastraConectare,
+    c: &model_conectare::Conectare,
+    acum: std::time::Instant,
+) {
+    match &c.ruleaza {
+        Some(p) => {
+            ui.set_ruleaza(true);
+            ui.set_progres(f32::from(p.procent) / 100.0);
+            ui.set_progres_text(p.mesaj.as_str().into());
+            ui.set_progres_timp(p.timp(acum).into());
+        }
+        None => {
+            ui.set_ruleaza(false);
+            ui.set_progres(0.0);
+            ui.set_progres_text(SharedString::new());
+            ui.set_progres_timp(SharedString::new());
+        }
+    }
 }
 
 /// Mediul ghicit din numele bazei: `...Prod` e productie, `...Test` e test,
@@ -1835,6 +1860,34 @@ mod teste {
         let p = ui.get_pasi().row_data(1).unwrap();
         ui.invoke_scoate_din_plan(p.baza, p.id);
         assert_eq!(*apel.borrow(), ["Test/dbo.p"]);
+    }
+
+    #[test]
+    fn progresul_inlocuieste_pornirea_si_anuleaza_are_actiune() {
+        use model_conectare::{Conectare, ProgresComparare};
+        use std::cell::Cell;
+        use std::rc::Rc;
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        incarca_conectare(&ui, &c);
+        assert!(!ui.get_ruleaza());
+        let t0 = std::time::Instant::now();
+        let mut p = ProgresComparare::nou(t0);
+        p.pas("Citesc CharismaProd (1 din 2)...", 42);
+        c.ruleaza = Some(p);
+        incarca_progres(&ui, &c, t0 + std::time::Duration::from_secs(12));
+        assert!(ui.get_ruleaza());
+        assert_eq!(ui.get_progres_text(), "Citesc CharismaProd (1 din 2)...");
+        assert_eq!(ui.get_progres_timp(), "0:12");
+        assert!((ui.get_progres() - 0.42).abs() < 1e-6);
+        let apasat = Rc::new(Cell::new(false));
+        let a = apasat.clone();
+        ui.on_anuleaza(move || a.set(true));
+        ui.invoke_anuleaza();
+        assert!(apasat.get());
+        c.ruleaza = None;
+        incarca_progres(&ui, &c, t0);
+        assert!(!ui.get_ruleaza() && ui.get_progres_text().is_empty());
     }
 
     #[test]

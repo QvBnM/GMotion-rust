@@ -9,6 +9,7 @@
 use gmotion_db::{Autentificare, Certificat, SursaFixture, SursaObiecte, SursaSqlServer, Tinta};
 use gmotion_fereastra::model_conectare::{Conectare, Parte, StareConexiune};
 use gmotion_modul_diff_obiecte as modul;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Deschide sursa unei parti, dupa ce s-a ales din ecran.
 ///
@@ -103,25 +104,70 @@ pub struct Comparata {
 /// Citeste referinta si fiecare baza bifata, apoi compara. Toate bazele
 /// comparate stau pe serverul partii „Baza": se deschide o singura conexiune.
 pub fn compara(c: &Conectare) -> Result<Comparata, String> {
+    compara_cu(c, &mut |_| {}, &AtomicBool::new(false))
+}
+
+/// Ca `compara`, cu progres si anulare: facuta sa ruleze pe alt fir decat
+/// fereastra.
+///
+/// `progres` primeste fiecare pas (mesaj, procent). `anulat` se verifica
+/// intre pasi: o citire de baza deja pornita nu se poate intrerupe, dar
+/// imediat dupa ea compararea se opreste cu `ANULATA`.
+pub fn compara_cu(
+    c: &Conectare,
+    progres: &mut dyn FnMut(modul::Progres),
+    anulat: &AtomicBool,
+) -> Result<Comparata, String> {
+    let mut pas = |mesaj: String, procent: u8| {
+        progres(modul::Progres {
+            mesaj,
+            procent,
+            gata: false,
+        });
+        if anulat.load(Ordering::Relaxed) {
+            Err(ANULATA.to_string())
+        } else {
+            Ok(())
+        }
+    };
     let baze = c.baze_tinta();
     if baze.is_empty() {
         return Err("alege cel putin o baza de comparat".into());
     }
+    pas("Ma conectez...".into(), 1)?;
     let mut sursa_db = deschide(c, &c.sursa)?;
     let server = sursa_db.descriere();
+    pas(format!("Citesc referinta {}...", c.sursa.baza), 5)?;
     let obiecte_sursa = sursa_db.obiecte(&c.sursa.baza).map_err(|e| e.to_string())?;
     let mut tinta_db = if c.instantaneu.is_some() {
         sursa_db
     } else {
+        pas("Ma conectez la baza comparata...".into(), 30)?;
         deschide(c, &c.baza)?
     };
+    // citirea e partea lunga (secunde pe un server real): 30-80%
     let mut tinte = Vec::new();
-    for b in &baze {
+    for (i, b) in baze.iter().enumerate() {
+        let procent = 30 + (50 * i / baze.len()) as u8;
+        pas(
+            format!("Citesc {b} ({} din {})...", i + 1, baze.len()),
+            procent,
+        )?;
         let obiecte = tinta_db.obiecte(b).map_err(|e| e.to_string())?;
         tinte.push((b.clone(), modul::pregateste(&obiecte)));
     }
     let sursa = modul::pregateste(&obiecte_sursa);
-    let comparare = modul::compara(&c.sursa.baza, &sursa, &tinte, |_| {});
+    pas("Compar...".into(), 80)?;
+    // compararea isi raporteaza procentele ei (0-100) in intervalul 80-99
+    let comparare = modul::compara(&c.sursa.baza, &sursa, &tinte, |p| {
+        progres(modul::Progres {
+            procent: 80 + p.procent.min(100) / 5,
+            ..p
+        });
+    });
+    if anulat.load(Ordering::Relaxed) {
+        return Err(ANULATA.to_string());
+    }
     Ok(Comparata {
         randuri: comparare.randuri,
         sursa,
@@ -129,6 +175,9 @@ pub fn compara(c: &Conectare) -> Result<Comparata, String> {
         server,
     })
 }
+
+/// Ce intoarce o comparare oprita cu Anuleaza.
+pub const ANULATA: &str = "compararea a fost anulata";
 
 #[cfg(test)]
 mod teste {

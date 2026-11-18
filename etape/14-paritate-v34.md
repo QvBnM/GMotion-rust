@@ -52,7 +52,7 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 
 **D. Conectarea**
 - [x] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
-- [ ] compararea pe alt fir: progres, timp, mesaj, Anuleaza
+- [x] compararea pe alt fir: progres, timp, mesaj, Anuleaza
 - [ ] Deconecteaza (inapoi la conectare, cu confirmare)
 - [ ] Testeaza conexiunea, cu detaliile serverului
 - [ ] etichetele CLUSTER / IMPLICITA pe serverele gasite
@@ -144,6 +144,15 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   deploy-ului merg pe toate bazele deodata. Captura cu doua baze arata bine;
   capturile oficiale vin cu E (instantaneul de previzualizare are mai multe
   baze).
+
+- **2026-11-18** D2 gata: compararea din conectare pe alt fir
+  (`app/src/fir.rs`). Starea ferestrei nu e `Send`, deci firul trimite doar
+  printr-un canal, iar un `slint::Timer` (100 ms) il citeste pe firul
+  ferestrei. Anuleaza taie canalul si opreste firul la pasul urmator; o
+  citire de baza deja pornita nu se poate intrerupe, dar rezultatul ei nu
+  mai are unde ajunge. Esc pentru Anuleaza (din schita) nu e legat: ecranul
+  de conectare n-are `FocusScope`. Recompara si garda de deploy raman
+  sincrone (in `lipsuri-portare.md`).
 
 ## Ce a iesit altfel decat planul
 

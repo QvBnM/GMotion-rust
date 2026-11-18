@@ -145,6 +145,38 @@ pub struct Recenta {
     pub progres: String,
 }
 
+/// O comparare pornita, cat ruleaza: ce face acum, cat a ajuns, de cand.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgresComparare {
+    pub mesaj: String,
+    /// 0-100.
+    pub procent: u8,
+    pub inceput: std::time::Instant,
+}
+
+impl ProgresComparare {
+    pub fn nou(acum: std::time::Instant) -> Self {
+        ProgresComparare {
+            mesaj: "Ma conectez...".into(),
+            procent: 0,
+            inceput: acum,
+        }
+    }
+
+    /// Un pas nou. Procentul nu da inapoi: doi pasi raportati in alta ordine
+    /// nu fac bara sa sara.
+    pub fn pas(&mut self, mesaj: &str, procent: u8) {
+        self.mesaj = mesaj.to_string();
+        self.procent = self.procent.max(procent.min(100));
+    }
+
+    /// „0:07", „2:15": cat a trecut de la pornire.
+    pub fn timp(&self, acum: std::time::Instant) -> String {
+        let s = acum.saturating_duration_since(self.inceput).as_secs();
+        format!("{}:{:02}", s / 60, s % 60)
+    }
+}
+
 /// „A", „A, B, C", „A, B + 2": numele bazelor comparate, scurt.
 pub fn eticheta_baze(baze: &[String]) -> String {
     if baze.len() <= 3 {
@@ -167,6 +199,9 @@ pub struct Conectare {
     pub recente: Vec<Recenta>,
     /// Instantaneul deschis in locul serverelor („Deschide un instantaneu…").
     pub instantaneu: Option<String>,
+    /// Compararea pornita, cat ruleaza. Formularul e blocat pana se termina
+    /// sau pana se apasa Anuleaza.
+    pub ruleaza: Option<ProgresComparare>,
 }
 
 impl Conectare {
@@ -263,6 +298,9 @@ impl Conectare {
     /// Mesajul e pentru om si spune **ce** lipseste, nu ca „formularul e
     /// invalid": asta e tot rostul lui.
     pub fn ce_lipseste(&self) -> Option<String> {
+        if self.ruleaza.is_some() {
+            return Some("compararea ruleaza".into());
+        }
         if self.instantaneu.is_some() {
             return match (self.sursa.baza.is_empty(), self.baze_tinta().is_empty()) {
                 (true, _) => Some("alege baza sursa din instantaneu".into()),
@@ -524,5 +562,34 @@ mod teste {
         assert_eq!(c.sursa.baza, "A");
         assert!(c.sursa.alese.is_empty());
         assert_eq!(c.baze_tinta(), ["Ref"]);
+    }
+
+    #[test]
+    fn cat_ruleaza_compararea_nu_se_poate_porni_alta() {
+        let mut c = Conectare::noua();
+        c.instantaneu = Some("x.json".into());
+        c.sursa.baza = "R".into();
+        c.comuta_baza("A");
+        assert!(c.poate_compara());
+        let t0 = std::time::Instant::now();
+        c.ruleaza = Some(ProgresComparare::nou(t0));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("compararea ruleaza"));
+        c.ruleaza = None;
+        assert!(c.poate_compara());
+    }
+
+    #[test]
+    fn progresul_nu_da_inapoi_si_timpul_se_scrie_in_minute() {
+        let t0 = std::time::Instant::now();
+        let mut p = ProgresComparare::nou(t0);
+        p.pas("Citesc A", 40);
+        p.pas("un pas raportat tarziu", 10);
+        assert_eq!(p.procent, 40, "bara nu sare inapoi");
+        assert_eq!(p.mesaj, "un pas raportat tarziu", "mesajul e mereu cel nou");
+        p.pas("peste", 250);
+        assert_eq!(p.procent, 100);
+        assert_eq!(p.timp(t0), "0:00");
+        assert_eq!(p.timp(t0 + std::time::Duration::from_secs(7)), "0:07");
+        assert_eq!(p.timp(t0 + std::time::Duration::from_secs(135)), "2:15");
     }
 }

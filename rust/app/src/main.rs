@@ -19,15 +19,15 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gmotion_app::pornire;
 use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
-use gmotion_fereastra::model_conectare::{Conectare, Recenta, StareConexiune};
+use gmotion_app::{fir, pornire};
+use gmotion_fereastra::model_conectare::{Conectare, ProgresComparare, Recenta, StareConexiune};
 use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
-    incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, mediu_dupa_nume,
-    AntetEditor, AntetLista, EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista,
-    Mod, StareEditare,
+    incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, incarca_progres,
+    mediu_dupa_nume, AntetEditor, AntetLista, EditorDiferente, FereastraConectare, FereastraDeploy,
+    FereastraLista, Mod, StareEditare,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -46,6 +46,8 @@ struct Stare {
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
+    /// Compararea pornita din ecranul de conectare, cat ruleaza.
+    comparare: Option<fir::CompararePornita>,
 }
 
 impl Stare {
@@ -155,6 +157,7 @@ fn ruleaza() -> Result<(), String> {
         server: String::new(),
         deploy: None,
         salvat_la: String::new(),
+        comparare: None,
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
@@ -601,12 +604,48 @@ fn ruleaza() -> Result<(), String> {
         });
         let s = stare.clone();
         let d = deseneaza.clone();
-        conectare_ui.on_compara(move || {
-            let c = s.borrow().conectare.clone();
-            match pornire::compara(&c) {
+        // compararea ruleaza pe alt fir; un timer pe firul ferestrei citeste
+        // ce a trimis (starea ferestrei nu poate trece pe alt fir)
+        let ceas = Rc::new(slint::Timer::default());
+        let ceas_slab = Rc::downgrade(&ceas);
+        let ui = conectare_ui.as_weak();
+        let s2 = stare.clone();
+        let d2 = deseneaza.clone();
+        let la_fiecare_pas = move || {
+            let mesaje = match s2.borrow().comparare.as_ref() {
+                Some(p) => p.citeste(),
+                None => Vec::new(),
+            };
+            let mut gata = None;
+            {
+                let mut st = s2.borrow_mut();
+                for m in mesaje {
+                    match m {
+                        fir::Mesaj::Progres(p) => {
+                            if let Some(r) = st.conectare.ruleaza.as_mut() {
+                                r.pas(&p.mesaj, p.procent);
+                            }
+                        }
+                        fir::Mesaj::Gata(r) => gata = Some(r),
+                    }
+                }
+                if let Some(u) = ui.upgrade() {
+                    incarca_progres(&u, &st.conectare, std::time::Instant::now());
+                }
+            }
+            let Some(r) = gata else {
+                return;
+            };
+            if let Some(c) = ceas_slab.upgrade() {
+                c.stop();
+            }
+            let mut st = s2.borrow_mut();
+            st.comparare = None;
+            st.conectare.ruleaza = None;
+            match r {
                 Ok(r) => {
-                    let mut st = s.borrow_mut();
-                    let salvata = st.sesiuni.incarca(&c.sursa.baza).ok().flatten();
+                    let referinta = st.conectare.sursa.baza.clone();
+                    let salvata = st.sesiuni.incarca(&referinta).ok().flatten();
                     let revizuire = salvata
                         .as_ref()
                         .map(modul::Revizuire::din_sesiune)
@@ -615,21 +654,61 @@ fn ruleaza() -> Result<(), String> {
                         .as_ref()
                         .map(modul::Editari::din_sesiune)
                         .unwrap_or_default();
+                    tracing::info!(target: "gmotion::app", randuri = r.randuri.len(), "comparare gata");
                     st.server = r.server;
                     st.app = Some(
                         Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
                     );
                 }
                 Err(e) => {
-                    s.borrow_mut().conectare.sursa.stare = StareConexiune::Eroare(e);
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "compararea a esuat");
+                    st.conectare.sursa.stare = StareConexiune::Eroare(e);
                 }
             }
+            drop(st);
+            d2();
+        };
+        let c_ceas = ceas.clone();
+        conectare_ui.on_compara(move || {
+            let mut st = s.borrow_mut();
+            if st.conectare.ruleaza.is_some() || !st.conectare.poate_compara() {
+                return;
+            }
+            tracing::info!(target: "gmotion::app", baze = st.conectare.baze_tinta().len(), "pornesc compararea");
+            st.conectare.ruleaza = Some(ProgresComparare::nou(std::time::Instant::now()));
+            st.comparare = Some(fir::CompararePornita::porneste(st.conectare.clone()));
+            drop(st);
+            let pas = la_fiecare_pas.clone();
+            c_ceas.start(
+                slint::TimerMode::Repeated,
+                std::time::Duration::from_millis(100),
+                pas,
+            );
+            d();
+        });
+        // Anuleaza: firul se opreste la pasul urmator, rezultatul lui se pierde
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        let c_ceas = ceas.clone();
+        conectare_ui.on_anuleaza(move || {
+            let mut st = s.borrow_mut();
+            if let Some(p) = st.comparare.take() {
+                p.anuleaza();
+                tracing::info!(target: "gmotion::app", "comparare anulata");
+            }
+            st.conectare.ruleaza = None;
+            drop(st);
+            c_ceas.stop();
             d();
         });
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_reia(move |i| {
             let mut st = s.borrow_mut();
+            // cat ruleaza compararea, formularul nu se schimba sub ea
+            if st.conectare.ruleaza.is_some() {
+                return;
+            }
             if let Some(r) = st
                 .conectare
                 .recente

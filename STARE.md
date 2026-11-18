@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (425 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (431 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,14 +47,14 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C si D1 (mai multe baze) gata.
-Urmeaza restul lui D.**
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1 (mai multe baze) si D2
+(compararea pe alt fir) gata. Urmeaza D3.**
 
 D — conectarea, in ordinea asta:
 
 1. ~~o referinta comparata cu mai multe baze~~ (gata);
-2. compararea pe alt fir: progres, timp, mesaj, **Anuleaza** (azi fereastra se
-   blocheaza ~12 s pe baza lui Mihai);
+2. ~~compararea pe alt fir~~ (gata, din conectare; Recompara si garda inca
+   sincrone);
 3. Deconecteaza (cu confirmare), Testeaza conexiunea cu detaliile serverului,
    etichetele CLUSTER / IMPLICITA, Sterge log;
 4. Sesiuni: lista, Reia, Ignora; compararea offline (doua bucati de cod
@@ -98,7 +98,7 @@ schimba ce face, nu cum arata):
 5. **„Ruleaza" executa scriptul pe server din aplicatie?** Acum GMotion doar
    scrie `.sql`; rularea e in SSMS / sqlcmd. Daca da, e o etapa proprie.
 
-**Trei intrebari din etapa 11:**
+**Doua intrebari din etapa 11:**
 
 1. **Selector de fisiere** (pentru „Deschide un instantaneu" si, acum, pentru
    directorul de deploy)? Ar fi o dependinta noua (`rfd`, dialogul nativ) si
@@ -108,9 +108,6 @@ schimba ce face, nu cum arata):
 2. **Mediul (PROD / TEST / DEV) de unde se ia?** Acum se ghiceste din numele
    bazei (`...Prod` → PROD). Ghicitul poate fi gresit exact unde conteaza. Ar
    trebui configurat explicit, pe server sau pe baza?
-3. **Compararea pe server real blocheaza fereastra** pana se termina (12 s pe
-   baza ta, din masuratori). Machetele n-au ecran de progres; v3.4 avea. Il
-   facem, sau e acceptabil asa?
 
 Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
@@ -118,6 +115,11 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Compararea din conectare ruleaza pe alt fir** (`app/src/fir.rs`). Nimic
+  din `Stare` (main.rs) nu trece pe firul ei: doar o copie a `Conectare`
+  intra, doar `fir::Mesaj` iese, prin canal. Un `Rc`/`RefCell` mutat in
+  firul de lucru nu compileaza — si e bine asa; nu-l ocoli cu `unsafe` sau
+  `Arc<Mutex<Stare>>`.
 - **Un rand din lista e `(baza, schema.nume)`, nu numele.** Cu mai multe
   baze comparate, acelasi obiect apare de mai multe ori. Orice cautare noua
   dupa `o.id()` singur (in `rutare`, `model_lista`, deploy) leaga randul din
