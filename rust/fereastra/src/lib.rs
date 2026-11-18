@@ -650,6 +650,33 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     }
 }
 
+/// Ce arata panoul de detalii din lista, pe langa randul selectat. Date
+/// simple: fereastra nu stie de module (impactul vine din `diff-obiecte`).
+pub struct PanouDetalii<'a> {
+    pub deschis: bool,
+    /// `schema.nume` al obiectului; nota se leaga de el.
+    pub obiect: &'a str,
+    /// 0 scazut, 1 mediu, 2 ridicat; `None` = nu se stie.
+    pub impact: Option<(i32, &'a str)>,
+    pub motive: &'a str,
+    pub nota: &'a str,
+}
+
+/// Umple panoul de detalii. Nota se pune doar cand s-a schimbat obiectul:
+/// rescrisa la fiecare tasta, ar muta cursorul si ar taia spatiul de la
+/// capat pe care tocmai l-ai scris.
+pub fn incarca_detalii(ui: &FereastraLista, p: &PanouDetalii) {
+    ui.set_detalii_deschise(p.deschis);
+    let (nivel, text) = p.impact.unwrap_or((-1, ""));
+    ui.set_impact_nivel(nivel);
+    ui.set_impact_text(text.into());
+    ui.set_impact_motive(p.motive.into());
+    if ui.get_nota_id().as_str() != p.obiect {
+        ui.set_nota_id(p.obiect.into());
+        ui.set_nota(p.nota.into());
+    }
+}
+
 /// Numele tipului la plural, pentru bara laterala („Proceduri"), ca in
 /// machete. Singularul vine din `gmotion_core::nume_tip`.
 fn nume_tip_plural(tip: &str) -> &'static str {
@@ -1111,6 +1138,125 @@ mod teste {
         assert!(
             apeluri.borrow().iter().any(|a| a == "cautap"),
             "si anunta modelul: {:?}",
+            apeluri.borrow()
+        );
+    }
+
+    /// Clicul pe rand, dublu clicul, X-ul, Esc, `o` si nota ajung la
+    /// actiunile lor, prin mouse si tastatura adevarate (nu prin `invoke_`):
+    /// un `TouchArea` acoperit de alt element ar trece de un test cu
+    /// `invoke_`, nu si de asta.
+    #[test]
+    fn panoul_de_detalii_raspunde_la_mouse_si_tastatura() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w)));
+        let ui = FereastraLista::new().expect("fereastra de test");
+        aplica_tema(&ui, Mod::Luminos);
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        let rand = |nume: &str| RandListaUi {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "procedura".into(),
+            litera: "M".into(),
+            ..Default::default()
+        };
+        ui.set_randuri(ModelRc::new(VecModel::from(vec![rand("pA"), rand("pB")])));
+        ui.show().expect("fereastra se arata");
+        let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
+        let a = apeluri.clone();
+        ui.on_clic_rand(move |i| a.borrow_mut().push(format!("clic{i}")));
+        let a = apeluri.clone();
+        ui.on_deschide_obiectul(move || a.borrow_mut().push("deschide".into()));
+        let a = apeluri.clone();
+        ui.on_inchide_detalii(move || a.borrow_mut().push("inchide".into()));
+        let a = apeluri.clone();
+        ui.on_comuta_omis(move || a.borrow_mut().push("omite".into()));
+        let a = apeluri.clone();
+        ui.on_nota_editata(move |id, t| a.borrow_mut().push(format!("nota {id}={t}")));
+
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // unde e primul rand nu se scrie de mana (depinde de antet si de
+        // bara de filtre): se cauta, cu clicuri pe coloana „Obiect"
+        let y0 = (0..900)
+            .step_by(4)
+            .map(|y| y as f32)
+            .find(|&y| {
+                clic(300.0, y);
+                let gasit = apeluri.borrow().last().is_some_and(|a| a == "clic0");
+                apeluri.borrow_mut().clear();
+                gasit
+            })
+            .expect("primul rand raspunde la clic");
+        clic(300.0, y0 + 34.0);
+        assert_eq!(*apeluri.borrow(), ["clic1"], "al doilea rand e al doilea");
+        apeluri.borrow_mut().clear();
+
+        // dublu clic: doua clicuri si deschiderea
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        clic(300.0, y0 + 2.0);
+        clic(300.0, y0 + 2.0);
+        assert_eq!(*apeluri.borrow(), ["clic0", "clic0", "deschide"]);
+        apeluri.borrow_mut().clear();
+
+        // panoul deschis: Esc il inchide, `o` omite
+        ui.set_detalii_deschise(true);
+        ui.set_nota_id("dbo.pA".into());
+        let tasta = |t: SharedString| {
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: t });
+        };
+        tasta(slint::platform::Key::Escape.into());
+        tasta("o".into());
+        assert_eq!(*apeluri.borrow(), ["inchide", "omite"]);
+        apeluri.borrow_mut().clear();
+        ui.set_detalii_deschise(false);
+        tasta(slint::platform::Key::Escape.into());
+        assert!(apeluri.borrow().is_empty(), "Esc fara panou nu face nimic");
+        ui.set_detalii_deschise(true);
+
+        // X-ul din coltul panoului: cautat pe banda de sus a panoului
+        let gasit_x = (1100..1440).step_by(3).any(|x| {
+            (y0 as i32 - 60..y0 as i32 + 10).step_by(3).any(|y| {
+                clic(x as f32, y as f32);
+                let e = apeluri.borrow().last().is_some_and(|a| a == "inchide");
+                e
+            })
+        });
+        assert!(gasit_x, "X-ul inchide panoul: {:?}", apeluri.borrow());
+        apeluri.borrow_mut().clear();
+
+        // nota: textul tastat ajunge cu obiectul lui
+        ui.set_nota("".into());
+        ui.set_nota_id("dbo.pB".into());
+        let gasit_nota = (1000..1440).step_by(6).any(|x| {
+            (y0 as i32..900).step_by(6).any(|y| {
+                clic(x as f32, y as f32);
+                tasta("z".into());
+                let e = apeluri.borrow().iter().any(|a| a.starts_with("nota"));
+                e
+            })
+        });
+        assert!(gasit_nota, "campul de nota primeste text");
+        assert!(
+            apeluri.borrow().iter().any(|a| a == "nota dbo.pB=z"),
+            "{:?}",
             apeluri.borrow()
         );
     }

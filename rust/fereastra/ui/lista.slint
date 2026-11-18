@@ -1,5 +1,6 @@
 // Ecranul principal: harta sus (fiecare obiect afisat e un patrat, pe tipuri),
-// tabelul dedesubt, previzualizarea obiectului selectat in dreapta. Dupa
+// tabelul dedesubt; la clic pe un rand, detaliile lui in dreapta (panou
+// redimensionabil, inchis cu X, Esc sau al doilea clic pe rand). Dupa
 // schita aprobata (`cercetare/schita-slint/ui/lista.slint`), pe jetoanele
 // din `Tema`. Harta e legata de tabel: patratul selectat e randul selectat.
 //
@@ -280,11 +281,15 @@ component RandTabel inherits Rectangle {
     in property <RandListaUi> r;
     in property <bool> selectat;
     callback apasat();
+    callback dublu-clic();
     callback comuta-revizuit();
     height: 34px;
     border-radius: 8px;
     background: root.selectat ? Tema.strat : zona.has-hover ? Tema.suprafata : transparent;
-    zona := TouchArea { clicked => { root.apasat(); } }
+    zona := TouchArea {
+        clicked => { root.apasat(); }
+        double-clicked => { root.dublu-clic(); }
+    }
     if root.selectat: Rectangle { x: 0; width: 3px; height: 20px; border-radius: 1.5px; background: Tema.accent; }
     // in plan: o crestatura pe marginea din dreapta
     if root.r.in-plan: Rectangle { x: parent.width - 4px; width: 4px; height: 22px; border-radius: 2px; background: Tema.accent; }
@@ -390,6 +395,35 @@ component Filtru inherits Rectangle {
     zona := TouchArea { clicked => { root.apasat(); } }
 }
 
+// Un rand din panoul de detalii: eticheta in stanga, valoarea in dreapta.
+component RandDetaliu inherits HorizontalLayout {
+    in property <string> eticheta;
+    height: 28px;
+    spacing: 8px;
+    Text { text: root.eticheta; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; }
+    @children
+}
+
+// Eticheta colorata (stare revizuire, impact): 0 verde, 1 chihlimbar,
+// 2 rosu, 3 gri.
+component Pastila inherits Rectangle {
+    in property <string> text;
+    in property <int> fel;
+    height: 22px;
+    width: et.preferred-width + 18px;
+    border-radius: 11px;
+    background: root.fel == 0 ? Tema.add-fundal : root.fel == 1 ? Tema.mod-fundal : root.fel == 2 ? Tema.del-fundal : Tema.strat;
+    et := Text {
+        text: root.text;
+        font-family: Tema.font-ui;
+        font-size: 12px;
+        font-weight: 500;
+        color: root.fel == 0 ? Tema.add-text : root.fel == 1 ? Tema.mod-text : root.fel == 2 ? Tema.del-text : Tema.text-secundar;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
+
 export component FereastraLista inherits Window {
     title: "gmotion";
     preferred-width: 1440px;
@@ -441,6 +475,17 @@ export component FereastraLista inherits Window {
     in property <string> ce-difera;           // „un singur caracter, intr-un sir: Nu → nu"
     in property <bool> obiect-revizuit;
     in property <bool> obiect-in-plan;
+    // panoul de detalii: deschis, latimea (trasa de mana), impactul si nota
+    in property <bool> detalii-deschise;
+    in-out property <length> latime-detalii: 460px;
+    // -1 = nu se stie, 0 scazut, 1 mediu, 2 ridicat
+    in property <int> impact-nivel: -1;
+    in property <string> impact-text;
+    in property <string> impact-motive;
+    // nota obiectului `nota-id`; pusa din Rust doar cand se schimba obiectul,
+    // ca sa nu mute cursorul cat scrii
+    in-out property <string> nota;
+    in-out property <string> nota-id;
     in property <[RandUi]> previzualizare;
     in property <image> tigla-hasura;
 
@@ -449,6 +494,11 @@ export component FereastraLista inherits Window {
     callback alege-categoria(int);
     callback alege-tipul(int);
     callback alege-randul(int);
+    // clic pe rand: selecteaza si deschide detaliile; pe acelasi, le inchide
+    callback clic-rand(int);
+    callback inchide-detalii();
+    callback comuta-omis();
+    callback nota-editata(string, string);
     callback comuta-revizuit(int);
     callback deschide-obiectul();
     callback adauga-in-plan();
@@ -481,6 +531,8 @@ export component FereastraLista inherits Window {
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
             if (e.text == "r") { root.comuta-revizuit(root.selectat); return accept; }
             if (e.text == "i") { root.adauga-in-plan(); return accept; }
+            if (e.text == "o") { root.comuta-omis(); return accept; }
+            if (e.text == Key.Escape && root.detalii-deschise) { root.inchide-detalii(); return accept; }
             // Ctrl+F: cursorul in cautare, ca in v3.4
             if (e.text == "f" && e.modifiers.control) { camp.focus(); return accept; }
             return reject;
@@ -719,7 +771,7 @@ export component FereastraLista inherits Window {
                 padding-left: 16px;
                 padding-right: 16px;
                 padding-top: 10px;
-                spacing: 16px;
+                spacing: 3px;
 
                 VerticalLayout {
                     horizontal-stretch: 1;
@@ -788,9 +840,14 @@ export component FereastraLista inherits Window {
                             r: r;
                             selectat: i == root.selectat;
                             apasat => {
+                                taste.focus();
+                                root.selectat = i;
+                                root.clic-rand(i);
+                            }
+                            dublu-clic => {
                                 root.selectat = i;
                                 root.alege-randul(i);
-                                taste.focus();
+                                root.deschide-obiectul();
                             }
                             comuta-revizuit => { root.comuta-revizuit(i); }
                         }
@@ -804,23 +861,112 @@ export component FereastraLista inherits Window {
                     }
                 }
 
-                // previzualizarea obiectului selectat
-                Card {
-                    width: 460px;
+                // manerul: trage ca sa schimbi latimea panoului
+                if root.detalii-deschise: Rectangle {
+                    width: 10px;
+                    maner := TouchArea {
+                        mouse-cursor: ew-resize;
+                        moved => {
+                            if (self.pressed) {
+                                root.latime-detalii = Math.max(340px, Math.min(root.width - 860px, root.latime-detalii - (self.mouse-x - self.pressed-x)));
+                            }
+                        }
+                    }
+                    Rectangle {
+                        x: (parent.width - 3px) / 2;
+                        width: 3px;
+                        height: 48px;
+                        y: (parent.height - 48px) / 2;
+                        border-radius: 1.5px;
+                        background: maner.pressed || maner.has-hover ? Tema.accent : Tema.linie;
+                    }
+                }
+
+                // detaliile obiectului selectat
+                if root.detalii-deschise: Card {
+                    width: Math.max(340px, Math.min(root.width - 860px, root.latime-detalii));
                     clip: true;
+                    property <RandListaUi> sel: root.randuri[root.selectat];
                     VerticalLayout {
+                        // sus doar cat ii trebuie; restul inaltimii e al previzualizarii
                         VerticalLayout {
+                            vertical-stretch: 0;
                             padding: 18px;
                             padding-bottom: 12px;
-                            spacing: 6px;
+                            spacing: 4px;
                             HorizontalLayout {
-                                alignment: start;
-                                Text { text: root.obiect-schema == "" ? "" : root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 17px; color: Tema.text-tert; }
-                                Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 17px; font-weight: 500; color: Tema.text; overflow: elide; horizontal-stretch: 1; }
+                                spacing: 8px;
+                                HorizontalLayout {
+                                    alignment: start;
+                                    horizontal-stretch: 1;
+                                    Text { text: root.obiect-schema == "" ? "" : root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 17px; color: Tema.text-tert; }
+                                    Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 17px; font-weight: 500; color: Tema.text; overflow: elide; horizontal-stretch: 1; }
+                                }
+                                // X: inchide panoul (la fel ca al doilea clic pe rand, sau Esc)
+                                Rectangle {
+                                    width: 26px;
+                                    height: 26px;
+                                    border-radius: 7px;
+                                    background: inchide.has-hover ? Tema.strat : transparent;
+                                    Path {
+                                        width: 12px; height: 12px; viewbox-width: 12; viewbox-height: 12;
+                                        commands: "M 2 2 L 10 10 M 10 2 L 2 10";
+                                        stroke: Tema.text-secundar; stroke-width: 1.5px; fill: transparent;
+                                    }
+                                    inchide := TouchArea { clicked => { root.inchide-detalii(); } }
+                                }
                             }
-                            Text { text: root.ce-difera; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; wrap: word-wrap; }
+                            Text { text: sel.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-tert; }
+                            Rectangle { height: 8px; }
+                            RandDetaliu {
+                                eticheta: "Stare";
+                                VerticalLayout {
+                                    alignment: center;
+                                    Pastila {
+                                        text: sel.omis ? "Omis" : sel.revizuit ? "Revizuit" : "Nerevizuit";
+                                        fel: sel.omis ? 3 : sel.revizuit ? 0 : 1;
+                                    }
+                                }
+                            }
+                            RandDetaliu {
+                                eticheta: "Modificari";
+                                Text { text: sel.plus == "" ? "–" : sel.plus; font-family: Tema.font-mono; font-size: 12.5px; color: sel.plus == "" ? Tema.text-tert : Tema.add-text; vertical-alignment: center; }
+                                Text { text: sel.minus; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.del-text; vertical-alignment: center; }
+                            }
+                            RandDetaliu {
+                                eticheta: "Similaritate";
+                                Text { text: sel.scor-text == "" ? "–" : sel.scor-text; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
+                            }
+                            RandDetaliu {
+                                eticheta: "Impact estimat";
+                                VerticalLayout {
+                                    alignment: center;
+                                    Pastila {
+                                        text: root.impact-text == "" ? "–" : root.impact-text;
+                                        fel: root.impact-nivel == 0 ? 0 : root.impact-nivel == 1 ? 1 : root.impact-nivel == 2 ? 2 : 3;
+                                    }
+                                }
+                            }
+                            if root.impact-motive != "": Text {
+                                text: root.impact-motive;
+                                font-family: Tema.font-ui;
+                                font-size: 11.5px;
+                                color: Tema.text-tert;
+                                wrap: word-wrap;
+                                horizontal-alignment: right;
+                            }
+                            RandDetaliu {
+                                eticheta: "Deploy";
+                                Text {
+                                    text: sel.deploy == 1 ? "Pregatit" : sel.deploy == 2 ? "Trimis" : sel.deploy == 3 ? "Versiune noua" : sel.deploy == 4 ? "Omis" : "Neintrodus";
+                                    color: sel.deploy == 1 ? Tema.accent-text : sel.deploy == 2 ? Tema.add-text : sel.deploy == 3 ? Tema.mod-text : Tema.text-tert;
+                                    font-family: Tema.font-ui;
+                                    font-size: 12.5px;
+                                    vertical-alignment: center;
+                                }
+                            }
                             HorizontalLayout {
-                                padding-top: 6px;
+                                padding-top: 10px;
                                 spacing: 8px;
                                 alignment: start;
                                 Buton {
@@ -828,8 +974,41 @@ export component FereastraLista inherits Window {
                                     apasat => { root.comuta-revizuit(root.selectat); }
                                 }
                                 Buton { text: root.obiect-in-plan ? "In plan ✓" : "In plan"; apasat => { root.adauga-in-plan(); } }
+                                Buton { text: sel.omis ? "Omis ✓" : "Omite"; apasat => { root.comuta-omis(); } }
                                 ButonPrincipal { text: "Deschide"; apasat => { root.deschide-obiectul(); } }
                             }
+                            // nota: se salveaza pe masura ce scrii, pe obiectul ei
+                            Text { text: "Nota"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                            Rectangle {
+                                height: 64px;
+                                border-radius: 8px;
+                                border-width: 1px;
+                                border-color: camp-nota.has-focus ? Tema.accent : Tema.linie;
+                                background: Tema.fundal;
+                                clip: true;
+                                camp-nota := TextInput {
+                                    x: 10px;
+                                    y: 8px;
+                                    width: parent.width - 20px;
+                                    height: parent.height - 16px;
+                                    text <=> root.nota;
+                                    font-family: Tema.font-ui;
+                                    font-size: 12.5px;
+                                    color: Tema.text;
+                                    single-line: false;
+                                    wrap: word-wrap;
+                                    edited => { root.nota-editata(root.nota-id, self.text); }
+                                }
+                                if root.nota == "" && !camp-nota.has-focus: Text {
+                                    x: 10px;
+                                    y: 8px;
+                                    text: "Scrie o nota (ex. a ramas aici)";
+                                    font-family: Tema.font-ui;
+                                    font-size: 12.5px;
+                                    color: Tema.text-tert;
+                                }
+                            }
+                            Text { text: root.ce-difera; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; wrap: word-wrap; }
                         }
                         Rectangle { height: 1px; background: Tema.linie; }
                         Rectangle {
@@ -898,7 +1077,7 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: "obiect" }, { t: "enter", e: "deschide" }, { t: "r", e: "revizuit" }, { t: "i", e: "in plan" }, { t: "ctrl f", e: "cauta" }]: HorizontalLayout {
+                    for k in [{ t: "j k", e: "obiect" }, { t: "clic", e: "detalii" }, { t: "dublu clic / enter", e: "deschide" }, { t: "r", e: "revizuit" }, { t: "i", e: "in plan" }, { t: "o", e: "omite" }, { t: "esc", e: "inchide detaliile" }, { t: "ctrl f", e: "cauta" }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }

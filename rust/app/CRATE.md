@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 0aed0ff85b578be3 -->
+<!-- api-hash: 0a2830f2a4f201a9 -->
 
 ## Rol
 
@@ -32,6 +32,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul |
+| `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul (calculat lenes, o data per comparare) si nota (`PuneNota`) |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
 | `Aplicatie::plan(referinta, tinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
@@ -57,6 +58,9 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 5. **Parola iese din `Acreditari` intr-un singur loc:** `pornire::deschide`.
    Nu ajunge in starea afisata, in sesiuni sau in mesajele de eroare — exista
    test.
+6. **Nota se pune pe obiectul primit in comanda (`PuneNota(id, text)`), nu pe
+   selectie.** Campul de nota poate pierde focul dupa ce selectia s-a mutat
+   deja pe alt rand; legata de selectie, nota ar ajunge pe obiectul gresit.
 
 ## Erori tipice
 
@@ -64,6 +68,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 |---|---|
 | Bifa din editor nu se vede in lista | `comuta_revizuit` din `rutare.rs` |
 | `j` / `k` te intorc in lista | `treci` din `rutare.rs` |
+| Panoul de detalii nu se deschide / nu se inchide la clic | `Comanda::ClicPeRand` din `rutare.rs`; in `lista.slint`, `clic-rand` |
+| Nota apare pe alt obiect | `nota-id` din `lista.slint` si `incarca_detalii` in `gmotion-fereastra` |
 | Obiectul deschis se schimba dupa un filtru | `Lista::recalculeaza` in `gmotion-fereastra` |
 | Fereastra nu porneste pe un server fara GPU | backend-ul Slint: `winit` + `software` |
 | Progresul nu se salveaza | sesiunile din `gmotion-platforma`, `GMOTION_DIR_DATE` |

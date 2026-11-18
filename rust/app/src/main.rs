@@ -303,6 +303,7 @@ fn ruleaza() -> Result<(), String> {
                 Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
                 None => goleste_previzualizarea(&l_ui),
             }
+            gmotion_fereastra::incarca_detalii(&l_ui, &app.panou_detalii().pentru_fereastra());
             if app.ecran() == Ecran::Editor {
                 let pozitie = format!(
                     "obiectul {} din {} nerevizuite",
@@ -636,6 +637,16 @@ fn ruleaza() -> Result<(), String> {
         lista_ui.on_alege_randul(move |i| c(Comanda::Selecteaza(i.max(0) as usize)));
         let c = comanda.clone();
         lista_ui.on_deschide_obiectul(move || c(Comanda::Deschide));
+        let c = comanda.clone();
+        lista_ui.on_clic_rand(move |i| c(Comanda::ClicPeRand(i.max(0) as usize)));
+        let c = comanda.clone();
+        lista_ui.on_inchide_detalii(move || c(Comanda::InchideDetalii));
+        let c = comanda.clone();
+        lista_ui.on_comuta_omis(move || c(Comanda::ComutaOmis));
+        let c = comanda.clone();
+        lista_ui.on_nota_editata(move |id, text| {
+            c(Comanda::PuneNota(id.to_string(), text.to_string()))
+        });
         gmotion_fereastra::leaga_harta(&lista_ui);
         // recompararea: aceeasi conectare, revizuirea de pana acum ramane
         let s = stare.clone();
@@ -674,7 +685,7 @@ fn ruleaza() -> Result<(), String> {
                 .upgrade()
                 .and_then(|ui| gmotion_fereastra::rand_din_harta(&ui, grup, x, y));
             if let Some(r) = rand {
-                c(Comanda::Selecteaza(r));
+                c(Comanda::ClicPeRand(r));
             }
         });
         let a = alege_tema.clone();
