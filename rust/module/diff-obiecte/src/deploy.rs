@@ -388,6 +388,53 @@ fn nume_referite(cod: &str) -> Vec<Vec<String>> {
     nume
 }
 
+/// Pentru fiecare obiect `(schema.nume, cod)`, celelalte obiecte din lista
+/// pe care le foloseste codul lui (indici, fara repetitii, fara el insusi).
+///
+/// Singurul loc unde un nume din cod se leaga de un obiect: ordinea de deploy
+/// si impactul estimat il folosesc pe acesta. Numele cu schema se cauta exact;
+/// cel scurt, doar daca e unic in lista (un nume scurt ambiguu nu se leaga).
+pub(crate) fn referinte(obiecte: &[(&str, &str)]) -> Vec<Vec<usize>> {
+    use std::collections::HashMap;
+    let mut dupa_nume_complet: HashMap<String, usize> = HashMap::new();
+    let mut dupa_nume_scurt: HashMap<String, Option<usize>> = HashMap::new();
+    for (i, (nume, _)) in obiecte.iter().enumerate() {
+        let complet = nume.to_lowercase();
+        let scurt = complet.rsplit('.').next().unwrap_or(&complet).to_string();
+        dupa_nume_complet.insert(complet, i);
+        dupa_nume_scurt
+            .entry(scurt)
+            .and_modify(|v| *v = None) // nume scurt ambiguu: nu se foloseste
+            .or_insert(Some(i));
+    }
+    obiecte
+        .iter()
+        .enumerate()
+        .map(|(i, (_, cod))| {
+            let mut deps: Vec<usize> = Vec::new();
+            for parti in nume_referite(cod) {
+                let gasit = if parti.len() >= 2 {
+                    dupa_nume_complet
+                        .get(&format!(
+                            "{}.{}",
+                            parti[parti.len() - 2],
+                            parti[parti.len() - 1]
+                        ))
+                        .copied()
+                } else {
+                    dupa_nume_scurt.get(&parti[0]).copied().flatten()
+                };
+                if let Some(j) = gasit.filter(|&j| j != i) {
+                    if !deps.contains(&j) {
+                        deps.push(j);
+                    }
+                }
+            }
+            deps
+        })
+        .collect()
+}
+
 /// Ordinea in care se scriu obiectele unei baze: fiecare dupa obiectele din
 /// acelasi deploy pe care le foloseste.
 ///
@@ -401,7 +448,7 @@ fn nume_referite(cod: &str) -> Vec<Vec<String>> {
 /// final, in aceeasi ordine, cu avertisment.
 pub fn ordine_dupa_dependente(obiecte: &[DeDeployat]) -> Vec<usize> {
     use std::cmp::Reverse;
-    use std::collections::{BinaryHeap, HashMap};
+    use std::collections::BinaryHeap;
 
     let rang = |tip: &str| match tip.trim() {
         "FN" | "IF" | "TF" => 0u8,
@@ -410,41 +457,14 @@ pub fn ordine_dupa_dependente(obiecte: &[DeDeployat]) -> Vec<usize> {
         "TR" => 3,
         _ => 2,
     };
-    let mut dupa_nume_complet: HashMap<String, usize> = HashMap::new();
-    let mut dupa_nume_scurt: HashMap<String, Option<usize>> = HashMap::new();
-    for (i, o) in obiecte.iter().enumerate() {
-        let complet = o.obiect.to_lowercase();
-        let scurt = complet.rsplit('.').next().unwrap_or(&complet).to_string();
-        dupa_nume_complet.insert(complet, i);
-        dupa_nume_scurt
-            .entry(scurt)
-            .and_modify(|v| *v = None) // nume scurt ambiguu: nu se foloseste
-            .or_insert(Some(i));
-    }
-
     let n = obiecte.len();
+    let perechi: Vec<(&str, &str)> = obiecte
+        .iter()
+        .map(|o| (o.obiect.as_str(), o.cod.as_str()))
+        .collect();
     let mut urmasi: Vec<Vec<usize>> = vec![Vec::new(); n];
     let mut intrari = vec![0usize; n];
-    for (i, o) in obiecte.iter().enumerate() {
-        let mut deps: Vec<usize> = Vec::new();
-        for parti in nume_referite(&o.cod) {
-            let gasit = if parti.len() >= 2 {
-                dupa_nume_complet
-                    .get(&format!(
-                        "{}.{}",
-                        parti[parti.len() - 2],
-                        parti[parti.len() - 1]
-                    ))
-                    .copied()
-            } else {
-                dupa_nume_scurt.get(&parti[0]).copied().flatten()
-            };
-            if let Some(j) = gasit.filter(|&j| j != i) {
-                if !deps.contains(&j) {
-                    deps.push(j);
-                }
-            }
-        }
+    for (i, deps) in referinte(&perechi).into_iter().enumerate() {
         for j in deps {
             urmasi[j].push(i);
             intrari[i] += 1;
