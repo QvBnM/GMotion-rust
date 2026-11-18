@@ -89,7 +89,8 @@ de la Mihai" din `STARE.md`.
 - [x] H1 siguranta deploy-ului: C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5
       (verdictele si testele: sectiunea „Verdicte" din audit; F-D7 amanat,
       cere o proba pe Windows)
-- [ ] H2 pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3
+- [x] H2 pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3
+      (campul de parola din F-A2 ramane partial: vezi „Verdicte")
 - [ ] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
       intra in setul standard
 - [ ] H4 inghetari: P4, P1, P2, P3
@@ -191,6 +192,24 @@ de la Mihai" din `STARE.md`.
   - **F-D7 nu s-a facut** si nu e bifat: tiparul `IF @@ERROR <> 0 SET NOEXEC
     ON` dupa fiecare obiect cere stiut ce vede `@@ERROR` peste granita de
     batch (dupa `GO`). Nu se poate proba pe Linux; cerut lui Mihai.
+
+- **2026-11-18** H2 (pierdere de date) gata: C3, C4, F-B4, F-A1, F-A2,
+  F-A3. Toate sase s-au reprodus pe codul de acum.
+  - **F-A1 si F-A2 se probeaza cu tastatura si mouse-ul, in fereastra**, fara
+    ecran: `MinimalSoftwareWindow` plus `dispatch_event`. Pentru F-A2 testul a
+    aratat exact ce spunea auditul: dupa „Inverseaza", campul raporta
+    „SRV-DEVx1" — vechea valoare cu tastele noi peste.
+    Fereastra de test n-are dimensiune: fara `set_size`, aranjarea e
+    degenerata si clicurile nu gasesc campurile din al doilea card.
+  - **Campul de parola nu se poate rescrie din model**, si asta a iesit abia
+    la testare: modelul ii da buline cat lungimea parolei, deci rescris cu ele
+    prima tasta de dupa ar trimite bulinele **ca parola**. Exceptia e probata
+    cu un test propriu. Rest de facut acolo (dupa „Inverseaza" spre o parte
+    care are parola), notat in „Verdicte".
+  - **F-A3 nu se poate proba cap-coada**: blocarea tastaturii cat ruleaza
+    compararea sta in `main.rs`, care n-are teste. Garantia e pusa in tipuri:
+    `Stare::parte` intoarce `Option`, deci compilatorul cere tratat cazul la
+    fiecare camp. De confirmat pe Windows.
 
 ## Ce a iesit altfel decat planul
 

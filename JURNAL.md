@@ -979,6 +979,50 @@ Proba ceruta lui Mihai e in `STARE.md`.
 
 ---
 
+## 2026-11-18 — Auditul QA, H2: ce s-a decis pe pierderea de date
+
+Sase constatari reparate (C3, C4, F-B4, F-A1, F-A2, F-A3). Patru decizii de
+scris.
+
+**1. Curatarea e pe bazele compararii de acum, nu pe tot ce stie sesiunea.**
+`curata(randuri)` stergea orice n-avea rand — iar o baza comparata alta data
+n-are randuri. Alternativa ar fi fost sa nu curete nimic niciodata (sesiunea
+ar creste la nesfarsit cu bife care nu mai spun nimic). Alegerea:
+`curata(randuri, baze_comparate)`, plus `Sesiune::adauga_baze`, care adauga
+bazele in loc sa le inlocuiasca. Semantica e acum „sesiunea tine munca facuta
+pe toate bazele comparate vreodata cu referinta asta".
+
+**2. Identitatea unei surse e un lucru separat de descrierea ei.**
+Pentru F-B4 (serverul in cheia sesiunii) aveam nevoie de un sir care sa
+insemne „acelasi server" si maine. `descriere()` nu e: contine felul
+autentificarii, deci s-ar schimba cand omul trece de pe SQL pe Windows, si
+sesiunea ar parea pierduta. Deci `SursaObiecte::identitate`: `host[:port]`
+pentru un server, iar pentru un instantaneu **serverul declarat in fisier**,
+nu calea — acelasi instantaneu exportat din nou e tot acelasi server. Cheia
+veche (doar referinta) se migreaza la prima citire, nu se abandoneaza.
+Pe drum: antetul listei arata acum serverul curat, adica jumatate din F-A13.
+
+**3. Campurile din Slint se rescriu la schimbarea modelului — in afara de
+parola.** `text: root.text` e o legatura care se rupe la prima tasta, deci
+dupa „Inverseaza" campurile aratau vechile valori si comparai in directia
+opusa celei de pe ecran (F-A2). Reparatia e `changed text`. Dar campul de
+parola **nu** poate fi rescris din model: modelul ii da buline cat lungimea
+parolei, si rescris cu ele prima tasta de dupa ar trimite bulinele ca parola
+— ceea ce testul a si aratat. Acolo se goleste doar cand modelul spune ca nu
+mai exista nicio parola. Ce ramane (dupa „Inverseaza" spre o parte care are
+parola, campul tine ce s-a tastat) e notat in „Verdicte"; reparat de tot ar
+cere ca parola sa nu mai fie reprezentata prin buline in model.
+
+**4. Unde nu se poate testa, se pune in tipuri.** Blocarea tastaturii cat
+ruleaza compararea (F-A3) sta in `main.rs`, care n-are teste. Un `if ruleaza
+{ return }` copiat in nouasprezece callback-uri e exact felul de lucru care se
+uita la al douazecilea. Deci `Stare::parte` intoarce `Option`, `None` cat
+ruleaza: compilatorul cere tratat cazul la fiecare camp. Iar rezultatul
+compararii isi poarta referinta cu el (`Comparata::referinta`), ca sa nu mai
+depinda de formularul de acum.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

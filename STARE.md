@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-18 · commit `a35dc85` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (472 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-18 · commit `d9078c6` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (478 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -71,15 +71,16 @@ pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
 test care cade, abia apoi se repara. Verdictele intra in sectiunea
 „Verdicte" de la finalul auditului.
 
-**H1 (siguranta deploy-ului) e gata**: C1, C2, C5, C6, C7, C8, F-D1, F-D2,
-F-A5, cate un commit fiecare, cu poarta verde inainte de fiecare. Toate noua
-s-au reprodus pe codul de acum. F-D7 a ramas nefacut, deliberat: cere o
-proba pe Windows (vezi mai jos).
+**H1 (siguranta deploy-ului) si H2 (pierdere de date) sunt gata**, cate un
+commit per constatare, cu poarta verde inainte de fiecare. Toate
+cincisprezece s-au reprodus pe codul de acum — niciuna nu disparuse de la
+sine. Ramase, notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi
+mai jos) si **campul de parola din F-A2** (vezi „Verdicte" din audit).
 
 **Tot ce e de facut, in ordine:**
 
 1. ~~**H1** siguranta deploy-ului~~ — gata (2026-11-18).
-2. **H2** pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3.
+2. ~~**H2** pierdere de date~~ — gata (2026-11-18).
 3. **H3** cadere si ecrane: C9, V9, V1, V2, V3, V10.
 4. **H4** inghetari: P4, P1, P2, P3.
 5. **H5** restul auditului: verdict pe fiecare constatare (reparat / nu se
@@ -186,6 +187,26 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Un camp din Slint nu mai urmeaza modelul dupa prima tasta.** `text:
+  root.text` e o legatura care se rupe la editare. De-aia `Camp` din
+  `conectare.slint` rescrie textul pe `changed text` (F-A2). **Campul de
+  parola face exceptie**: modelul ii da doar buline cat lungimea parolei, deci
+  rescris cu ele prima tasta de dupa ar trimite bulinele **ca parola**. Daca
+  scoti exceptia, testul `campurile_din_conectare_...` cade.
+- **Fereastra de test n-are dimensiune.** `MinimalSoftwareWindow` porneste la
+  0x0 si aranjarea iese degenerata: clicurile nu gasesc nimic din al doilea
+  card. Un test cu mouse-ul cheama `window().set_size(...)` intai.
+- **Ce se vede pe ecran nu e ce a rulat.** Compararea merge pe alt fir, iar
+  formularul primeste tastatura cat ruleaza. De-aia `Comparata::referinta` si
+  `Stare::referinta` exista, si de-aia `Stare::parte` intoarce `Option`
+  (`None` cat ruleaza): compilatorul cere tratat cazul la fiecare camp (F-A3).
+- **`curata` nu atinge bazele din afara compararii de acum.** Fara filtrul pe
+  baze, bifele, omisiunile si textele finale ale unei baze comparate alta data
+  se sterg toate (C3/C4). `Sesiune::adauga_baze` adauga, nu inlocuieste.
+- **Cheia unei sesiuni e (sursa, referinta)**, iar identitatea sursei vine din
+  `SursaObiecte::identitate`, nu din `descriere()` (care se schimba cand se
+  schimba autentificarea) si nu din calea instantaneului.
 
 - **Textul de afisare e si textul care pleaca in baza.** `pregateste_afisare`
   da si ce vede editorul, si ce trimite „Aplica toate". De-aia nu mai atinge
