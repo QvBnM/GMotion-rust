@@ -300,10 +300,32 @@ GO
 /// declansata sa nu lase `NOEXEC` pornit in fereastra SSMS.
 const SFARSIT_SCRIPT: &str = "SET NOEXEC OFF;\nGO\n";
 
+/// `USE [baza]` plus verificarea ca am ajuns acolo.
+///
+/// Daca `USE` cade (baza offline, redenumita, fara drept), eroarea 911
+/// opreste doar batch-ul lui: SSMS si `sqlcmd` fara `-b` ruleaza apoi toate
+/// `CREATE OR ALTER` pe baza **curenta** — master, referinta, sau, cu „un
+/// singur fisier", baza anterioara. Deci se verifica explicit (F-D1 din
+/// auditul QA).
+fn du_te_in_baza(baza: &str) -> String {
+    // numele intra ca **argument** al lui RAISERROR, nu in mesaj: un `%` din
+    // numele bazei ar fi altfel citit ca specificator de format
+    let nume = baza.replace('\'', "''");
+    format!(
+        "USE {};\nGO\n\
+         IF DB_NAME() <> N'{nume}'\n\
+         BEGIN\n    \
+             RAISERROR(N'GMotion: nu s-a putut intra in baza %s; nu se executa nimic.', 16, 1, N'{nume}');\n    \
+             SET NOEXEC ON;\n\
+         END\nGO\n\n",
+        paranteze(baza)
+    )
+}
+
 fn antet(baza: &str, referinta: &str, acum: &str) -> String {
     format!(
-        "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\n{GARDA_VERSIUNE}USE {};\nGO\n\n",
-        paranteze(baza)
+        "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\n{GARDA_VERSIUNE}{}",
+        du_te_in_baza(baza)
     )
 }
 
@@ -668,8 +690,8 @@ fn text_revenire(baza: &str, referinta: &str, pasi: &[PasRevenire], acum: &str) 
         "-- REVENIRE {baza} | anuleaza deploy-ul din {referinta} | salvat {acum}\n\
          -- Ruleaza-l doar ca sa anulezi deploy-ul: reface obiectele cum erau\n\
          -- inainte si sterge ce a creat deploy-ul.\n\
-         {GARDA_VERSIUNE}USE {};\nGO\n\n",
-        paranteze(baza)
+         {GARDA_VERSIUNE}{}",
+        du_te_in_baza(baza)
     );
     for i in ordine_dupa_dependente(&reface) {
         text.push_str(&bloc(&reface[i]));
@@ -1287,6 +1309,37 @@ mod teste {
         }
     }
 
+    /// F-D1 din `cercetare/audit-qa-2026-11-18.md`: daca `USE [baza]` cade
+    /// (baza offline, redenumita, fara drept), doar batch-ul ala se opreste.
+    /// SSMS si `sqlcmd` fara `-b` ruleaza apoi toate `CREATE OR ALTER` pe
+    /// baza curenta — master, referinta, sau, cu „un singur fisier", baza
+    /// anterioara. Dupa `USE` trebuie sa urmeze o verificare care opreste tot.
+    #[test]
+    fn dupa_use_se_verifica_in_ce_baza_suntem() {
+        let d = dir("use-verificat");
+        let r = scrie(&d, "Ref", &exemplu(), ModImpartire::Unul, 0, "t").unwrap();
+        let t = std::fs::read_to_string(&r.fisiere[0]).unwrap();
+        for baza in ["Client1", "Client2"] {
+            let poz_use = t.find(&format!("USE [{baza}];")).expect("USE lipseste");
+            let verificare = t[poz_use..]
+                .find("DB_NAME()")
+                .expect("verificarea bazei lipseste");
+            let primul_create = t[poz_use..]
+                .find("CREATE OR ALTER")
+                .expect("obiectele bazei");
+            assert!(
+                verificare < primul_create,
+                "verificarea vine inainte de orice obiect:\n{}",
+                &t[poz_use..]
+            );
+            assert!(
+                t[poz_use + verificare..].contains(&format!("N'{baza}'")),
+                "se verifica numele bazei"
+            );
+        }
+        std::fs::remove_dir_all(&d).ok();
+    }
+
     #[test]
     fn mod_per_baza() {
         let d = dir("per-baza");
@@ -1307,8 +1360,8 @@ mod teste {
         assert_eq!(t.matches("-- ═══").count(), 3);
         assert_eq!(
             t.matches("\nGO\n").count(),
-            9,
-            "garda, USE, doua per obiect (setarile, apoi codul), sfarsitul"
+            10,
+            "garda, USE, verificarea bazei, doua per obiect (setarile, apoi codul), sfarsitul"
         );
         std::fs::remove_dir_all(&d).ok();
     }
@@ -1450,6 +1503,12 @@ mod teste {
         );
         let sql = std::fs::read_to_string(&r.revenire[0]).unwrap();
         assert!(sql.contains("USE [Client1];"));
+        // si revenirea scrie cod peste o baza: tot are nevoie de verificarea
+        // ca `USE` a reusit (F-D1)
+        assert!(
+            sql.contains("DB_NAME() <> N'Client1'"),
+            "revenirea verifica baza:\n{sql}"
+        );
         assert!(sql.contains("SELECT \"vechi\""), "codul din tinta:\n{sql}");
         assert!(
             sql.contains("SET QUOTED_IDENTIFIER OFF;"),
