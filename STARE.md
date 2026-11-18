@@ -47,8 +47,13 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1, D2, D3 gata. Urmeaza
-D4.**
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C, D1, D2, D3 gata.**
+
+**Inainte de D4: auditul QA din 2026-11-18** (`cercetare/audit-qa-2026-11-18.md`)
+a gasit 9 probleme critice (deploy care scrie altceva decat s-a aprobat,
+revenire distructiva, pierdere de revizuire, cadere pe liste mari) si ecrane
+care nu incap nici la 1440 px. **Mihai decide ordinea**; pana atunci nu se
+continua cu D4. Ordinea recomandata e la finalul raportului.
 
 D — conectarea, in ordinea asta:
 
@@ -121,6 +126,13 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Capturile sunt toate la 1440x900 si ascund probleme.** Antetul listei e
+  taiat chiar la 1440 (Deconecteaza nu s-a vazut niciodata pe ecran); la
+  1366 si 1024 dispar Deploy si numele obiectelor. O schimbare de aspect se
+  probeaza si la 1366x768 si 1024x768 (auditul, sectiunea V).
+- **`masura_lista` cade la 18.000 de obiecte** (harta peste ~32.767 px,
+  panica in Slint). Criteriul din etapa 9 nu mai e adevarat; vezi C9 in
+  audit.
 - **Compararea din conectare ruleaza pe alt fir** (`app/src/fir.rs`). Nimic
   din `Stare` (main.rs) nu trece pe firul ei: doar o copie a `Conectare`
   intra, doar `fir::Mesaj` iese, prin canal. Un `Rc`/`RefCell` mutat in
