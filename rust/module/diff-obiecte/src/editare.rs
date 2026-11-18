@@ -60,13 +60,14 @@ impl Editari {
         self.text_final(r).map_or(text_baza, |t| t.text.as_str())
     }
 
-    /// Pune textul final. Daca e exact textul bazei, nu mai e o editare: se
-    /// scoate, ca deploy-ul sa nu poarte un „text final" care nu schimba nimic.
-    pub fn pune(&mut self, r: &Rand, text: String, manual: bool, text_baza: &str) {
-        if text == text_baza {
-            self.reset(r);
-            return;
-        }
+    /// Pune textul final.
+    ///
+    /// Si cand e exact textul bazei: aia e decizia „pastreaza tinta" (modul
+    /// ghidat cu „din tinta" la toate diferentele), si trebuie sa ajunga la
+    /// deploy. Pana la auditul QA se stergea, ca „nu schimba nimic" — iar
+    /// deploy-ul, fara text final, scria **toata sursa** peste exact ce
+    /// alesesei sa pastrezi (F-A5). „Reset" e singurul care sterge decizia.
+    pub fn pune(&mut self, r: &Rand, text: String, manual: bool) {
         let manual = manual || self.text_final(r).is_some_and(|t| t.manual);
         self.baze.entry(r.baza.clone()).or_default().insert(
             r.obiect.clone(),
@@ -90,14 +91,14 @@ impl Editari {
         let curent = self.curent(r, text_baza).to_string();
         let a = aliniaza(text_sursa, &curent);
         let text = compune(&a, text_sursa, &curent, |b| blocuri.contains(&b));
-        self.pune(r, text.clone(), false, text_baza);
+        self.pune(r, text.clone(), false);
         text
     }
 
     /// „Aplica toate": textul exact al sursei, nu o compunere — altfel
     /// comentariile si liniile goale dintre blocuri ar ramane din baza.
-    pub fn aplica_toate(&mut self, r: &Rand, text_sursa: &str, text_baza: &str) {
-        self.pune(r, text_sursa.to_string(), false, text_baza);
+    pub fn aplica_toate(&mut self, r: &Rand, text_sursa: &str) {
+        self.pune(r, text_sursa.to_string(), false);
     }
 
     /// Pune inapoi o stare luata inainte cu [`Editari::text_final`] (Ctrl+Z):
@@ -228,7 +229,7 @@ mod teste {
     fn aplica_toate_e_textul_exact_al_sursei_si_reset_il_scoate() {
         let r = rand("a", "b");
         let mut e = Editari::noi();
-        e.aplica_toate(&r, SURSA, BAZA);
+        e.aplica_toate(&r, SURSA);
         assert_eq!(e.curent(&r, BAZA), SURSA);
         assert!(e.reset(&r));
         assert_eq!(e.curent(&r, BAZA), BAZA);
@@ -240,7 +241,7 @@ mod teste {
         let r = rand("a", "b");
         let mut e = Editari::noi();
         let inainte = e.text_final(&r).cloned();
-        e.aplica_toate(&r, SURSA, BAZA);
+        e.aplica_toate(&r, SURSA);
         let dupa_toate = e.text_final(&r).cloned();
         e.reset(&r);
         e.restaureaza(&r, dupa_toate);
@@ -250,18 +251,34 @@ mod teste {
         assert_eq!(e.numar(), 0);
     }
 
+    /// F-A5 din `cercetare/audit-qa-2026-11-18.md`: in modul ghidat, „din
+    /// tinta" la toate diferentele da un text final egal cu textul bazei.
+    /// Ala se stergea („nu schimba nimic"), deci deploy-ul nu mai avea text
+    /// final si scria **toata sursa** peste exact ce ai ales sa pastrezi.
     #[test]
-    fn un_text_egal_cu_baza_nu_e_o_editare() {
+    fn decizia_de_a_pastra_tinta_ajunge_la_deploy() {
         let r = rand("a", "b");
         let mut e = Editari::noi();
-        e.pune(&r, BAZA.to_string(), true, BAZA);
+        // „din tinta" la toate diferentele: compunerea da exact textul bazei
+        let text = e.aplica_blocuri(&r, SURSA, BAZA, &[]);
+        assert_eq!(text, BAZA, "nimic adus din sursa");
+        assert_eq!(
+            e.pentru_deploy(std::slice::from_ref(&r))
+                .get(&("Client1".to_string(), "dbo.p".to_string()))
+                .map(String::as_str),
+            Some(BAZA),
+            "decizia trebuie sa ajunga la deploy; altfel se scrie toata sursa"
+        );
+        // „Reset" e singurul care sterge decizia
+        e.reset(&r);
         assert_eq!(e.numar(), 0);
+        assert!(e.pentru_deploy(std::slice::from_ref(&r)).is_empty());
     }
 
     #[test]
     fn editarea_cade_cand_obiectul_s_a_schimbat() {
         let mut e = Editari::noi();
-        e.aplica_toate(&rand("a", "b"), SURSA, BAZA);
+        e.aplica_toate(&rand("a", "b"), SURSA);
         assert!(e.text_final(&rand("a", "b")).is_some());
         assert!(
             e.text_final(&rand("a", "b2")).is_none(),
@@ -279,7 +296,7 @@ mod teste {
     fn manual_ramane_manual_dupa_un_aplica() {
         let r = rand("a", "b");
         let mut e = Editari::noi();
-        e.pune(&r, format!("{BAZA}\n-- scris de mine"), true, BAZA);
+        e.pune(&r, format!("{BAZA}\n-- scris de mine"), true);
         let d = diferente(SURSA, e.curent(&r, BAZA));
         e.aplica_blocuri(&r, SURSA, BAZA, &[d[0]]);
         assert!(e.text_final(&r).is_some_and(|t| t.manual));
@@ -289,7 +306,7 @@ mod teste {
     fn supravietuieste_sesiunii_si_pentru_deploy_da_doar_cele_valabile() {
         let r = rand("a", "b");
         let mut e = Editari::noi();
-        e.aplica_toate(&r, SURSA, BAZA);
+        e.aplica_toate(&r, SURSA);
         let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
         e.in_sesiune(&mut s);
         let inapoi = Editari::din_sesiune(&s);

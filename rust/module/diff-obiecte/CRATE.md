@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 2eb47172b6340ff8 -->
+<!-- api-hash: b1fb4f58f5b430aa -->
 
 ## Rol
 
@@ -31,7 +31,7 @@ biblioteca** — fara nicio interfata.
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
 | `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `din_sesiune` / `in_sesiune` |
-| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal` |
+| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal`. Un text final **egal cu textul bazei** e decizia „pastreaza tinta" si se pastreaza: doar `reset` o sterge (F-A5) |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |
 

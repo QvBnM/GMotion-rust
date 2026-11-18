@@ -732,7 +732,7 @@ pub fn editare(
             true
         }
         ActiuneEditare::AplicaToate => {
-            editari.aplica_toate(&rand, &text_sursa, &text_baza);
+            editari.aplica_toate(&rand, &text_sursa);
             true
         }
         ActiuneEditare::Reset => editari.reset(&rand),
@@ -740,7 +740,7 @@ pub fn editare(
             let text = std::fs::read_to_string(&cale)
                 .map_err(|e| format!("nu pot citi {}: {e}", cale.display()))?;
             let text = gmotion_core::pregateste_afisare(&text);
-            editari.pune(&rand, text, true, &text_baza);
+            editari.pune(&rand, text, true);
             true
         }
     };

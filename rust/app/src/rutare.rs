@@ -579,7 +579,7 @@ impl Aplicatie {
                 return self.aplica(k);
             }
             Comanda::AplicaToate => {
-                return self.schimba_textul(|e, r, sursa, baza| e.aplica_toate(r, sursa, baza));
+                return self.schimba_textul(|e, r, sursa, _| e.aplica_toate(r, sursa));
             }
             Comanda::Reset => {
                 return self.schimba_textul(|e, r, _, _| {
@@ -588,7 +588,7 @@ impl Aplicatie {
             }
             Comanda::SalveazaText(text) => {
                 let text = gmotion_core::pregateste_afisare(&text);
-                return self.schimba_textul(move |e, r, _, baza| e.pune(r, text, true, baza));
+                return self.schimba_textul(move |e, r, _, _| e.pune(r, text, true));
             }
             Comanda::Anuleaza => {
                 if let Some((r, inainte)) = self.istoric.pop() {
