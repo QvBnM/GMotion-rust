@@ -521,15 +521,15 @@ impl Lista {
         (difera.iter().filter(|o| o.revizuit).count(), difera.len())
     }
 
-    /// „212 nerevizuite din 312 modificate" — despre ce se vede acum.
-    pub fn rezumat_vizibile(&self) -> String {
+    /// Cate obiecte nerevizuite din cate se vad acum. Cuvintele le pune
+    /// fereastra, din `Texte`: aici stau doar cifrele.
+    pub fn rezumat_vizibile(&self) -> (usize, usize) {
         let nerevizuite = self
             .vizibile
             .iter()
             .filter(|&&i| self.obiecte[i].stare.difera() && !self.obiecte[i].revizuit)
             .count();
-        let total = self.vizibile.len();
-        format!("{nerevizuite} nerevizuite din {total}")
+        (nerevizuite, self.vizibile.len())
     }
 
     fn recalculeaza(&mut self) {
@@ -814,9 +814,9 @@ mod teste {
     fn rezumatul_vorbeste_despre_ce_se_vede_acum() {
         let mut l = lista_proba();
         l.filtreaza_stare(Some(Stare::Modificat));
-        assert_eq!(l.rezumat_vizibile(), "2 nerevizuite din 2");
+        assert_eq!(l.rezumat_vizibile(), (2, 2));
         l.comuta_revizuit(0);
-        assert_eq!(l.rezumat_vizibile(), "1 nerevizuite din 2");
+        assert_eq!(l.rezumat_vizibile(), (1, 2));
     }
 
     /// Lista pentru filtrele noi: scor, revizuire, deploy.

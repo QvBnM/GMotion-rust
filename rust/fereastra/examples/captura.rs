@@ -102,6 +102,7 @@ fn main() {
         .and_then(|n| gmotion_fereastra::Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
+    gmotion_fereastra::aplica_limba(&ui, Default::default());
     // proba ca fonturile incorporate chiar se folosesc: cu un nume inexistent
     // randarea trebuie sa iasa diferita (altfel desenam oricum cu rezerva)
     if let Some(i) = a.iter().position(|x| x == "--font-mono") {

@@ -222,12 +222,81 @@ fn ruleaza() -> Result<(), String> {
             .ok_or_else(|| format!("tema necunoscuta: „{n}”; alege intunecat sau luminos"))?,
         None => Mod::din_nume(&cfg.tema).unwrap_or_default(),
     };
+    // limba: din `--limba`, altfel din configurare, altfel implicitul
+    let limba_aleasa = match argument("--limba") {
+        Some(n) => gmotion_fereastra::texte::Limba::din_nume(&n)
+            .ok_or_else(|| format!("limba necunoscuta: {n}; alege ro sau en"))?,
+        None => gmotion_fereastra::texte::Limba::din_nume(&cfg.limba).unwrap_or_default(),
+    };
+    let pune_limba = |l: gmotion_fereastra::texte::Limba| {
+        use gmotion_fereastra::texte::Limba;
+        let etichete: Vec<slint::SharedString> = Limba::toate()
+            .iter()
+            .map(|x| slint::SharedString::from(x.eticheta()))
+            .collect();
+        let indice = Limba::toate().iter().position(|x| *x == l).unwrap_or(0) as i32;
+        macro_rules! pe_fiecare {
+            ($($ui:expr),*) => {$({
+                gmotion_fereastra::aplica_limba(&$ui, l);
+                $ui.set_limbi(slint::ModelRc::new(slint::VecModel::from(etichete.clone())));
+                $ui.set_limba_aleasa(indice);
+            })*};
+        }
+        pe_fiecare!(conectare_ui, lista_ui, editor_ui, deploy_ui);
+    };
+    pune_limba(limba_aleasa);
+
     aplica_tema(&conectare_ui, mod_ales);
     aplica_tema(&lista_ui, mod_ales);
     aplica_tema(&editor_ui, mod_ales);
     aplica_tema(&deploy_ui, mod_ales);
 
     // butonul de tema: schimba modul pe toate ecranele si il tine minte
+    // comutatorul de limba: schimba textele pe toate ecranele si le tine minte
+    let alege_limba = {
+        let (c_ui, l_ui, e_ui, d_ui) = (
+            conectare_ui.as_weak(),
+            lista_ui.as_weak(),
+            editor_ui.as_weak(),
+            deploy_ui.as_weak(),
+        );
+        let cale_cfg = cale_cfg.clone();
+        Rc::new(move |i: i32| {
+            use gmotion_fereastra::texte::Limba;
+            let Some(l) = usize::try_from(i)
+                .ok()
+                .and_then(|i| Limba::toate().get(i).copied())
+            else {
+                return;
+            };
+            macro_rules! pe_fiecare {
+                ($($ui:expr),*) => {$(
+                    if let Some(u) = $ui.upgrade() {
+                        gmotion_fereastra::aplica_limba(&u, l);
+                        u.set_limba_aleasa(i);
+                    }
+                )*};
+            }
+            pe_fiecare!(c_ui, l_ui, e_ui, d_ui);
+            let Some(cale) = cale_cfg.as_ref() else {
+                return;
+            };
+            // se reciteste, ca la tema: altfel ar suprascrie ce s-a schimbat
+            // de mana intre timp
+            match gmotion_platforma::Configurare::citeste(cale) {
+                Ok(mut c) => {
+                    c.limba = l.nume().to_string();
+                    if let Err(e) = c.scrie(cale) {
+                        tracing::warn!(target: "gmotion::app", eroare = %e, "limba nu s-a salvat");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "limba nu s-a salvat: configurarea e stricata");
+                }
+            }
+        })
+    };
+
     let alege_tema = {
         let (c_ui, l_ui, e_ui, d_ui) = (
             conectare_ui.as_weak(),
@@ -634,6 +703,12 @@ fn ruleaza() -> Result<(), String> {
         });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
+        let al = alege_limba.clone();
+        let d2 = deseneaza.clone();
+        conectare_ui.on_alege_limba(move |i| {
+            al(i);
+            d2();
+        });
         conectare_ui.on_alege_tema(move |intunecat| {
             a(intunecat);
             d();
@@ -894,6 +969,12 @@ fn ruleaza() -> Result<(), String> {
         });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
+        let al = alege_limba.clone();
+        let d2 = deseneaza.clone();
+        lista_ui.on_alege_limba(move |i| {
+            al(i);
+            d2();
+        });
         lista_ui.on_alege_tema(move |intunecat| {
             a(intunecat);
             // harta e pictata in culorile modului: se repicteaza
@@ -1009,6 +1090,12 @@ fn ruleaza() -> Result<(), String> {
         });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
+        let al = alege_limba.clone();
+        let d2 = deseneaza.clone();
+        deploy_ui.on_alege_limba(move |i| {
+            al(i);
+            d2();
+        });
         deploy_ui.on_alege_tema(move |intunecat| {
             a(intunecat);
             d();
@@ -1131,6 +1218,12 @@ fn ruleaza() -> Result<(), String> {
         editor_ui.on_comuta_alaturat(move |_| d());
         let a = alege_tema.clone();
         let d = deseneaza.clone();
+        let al = alege_limba.clone();
+        let d2 = deseneaza.clone();
+        editor_ui.on_alege_limba(move |i| {
+            al(i);
+            d2();
+        });
         editor_ui.on_alege_tema(move |intunecat| {
             a(intunecat);
             // hasura e pictata in culorile modului

@@ -15,12 +15,32 @@ pub mod model_conectare;
 pub mod model_deploy;
 pub mod model_editor;
 pub mod model_lista;
+pub mod texte;
 
 slint::include_modules!();
 
 pub use jetoane::Mod;
 use model_editor::{Bucata, Marcaj, ModelEditor, RandAfisat, Sintaxa, Stare};
 use slint::{Color, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
+
+/// Pune textele limbii alese in globalul `Texte`. Se cheama inainte de orice
+/// afisare si din nou la fiecare schimbare de limba, ca `aplica_tema`.
+pub fn aplica_limba<'a, T>(ui: &'a T, l: texte::Limba)
+where
+    T: slint::ComponentHandle,
+    Texte<'a>: slint::Global<'a, T>,
+{
+    let g = ui.global::<Texte>();
+    macro_rules! pune {
+        ($($camp:ident $set:ident),* $(,)?) => {
+            // destructurare fara `..`: un camp din `Texte` lipsa din lista
+            // nu compileaza, deci nu poate ramane nepus
+            let texte::Texte { $($camp),* } = *l.texte();
+            $( g.$set($camp.into()); )*
+        };
+    }
+    cu_textele!(pune);
+}
 
 /// Textul ferestrei de ajutor (F1). Intr-un singur loc, ca ecranele sa nu
 /// spuna lucruri diferite despre aceleasi taste.
@@ -631,6 +651,29 @@ pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) 
 /// contoarele si selectia sunt deja decise in `model_lista`.
 pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_lista::Lista) {
     use model_lista::Stare;
+    // etichetele vin din `Texte`, nu din constante in Rust: altfel bara
+    // laterala si filtrele ar ramane intr-o singura limba
+    let t = ui.global::<Texte>();
+    let categorie = |s: Stare| -> SharedString {
+        match s {
+            Stare::Modificat => t.get_categorie_modificate(),
+            Stare::DoarSursa => t.get_categorie_doar_martor(),
+            Stare::DoarBaza => t.get_categorie_doar_modificata(),
+            Stare::Identic => t.get_categorie_identice(),
+            Stare::Criptat => t.get_categorie_criptate(),
+        }
+    };
+    let eticheta_filtru = |f: model_lista::FiltruRevizuire| -> SharedString {
+        use model_lista::FiltruRevizuire as F;
+        match f {
+            F::Nerevizuite => t.get_filtru_nerevizuite(),
+            F::Revizuite => t.get_filtru_revizuite(),
+            F::Omise => t.get_filtru_omise(),
+            F::InPlan => t.get_filtru_in_plan(),
+            F::Deployate => t.get_filtru_deployate(),
+            F::Nedeployate => t.get_filtru_nedeployate(),
+        }
+    };
     let cod_stare = |s: Stare| match s {
         Stare::Modificat => 0,
         Stare::DoarSursa => 1,
@@ -675,7 +718,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
         .into_iter()
         .map(|(s, n)| CategorieUi {
             litera: s.litera().into(),
-            nume: s.categorie().into(),
+            nume: categorie(s),
             numar: n.to_string().into(),
             stare: cod_stare(s),
         })
@@ -741,13 +784,14 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .collect::<Vec<_>>(),
     )));
     ui.set_mai_multe_baze(baze.len() > 1);
-    ui.set_rezumat_lista(lista.rezumat_vizibile().into());
+    let (nerevizuite, vizibile) = lista.rezumat_vizibile();
+    ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
     ui.set_coloana_sortata(cod_ordine(lista.ordine()));
     ui.set_sens_descrescator(lista.descrescator());
     ui.set_stari(ModelRc::new(VecModel::from(
         model_lista::FiltruRevizuire::TOATE
             .iter()
-            .map(|f| SharedString::from(f.eticheta()))
+            .map(|&f| eticheta_filtru(f))
             .collect::<Vec<_>>(),
     )));
     ui.set_stare_activa(lista.filtru().revizuire.map_or(-1, |f| {
@@ -1094,13 +1138,20 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         })
         .collect();
     let mediu_tinta = mediu_dupa_nume(&c.baza.baza);
+    // numele panourilor vin din `Texte`, ca sa urmeze limba aleasa
+    let t = ui.global::<Texte>();
     ui.set_sursa(parte(
         &c.sursa,
-        "Sursa",
-        "de unde vine codul",
+        &t.get_martor(),
+        &t.get_martor_explicatie(),
         mediu_dupa_nume(&c.sursa.baza),
     ));
-    ui.set_baza(parte(&c.baza, "Baza", "unde ajunge", mediu_tinta));
+    ui.set_baza(parte(
+        &c.baza,
+        &t.get_modificata(),
+        &t.get_modificata_explicatie(),
+        mediu_tinta,
+    ));
     ui.set_mediu(mediu_tinta.cod());
     ui.set_certificat(c.text_certificat().into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
@@ -1147,6 +1198,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = EditorDiferente::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         ui
     }
 
@@ -1248,6 +1300,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraLista::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
         let a = apeluri.clone();
         ui.on_sorteaza_coloana(move |c| a.borrow_mut().push(format!("sort{c}")));
@@ -1403,12 +1456,51 @@ mod teste {
         );
     }
 
+    /// Niciun text nu e gol, in nicio limba. Un camp uitat ar ramane gol pe
+    /// ecran — exact ce nu se vede intr-o captura.
+    ///
+    /// Ca ajunge si in Slint o garanteaza `aplica_limba`: destructureaza
+    /// `Texte` fara `..`, deci un camp nou care nu e pus in globalul Slint nu
+    /// compileaza.
+    #[test]
+    fn niciun_text_nu_e_gol_in_nicio_limba() {
+        for l in texte::Limba::toate() {
+            let t = l.texte();
+            macro_rules! verifica {
+                ($($camp:ident $set:ident),* $(,)?) => {
+                    $(
+                        assert!(
+                            !t.$camp.trim().is_empty(),
+                            "textul `{}` e gol in limba {:?}",
+                            stringify!($camp),
+                            l
+                        );
+                    )*
+                };
+            }
+            cu_textele!(verifica);
+        }
+    }
+
+    /// Romana si engleza chiar difera: un tabel copiat de-a gata ar trece
+    /// testul de mai sus fara sa traduca nimic.
+    #[test]
+    fn cele_doua_limbi_nu_sunt_acelasi_tabel() {
+        let (ro, en) = (texte::Limba::Romana.texte(), texte::Limba::Engleza.texte());
+        assert_eq!(ro.compara, "Compara");
+        assert_eq!(en.compara, "Compare");
+        assert_eq!(ro.martor, "Martor");
+        assert_eq!(en.martor, "Witness");
+        assert_ne!(ro.deconecteaza, en.deconecteaza);
+    }
+
     #[test]
     fn aplica_tema_pune_fiecare_jeton_in_slint_in_ambele_moduri() {
         let ui = fereastra();
         let t = ui.global::<Tema>();
         for m in [Mod::Intunecat, Mod::Luminos] {
             aplica_tema(&ui, m);
+            aplica_limba(&ui, texte::Limba::default());
             let p = m.paleta();
             assert_eq!(mod_curent(&ui), m);
             macro_rules! verifica {
@@ -1611,6 +1703,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraLista::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         ui
     }
 
@@ -1747,8 +1840,8 @@ mod teste {
             categorii,
             [
                 "Modificate",
-                "Doar in sursa",
-                "Doar in baza",
+                "Doar in martor",
+                "Doar in modificata",
                 "Identice",
                 "Criptate"
             ]
@@ -1984,6 +2077,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraConectare::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         ui
     }
 

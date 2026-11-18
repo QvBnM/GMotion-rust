@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: b4bc4ac72d920fcb -->
+<!-- api-hash: 61d42225fb80b43b -->
 
 ## Rol
 
@@ -35,6 +35,7 @@ si editorul de diferente (etapa 8).
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire}` | modelul listei; cheia unui rand e `(baza, schema.nume)` |
 | `AJUTOR` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
+| `texte::{Limba, Texte, RO, EN}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `ordine_din_cod(cod)` | ce coloana a apasat utilizatorul; inversul codurilor din `global Sortare` (`lista.slint`) |
 | `harta::{aseaza, picteaza, indice_la, celula_la, pozitie_randului}`, `LATIME_HARTA` | harta de deasupra tabelului: grupuri pe tip, patrate pictate in Rust, clic → rand |

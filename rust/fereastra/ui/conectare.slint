@@ -9,7 +9,7 @@
 // fereastra); al doilea tine de tipul care o pastreaza, fara `Debug` derivat.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Chevron, Buton, ButonPrincipal, Antet, ButonTema, EticMediu, Card, Ajutor } from "comune.slint";
+import { Texte, Tema, ButonLimba, Chevron, Buton, ButonPrincipal, Antet, ButonTema, EticMediu, Card, Ajutor } from "comune.slint";
 
 // Un server gasit in retea, cu etichetele din raspunsul SSRP.
 export struct ServerGasitUi {
@@ -334,7 +334,7 @@ component PanouParte inherits Card {
         }
         if !root.fara-servere: VerticalLayout {
             spacing: 5px;
-            Eticheta { text: "Server SQL"; }
+            Eticheta { text: Texte.server-sql; }
             Camp {
                 text: p.server;
                 mono: true;
@@ -373,7 +373,7 @@ component PanouParte inherits Card {
             spacing: 10px;
             VerticalLayout {
                 spacing: 6px;
-                Eticheta { text: "Utilizator"; }
+                Eticheta { text: Texte.utilizator; }
                 Camp {
                     text: p.utilizator;
                     schimbat(t) => { root.utilizator-schimbat(t); }
@@ -381,7 +381,7 @@ component PanouParte inherits Card {
             }
             VerticalLayout {
                 spacing: 6px;
-                Eticheta { text: "Parola"; }
+                Eticheta { text: Texte.parola; }
                 Camp {
                     text: p.parola;
                     ascuns: true;
@@ -391,20 +391,20 @@ component PanouParte inherits Card {
         }
         VerticalLayout {
             spacing: 6px;
-            Eticheta { text: root.multiplu ? "Baze" : "Baza"; }
+            Eticheta { text: root.multiplu ? Texte.baze : Texte.modificata; }
             Alegere {
                 ales: root.multiplu ? p.eticheta-baze : p.baza;
                 multiplu: root.multiplu;
                 bifate: p.alese;
                 optiuni: p.baze;
-                gol: root.fara-servere ? "alege baza" : "conecteaza-te intai";
+                gol: root.fara-servere ? Texte.alege-baza : Texte.conecteaza-te-intai;
                 schimbat(t) => { root.baza-schimbata(t); }
                 cerut => { root.cere-bazele(); }
             }
         }
         HorizontalLayout {
             alignment: start;
-            Buton { text: "Testeaza conexiunea"; apasat => { root.testeaza(); } }
+            Buton { text: Texte.testeaza-conexiunea; apasat => { root.testeaza(); } }
         }
         if p.stare != "": HorizontalLayout {
             spacing: 8px;
@@ -490,6 +490,10 @@ export component FereastraConectare inherits Window {
     in property <string> progres-timp;
     callback reia(int);
     callback alege-tema(bool);
+    // comutatorul de limba: etichetele si indicele ales vin din Rust
+    in property <[string]> limbi;
+    in property <int> limba-aleasa;
+    callback alege-limba(int);
     callback ecran-complet();
 
     taste := FocusScope {
@@ -504,7 +508,7 @@ export component FereastraConectare inherits Window {
         }
     VerticalLayout {
         Antet {
-            loc: "Conectare";
+            loc: Texte.conectare;
             VerticalLayout {
                 alignment: center;
                 Rectangle {
@@ -513,7 +517,7 @@ export component FereastraConectare inherits Window {
                     border-radius: 8px;
                     background: zi.has-hover ? Tema.strat : transparent;
                     inst := Text {
-                        text: root.instantaneu == "" ? "Deschide un instantaneu" : root.instantaneu;
+                        text: root.instantaneu == "" ? Texte.deschide-instantaneu : root.instantaneu;
                         font-family: root.instantaneu == "" ? Tema.font-ui : Tema.font-mono;
                         font-size: 13px;
                         color: Tema.text-secundar;
@@ -521,9 +525,13 @@ export component FereastraConectare inherits Window {
                     zi := TouchArea { clicked => { root.deschide-instantaneu(); } }
                 }
             }
-            VerticalLayout { alignment: center; Buton { text: "Comparare offline"; apasat => { root.deschide-offline(); } } }
-            VerticalLayout { alignment: center; Buton { text: "Ajutor  F1"; apasat => { root.arata-ajutorul = true; root.ajutor(); } } }
-            VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
+            VerticalLayout { alignment: center; Buton { text: Texte.comparare-offline; apasat => { root.deschide-offline(); } } }
+            VerticalLayout { alignment: center; Buton { text: Texte.ajutor-tasta; apasat => { root.arata-ajutorul = true; root.ajutor(); } } }
+            VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    ButonLimba { limbi: root.limbi; aleasa: root.limba-aleasa; alege(i) => { root.alege-limba(i); } } }
         }
 
         // corpul
@@ -609,7 +617,7 @@ export component FereastraConectare inherits Window {
                         width: schimba.preferred-width + 12px;
                         border-radius: 6px;
                         background: zc.has-hover ? Tema.strat : transparent;
-                        schimba := Text { text: "Schimba"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.accent-text; }
+                        schimba := Text { text: Texte.schimba; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.accent-text; }
                         zc := TouchArea { clicked => { root.schimba-certificatul(); } }
                     }
                 }
@@ -618,7 +626,7 @@ export component FereastraConectare inherits Window {
                     alignment: center;
                     horizontal-stretch: 0;
                     Text {
-                        text: root.ce-lipseste == "" ? "Se citeste, nu se scrie nimic." : root.ce-lipseste;
+                        text: root.ce-lipseste == "" ? Texte.doar-citire-mesaj : root.ce-lipseste;
                         font-family: Tema.font-ui;
                         font-size: 12.5px;
                         color: root.ce-lipseste == "" ? Tema.text-secundar : Tema.mod-text;
@@ -632,7 +640,7 @@ export component FereastraConectare inherits Window {
                     background: root.ce-lipseste == "" ? Tema.accent : Tema.strat;
                     opacity: root.ce-lipseste == "" && zp.has-hover ? 0.88 : 1;
                     Text {
-                        text: "Compara";
+                        text: Texte.compara;
                         font-family: Tema.font-ui;
                         font-size: 15px;
                         font-weight: 600;
@@ -664,7 +672,7 @@ export component FereastraConectare inherits Window {
                         Text { text: root.progres-timp; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
                         VerticalLayout {
                             alignment: center;
-                            Buton { text: "Anuleaza"; apasat => { root.anuleaza(); } }
+                            Buton { text: Texte.opreste; apasat => { root.anuleaza(); } }
                         }
                     }
                     Rectangle {
@@ -689,9 +697,9 @@ export component FereastraConectare inherits Window {
                     padding-left: 18px;
                     padding-top: 12px;
                     spacing: 4px;
-                    Text { text: "Comparari recente"; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; }
+                    Text { text: Texte.comparari-recente; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; }
                     if root.recente.length == 0: Text {
-                        text: "Nicio comparare salvata inca. Dupa prima, o reiei de aici cu un clic.";
+                        text: Texte.nicio-comparare;
                         font-family: Tema.font-ui;
                         font-size: 12.5px;
                         color: Tema.text-tert;
@@ -717,7 +725,7 @@ export component FereastraConectare inherits Window {
                                 }
                                 Text { width: 160px; text: s.cand; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                                 Text { width: 220px; text: s.progres; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
-                                Text { width: 70px; text: "Continua"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.accent-text; horizontal-alignment: right; vertical-alignment: center; }
+                                Text { width: 70px; text: Texte.continua; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.accent-text; horizontal-alignment: right; vertical-alignment: center; }
                                 // „Ignora": sterge progresul salvat al compararii
                                 VerticalLayout {
                                     alignment: center;
@@ -727,7 +735,7 @@ export component FereastraConectare inherits Window {
                                         border-radius: 6px;
                                         background: zig.has-hover ? Tema.strat : transparent;
                                         opacity: rand.has-hover ? 1 : 0;
-                                        ig := Text { text: "Ignora"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; }
+                                        ig := Text { text: Texte.ignora; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; }
                                         zig := TouchArea { clicked => { root.ignora-recenta(i); } }
                                     }
                                 }
@@ -753,27 +761,27 @@ export component FereastraConectare inherits Window {
                 HorizontalLayout {
                     height: 28px;
                     spacing: 12px;
-                    Text { text: "Jurnal"; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
-                    Text { text: "ce face aplicatia, pas cu pas"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; horizontal-stretch: 1; }
+                    Text { text: Texte.jurnal; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+                    Text { text: Texte.ce-face-aplicatia; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; horizontal-stretch: 1; }
                     Rectangle {
                         width: ta.preferred-width + 20px;
                         border-radius: 7px;
                         background: zj.has-hover ? Tema.strat : transparent;
-                        ta := Text { text: root.jurnal-ascuns ? "Arata" : "Ascunde"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                        ta := Text { text: root.jurnal-ascuns ? Texte.arata : Texte.ascunde; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
                         zj := TouchArea { clicked => { root.jurnal-ascuns = !root.jurnal-ascuns; } }
                     }
                     Rectangle {
                         width: ts.preferred-width + 20px;
                         border-radius: 7px;
                         background: zst.has-hover ? Tema.strat : transparent;
-                        ts := Text { text: "Sterge log"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                        ts := Text { text: Texte.sterge-log; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
                         zst := TouchArea { clicked => { root.sterge-jurnalul(); } }
                     }
                 }
                 if !root.jurnal-ascuns: VerticalLayout {
                     spacing: 2px;
                     alignment: start;
-                    if root.jurnal.length == 0: Text { text: "Inca nimic."; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; }
+                    if root.jurnal.length == 0: Text { text: Texte.inca-nimic; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; }
                     for l in root.jurnal: HorizontalLayout {
                         height: 18px;
                         spacing: 10px;
@@ -817,11 +825,11 @@ export component FereastraConectare inherits Window {
                 padding: 18px;
                 spacing: 12px;
                 HorizontalLayout {
-                    Text { text: "Comparare offline"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
-                    Buton { text: "Inchide  Esc"; apasat => { root.inchide-offline(); } }
+                    Text { text: Texte.comparare-offline; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                    Buton { text: Texte.inchide-esc; apasat => { root.inchide-offline(); } }
                 }
                 Text {
-                    text: "Lipeste codul in cele doua panouri. Nu se citeste niciun server.";
+                    text: Texte.lipeste-codul;
                     font-family: Tema.font-ui;
                     font-size: 12.5px;
                     color: Tema.text-secundar;
@@ -832,13 +840,13 @@ export component FereastraConectare inherits Window {
                     VerticalLayout {
                         horizontal-stretch: 1;
                         spacing: 6px;
-                        Eticheta { text: "Sursa"; }
+                        Eticheta { text: Texte.martor; }
                         PanouCod { text <=> root.offline-sursa; }
                     }
                     VerticalLayout {
                         horizontal-stretch: 1;
                         spacing: 6px;
-                        Eticheta { text: "Baza"; }
+                        Eticheta { text: Texte.modificata; }
                         PanouCod { text <=> root.offline-tinta; }
                     }
                 }
@@ -853,7 +861,7 @@ export component FereastraConectare inherits Window {
                         horizontal-stretch: 1;
                     }
                     ButonPrincipal {
-                        text: "Compara";
+                        text: Texte.compara;
                         apasat => { root.compara-offline(root.offline-sursa, root.offline-tinta); }
                     }
                 }
@@ -881,11 +889,11 @@ export component FereastraConectare inherits Window {
                 padding: 18px;
                 spacing: 10px;
                 HorizontalLayout {
-                    Text { text: "Deschide un instantaneu"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
-                    Buton { text: "Inchide  Esc"; apasat => { root.alege-fisierul = false; } }
+                    Text { text: Texte.deschide-instantaneu; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                    Buton { text: Texte.inchide-esc; apasat => { root.alege-fisierul = false; } }
                 }
                 if root.instantanee.length == 0: Text {
-                    text: "Niciun .json gasit langa aplicatie sau in directorul de date. Scrie calea mai jos.";
+                    text: Texte.niciun-json;
                     font-family: Tema.font-ui;
                     font-size: 12.5px;
                     color: Tema.text-tert;
@@ -935,14 +943,14 @@ export component FereastraConectare inherits Window {
                         }
                         if root.cale-scrisa == "": Text {
                             x: 12px;
-                            text: "sau scrie calea catre un .json";
+                            text: Texte.sau-scrie-calea;
                             font-family: Tema.font-ui;
                             font-size: 12.5px;
                             color: Tema.text-tert;
                             vertical-alignment: center;
                         }
                     }
-                    ButonPrincipal { text: "Deschide"; apasat => { root.alege-instantaneul(root.cale-scrisa); } }
+                    ButonPrincipal { text: Texte.deschide; apasat => { root.alege-instantaneul(root.cale-scrisa); } }
                 }
             }
         }

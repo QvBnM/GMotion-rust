@@ -44,13 +44,17 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 - [ ] masurat: timpul de desenare la 1.000 / 10.000 / 50.000 de obiecte
 
 **E. Denumiri si limba**
-- [ ] „Sursa" / „Baza" devin **„Martor" / „Modificata"** peste tot (fereastra,
-      `cli`, documente)
-- [ ] toate textele din interfata trec printr-un singur loc, nu stau
+- [x] „Sursa" / „Baza" devin **„Martor" / „Modificata"** in fereastra
+- [ ] aceeasi redenumire in `cli` si in documente
+- [x] toate textele din interfata trec printr-un singur loc, nu stau
       imprastiate prin `.slint`
-- [ ] comutator de limba in interfata: romana si engleza, tinut minte intre
+- [x] comutator de limba in interfata: romana si engleza, tinut minte intre
       porniri
-- [ ] regula din `CLAUDE.md` §6 despre limba se rescrie dupa noua situatie
+- [x] regula din `CLAUDE.md` §6 despre limba se rescrie dupa noua situatie
+- [ ] **ramase in romana**: textele facute in Rust in afara ferestrei —
+      numele tipurilor (`core::nume_tip`), propozitia „difera in cod, siruri"
+      (`core::clasificare`), rezumatele de deploy (`model_deploy`), mesajele
+      de eroare si jurnalul
 
 **F. Conectare**
 - [ ] cautarea de servere arata ca lucreaza (nu ingheata pana la raspuns)
@@ -80,6 +84,14 @@ lansare.
 
 - **2026-11-18** Etapa deschisa, cu criteriile scrise inainte de cod, din
   lista lui Mihai de dupa prima rulare pe Windows.
+- **2026-11-18** E, partea de fereastra: 143 de texte au iesit din `.slint`
+  intr-un tabel unic (`fereastra::texte`), in romana si engleza, cu un
+  comutator in antet si alegerea tinuta minte in configurare. „Sursa" /
+  „Baza" au devenit „Martor" / „Modificata". Pe drum: capturile au iesit
+  **goale**, fiindca exemplele aplicau tema dar nu si limba — acum o aplica
+  toate. Au ramas in romana textele facute in Rust in afara ferestrei (numele
+  tipurilor, propozitia „difera in", rezumatele de deploy, erorile).
+
 - **2026-11-18** Prima verificare din A: cazul din imaginea 5 **nu arata o
   inconsistenta de motor**. Rulat prin motorul JS din v3.4 (`motor_js.mjs`) si
   prin Rust: blocuri identice (`WHile 1=1\nBEgin` / `Stard end` / `END` /

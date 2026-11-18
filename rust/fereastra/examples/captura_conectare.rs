@@ -92,6 +92,7 @@ fn main() {
         .and_then(|n| Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
+    gmotion_fereastra::aplica_limba(&ui, Default::default());
     incarca_conectare(&ui, &c);
     incarca_jurnal(
         &ui,

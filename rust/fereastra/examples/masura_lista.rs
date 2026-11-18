@@ -80,6 +80,7 @@ fn main() {
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra nu se creeaza");
     aplica_tema(&ui, gmotion_fereastra::Mod::default());
+    gmotion_fereastra::aplica_limba(&ui, Default::default());
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

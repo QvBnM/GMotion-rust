@@ -83,6 +83,7 @@ fn main() {
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let lista_ui = FereastraLista::new().expect("fereastra listei");
     aplica_tema(&lista_ui, gmotion_fereastra::Mod::default());
+    gmotion_fereastra::aplica_limba(&lista_ui, Default::default());
     incarca_lista(
         &lista_ui,
         &AntetLista {
@@ -127,6 +128,7 @@ fn main() {
     );
     let editor_ui = EditorDiferente::new().expect("fereastra editorului");
     aplica_tema(&editor_ui, gmotion_fereastra::Mod::default());
+    gmotion_fereastra::aplica_limba(&editor_ui, Default::default());
     let o = app.obiect().expect("un obiect deschis").clone();
     let model = app.model_editor().expect("modelul editorului");
     incarca_editor(

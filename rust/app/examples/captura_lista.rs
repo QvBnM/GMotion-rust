@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-app --example captura_lista -- \
-//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos]
+//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en]
 //!
 //! `BAZE` poate fi o lista separata prin virgula: asa se fotografiaza si
 //! coloana „Baza".
@@ -87,6 +87,13 @@ fn main() {
         .and_then(|n| gmotion_fereastra::Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
+    let limba = a
+        .iter()
+        .position(|x| x == "--limba")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_fereastra::texte::Limba::din_nume(n))
+        .unwrap_or_default();
+    gmotion_fereastra::aplica_limba(&ui, limba);
     gmotion_fereastra::leaga_harta(&ui);
     incarca_lista(
         &ui,

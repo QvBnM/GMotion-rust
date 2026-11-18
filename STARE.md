@@ -53,14 +53,17 @@ v3.4; instantaneul de previzualizare are acum un ciclu de cursor intreg, cu
 `WHILE` imbricat si `IF/ELSE`, scris urat; exista un test cap-coada care aplica
 toate blocurile pe el si verifica forma normalizata.
 
-**Urmatorul pas: E — denumirile si limba.** Inaintea rearanjarii ecranelor,
+**Facut din E:** textele interfetei au iesit din `.slint` intr-un tabel unic
+(`fereastra::texte`), in romana si engleza, cu comutator in antet si alegerea
+tinuta minte; „Sursa" / „Baza" sunt acum „Martor" / „Modificata".
+
+**Urmatorul pas: ce a ramas din E, apoi B.** Inaintea rearanjarii ecranelor,
 fiindca atinge fiecare text:
 
-1. „Sursa" / „Baza" devin **„Martor" / „Modificata"**, peste tot;
-2. toate textele din interfata se stang intr-un singur loc (acum sunt scrise
-   direct in `.slint`), ca sa poata exista doua limbi;
-3. comutator **romana / engleza** in interfata, tinut minte intre porniri;
-4. regula din `CLAUDE.md` §6 despre limba se rescrie dupa noua situatie.
+1. redenumirea „Martor" / „Modificata" si in `cli` si in documente;
+2. textele facute in Rust in afara ferestrei sunt inca doar in romana: numele
+   tipurilor (`core::nume_tip`), propozitia „difera in cod, siruri"
+   (`core::clasificare`), rezumatele de deploy, erorile si jurnalul.
 
 Apoi B (lista ramane in stanga la „Deschide"), C (incadrarea), D (harta),
 F (conectarea). Ordinea si criteriile: `etape/15-interfata-si-incredere.md`.
