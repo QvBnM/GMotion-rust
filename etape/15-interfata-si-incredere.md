@@ -78,6 +78,23 @@ paralela, si adus aici la unire)
       `gmotion impact`
 - [x] test care apasa cu mouse-ul (clic, dublu clic, X, nota), vazut cazand
 
+**H. Remedierea auditului QA** (cerut de Mihai pe 2026-11-18: se face
+**inaintea** restului etapei). Sursa: `cercetare/audit-qa-2026-11-18.md`,
+facut pe `aec038a`, deci pe cod mai vechi decat cel de acum.
+Regula pentru fiecare constatare: intai **se reproduce pe codul de acum cu
+un test care cade** (vazut cazand), abia apoi se repara. Daca nu se mai
+reproduce, se noteaza asa, cu testul care o dovedeste. O constatare care cere
+o decizie de produs (ex. C5, F-A18) nu se decide tacit: intra la „Ce astept
+de la Mihai" din `STARE.md`.
+- [ ] H1 siguranta deploy-ului: C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5
+- [ ] H2 pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3
+- [ ] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
+      intra in setul standard
+- [ ] H4 inghetari: P4, P1, P2, P3
+- [ ] H5 restul: fiecare constatare din audit are verdict in sectiunea
+      „Verdicte" de la finalul auditului — reparat (commit), nu se mai
+      reproduce (test), sau amanat (motiv si unde e urmarit)
+
 **Comun**
 - [ ] capturi noi in ambele moduri
 - [ ] poarta verde: `unelte/verifica.sh`
@@ -86,16 +103,16 @@ paralela, si adus aici la unire)
 
 ## Pasi
 
+0. H — remedierea auditului (H1 → H5, in ordinea asta). Mihai a cerut-o
+   inaintea restului: un produs care poate scrie in PROD altceva decat s-a
+   aprobat nu are rost sa fie aranjat frumos. V1-V3 si V10 se suprapun cu C;
+   ce se repara la H3 se bifeaza si la C.
 1. A — motorul si testele. Daca motorul greseste, restul nu conteaza.
 2. E — denumirile si limba: ating fiecare ecran, deci inaintea rearanjarii.
 3. B — continuitatea (lista in stanga).
 4. C — incadrarea la orice rezolutie.
 5. D — harta.
 6. F — conectarea.
-
-Separat, in afara etapei: `cercetare/audit-qa-2026-11-18.md` are constatari
-blocante nereproduse inca pe implementarea asta. Se triaza inainte de orice
-lansare.
 
 ## Jurnal de lucru
 
@@ -152,6 +169,9 @@ lansare.
 - **2026-11-18** Antetul listei: bazele pe primul rand, restul dedesubt, pe
   randuri care se rup dupa latimea ferestrei (probat la 1440, 1200, 960,
   760). Eticheta de mediu scoasa de peste tot. Decizia in `JURNAL.md`.
+
+- **2026-11-18** Adaugat pachetul H (auditul QA), inaintea restului, la
+  cererea lui Mihai. Criteriile scrise inainte de orice reparatie.
 
 ## Ce a iesit altfel decat planul
 

@@ -65,24 +65,36 @@ Din `cli`: `gmotion impact`, `revizuire --nota`.
 **Facut din B:** lista ramane in stanga cand deschizi un obiect — coloana de
 300 px, clic pe rand = alt obiect pe loc, Esc o largeste la loc.
 
-**Urmatorul pas: ce a ramas din E, apoi C (incadrarea).** Inaintea rearanjarii ecranelor,
-fiindca atinge fiecare text:
+**Urmatorul pas: auditul QA (etapa 15, pachetul H), inaintea oricarui alt
+lucru** — cererea lui Mihai. `cercetare/audit-qa-2026-11-18.md` a fost facut
+pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
+test care cade, abia apoi se repara.
 
-1. redenumirea „Martor" / „Modificata" si in `cli` si in documente;
-2. textele facute in Rust in afara ferestrei sunt inca doar in romana: numele
-   tipurilor (`core::nume_tip`), propozitia „difera in cod, siruri"
-   (`core::clasificare`), rezumatele de deploy, erorile si jurnalul.
+**Tot ce e de facut, in ordine:**
 
-Apoi B (lista ramane in stanga la „Deschide"), C (incadrarea), D (harta),
-F (conectarea). Ordinea si criteriile: `etape/15-interfata-si-incredere.md`.
+1. **H1** siguranta deploy-ului: C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5.
+2. **H2** pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3.
+3. **H3** cadere si ecrane: C9, V9, V1, V2, V3, V10.
+4. **H4** inghetari: P4, P1, P2, P3.
+5. **H5** restul auditului: verdict pe fiecare constatare (reparat / nu se
+   mai reproduce / amanat cu motiv).
+6. **15 E** ce a ramas: „Martor" / „Modificata" si in `cli` si in documente;
+   textele facute in Rust in afara ferestrei (`core::nume_tip`,
+   `core::clasificare`, rezumatele de deploy, erorile) si in engleza.
+7. **15 B** marginea dintre lista si editor trasa cu mouse-ul.
+8. **15 C** incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
+   comutatorul Alaturat / Unificat, liniile lungi.
+9. **15 D** harta: desen curat, 4.000 de obiecte, timpii masurati.
+10. **15 F** cautarea de servere vizibila; marcajul „aceeasi instanta".
+11. Incheierea etapei 15: capturi, poarta completa, `STARE.md`, `JURNAL.md`.
+12. **Etapa 16** (`etape/16-lista-si-taburi.md`, NEPORNITA): lista din
+    stanga cu pin / ascundere / mutare; taburi (previzualizare + maxim 8
+    fixate; `j` / `k` sar peste obiectele fixate). Fara note pe blocuri in
+    editor (Mihai). Macheta: `cercetare/machete/sina-si-taburi/`.
+13. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
+    (singurul rand ramas in `cercetare/lipsuri-portare.md`); decizia pe `rfd`.
 
-**Dupa etapa 15:** `etape/16-lista-si-taburi.md` (NEPORNITA) — lista din
-stanga primeste pin / ascundere / mutare, iar editorul taburi (previzualizare
-+ maxim 8 fixate; `j` / `k` sar peste obiectele fixate). Fara note pe blocuri
-in editor (Mihai). Macheta: `cercetare/machete/sina-si-taburi/`.
-
-**Inainte de orice lansare: `cercetare/audit-qa-2026-11-18.md`** — constatari
-blocante, nereproduse inca pe implementarea asta.
+Criteriile: `etape/15-interfata-si-incredere.md` si `etape/16-lista-si-taburi.md`.
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).

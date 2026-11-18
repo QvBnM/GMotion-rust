@@ -25,7 +25,8 @@ care lucrezi in paralel. `j` / `k` raman calea principala de parcurgere.
 - **Tab fixat** se deschide prin: dublu clic pe un obiect din lista, clic
   dreapta → „Deschide in tab nou", dublu clic pe tabul de previzualizare, sau
   automat cand se editeaza textul final al obiectului din previzualizare.
-  Drag & drop nu intra aici (ramane cu restul de drag din etapa 14 F).
+  Tragerea unui obiect in bara de taburi nu intra aici; se poate adauga
+  dupa, pe mecanismul de drag deja facut la etapa 14 F.
 - **Maxim 8 taburi fixate.** Al noulea inchide tabul fixat folosit cel mai de
   demult **si needitat**. Daca toate 8 au text final editat, deschiderea se
   refuza cu mesaj; nu se inchide nimic singur.

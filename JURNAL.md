@@ -920,7 +920,8 @@ intre 2-3 obiecte lucrate in paralel).
 **Motiv.** Previzualizarea tine parcurgerea la un singur tab indiferent de
 numarul de obiecte; limita de 8 tine bara lizibila. Fixarea se face prin
 dublu clic si clic dreapta (alegerea asistentului, la cererea lui Mihai):
-drag & drop e greu in Slint si ramane cu restul de drag din etapa 14 F.
+cele mai simple si fara ambiguitate; tragerea in bara de taburi se poate
+adauga dupa, pe mecanismul de drag din etapa 14 F.
 
 **Consecinte.** Etapa 16 (`etape/16-lista-si-taburi.md`), dupa 15, cu regulile
 complete. Numele se taie pe mijloc, nu la capat: obiectele au prefixe lungi
