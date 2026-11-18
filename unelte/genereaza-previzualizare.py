@@ -64,6 +64,44 @@ def dezordonat(variatie):
     )
 
 
+def cursor_complet(variatie):
+    """Un ciclu de cursor intreg, scris cum il scrie lumea: cuvinte cheie cu
+    majuscule amestecate, indentare inconsecventa, linii lipite, `WHILE`
+    imbricate si un `IF/ELSE`. Pe el se vede si butonul
+    „Uneste ciclul cursor"."""
+    prag = "100" if variatie else "250"
+    return (
+        "CREATE PROCEDURE dbo.uspReproceseazaFacturi\n"
+        "AS\n"
+        "begin\n"
+        "\tSET NOCOUNT ON;\n"
+        "\tDECLARE @id INT, @val DECIMAL(18,2), @nr int = 0;\n"
+        "\tdeclare curFacturi CURSOR local fast_forward FOR\n"
+        "\t\tSELECT f.id, f.valoare FROM dbo.Facturi AS f WHERE f.anulata = 0;\n"
+        "\tOpen curFacturi;\n"
+        "\tFETCH NEXT FROM curFacturi INTO @id, @val;\n"
+        "\tWHile @@FETCH_STATUS = 0\n"
+        "\tBEGIN\n"
+        f"\t\tIF @val > {prag}\n"
+        "\t\tBEGIN\n"
+        "\t\t\tDECLARE @i INT = 0;\n"
+        "\t\t\twhile @i < 3 begin\n"
+        "\t\t\t\tUPDATE dbo.Facturi SET recalculat = 1 WHERE id = @id;   \n"
+        "\t\t\t\tSET @i = @i + 1;\n"
+        "\t\t\tend\n"
+        "\t\tEND\n"
+        "\t\tELSE\n"
+        "\t\t\tPRINT 'sub prag: nu se face nimic, nici DELETE nici DROP';\n"
+        "\t\tSET @nr = @nr + 1;\n"
+        "\t\tFETCH next FROM curFacturi INTO @id, @val;\n"
+        "\tEND\n"
+        "\tclose curFacturi;\n"
+        "\tDEALLOCATE curFacturi;\n"
+        "\tSELECT @nr AS procesate;\n"
+        "END\n"
+    )
+
+
 def referinta():
     return [
         # identic in toate bazele
@@ -74,6 +112,8 @@ def referinta():
         obiect("uspSoldClient", "P", "CREATE PROCEDURE dbo.uspSoldClient @client INT\nAS\nBEGIN\n    SELECT SUM(valoare) FROM dbo.Facturi WHERE client = @client;\nEND"),
         # cod dezordonat
         obiect("uspRaportLunar", "P", dezordonat(False)),
+        # ciclu de cursor intreg, cu WHILE imbricat si IF/ELSE
+        obiect("uspReproceseazaFacturi", "P", cursor_complet(False)),
         # obiect mare
         obiect("uspIncarcaTot", "P", proc_mare("uspIncarcaTot", False)),
         # doar in referinta (lipsa in baze)
@@ -106,6 +146,8 @@ def baza(i, nume):
             x = dict(x, definitie="CREATE PROCEDURE dbo.uspSoldClient @client INT\nAS\nBEGIN\n    DECLARE @s DECIMAL(18,2);\n    SELECT @s = SUM(f.valoare)\n    FROM dbo.Facturi AS f\n    WHERE f.client = @client AND f.anulata = 0;\n    SELECT ISNULL(@s, 0);\nEND")
         if x["nume"] == "uspRaportLunar":
             x = dict(x, definitie=dezordonat(True))
+        if x["nume"] == "uspReproceseazaFacturi" and i != 1:
+            x = dict(x, definitie=cursor_complet(True))
         if x["nume"] == "uspIncarcaTot" and i == 0:
             x = dict(x, definitie=proc_mare("uspIncarcaTot", True))
         if x["nume"] == "vwClientiActivi" and i == 1:

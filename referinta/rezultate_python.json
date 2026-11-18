@@ -491,5 +491,32 @@
   "tipuri": [
    "modificat"
   ]
+ },
+ {
+  "blocuri_cur": [
+   "IF 1=1\n   While 1=1\n   BEGIN",
+   "   Print 'Start END'",
+   "   RETURN 'Mama123'",
+   "   END"
+  ],
+  "blocuri_ref": [
+   "WHile 1=1\nBEgin",
+   "Stard end",
+   "END",
+   "Mama 123"
+  ],
+  "norm_cur": "if 1=1 while 1=1 begin print 'start end' return 'mama123' end",
+  "norm_ref": "while 1=1 begin stard end end mama 123",
+  "nume": "mihai_offline_while_begin",
+  "rezumat_diff": "2 modificate, 1 adaugate, 1 sterse",
+  "rezumat_rapid": "2 modificate, 1 adaugate, 1 sterse",
+  "scor": 42.11,
+  "tipuri": [
+   "modificat",
+   "modificat",
+   "adaugat",
+   "egal",
+   "sters"
+  ]
  }
 ]

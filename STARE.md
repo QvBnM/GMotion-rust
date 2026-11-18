@@ -31,8 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 14 (paritatea cu v3.4 si modul de
-previzualizare) s-a incheiat pe 2026-11-18; capturile: `cercetare/capturi/`.
+**Etapa activa:** `etape/15-interfata-si-incredere.md` — interfata care nu te
+incurca (lista ramane in stanga cand deschizi, incadrare la orice rezolutie,
+harta curata, denumiri „Martor" / „Modificata", comutator de limba) si
+incredere in motor pe cod scris urat. Etapa 14 s-a incheiat pe 2026-11-18.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare
@@ -45,30 +47,26 @@ unelte\porneste.bat --server         # ecranul de conectare, gol
 
 ## Urmatorul pas concret
 
-**Etapa 14 s-a incheiat.** `gmotion-ui` face acum tot ce facea v3.4, pe
-aspectul din etapa 13.
+**Etapa 15, pachetul A (motorul si testele), e in lucru.** Facut: cazul
+raportat de Mihai a intrat in harness si s-a dovedit ca motorul da exact ce da
+v3.4; instantaneul de previzualizare are acum un ciclu de cursor intreg, cu
+`WHILE` imbricat si `IF/ELSE`, scris urat; exista un test cap-coada care aplica
+toate blocurile pe el si verifica forma normalizata.
 
-**Dar inainte de orice altceva: `cercetare/audit-qa-2026-11-18.md`.** Un audit
-facut in paralel (alta sesiune, pe aceeasi etapa, la commit `aec038a`) a gasit
-probleme blocante: cod gresit ajuns in PROD pe mai multe drumuri, pierdere de
-revizuire la schimbarea setului de baze, o cadere pe comparari mari si ecrane
-care nu incap sub 1440 px. **Nimic din ele nu e reparat.** Auditul a fost
-scris pe cealalta implementare a pachetului D; la merge a ramas implementarea
-din linia asta, deci **fiecare constatare trebuie intai reprodusa aici**,
-apoi reparata. Asta e urmatoarea etapa, nu o functie noua.
+**Urmatorul pas: E — denumirile si limba.** Inaintea rearanjarii ecranelor,
+fiindca atinge fiecare text:
 
-Dupa audit, candidatii urmatori:
+1. „Sursa" / „Baza" devin **„Martor" / „Modificata"**, peste tot;
+2. toate textele din interfata se stang intr-un singur loc (acum sunt scrise
+   direct in `.slint`), ca sa poata exista doua limbi;
+3. comutator **romana / engleza** in interfata, tinut minte intre porniri;
+4. regula din `CLAUDE.md` §6 despre limba se rescrie dupa noua situatie.
 
-1. **Proba pe Windows, pe o baza adevarata.** Tot ce s-a facut la etapa 14 e
-   verificat pe Linux, pe instantanee. Compararea pe mai multe baze, progresul
-   cu Anuleaza si deploy-ul pe mai multe baze n-au fost vazute niciodata pe un
-   server real. Comanda de pornit, ca sa probeze functiile fara baza:
-   `gmotion-ui --previzualizare`.
-2. **Ce a ramas deschis ca decizie** (mai jos): `rfd`, „Despre", stergerea
-   obiectelor la deploy, „Ruleaza" pe server.
-3. **Performanta patratica pe obiecte uriase** — singura problema de motor
-   stiuta si nerezolvata.
-4. Trecerea textelor in engleza (ceruta de Mihai, fara data).
+Apoi B (lista ramane in stanga la „Deschide"), C (incadrarea), D (harta),
+F (conectarea). Ordinea si criteriile: `etape/15-interfata-si-incredere.md`.
+
+**Inainte de orice lansare: `cercetare/audit-qa-2026-11-18.md`** — constatari
+blocante, nereproduse inca pe implementarea asta.
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).

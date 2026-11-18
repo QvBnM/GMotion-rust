@@ -818,6 +818,24 @@ care decide granite de blocuri ar fi fost bug-ul reparat la etapa 7.
 
 ---
 
+## 2026-11-18 — Fixture-ul de referinta, regenerat cu cazul lui Mihai
+
+**Motiv.** Mihai a raportat „inconsistenta motorului" pe o comparare offline
+(`WHile 1=1 / BEgin ...` fata de `IF 1=1 / While 1=1 / BEGIN ...`). Cazul a
+intrat in `referinta/cazuri.json` ca `mihai_offline_while_begin`, deci
+fixture-ul s-a regenerat explicit cu `unelte/regenereaza-fixture.sh`.
+Diff-ul adauga **doar** cazul nou.
+
+**Ce a aratat.** Rust da exact ce da motorul JS din v3.4: aceleasi patru
+blocuri de fiecare parte, acelasi sir de diferente. Singura divergenta e cea
+deja deliberata — continutul string-urilor nu se mai trece in litere mici
+(`'Start END'` ramane asa), deci cazul a intrat si in
+`DIVERGENTE_DELIBERATE`. Ce deranjeaza la privit tine de **afisare**, nu de
+motor: doua blocuri complet diferite se arata ca sters + adaugat, nu
+imperecheate.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

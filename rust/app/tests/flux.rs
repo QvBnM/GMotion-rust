@@ -325,3 +325,73 @@ fn instantaneul_de_previzualizare_acopera_tot_ce_trebuie_probat() {
         .any(|o| o.afisare.contains("/*") && o.afisare.contains("GO"));
     assert!(dezordonat, "lipseste obiectul cu cod scris dezordonat");
 }
+
+/// Cap-coada pe cod scris urat: se ia obiectul cu ciclu de cursor din
+/// instantaneul de previzualizare, se apasa „Aplica toate", si rezultatul
+/// trebuie sa fie **acelasi cod ca in martor**, normalizat.
+///
+/// Invarianta e pe forma normalizata, nu pe text: un comentariu lipit de cod
+/// muta granitele segmentarii, deci „zero diferente" ar fi prea tare (vezi
+/// jurnalul etapei 14).
+#[test]
+fn pe_cod_deformat_aplica_toate_aduce_martorul_in_baza() {
+    let cale = std::path::Path::new("../../referinta/instantanee/previzualizare.json");
+    assert!(cale.is_file(), "lipseste {}", cale.display());
+
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.display().to_string());
+    let (baze, _) = pornire::citeste_bazele(&c, &c.sursa);
+    let (prima, restul) = baze.split_first().expect("cel putin o baza");
+    c.sursa.baza = prima.clone();
+    c.baza.comuta_baza(&restul[0]);
+
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+
+    // obiectul cu cursor: ala e cel scris urat
+    let pozitie = (0..app.lista().vizibile().len())
+        .find(|&p| {
+            app.lista()
+                .obiect(p)
+                .is_some_and(|o| o.nume == "uspReproceseazaFacturi")
+        })
+        .expect("obiectul cu cursor e in lista");
+    app.comanda(Comanda::Selecteaza(pozitie));
+    app.comanda(Comanda::Deschide);
+    assert_eq!(app.ecran(), Ecran::Editor);
+
+    let model = app.model_editor().expect("editorul are model");
+    assert!(
+        !model.diferente.is_empty(),
+        "obiectul chiar difera, altfel testul nu probeaza nimic"
+    );
+    // codul e deformat: majuscule amestecate si tab-uri, in ambele parti
+    let (martor, baza) = app.texte_curente().expect("texte");
+    for text in [&martor, &baza] {
+        assert!(text.contains('\t'), "codul de proba are tab-uri");
+        assert!(
+            text.contains("WHile") || text.contains("while"),
+            "codul de proba are cuvinte cheie scrise amestecat"
+        );
+    }
+    assert!(app.are_cursor(), "obiectul are un ciclu de cursor");
+
+    app.comanda(Comanda::AplicaToate);
+    let (martor_dupa, final_dupa) = app.texte_curente().expect("texte dupa aplicare");
+    assert_eq!(
+        gmotion_core::norm(&martor_dupa),
+        gmotion_core::norm(&final_dupa),
+        "dupa Aplica toate, baza trebuie sa spuna acelasi lucru ca martorul"
+    );
+
+    // si cu ciclul de cursor unit, rezultatul e acelasi
+    app.comanda(Comanda::Reset);
+    app.comanda(Comanda::ComutaUnireaCursorului(true));
+    app.comanda(Comanda::AplicaToate);
+    let (martor_unit, final_unit) = app.texte_curente().expect("texte");
+    assert_eq!(
+        gmotion_core::norm(&martor_unit),
+        gmotion_core::norm(&final_unit),
+        "unirea ciclului de cursor schimba taierea blocurilor, nu rezultatul"
+    );
+}
