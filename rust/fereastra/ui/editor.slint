@@ -1,92 +1,96 @@
-// Editorul de diferente, pe designul aprobat (`cercetare/design-aprobat.md`,
-// macheta `cercetare/machete/Editor.dc.html`): unealta densa, linii de 1 px,
-// colturi de 3 px, fara umbre si fara insigne rotunjite.
+// Editorul de diferente, ca panza (`cercetare/schita-slint/ui/panza.slint`),
+// pe jetoanele din `Tema`: titlul mare sus, sursa si baza ca doua panouri
+// distincte, comenzile in insule care plutesc.
 //
 // Se strica astfel: panourile nu mai sunt aliniate, culoarea nu mai spune ce
-// e diferit (sau e singurul semnal, fara bara si litera), sau derularea pe
+// e diferit (sau e singurul semnal, fara bara si numar), sau derularea pe
 // obiecte mari se blocheaza. Un singur ListView (virtualizat) cu ambele
 // panouri pe acelasi rand tine derularea sincronizata fara cod.
-//
-// Culorile NU se scriu aici: jetoanele vin din `src/jetoane.rs` prin
-// `aplica_tema`, ca sa existe un singur loc de unde se verifica contrastul;
-// jetoanele si piesele comune mai multor ecrane stau in `comune.slint`.
 
 import { ListView } from "std-widgets.slint";
-import { ListView } from "std-widgets.slint";
-import { Tema, Despartitor, Chevron, Buton, ButonPrincipal, Tab, Bifa, Hasura, Bucati, Jumatate, BucataUi, RandUi, MarcajUi } from "comune.slint";
+import { Tema, Semn, EticMediu, ButonTema, Jumatate, RandUi, MarcajUi } from "comune.slint";
 
-// --- piese mici -------------------------------------------------------------
+// Insula care pluteste peste panza.
+component Insula inherits Rectangle {
+    background: Tema.suprafata;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: Tema.linie;
+    drop-shadow-blur: 26px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: Tema.intunecat ? #00000066 : #0f111529;
+}
 
-// Antetul unui panou de cod: baza, serverul, numarul de linii, mediul.
-component AntetPanou inherits Rectangle {
-    in property <length> retras: 47px;
+component Tasta inherits Rectangle {
+    in property <string> t;
+    in property <bool> pe-accent;
+    height: 18px;
+    width: tx.preferred-width + 10px;
+    border-radius: 5px;
+    background: root.pe-accent ? transparent : Tema.strat;
+    border-width: root.pe-accent ? 1px : 0;
+    border-color: Tema.pe-accent;
+    tx := Text { text: root.t; font-family: Tema.font-mono; font-size: 11px; color: root.pe-accent ? Tema.pe-accent : Tema.text-secundar; }
+}
+
+// Buton din insula. fel: 0 simplu, 1 principal (chihlimbar), 2 pornit
+component ButonInsula inherits Rectangle {
+    in property <string> text;
+    in property <string> tasta;
+    in property <int> fel;
+    callback apasat();
+    height: 36px;
+    width: r.preferred-width + 22px;
+    border-radius: 10px;
+    background: root.fel == 1 ? Tema.accent : root.fel == 2 ? Tema.strat : (z.has-hover ? Tema.strat : transparent);
+    opacity: root.fel == 1 && z.has-hover ? 0.88 : 1;
+    r := HorizontalLayout {
+        alignment: center;
+        spacing: 7px;
+        Text { text: root.text; font-family: Tema.font-ui; font-size: 13px; font-weight: root.fel == 0 ? 400 : 600; color: root.fel == 1 ? Tema.pe-accent : Tema.text; vertical-alignment: center; }
+        if root.tasta != "": VerticalLayout { alignment: center; Tasta { t: root.tasta; pe-accent: root.fel == 1; } }
+    }
+    z := TouchArea { clicked => { root.apasat(); } }
+}
+
+component Despartitor inherits VerticalLayout {
+    alignment: center;
+    Rectangle { width: 1px; height: 22px; background: Tema.linie; }
+}
+
+// Capul unui panou: rolul, baza, serverul si liniile, eticheta.
+component CapPanou inherits Rectangle {
+    in property <string> rol;
     in property <string> baza;
     in property <string> detaliu;
-    in property <string> mediu;
-    in property <int> cod-mediu;
-    in property <bool> margine;
-    background: Tema.suprafata;
+    in property <string> eticheta;
+    in property <int> mediu: -1;
+    in property <color> fond;
+    in property <color> linie;
+    background: root.fond;
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    Rectangle { y: parent.height - 1px; height: 1px; background: root.linie; }
     HorizontalLayout {
-        padding-left: root.retras;
-        spacing: 8px;
-        alignment: start;
-        Text {
-            text: root.baza;
-            font-family: Tema.font-ui;
-            font-size: 12px;
-            font-weight: 500;
-            color: Tema.text;
-            vertical-alignment: center;
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 10px;
+        Text { text: root.rol; font-family: Tema.font-ui; font-size: 15px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+        Text { text: root.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; vertical-alignment: center; overflow: elide; }
+        Text { text: root.detaliu; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+        if root.mediu >= 0: VerticalLayout { alignment: center; EticMediu { mediu: root.mediu; } }
+        if root.eticheta != "": VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 22px;
+                width: et.preferred-width + 16px;
+                border-radius: 11px;
+                background: Tema.strat;
+                et := Text { text: root.eticheta; font-family: Tema.font-ui; font-size: 11.5px; color: Tema.text-secundar; }
+            }
         }
-        Text {
-            // serverul poate fi o cale lunga (instantaneu): se taie, ca sa nu
-            // impinga eticheta mediului afara din panou
-            max-width: 260px;
-            text: root.detaliu;
-            font-family: Tema.font-ui;
-            font-size: 12px;
-            color: Tema.text-secundar;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-        if root.mediu != "": Text {
-            text: root.mediu;
-            font-family: Tema.font-mono;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 0.6px;
-            color: Tema.culoare-mediu(root.cod-mediu);
-            vertical-alignment: center;
-        }
-    }
-    if root.margine: Rectangle {
-        x: parent.width - 1px;
-        width: 1px;
-        background: Tema.linie;
     }
 }
-
-component Scurtatura inherits HorizontalLayout {
-    in property <string> tasta;
-    in property <string> ce;
-    spacing: 5px;
-    Text {
-        text: root.tasta;
-        font-family: Tema.font-mono;
-        font-size: 11.5px;
-        color: Tema.text-secundar;
-        vertical-alignment: center;
-    }
-    Text {
-        text: root.ce;
-        font-family: Tema.font-ui;
-        font-size: 11.5px;
-        color: Tema.text-secundar;
-        vertical-alignment: center;
-    }
-}
-
-// --- fereastra --------------------------------------------------------------
 
 export component EditorDiferente inherits Window {
     title: "gmotion — " + root.obiect-nume;
@@ -129,8 +133,13 @@ export component EditorDiferente inherits Window {
     callback comuta-plierea(bool);
     callback comuta-alaturat(bool);
     callback editeaza-textul-final();
+    callback alege-tema(bool);
 
     property <length> inaltime-rand: 22px;
+    property <length> jgheab: 28px;
+    property <length> latime-cod: Math.min(1280px, root.width - 96px);
+    // latimea unui panou; 14 px raman pentru harta diferentelor
+    property <length> panou: root.alaturat ? (root.latime-cod - root.jgheab - 14px) / 2 : root.latime-cod - 14px;
 
     public function mergi-la(i: int) {
         if (root.total-diferente == 0) { return; }
@@ -144,277 +153,97 @@ export component EditorDiferente inherits Window {
             if (e.text == "p") { root.mergi-la(root.diferenta-curenta - 1); return accept; }
             if (e.text == "j") { root.obiect-urmator(); return accept; }
             if (e.text == "k") { root.obiect-anterior(); return accept; }
+            if (e.text == "r") { root.comuta-revizuit(); return accept; }
             if (e.text == "u") { root.alaturat = !root.alaturat; root.comuta-alaturat(root.alaturat); return accept; }
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
         }
 
+        // ---- panza: titlul sus, cele doua panouri dedesubt
         VerticalLayout {
-            // banda mediului tintei, pe toata latimea
-            Rectangle {
-                height: 3px;
-                background: Tema.culoare-mediu(root.mediu);
-            }
-
-            // ---- antetul
-            Rectangle {
-                height: 48px;
-                background: Tema.suprafata;
-                HorizontalLayout {
-                    padding-left: 16px;
-                    padding-right: 16px;
-                    spacing: 14px;
-                    // inapoi la lista
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        Rectangle {
-                            min-width: 14px + 6px + lista-et.preferred-width;
-                            height: 20px;
-                            HorizontalLayout {
-                                spacing: 6px;
-                                alignment: start;
-                                VerticalLayout {
-                                    alignment: center;
-                                    Chevron { drum: "M 10 3 L 5 8 L 10 13"; culoare: Tema.text-secundar; width: 14px; height: 14px; stroke-width: 1.5px; }
-                                }
-                                lista-et := Text {
-                                    text: "Lista";
-                                    font-size: 13px;
-                                    color: Tema.text-secundar;
-                                    vertical-alignment: center;
-                                }
-                            }
-                            TouchArea { clicked => { root.inapoi-lista(); } }
-                        }
-                    }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Despartitor {} }
-                    // numele obiectului: schema estompata, numele in mono
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        HorizontalLayout {
-                            spacing: 0px;
-                            alignment: start;
-                            Text {
-                                text: root.obiect-schema + ".";
-                                font-family: Tema.font-mono;
-                                font-size: 13px;
-                                color: Tema.text-tert;
-                                vertical-alignment: center;
-                            }
-                            Text {
-                                text: root.obiect-nume;
-                                font-family: Tema.font-mono;
-                                font-size: 13px;
-                                font-weight: 600;
-                                color: Tema.text;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        Text {
-                            text: root.tip-obiect + " · " + root.rezumat;
-                            font-size: 12px;
-                            color: Tema.text-secundar;
-                            vertical-alignment: center;
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    // navigarea intre diferente
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        HorizontalLayout {
-                            spacing: 2px;
-                            Rectangle {
-                                width: 26px;
-                                height: 26px;
-                                border-radius: 3px;
-                                border-width: 1px;
-                                border-color: Tema.linie;
-                                background: sus.has-hover ? Tema.fundal : Tema.cod-fundal;
-                                Chevron { drum: "M 3 10 L 8 5 L 13 10"; }
-                                sus := TouchArea { clicked => { root.mergi-la(root.diferenta-curenta - 1); } }
-                            }
-                            VerticalLayout {
-                                alignment: center;
-                                Text {
-                                    text: root.total-diferente == 0
-                                        ? "0/0"
-                                        : (root.diferenta-curenta + 1) + "/" + root.total-diferente;
-                                    font-family: Tema.font-mono;
-                                    font-size: 12px;
-                                    color: Tema.text;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                    width: 42px;
-                                }
-                            }
-                            Rectangle {
-                                width: 26px;
-                                height: 26px;
-                                border-radius: 3px;
-                                border-width: 1px;
-                                border-color: Tema.linie;
-                                background: jos.has-hover ? Tema.fundal : Tema.cod-fundal;
-                                Chevron { drum: "M 3 6 L 8 11 L 13 6"; }
-                                jos := TouchArea { clicked => { root.mergi-la(root.diferenta-curenta + 1); } }
-                            }
-                        }
-                    }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Despartitor {} }
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        HorizontalLayout {
-                            spacing: 8px;
-                            Buton {
-                                text: root.revizuit ? "Revizuit ✓" : "Revizuit";
-                                apasat => { root.comuta-revizuit(); }
-                            }
-                            ButonPrincipal {
-                                text: "In plan";
-                                apasat => { root.adauga-in-plan(); }
-                            }
-                        }
-                    }
-                }
-                Rectangle {
-                    y: parent.height - 1px;
-                    height: 1px;
-                    background: Tema.linie;
-                }
-            }
-
-            // ---- bara de unelte
-            Rectangle {
-                height: 34px;
-                background: Tema.fundal;
-                HorizontalLayout {
-                    padding-left: 16px;
-                    padding-right: 16px;
-                    spacing: 18px;
-                    HorizontalLayout {
-                        horizontal-stretch: 0;
-                        spacing: 14px;
-                        Tab {
-                            text: "Alaturat";
-                            activ: root.alaturat;
-                            apasat => { root.alaturat = true; root.comuta-alaturat(true); }
-                        }
-                        Tab {
-                            text: "Unificat";
-                            activ: !root.alaturat;
-                            apasat => { root.alaturat = false; root.comuta-alaturat(false); }
-                        }
-                    }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Rectangle { width: 1px; height: 16px; background: Tema.linie; } }
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        Bifa {
-                            text: "pliaza identicul";
-                            bifat: root.pliaza-identicul;
-                            schimbat(v) => { root.pliaza-identicul = v; root.comuta-plierea(v); }
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        Rectangle {
-                            min-width: editeaza.preferred-width;
-                            height: 18px;
-                            editeaza := Text {
-                                text: "editeaza textul final";
-                                font-size: 12.5px;
-                                color: Tema.selectie;
-                                vertical-alignment: center;
-                            }
-                            Rectangle {
-                                y: editeaza.y + editeaza.height - 1px;
-                                x: editeaza.x;
-                                width: editeaza.preferred-width;
-                                height: 1px;
-                                background: Tema.selectie;
-                            }
-                            TouchArea { clicked => { root.editeaza-textul-final(); } }
-                        }
-                    }
-                }
-                Rectangle {
-                    y: parent.height - 1px;
-                    height: 1px;
-                    background: Tema.linie;
-                }
-            }
-
-            // ---- corpul: antetele panourilor, codul, harta
+            x: 0;
+            y: 0;
+            width: root.width;
+            height: root.height;
+            padding-top: 84px;
+            padding-bottom: 86px;
             HorizontalLayout {
-                vertical-stretch: 1;
+                alignment: center;
                 VerticalLayout {
-                    horizontal-stretch: 1;
-                    // antetele, pe aceeasi grila ca randurile de cod
-                    Rectangle {
-                        height: 26px;
-                        background: Tema.suprafata;
-                        AntetPanou {
-                            retras: root.alaturat ? 47px : 91px;
-                            x: 0px;
-                            width: root.alaturat ? parent.width / 2 : parent.width;
-                            height: parent.height;
-                            // unificat: un singur antet, deci spune ambele baze
-                            baza: root.alaturat
-                                ? root.sursa-baza
-                                : root.sursa-baza + " → " + root.tinta-baza;
-                            detaliu: root.alaturat ? root.sursa-detaliu : root.tinta-detaliu;
-                            mediu: root.alaturat ? "" : root.eticheta-mediu;
-                            cod-mediu: root.mediu;
-                            margine: root.alaturat;
-                        }
-                        if root.alaturat: AntetPanou {
-                            x: parent.width / 2;
-                            width: parent.width / 2;
-                            height: parent.height;
-                            baza: root.tinta-baza;
-                            detaliu: root.tinta-detaliu;
-                            mediu: root.eticheta-mediu;
-                            cod-mediu: root.mediu;
-                        }
-                        Rectangle {
-                            y: parent.height - 1px;
-                            height: 1px;
-                            background: Tema.linie;
-                        }
+                    width: root.latime-cod;
+                    spacing: 2px;
+                    HorizontalLayout {
+                        Text { text: root.tip-obiect + ", " + root.rezumat; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; horizontal-stretch: 1; }
+                        Text { text: root.stare-obiecte; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; }
                     }
-                    // codul
+                    HorizontalLayout {
+                        alignment: start;
+                        padding-bottom: 14px;
+                        Text { text: root.obiect-schema + "."; font-family: Tema.font-ui; font-size: 40px; font-weight: 300; color: Tema.text-tert; letter-spacing: -1.6px; }
+                        Text { text: root.obiect-nume; font-family: Tema.font-ui; font-size: 40px; font-weight: 600; color: Tema.text; letter-spacing: -1.6px; overflow: elide; horizontal-stretch: 1; }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: center;
+                vertical-stretch: 1;
+                Rectangle {
+                    width: root.latime-cod;
+                    // fondurile panourilor
                     Rectangle {
+                        x: 0;
+                        width: root.panou;
+                        border-radius: 14px;
+                        background: root.alaturat ? Tema.panou-sursa : Tema.cod-fundal;
+                        border-width: 1px;
+                        border-color: Tema.linie;
+                    }
+                    if root.alaturat: Rectangle {
+                        x: root.panou + root.jgheab;
+                        width: root.panou;
+                        border-radius: 14px;
                         background: Tema.cod-fundal;
-                        vertical-stretch: 1;
-                        // despartitorul dintre panouri merge pana jos, si sub
-                        // ultimul rand: altfel se opreste unde se termina codul
-                        if root.alaturat: Rectangle {
-                            x: lista.visible-width / 2;
-                            width: 1px;
-                            background: Tema.linie;
+                        border-width: 1.5px;
+                        border-color: Tema.contur-baza;
+                    }
+                    VerticalLayout {
+                        width: parent.width - 14px;
+                        HorizontalLayout {
+                            height: 46px;
+                            spacing: root.jgheab;
+                            if root.alaturat: CapPanou {
+                                width: root.panou;
+                                rol: "Sursa";
+                                baza: root.sursa-baza;
+                                detaliu: root.sursa-detaliu;
+                                eticheta: "doar citire";
+                                fond: Tema.cap-sursa;
+                                linie: Tema.linie;
+                            }
+                            CapPanou {
+                                width: root.panou;
+                                rol: root.alaturat ? "Baza" : "Unificat";
+                                baza: root.alaturat ? root.tinta-baza : root.sursa-baza + " → " + root.tinta-baza;
+                                detaliu: root.tinta-detaliu;
+                                mediu: root.mediu;
+                                fond: Tema.cap-baza;
+                                linie: Tema.contur-baza;
+                            }
                         }
                         lista := ListView {
+                            vertical-stretch: 1;
                             for r in root.randuri: Rectangle {
                                 height: root.inaltime-rand;
-                                // o pliere: cat s-a ascuns, pe fundalul ferestrei
+                                // o pliere: cat s-a ascuns; un clic arata tot
                                 if r.fel == 1: Rectangle {
-                                    background: pliere-zona.has-hover ? Tema.linie-slaba : Tema.fundal;
                                     HorizontalLayout {
-                                        padding-left: 47px;
+                                        padding-left: 56px;
                                         alignment: start;
                                         Text {
                                             text: r.pliere;
+                                            font-family: Tema.font-ui;
                                             font-size: 11.5px;
-                                            color: Tema.text-secundar;
+                                            color: pliere-zona.has-hover ? Tema.text : Tema.text-secundar;
                                             vertical-alignment: center;
                                         }
                                     }
@@ -425,21 +254,20 @@ export component EditorDiferente inherits Window {
                                         }
                                     }
                                 }
-                                if r.fel == 0 && root.alaturat: Rectangle {
+                                if r.fel == 0 && root.alaturat: HorizontalLayout {
+                                    spacing: root.jgheab;
                                     Jumatate {
-                                        x: 0px;
-                                        width: parent.width / 2;
+                                        width: (parent.width - root.jgheab) / 2;
                                         nr: r.st-nr;
                                         bucati: r.st;
                                         stare: r.stare;
                                         curenta: r.diferenta == root.diferenta-curenta;
                                         fara-linie: r.st-nr == "";
-                                        margine: true;
+                                        fond: Tema.panou-sursa;
                                         tigla: root.tigla-hasura;
                                     }
                                     Jumatate {
-                                        x: parent.width / 2;
-                                        width: parent.width / 2;
+                                        width: (parent.width - root.jgheab) / 2;
                                         nr: r.dr-nr;
                                         bucati: r.dr;
                                         stare: r.stare;
@@ -462,62 +290,106 @@ export component EditorDiferente inherits Window {
                             }
                         }
                     }
-                }
-                // harta diferentelor
-                Rectangle {
-                    width: 14px;
-                    background: Tema.fundal;
+                    // harta diferentelor, la marginea din dreapta
                     Rectangle {
-                        x: 0px;
-                        width: 1px;
-                        background: Tema.linie;
-                    }
-                    // fereastra vizibila
-                    Rectangle {
-                        x: 1px;
-                        width: parent.width - 1px;
-                        y: root.randuri.length == 0 ? 0px
-                           : (-lista.content-y / Math.max(1px, lista.content-height)) * parent.height;
-                        height: root.randuri.length == 0 ? parent.height
-                           : Math.max(6px, (lista.visible-height / Math.max(1px, lista.content-height)) * parent.height);
-                        background: Tema.text.with-alpha(0.06);
-                    }
-                    for m in root.marcaje: Rectangle {
-                        x: 3px;
-                        width: parent.width - 6px;
-                        y: m.pozitie * parent.height;
-                        height: Math.max(2px, m.inaltime * parent.height);
-                        background: Tema.bara-stare(m.stare);
+                        x: parent.width - 10px;
+                        y: 46px;
+                        width: 10px;
+                        height: parent.height - 46px;
+                        border-radius: 5px;
+                        background: Tema.strat;
+                        Rectangle {
+                            y: root.randuri.length == 0 ? 0px : (-lista.content-y / Math.max(1px, lista.content-height)) * parent.height;
+                            height: root.randuri.length == 0 ? parent.height : Math.max(6px, (lista.visible-height / Math.max(1px, lista.content-height)) * parent.height);
+                            border-radius: 5px;
+                            background: Tema.linie;
+                        }
+                        for m in root.marcaje: Rectangle {
+                            x: 2px;
+                            width: parent.width - 4px;
+                            y: m.pozitie * parent.height;
+                            height: Math.max(3px, m.inaltime * parent.height);
+                            border-radius: 1.5px;
+                            background: Tema.bara-stare(m.stare);
+                        }
                     }
                 }
             }
+        }
 
-            // ---- bara de jos: scurtaturile si locul in lista
-            Rectangle {
-                height: 24px;
-                background: Tema.fundal;
-                Rectangle {
-                    height: 1px;
-                    background: Tema.linie;
+        // ---- sus stanga: semnul, inapoi la lista, obiectul anterior / urmator
+        Insula {
+            x: 18px;
+            y: 16px;
+            height: 50px;
+            width: ss.preferred-width + 12px;
+            ss := HorizontalLayout {
+                padding: 6px;
+                padding-left: 14px;
+                spacing: 4px;
+                VerticalLayout { alignment: center; Semn { marime: 16px; } }
+                Rectangle { width: 8px; }
+                Despartitor { }
+                ButonInsula { text: "← Lista"; tasta: "Esc"; apasat => { root.inapoi-lista(); } }
+                Despartitor { }
+                ButonInsula { text: "‹"; tasta: "k"; apasat => { root.obiect-anterior(); } }
+                ButonInsula { text: "›"; tasta: "j"; apasat => { root.obiect-urmator(); } }
+            }
+        }
+
+        // ---- sus dreapta: revizuit, in plan, tema
+        Insula {
+            x: root.width - self.width - 18px;
+            y: 16px;
+            height: 50px;
+            width: sd.preferred-width + 12px;
+            sd := HorizontalLayout {
+                padding: 6px;
+                spacing: 4px;
+                ButonInsula { text: root.revizuit ? "Revizuit ✓" : "Revizuit"; tasta: "r"; fel: root.revizuit ? 2 : 0; apasat => { root.comuta-revizuit(); } }
+                ButonInsula { text: "In plan"; fel: 1; apasat => { root.adauga-in-plan(); } }
+                Despartitor { }
+                VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
+            }
+        }
+
+        // ---- jos: diferentele, alaturat / unificat, plierea
+        Insula {
+            x: (root.width - self.width) / 2;
+            y: root.height - self.height - 22px;
+            height: 50px;
+            width: sj.preferred-width + 12px;
+            sj := HorizontalLayout {
+                padding: 6px;
+                spacing: 2px;
+                ButonInsula { text: "↑"; tasta: "p"; apasat => { root.mergi-la(root.diferenta-curenta - 1); } }
+                Text {
+                    text: root.total-diferente == 0 ? "0 / 0" : (root.diferenta-curenta + 1) + " / " + root.total-diferente;
+                    font-family: Tema.font-mono;
+                    font-size: 12.5px;
+                    color: Tema.text-secundar;
+                    vertical-alignment: center;
                 }
-                HorizontalLayout {
-                    padding-left: 16px;
-                    padding-right: 16px;
-                    spacing: 16px;
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "n p"; ce: "diferenta"; } }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "j k"; ce: "obiect"; } }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "u"; ce: "unificat"; } }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "esc"; ce: "lista"; } }
-                    Rectangle { horizontal-stretch: 1; }
-                    VerticalLayout {
-                        horizontal-stretch: 0;
-                        alignment: center;
-                        Text {
-                            text: root.stare-obiecte;
-                            font-size: 11.5px;
-                            color: Tema.text-secundar;
-                            vertical-alignment: center;
-                        }
+                ButonInsula { text: "↓"; tasta: "n"; apasat => { root.mergi-la(root.diferenta-curenta + 1); } }
+                Despartitor { }
+                ButonInsula {
+                    text: "Alaturat";
+                    fel: root.alaturat ? 2 : 0;
+                    apasat => { root.alaturat = true; root.comuta-alaturat(true); }
+                }
+                ButonInsula {
+                    text: "Unificat";
+                    tasta: "u";
+                    fel: root.alaturat ? 0 : 2;
+                    apasat => { root.alaturat = false; root.comuta-alaturat(false); }
+                }
+                Despartitor { }
+                ButonInsula {
+                    text: root.pliaza-identicul ? "Pliaza identicul ✓" : "Pliaza identicul";
+                    fel: root.pliaza-identicul ? 2 : 0;
+                    apasat => {
+                        root.pliaza-identicul = !root.pliaza-identicul;
+                        root.comuta-plierea(root.pliaza-identicul);
                     }
                 }
             }

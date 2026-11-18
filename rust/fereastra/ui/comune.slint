@@ -453,10 +453,12 @@ export component Jumatate inherits Rectangle {
     // partea nu are linia (blocul e mai scurt aici): hasura, nu fundal gol
     in property <bool> fara-linie;
     in property <image> tigla;
+    // fondul liniilor identice: `cod-fundal` (baza) sau `panou-sursa` (sursa)
+    in property <color> fond: Tema.cod-fundal;
     clip: true;
     min-width: 0px;
     background: root.fara-linie ? transparent
-              : root.stare == 0 ? Tema.cod-fundal
+              : root.stare == 0 ? root.fond
               : Tema.fundal-stare(root.stare);
     if root.fara-linie && root.stare != 0: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
     HorizontalLayout {

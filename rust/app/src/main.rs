@@ -603,6 +603,19 @@ fn ruleaza() -> Result<(), String> {
         editor_ui.on_obiect_anterior(move || c(Comanda::ObiectAnterior));
         let c = comanda.clone();
         editor_ui.on_comuta_revizuit(move || c(Comanda::ComutaRevizuit));
+        // plierea si alaturat / unificat stau in fereastra; modelul se
+        // reconstruieste la redesenare, din ce arata fereastra acum
+        let d = deseneaza.clone();
+        editor_ui.on_comuta_plierea(move |_| d());
+        let d = deseneaza.clone();
+        editor_ui.on_comuta_alaturat(move |_| d());
+        let a = alege_tema.clone();
+        let d = deseneaza.clone();
+        editor_ui.on_alege_tema(move |intunecat| {
+            a(intunecat);
+            // hasura e pictata in culorile modului
+            d();
+        });
     }
 
     deseneaza();

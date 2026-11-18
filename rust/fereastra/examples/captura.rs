@@ -2,7 +2,7 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--mediu prod] [--font-mono NUME]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--mediu prod] [--font-mono NUME] [--tema intunecat|luminos]
 use std::rc::Rc;
 
 use gmotion_fereastra::{
@@ -95,7 +95,13 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = EditorDiferente::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui, gmotion_fereastra::Mod::default());
+    let tema = a
+        .iter()
+        .position(|x| x == "--tema")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_fereastra::Mod::din_nume(n))
+        .unwrap_or_default();
+    aplica_tema(&ui, tema);
     // proba ca fonturile incorporate chiar se folosesc: cu un nume inexistent
     // randarea trebuie sa iasa diferita (altfel desenam oricum cu rezerva)
     if let Some(i) = a.iter().position(|x| x == "--font-mono") {
