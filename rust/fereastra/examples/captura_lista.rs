@@ -117,7 +117,7 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui);
+    aplica_tema(&ui, gmotion_fereastra::Mod::default());
     incarca_lista(
         &ui,
         &AntetLista {

@@ -16,6 +16,7 @@ pub mod model_lista;
 
 slint::include_modules!();
 
+pub use jetoane::Mod;
 use model_editor::{Bucata, ModelEditor, RandAfisat, Sintaxa, Stare};
 use slint::{Color, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 
@@ -54,54 +55,102 @@ fn culoare(c: jetoane::Culoare) -> Color {
     )
 }
 
-/// Pune jetoanele aprobate in globalul `Tema`. De apelat o data, inainte de
-/// orice afisare: in `.slint` culorile nu au valori implicite, tocmai ca sa nu
-/// existe o a doua lista de culori pe care nu o verifica nimeni.
-pub fn aplica_tema<'a, T>(ui: &'a T)
+/// Lista jetoanelor din `Tema`: campul din `Paleta`, setter-ul si getter-ul
+/// Slint. O singura lista, din care se umple tema si se face testul care
+/// prinde un jeton uitat (ar ramane transparent).
+macro_rules! cu_jetoanele {
+    ($m:ident) => {
+        $m!(
+        fundal set_fundal get_fundal,
+        suprafata set_suprafata get_suprafata,
+        strat set_strat get_strat,
+        cod_fundal set_cod_fundal get_cod_fundal,
+        panou_sursa set_panou_sursa get_panou_sursa,
+        cap_sursa set_cap_sursa get_cap_sursa,
+        cap_baza set_cap_baza get_cap_baza,
+        contur_baza set_contur_baza get_contur_baza,
+        linie set_linie get_linie,
+        linie_slaba set_linie_slaba get_linie_slaba,
+        text set_text get_text,
+        text_secundar set_text_secundar get_text_secundar,
+        text_tert set_text_tert get_text_tert,
+        selectie set_selectie get_selectie,
+        pe_selectie set_pe_selectie get_pe_selectie,
+        accent set_accent get_accent,
+        pe_accent set_pe_accent get_pe_accent,
+        accent_text set_accent_text get_accent_text,
+        tine set_tine get_tine,
+        pe_tine set_pe_tine get_pe_tine,
+        mediu_prod set_mediu_prod get_mediu_prod,
+        mediu_test set_mediu_test get_mediu_test,
+        mediu_dev set_mediu_dev get_mediu_dev,
+        pe_mediu set_pe_mediu get_pe_mediu,
+        mod_text set_mod_text get_mod_text,
+        mod_fundal set_mod_fundal get_mod_fundal,
+        mod_bara set_mod_bara get_mod_bara,
+        mod_inlinie set_mod_inlinie get_mod_inlinie,
+        add_text set_add_text get_add_text,
+        add_fundal set_add_fundal get_add_fundal,
+        add_bara set_add_bara get_add_bara,
+        add_inlinie set_add_inlinie get_add_inlinie,
+        del_text set_del_text get_del_text,
+        del_fundal set_del_fundal get_del_fundal,
+        del_bara set_del_bara get_del_bara,
+        del_inlinie set_del_inlinie get_del_inlinie,
+        set_bara set_set_bara get_set_bara,
+        ident set_ident get_ident,
+        hasura_a set_hasura_a get_hasura_a,
+        hasura_b set_hasura_b get_hasura_b,
+        s_cuvant set_s_cuvant get_s_cuvant,
+        s_sir set_s_sir get_s_sir,
+        s_numar set_s_numar get_s_numar,
+        s_variabila set_s_variabila get_s_variabila,
+        s_comentariu set_s_comentariu get_s_comentariu
+        )
+    };
+}
+
+/// Pune paleta modului ales in globalul `Tema`. Se cheama inainte de orice
+/// afisare si din nou la fiecare comutare de mod: in `.slint` culorile nu au
+/// valori implicite, tocmai ca sa nu existe o a doua lista de culori pe care
+/// nu o verifica nimeni.
+pub fn aplica_tema<'a, T>(ui: &'a T, m: Mod)
 where
     T: slint::ComponentHandle,
     Tema<'a>: slint::Global<'a, T>,
 {
-    use jetoane as j;
     let t = ui.global::<Tema>();
-    t.set_font_ui(j::FONT_UI.into());
-    t.set_font_mono(j::FONT_MONO.into());
-    t.set_fundal(culoare(j::FUNDAL));
-    t.set_suprafata(culoare(j::SUPRAFATA));
-    t.set_cod_fundal(culoare(j::COD_FUNDAL));
-    t.set_linie(culoare(j::LINIE));
-    t.set_linie_slaba(culoare(j::LINIE_SLABA));
-    t.set_text(culoare(j::TEXT));
-    t.set_text_secundar(culoare(j::TEXT_SECUNDAR));
-    t.set_text_tert(culoare(j::TEXT_TERT));
-    t.set_selectie(culoare(j::SELECTIE));
-    t.set_mediu_prod(culoare(j::MEDIU_PROD));
-    t.set_mediu_test(culoare(j::MEDIU_TEST));
-    t.set_mediu_dev(culoare(j::MEDIU_DEV));
-    t.set_mod_text(culoare(j::MOD_TEXT));
-    t.set_mod_fundal(culoare(j::MOD_FUNDAL));
-    t.set_mod_bara(culoare(j::MOD_BARA));
-    t.set_mod_inlinie(culoare(j::MOD_INLINIE));
-    t.set_add_text(culoare(j::ADD_TEXT));
-    t.set_add_fundal(culoare(j::ADD_FUNDAL));
-    t.set_add_bara(culoare(j::ADD_BARA));
-    t.set_add_inlinie(culoare(j::ADD_INLINIE));
-    t.set_del_text(culoare(j::DEL_TEXT));
-    t.set_del_fundal(culoare(j::DEL_FUNDAL));
-    t.set_del_bara(culoare(j::DEL_BARA));
-    t.set_del_inlinie(culoare(j::DEL_INLINIE));
-    t.set_hasura_a(culoare(j::HASURA_A));
-    t.set_hasura_b(culoare(j::HASURA_B));
-    t.set_s_cuvant(culoare(j::S_CUVANT));
-    t.set_s_sir(culoare(j::S_SIR));
-    t.set_s_numar(culoare(j::S_NUMAR));
-    t.set_s_variabila(culoare(j::S_VARIABILA));
-    t.set_s_comentariu(culoare(j::S_COMENTARIU));
+    let p = m.paleta();
+    t.set_font_ui(jetoane::FONT_UI.into());
+    t.set_font_mono(jetoane::FONT_MONO.into());
+    t.set_intunecat(m == Mod::Intunecat);
+    macro_rules! pune {
+        ($($camp:ident $set:ident $get:ident),* $(,)?) => {
+            // destructurare fara `..`: un camp din `Paleta` lipsa din lista
+            // de mai sus nu compileaza, deci nu poate ramane nepus in tema
+            let jetoane::Paleta { $($camp),* } = *p;
+            $( t.$set(culoare($camp)); )*
+        };
+    }
+    cu_jetoanele!(pune);
 }
 
-/// Tigla hasurii de pe partea fara linii: dungi la 135°, din jetoane.
-pub fn tigla_hasura() -> Image {
-    let (pas, pixeli) = tigla_pixeli();
+/// Modul pus in `Tema` de ultimul [`aplica_tema`].
+pub fn mod_curent<'a, T>(ui: &'a T) -> Mod
+where
+    T: slint::ComponentHandle,
+    Tema<'a>: slint::Global<'a, T>,
+{
+    if ui.global::<Tema>().get_intunecat() {
+        Mod::Intunecat
+    } else {
+        Mod::Luminos
+    }
+}
+
+/// Tigla hasurii de pe partea fara linii: dungi la 135°, din paleta modului.
+pub fn tigla_hasura(m: Mod) -> Image {
+    let (pas, pixeli) = tigla_pixeli(m.paleta());
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(pas, pas);
     buf.make_mut_slice().copy_from_slice(&pixeli);
     Image::from_rgba8(buf)
@@ -109,7 +158,7 @@ pub fn tigla_hasura() -> Image {
 
 /// Pixelii tiglei, separat de Slint ca sa se poata verifica: dungile trebuie
 /// sa se imbine cand tigla se repeta (de-aia pasul imparte latura exact).
-fn tigla_pixeli() -> (u32, Vec<Rgba8Pixel>) {
+fn tigla_pixeli(paleta: &jetoane::Paleta) -> (u32, Vec<Rgba8Pixel>) {
     const PAS: u32 = 7;
     let p = |c: jetoane::Culoare| Rgba8Pixel {
         r: ((c >> 16) & 0xff) as u8,
@@ -121,9 +170,9 @@ fn tigla_pixeli() -> (u32, Vec<Rgba8Pixel>) {
     for y in 0..PAS {
         for x in 0..PAS {
             v.push(if (x + y) % PAS == 0 {
-                p(jetoane::HASURA_B)
+                p(paleta.hasura_b)
             } else {
-                p(jetoane::HASURA_A)
+                p(paleta.hasura_a)
             });
         }
     }
@@ -315,7 +364,7 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
             .count()
     };
 
-    ui.set_tigla_hasura(tigla_hasura());
+    ui.set_tigla_hasura(tigla_hasura(mod_curent(ui)));
     ui.set_obiect_schema(antet.schema.into());
     ui.set_obiect_nume(antet.nume.into());
     ui.set_tip_obiect(antet.tip.into());
@@ -403,7 +452,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
         .collect();
     let (revizuite, total) = lista.progres_revizuire();
 
-    ui.set_tigla_hasura(tigla_hasura());
+    ui.set_tigla_hasura(tigla_hasura(mod_curent(ui)));
     ui.set_sursa_baza(antet.sursa_baza.into());
     ui.set_tinta_baza(antet.tinta_baza.into());
     ui.set_servere(antet.servere.into());
@@ -589,67 +638,37 @@ mod teste {
         let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = EditorDiferente::new().expect("fereastra de test");
-        aplica_tema(&ui);
+        aplica_tema(&ui, Mod::Luminos);
         ui
     }
 
     #[test]
-    fn aplica_tema_pune_fiecare_jeton_in_slint() {
-        use jetoane as j;
+    fn aplica_tema_pune_fiecare_jeton_in_slint_in_ambele_moduri() {
         let ui = fereastra();
         let t = ui.global::<Tema>();
-        let perechi: Vec<(&str, slint::Color, j::Culoare)> = vec![
-            ("fundal", t.get_fundal(), j::FUNDAL),
-            ("suprafata", t.get_suprafata(), j::SUPRAFATA),
-            ("cod-fundal", t.get_cod_fundal(), j::COD_FUNDAL),
-            ("linie", t.get_linie(), j::LINIE),
-            ("linie-slaba", t.get_linie_slaba(), j::LINIE_SLABA),
-            ("text", t.get_text(), j::TEXT),
-            ("text-secundar", t.get_text_secundar(), j::TEXT_SECUNDAR),
-            ("text-tert", t.get_text_tert(), j::TEXT_TERT),
-            ("selectie", t.get_selectie(), j::SELECTIE),
-            ("mediu-prod", t.get_mediu_prod(), j::MEDIU_PROD),
-            ("mediu-test", t.get_mediu_test(), j::MEDIU_TEST),
-            ("mediu-dev", t.get_mediu_dev(), j::MEDIU_DEV),
-            ("mod-text", t.get_mod_text(), j::MOD_TEXT),
-            ("mod-fundal", t.get_mod_fundal(), j::MOD_FUNDAL),
-            ("mod-bara", t.get_mod_bara(), j::MOD_BARA),
-            ("mod-inlinie", t.get_mod_inlinie(), j::MOD_INLINIE),
-            ("add-text", t.get_add_text(), j::ADD_TEXT),
-            ("add-fundal", t.get_add_fundal(), j::ADD_FUNDAL),
-            ("add-bara", t.get_add_bara(), j::ADD_BARA),
-            ("add-inlinie", t.get_add_inlinie(), j::ADD_INLINIE),
-            ("del-text", t.get_del_text(), j::DEL_TEXT),
-            ("del-fundal", t.get_del_fundal(), j::DEL_FUNDAL),
-            ("del-bara", t.get_del_bara(), j::DEL_BARA),
-            ("del-inlinie", t.get_del_inlinie(), j::DEL_INLINIE),
-            ("hasura-a", t.get_hasura_a(), j::HASURA_A),
-            ("hasura-b", t.get_hasura_b(), j::HASURA_B),
-            ("s-cuvant", t.get_s_cuvant(), j::S_CUVANT),
-            ("s-sir", t.get_s_sir(), j::S_SIR),
-            ("s-numar", t.get_s_numar(), j::S_NUMAR),
-            ("s-variabila", t.get_s_variabila(), j::S_VARIABILA),
-            ("s-comentariu", t.get_s_comentariu(), j::S_COMENTARIU),
-        ];
-        for (nume, c, asteptat) in perechi {
-            assert_eq!(c.alpha(), 255, "jetonul {nume} a ramas nepus (transparent)");
-            assert_eq!(
-                (c.red(), c.green(), c.blue()),
-                (
-                    ((asteptat >> 16) & 0xff) as u8,
-                    ((asteptat >> 8) & 0xff) as u8,
-                    (asteptat & 0xff) as u8
-                ),
-                "jetonul {nume}"
-            );
+        for m in [Mod::Intunecat, Mod::Luminos] {
+            aplica_tema(&ui, m);
+            let p = m.paleta();
+            assert_eq!(mod_curent(&ui), m);
+            macro_rules! verifica {
+                ($($camp:ident $set:ident $get:ident),* $(,)?) => {
+                    $(
+                        let c = t.$get();
+                        let nume = stringify!($camp);
+                        assert_eq!(c.alpha(), 255, "{m:?}: jetonul {nume} a ramas nepus (transparent)");
+                        assert_eq!(c, culoare(p.$camp), "{m:?}: jetonul {nume}");
+                    )*
+                };
+            }
+            cu_jetoanele!(verifica);
+            assert_eq!(t.get_font_ui(), jetoane::FONT_UI);
+            assert_eq!(t.get_font_mono(), jetoane::FONT_MONO);
         }
-        assert_eq!(t.get_font_ui(), j::FONT_UI);
-        assert_eq!(t.get_font_mono(), j::FONT_MONO);
     }
 
     #[test]
     fn tigla_hasurii_are_ambele_culori_si_se_imbina() {
-        let (pas, px) = tigla_pixeli();
+        let (pas, px) = tigla_pixeli(&jetoane::LUMINOS);
         assert_eq!(px.len(), (pas * pas) as usize);
         let dunga = |c: jetoane::Culoare| Rgba8Pixel {
             r: ((c >> 16) & 0xff) as u8,
@@ -657,7 +676,10 @@ mod teste {
             b: (c & 0xff) as u8,
             a: 255,
         };
-        let (a, b) = (dunga(jetoane::HASURA_A), dunga(jetoane::HASURA_B));
+        let (a, b) = (
+            dunga(jetoane::LUMINOS.hasura_a),
+            dunga(jetoane::LUMINOS.hasura_b),
+        );
         assert!(px.contains(&a) && px.contains(&b), "ambele culori");
         // cate un pixel de dunga pe fiecare rand si pe fiecare coloana: asta
         // face dunga continua cand tigla se repeta
@@ -669,7 +691,13 @@ mod teste {
             let pe_coloana = (0..pas).filter(|y| px[(y * pas + x) as usize] == b).count();
             assert_eq!(pe_coloana, 1, "coloana {x}");
         }
-        assert_eq!(tigla_hasura().size().width, pas);
+        assert_eq!(tigla_hasura(Mod::Luminos).size().width, pas);
+        // hasura urmeaza modul: pe fond intunecat, dungile sunt intunecate
+        let (_, inchis) = tigla_pixeli(&jetoane::INTUNECAT);
+        assert!(
+            !inchis.contains(&a),
+            "tigla intunecata are culori din paleta luminoasa"
+        );
     }
 
     fn model_de_proba() -> model_editor::ModelEditor {
@@ -818,7 +846,7 @@ mod teste {
         let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraLista::new().expect("fereastra de test");
-        aplica_tema(&ui);
+        aplica_tema(&ui, Mod::Luminos);
         ui
     }
 
@@ -965,7 +993,7 @@ mod teste {
         let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraConectare::new().expect("fereastra de test");
-        aplica_tema(&ui);
+        aplica_tema(&ui, Mod::Luminos);
         ui
     }
 

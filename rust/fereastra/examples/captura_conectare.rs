@@ -69,7 +69,7 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraConectare::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui);
+    aplica_tema(&ui, gmotion_fereastra::Mod::default());
     incarca_conectare(&ui, &c);
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));

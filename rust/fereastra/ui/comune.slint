@@ -7,20 +7,35 @@
 // Culorile NU se scriu aici: jetoanele vin din `src/jetoane.rs` prin
 // `aplica_tema`, ca sa existe un singur loc de unde se verifica contrastul.
 
-// Fonturile aprobate, incorporate in binar (IBM Plex, SIL OFL 1.1 — vezi
-// `fonturi/LICENSE-OFL-1.1.txt`). Rezerva, daca lipsesc: Segoe UI / Consolas.
-import "../fonturi/IBMPlexSans-Regular.ttf";
-import "../fonturi/IBMPlexSans-Medium.ttf";
-import "../fonturi/IBMPlexSans-SemiBold.ttf";
-import "../fonturi/IBMPlexMono-Regular.ttf";
-import "../fonturi/IBMPlexMono-Medium.ttf";
-import "../fonturi/IBMPlexMono-SemiBold.ttf";
-import "../fonturi/IBMPlexMono-Italic.ttf";
+// Fonturile, incorporate in binar: Geist si Geist Mono (SIL OFL 1.1 — vezi
+// `fonturi/LICENSE-OFL-1.1-Geist.txt`). Rezerva, daca lipsesc: Segoe UI / Consolas.
+import "../fonturi/Geist-300.ttf";
+import "../fonturi/Geist-400.ttf";
+import "../fonturi/Geist-500.ttf";
+import "../fonturi/Geist-600.ttf";
+import "../fonturi/GeistMono-400.ttf";
+import "../fonturi/GeistMono-500.ttf";
 
 export global Tema {
     in-out property <string> font-ui;
     in-out property <string> font-mono;
+    // true in modul intunecat; doar pentru ce nu e o culoare (ex. opacitatea umbrelor)
+    in-out property <bool> intunecat;
     in-out property <color> fundal;
+    in-out property <color> strat;
+    in-out property <color> panou-sursa;
+    in-out property <color> cap-sursa;
+    in-out property <color> cap-baza;
+    in-out property <color> contur-baza;
+    in-out property <color> pe-selectie;
+    in-out property <color> accent;
+    in-out property <color> pe-accent;
+    in-out property <color> accent-text;
+    in-out property <color> tine;
+    in-out property <color> pe-tine;
+    in-out property <color> pe-mediu;
+    in-out property <color> set-bara;
+    in-out property <color> ident;
     in-out property <color> suprafata;
     in-out property <color> cod-fundal;
     in-out property <color> linie;

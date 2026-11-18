@@ -95,7 +95,7 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = EditorDiferente::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui);
+    aplica_tema(&ui, gmotion_fereastra::Mod::default());
     // proba ca fonturile incorporate chiar se folosesc: cu un nume inexistent
     // randarea trebuie sa iasa diferita (altfel desenam oricum cu rezerva)
     if let Some(i) = a.iter().position(|x| x == "--font-mono") {

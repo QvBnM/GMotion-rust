@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 897d5a5cef4e2f6e -->
+<!-- api-hash: c6b4a923425f6a9f -->
 
 ## Rol
 
@@ -8,9 +8,11 @@ Interfata nativa a GMotion, desenata cu Slint (randare software: merge si prin
 RDP pe servere fara GPU). Contine ferestrele si componentele, si modelele lor
 in Rust (ce se deseneaza pe fiecare rand), testabile fara fereastra.
 
-Aspectul e cel aprobat in `cercetare/design-aprobat.md`, cu machetele din
-`cercetare/machete/`. Jetoanele si fonturile (IBM Plex, incorporate in binar)
-stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
+Aspectul e in tranzitie (etapa 13): ecranele se rescriu dupa schita aprobata
+in `cercetare/schita-slint/`; pana atunci au asezarea din
+`cercetare/design-aprobat.md`. Jetoanele, in doua palete cu aceleasi nume
+(`INTUNECAT`, `LUMINOS`), si fonturile (Geist si Geist Mono, incorporate in
+binar) stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
 
 Stare: **prototip** — conectarea (etapa 11), lista cu previzualizare (etapa 9)
 si editorul de diferente (etapa 8).
@@ -37,11 +39,13 @@ si editorul de diferente (etapa 8).
 | `model_editor::plieaza(model, context) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
 | `model_editor::diferenta_fiecarui_rand(model)` | a cata diferenta e fiecare rand (bara mai lata pe cea curenta) |
 | `ModelEditor`, `Rand`, `Parte`, `Bucata`, `Sintaxa`, `Stare`, `RandAfisat` | modelul |
-| `jetoane::*` | jetoanele aprobate si `contrast(a, b)` (WCAG) |
+| `jetoane::{Paleta, INTUNECAT, LUMINOS, contrast}` | cele doua palete, cu aceleasi jetoane, si contrastul WCAG |
+| `Mod` (`jetoane::Mod`) | intunecat / luminos; `paleta()`, `din_nume("intunecat")`, `nume()`; implicit luminos |
 | `EditorDiferente` (Slint) | fereastra editorului |
 | `Tema` (global Slint) | culorile si fonturile, puse din Rust |
-| `aplica_tema(ui)` | pune jetoanele in `Tema` (o data, la pornire) |
-| `tigla_hasura()` | tigla hasurii de pe partea fara linii |
+| `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
+| `mod_curent(ui)` | modul pus ultima data in `Tema` |
+| `tigla_hasura(mod)` | tigla hasurii de pe partea fara linii, in culorile modului |
 | `incarca_editor(ui, antet, model)`, `AntetEditor`, `Mediu` | umple editorul |
 
 ## Invariante
@@ -57,19 +61,24 @@ si editorul de diferente (etapa 8).
 5. **Sintaxa se coloreaza pe tot blocul**, nu pe linie: string-urile si
    comentariile pe mai multe linii raman colorate corect.
 6. **Nicio culoare in `.slint`.** Jetoanele vin din `jetoane.rs`, unde testul
-   de contrast le vede. `aplica_tema` le pune pe toate — daca uiti una, ramane
-   transparenta, si testul `aplica_tema_pune_fiecare_jeton_in_slint` cade.
-7. **Starile se arata in sensul deploy-ului:** ce e doar in sursa se va adauga
+   de contrast le vede, pe ambele palete. `aplica_tema` le pune pe toate,
+   dintr-o singura lista (`cu_jetoanele!`): un camp din `Paleta` lipsa din
+   lista nu compileaza, iar unul pus gresit face sa cada
+   `aplica_tema_pune_fiecare_jeton_in_slint_in_ambele_moduri`.
+7. **Cele doua palete au aceleasi nume de jetoane.** Un ecran nu stie in ce
+   mod e; daca are nevoie de altceva decat o culoare (ex. umbra), citeste
+   `Tema.intunecat`.
+8. **Starile se arata in sensul deploy-ului:** ce e doar in sursa se va adauga
    in baza (verde), ce e doar in baza se va scoate (rosu). Motorul le numeste
    invers (fata de referinta); incrucisarea se face intr-un singur loc,
    `cod_stare` din `lib.rs`.
-8. **In modul unificat, numerele spun din ce parte vine linia:** doua
+9. **In modul unificat, numerele spun din ce parte vine linia:** doua
    jgheaburi (sursa | baza), fara vreun semn nou — decizia lui Mihai,
    2026-11-17.
-9. **Fereastra nu depinde de niciun modul.** Modelul listei primeste randuri
+10. **Fereastra nu depinde de niciun modul.** Modelul listei primeste randuri
    gata clasificate; `diff-obiecte` apare doar ca dependinta de dezvoltare, in
    exemplele care fac capturi dintr-o comparare adevarata.
-10. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
+11. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
    modelului: plierea scoate randuri, iar navigarea deruleaza lista.
 
 ## Erori tipice
@@ -83,7 +92,7 @@ si editorul de diferente (etapa 8).
 
 ## Testare
 
-`cargo test -p gmotion-fereastra` — modelul, jetoanele (contrast) si fereastra
+`cargo test -p gmotion-fereastra` — modelul, jetoanele (contrast, pe ambele moduri) si fereastra
 fara ecran (jetoanele puse, randurile, plierea, unificatul).
 
 Vizual: exemplul `captura` randeaza editorul fara ecran intr-un PNG:

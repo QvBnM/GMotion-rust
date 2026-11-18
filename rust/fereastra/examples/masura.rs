@@ -62,7 +62,7 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = EditorDiferente::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui);
+    aplica_tema(&ui, gmotion_fereastra::Mod::default());
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

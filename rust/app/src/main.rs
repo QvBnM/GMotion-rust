@@ -10,6 +10,8 @@
 //! capturi se poate da sursa de la inceput:
 //!
 //!   gmotion-ui --sursa instantaneu.json --referinta Referinta --baza Client1
+//!
+//! Modul ferestrei (acelasi pe toate ecranele): `--tema intunecat|luminos`.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -21,7 +23,7 @@ use gmotion_fereastra::model_lista::{Ordine, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_editor, incarca_lista,
     incarca_previzualizare, mediu_dupa_nume, AntetEditor, AntetLista, EditorDiferente,
-    FereastraConectare, FereastraLista,
+    FereastraConectare, FereastraLista, Mod,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -114,9 +116,15 @@ fn ruleaza() -> Result<(), String> {
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
     let lista_ui = FereastraLista::new().map_err(|e| e.to_string())?;
     let editor_ui = EditorDiferente::new().map_err(|e| e.to_string())?;
-    aplica_tema(&conectare_ui);
-    aplica_tema(&lista_ui);
-    aplica_tema(&editor_ui);
+    // modul (intunecat / luminos), acelasi pe toate ecranele
+    let mod_ales = match argument("--tema") {
+        None => Mod::default(),
+        Some(n) => Mod::din_nume(&n)
+            .ok_or_else(|| format!("tema necunoscuta: „{n}”; alege intunecat sau luminos"))?,
+    };
+    aplica_tema(&conectare_ui, mod_ales);
+    aplica_tema(&lista_ui, mod_ales);
+    aplica_tema(&editor_ui, mod_ales);
 
     // o singura functie de redesenat: altfel un ecran ramane in urma celuilalt
     let deseneaza = {
