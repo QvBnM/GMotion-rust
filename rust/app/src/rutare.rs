@@ -345,7 +345,7 @@ impl Aplicatie {
 
     /// Textele finale gata de salvat, fara cele care nu mai corespund.
     pub fn editari_de_salvat(&mut self) -> &Editari {
-        self.editari.curata(&self.randuri);
+        self.editari.curata(&self.randuri, &self.baze());
         &self.editari
     }
 
@@ -867,7 +867,7 @@ impl Aplicatie {
     /// Starea de revizuire, curatata de bifele care nu mai corespund, gata de
     /// salvat in sesiune.
     pub fn revizuire_de_salvat(&mut self) -> &Revizuire {
-        self.revizuire.curata(&self.randuri);
+        self.revizuire.curata(&self.randuri, &self.baze());
         &self.revizuire
     }
 }

@@ -496,7 +496,12 @@ fn ruleaza() -> Result<(), String> {
         move || {
             let mut s = stare.borrow_mut();
             let referinta = s.conectare.sursa.baza.clone();
-            let baze = vec![s.conectare.baza.baza.clone()];
+            // bazele comparate chiar acum, toate, nu doar prima bifata
+            let baze = s
+                .app
+                .as_ref()
+                .map(|a| a.baze())
+                .unwrap_or_else(|| vec![s.conectare.baza.baza.clone()]);
             let server = s.server.clone();
             let auth = if s.conectare.instantaneu.is_some() {
                 "instantaneu"
@@ -523,7 +528,9 @@ fn ruleaza() -> Result<(), String> {
                 });
             revizuire.in_sesiune(&mut sesiune);
             editari.in_sesiune(&mut sesiune);
-            sesiune.baze = baze;
+            // se adauga, nu se inlocuiesc: sesiunea tine munca facuta pe
+            // toate bazele comparate vreodata cu referinta asta (C3)
+            sesiune.adauga_baze(&baze);
             match s.sesiuni.salveaza(&sesiune) {
                 Ok(_) => {
                     // ora, nu data: „ultima data la 14:52"

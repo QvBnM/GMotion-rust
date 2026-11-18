@@ -205,30 +205,30 @@ impl Revizuire {
     ///
     /// Se cheama explicit, la salvare: altfel fisierul creste la nesfarsit cu
     /// bife despre obiecte care nu mai exista.
-    pub fn curata(&mut self, randuri: &[Rand]) -> usize {
+    pub fn curata(&mut self, randuri: &[Rand], baze_comparate: &[String]) -> usize {
         let mut scoase = 0;
-        for (baza, obiecte) in self.baze.iter_mut() {
-            obiecte.retain(|obiect, amprenta| {
-                let pastreaza = randuri.iter().any(|r| {
-                    r.baza == *baza && r.obiect == *obiect && Amprenta::a_randului(r) == *amprenta
-                });
-                if !pastreaza {
-                    scoase += 1;
+        let mut curata_harta = |harta: &mut BTreeMap<String, BTreeMap<String, Amprenta>>| {
+            for (baza, obiecte) in harta.iter_mut() {
+                // o baza care nu e in compararea de acum nu se atinge: n-are
+                // randuri, deci totul ar parea „nu mai corespunde" si s-ar
+                // pierde munca facuta pe ea alta data (C3/C4 din auditul QA)
+                if !baze_comparate.iter().any(|b| b == baza) {
+                    continue;
                 }
-                pastreaza
-            });
-        }
-        self.baze.retain(|_, obiecte| !obiecte.is_empty());
-        for (baza, obiecte) in self.omise.iter_mut() {
-            obiecte.retain(|obiect, amprenta| {
-                let pastreaza = randuri.iter().any(|r| {
-                    r.baza == *baza && r.obiect == *obiect && Amprenta::a_randului(r) == *amprenta
+                obiecte.retain(|obiect, amprenta| {
+                    let pastreaza = randuri.iter().any(|r| {
+                        r.baza == *baza
+                            && r.obiect == *obiect
+                            && Amprenta::a_randului(r) == *amprenta
+                    });
+                    scoase += usize::from(!pastreaza);
+                    pastreaza
                 });
-                scoase += usize::from(!pastreaza);
-                pastreaza
-            });
-        }
-        self.omise.retain(|_, obiecte| !obiecte.is_empty());
+            }
+            harta.retain(|_, obiecte| !obiecte.is_empty());
+        };
+        curata_harta(&mut self.baze);
+        curata_harta(&mut self.omise);
         scoase
     }
 
@@ -328,6 +328,35 @@ mod teste {
         assert_eq!(rev.valabile(&randuri), (1, 1));
     }
 
+    /// C3 / C4 din `cercetare/audit-qa-2026-11-18.md`: ziua 1 compari Ref cu
+    /// Client1 + Client2 si revizuiesti 200 de obiecte in Client2; ziua 2
+    /// compari doar cu Client1, iar prima bifa (sau „Deconecteaza") curata
+    /// tot ce tine de Client2 — n-are randuri. Fara niciun mesaj. Un „omis"
+    /// pierdut inseamna obiect ajuns inapoi in deploy.
+    #[test]
+    fn curatarea_nu_atinge_bazele_din_afara_compararii() {
+        let mut rev = Revizuire::noua();
+        rev.marcheaza(&rand("dbo.p", "aaa", "bbb"));
+        let mut in_client2 = rand("dbo.q", "ccc", "ddd");
+        in_client2.baza = "Client2".into();
+        rev.marcheaza(&in_client2);
+        rev.omite(&in_client2);
+        let mut omis2 = rand("dbo.r", "eee", "fff");
+        omis2.baza = "Client2".into();
+        rev.omite(&omis2);
+
+        // ziua 2: se compara doar cu Client1
+        let randuri = vec![rand("dbo.p", "aaa", "bbb")];
+        let scoase = rev.curata(&randuri, &["Client1".to_string()]);
+        assert_eq!(scoase, 0, "nimic de scos: Client2 nu e in comparare");
+        assert!(rev.e_omis(&omis2), "omisul din Client2 a ramas");
+        assert!(rev.e_revizuit(&rand("dbo.p", "aaa", "bbb")));
+
+        // iar cand Client2 **e** in comparare, curatarea lucreaza ca pana acum
+        let scoase = rev.curata(&randuri, &["Client1".to_string(), "Client2".to_string()]);
+        assert_eq!(scoase, 2, "dbo.q si dbo.r nu mai au randuri in Client2");
+    }
+
     #[test]
     fn curatarea_scoate_bifele_care_nu_mai_corespund() {
         let mut rev = Revizuire::noua();
@@ -336,7 +365,7 @@ mod teste {
         rev.marcheaza(&rand("dbo.sters", "eee", "fff"));
         let randuri = vec![rand("dbo.p", "aaa", "bbb"), rand("dbo.q", "ccc", "ALTCEVA")];
         assert_eq!(
-            rev.curata(&randuri),
+            rev.curata(&randuri, &["Client1".to_string()]),
             2,
             "q s-a schimbat, sters nu mai exista"
         );
@@ -394,7 +423,7 @@ mod teste {
         let schimbat = rand_test("a", "b2");
         assert!(!v.e_omis(&schimbat));
         assert!(!v.e_goala());
-        assert_eq!(v.curata(&[schimbat]), 1);
+        assert_eq!(v.curata(&[schimbat], &["Client1".to_string()]), 1);
         assert!(v.e_goala());
     }
 
@@ -419,7 +448,7 @@ mod teste {
         assert!(!v.e_deployat(&schimbat), "versiune noua");
         assert!(v.a_fost_deployat(&schimbat));
         // curatarea nu atinge istoricul de deploy
-        v.curata(std::slice::from_ref(&schimbat));
+        v.curata(std::slice::from_ref(&schimbat), &["Client1".to_string()]);
         assert!(v.a_fost_deployat(&schimbat));
         let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
         v.in_sesiune(&mut s);
@@ -438,7 +467,7 @@ mod teste {
         assert!(!v.e_goala());
         // obiectul se schimba pe server: bifele cad, nota ramane
         let schimbat = rand_test("a2", "b");
-        v.curata(std::slice::from_ref(&schimbat));
+        v.curata(std::slice::from_ref(&schimbat), &["Client1".to_string()]);
         let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
         v.in_sesiune(&mut s);
         let v2 = Revizuire::din_sesiune(&s);

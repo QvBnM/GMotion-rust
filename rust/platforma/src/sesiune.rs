@@ -65,6 +65,20 @@ impl Sesiune {
             date: BTreeMap::new(),
         }
     }
+
+    /// Adauga bazele comparate acum la cele de care sesiunea stie deja.
+    ///
+    /// **Nu le inlocuieste.** O sesiune tine munca facuta pe toate bazele
+    /// comparate vreodata cu aceeasi referinta; scrisa peste, lista spunea
+    /// doar ce s-a comparat ultima data, iar urmatoarea curatare stergea
+    /// restul (C3/C4 din auditul QA).
+    pub fn adauga_baze(&mut self, baze: &[String]) {
+        for b in baze {
+            if !self.baze.contains(b) {
+                self.baze.push(b.clone());
+            }
+        }
+    }
 }
 
 /// Numele de fisier pentru o baza de referinta.

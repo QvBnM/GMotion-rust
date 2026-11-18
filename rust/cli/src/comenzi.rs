@@ -475,10 +475,10 @@ pub fn revizuire(
         ));
     }
     if schimbat {
-        revizuire.curata(&r.comparare.randuri);
+        revizuire.curata(&r.comparare.randuri, &r.comparare.baze);
         revizuire.in_sesiune(&mut sesiune);
         sesiune.salvata = acum();
-        sesiune.baze = r.comparare.baze.clone();
+        sesiune.adauga_baze(&r.comparare.baze);
         sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
     }
 
@@ -745,9 +745,10 @@ pub fn editare(
         }
     };
     if schimbat {
-        editari.curata(&r.comparare.randuri);
+        editari.curata(&r.comparare.randuri, &r.comparare.baze);
         editari.in_sesiune(&mut sesiune);
         sesiune.salvata = acum();
+        sesiune.adauga_baze(&r.comparare.baze);
         sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
     }
 

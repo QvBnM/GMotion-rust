@@ -127,10 +127,18 @@ impl Editari {
         scos
     }
 
-    /// Scoate editarile care nu mai corespund niciunui rand de acum.
-    pub fn curata(&mut self, randuri: &[Rand]) -> usize {
+    /// Scoate editarile care nu mai corespund niciunui rand de acum, **doar
+    /// pentru bazele din compararea de acum** (`baze_comparate`).
+    ///
+    /// O baza care nu e comparata acum n-are randuri: fara filtrul pe baze,
+    /// textele finale scrise alta data pentru ea se stergeau toate, iar
+    /// deploy-ul ei scria codul referintei in locul lor (C3/C4 din auditul QA).
+    pub fn curata(&mut self, randuri: &[Rand], baze_comparate: &[String]) -> usize {
         let mut scoase = 0;
         for (baza, obiecte) in self.baze.iter_mut() {
+            if !baze_comparate.iter().any(|b| b == baza) {
+                continue;
+            }
             obiecte.retain(|obiect, t| {
                 let pastreaza = randuri.iter().any(|r| {
                     r.baza == *baza && r.obiect == *obiect && Amprenta::a_randului(r) == t.amprenta
@@ -289,7 +297,7 @@ mod teste {
             "sursa s-a schimbat"
         );
         assert_eq!(e.curent(&rand("a", "b2"), BAZA), BAZA);
-        assert_eq!(e.curata(&[rand("a", "b2")]), 1);
+        assert_eq!(e.curata(&[rand("a", "b2")], &["Client1".to_string()]), 1);
     }
 
     #[test]

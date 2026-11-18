@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: b1fb4f58f5b430aa -->
+<!-- api-hash: 0298bb9adb4b9103 -->
 
 ## Rol
 
@@ -31,7 +31,7 @@ biblioteca** — fara nicio interfata.
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
 | `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `din_sesiune` / `in_sesiune` |
-| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal`. Un text final **egal cu textul bazei** e decizia „pastreaza tinta" si se pastreaza: doar `reset` o sterge (F-A5) |
+| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`, `curata(randuri, baze_comparate)`; legat de amprenta, salvat in sesiune; `TextFinal`. Un text final **egal cu textul bazei** e decizia „pastreaza tinta" si se pastreaza: doar `reset` o sterge (F-A5) |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |
 
@@ -120,6 +120,11 @@ biblioteca** — fara nicio interfata.
 11. **Notele se tin pe nume, bifele pe amprenta.** O nota e despre obiect
    („a ramas aici"), deci nu cade cand obiectul se schimba si nu o sterge
    `curata`.
+12. **Curatarea atinge doar bazele din compararea de acum**
+   (`curata(randuri, baze_comparate)`, si la `Revizuire` si la `Editari`).
+   O baza care nu e comparata acum n-are randuri: fara filtru, toata munca
+   facuta pe ea alta data se stergea, fara niciun mesaj (C3/C4, auditul QA
+   2026-11-18). Un „omis" pierdut inseamna obiect ajuns inapoi in deploy.
 
 ## Erori tipice
 

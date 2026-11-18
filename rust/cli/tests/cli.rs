@@ -1039,3 +1039,98 @@ fn nota_se_pune_si_se_sterge_din_cli() {
     // fara --text, clap refuza
     assert!(!rev(&["--nota", "dbo.pClienti"]).status.success());
 }
+
+/// C3 / C4 din `cercetare/audit-qa-2026-11-18.md`: `revizuire --baze T2` sau
+/// `editare --baza T2` stergeau munca facuta pe T1, fiindca T1 n-avea randuri
+/// in compararea de acum. Un „omis" pierdut inseamna obiect ajuns inapoi in
+/// deploy.
+#[test]
+fn munca_unei_baze_nu_se_pierde_cand_compari_cu_alta() {
+    let d = dir("doua-baze");
+    let date = d.join("date");
+    let inst = d.join("inst.json");
+    std::fs::write(
+        &inst,
+        r#"{"versiune":1,"server":"SRV","creat":"2026-11-18T10:00:00Z","nota":"","baze":{
+          "Ref":[
+            {"schema":"dbo","nume":"pDiff","tip":"P","definitie":"CREATE PROC dbo.pDiff AS SELECT 1"},
+            {"schema":"dbo","nume":"pCom","tip":"P","definitie":"CREATE PROC dbo.pCom AS SELECT 2"}],
+          "T1":[
+            {"schema":"dbo","nume":"pDiff","tip":"P","definitie":"CREATE PROC dbo.pDiff AS SELECT 11"},
+            {"schema":"dbo","nume":"pCom","tip":"P","definitie":"CREATE PROC dbo.pCom AS SELECT 12"}],
+          "T2":[
+            {"schema":"dbo","nume":"pDiff","tip":"P","definitie":"CREATE PROC dbo.pDiff AS SELECT 21"},
+            {"schema":"dbo","nume":"pCom","tip":"P","definitie":"CREATE PROC dbo.pCom AS SELECT 22"}]}}"#,
+    )
+    .unwrap();
+    let i = inst.to_str().unwrap();
+    let rev = |baza: &str, extra: &[&str]| -> Output {
+        let mut v = vec![
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Ref",
+            "--baze",
+            baza,
+        ];
+        v.extend_from_slice(extra);
+        ruleaza_in(&v, Some(&date))
+    };
+
+    // ziua 1: bifa pe T1
+    let o = rev("T1", &["--marcheaza", "dbo.pDiff"]);
+    assert!(o.status.success(), "{}", err(&o));
+    // ziua 2: alta baza, alta treaba
+    let o = rev("T2", &["--omite", "dbo.pCom"]);
+    assert!(o.status.success(), "{}", err(&o));
+
+    // bifa de pe T1 e intacta
+    let o = rev("T1", &["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(
+        v["obiecte"].as_array().map(Vec::len),
+        Some(1),
+        "bifa din T1 trebuie sa fie intacta: {}",
+        out(&o)
+    );
+    // si omisiunea de pe T2
+    let o = rev("T2", &["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(
+        v["omise"].as_array().map(Vec::len),
+        Some(1),
+        "omisiunea din T2 trebuie sa fie intacta: {}",
+        out(&o)
+    );
+
+    // textul final al unei baze nu se pierde cand se editeaza alta
+    let ed = |baza: &str, extra: &[&str]| -> Output {
+        let mut v = vec![
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Ref",
+            "--baza",
+            baza,
+            "--obiect",
+            "dbo.pDiff",
+        ];
+        v.extend_from_slice(extra);
+        ruleaza_in(&v, Some(&date))
+    };
+    let fisier = d.join("scris.sql");
+    std::fs::write(&fisier, "CREATE PROC dbo.pDiff AS SELECT 999").unwrap();
+    let o = ed("T1", &["--din-fisier", fisier.to_str().unwrap()]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ed("T2", &["--aplica-toate"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ed("T1", &["--arata-final"]);
+    assert!(
+        out(&o).contains("SELECT 999"),
+        "textul final al lui T1 trebuie sa fie intact:\n{}",
+        out(&o)
+    );
+    std::fs::remove_dir_all(&d).ok();
+}
