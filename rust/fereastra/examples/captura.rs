@@ -103,6 +103,8 @@ fn main() {
         .unwrap_or_default();
     aplica_tema(&ui, tema);
     gmotion_fereastra::aplica_limba(&ui, Default::default());
+    // fara lista, coloana din stanga ar iesi goala in captura
+    ui.set_latime_lista(0.0);
     // proba ca fonturile incorporate chiar se folosesc: cu un nume inexistent
     // randarea trebuie sa iasa diferita (altfel desenam oricum cu rezerva)
     if let Some(i) = a.iter().position(|x| x == "--font-mono") {

@@ -27,10 +27,11 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
       (`pe_cod_deformat_aplica_toate_aduce_martorul_in_baza`)
 
 **B. Continuitate: lista ramane in stanga**
-- [ ] „Deschide" nu mai schimba fereastra: lista se strange intr-o coloana in
-      stanga, editorul ocupa restul; obiectul se schimba cu un clic in lista
-- [ ] `Esc` readuce lista la latime intreaga
-- [ ] antetul (obiect N din M, Revizuit, Omite, In plan) ramane acelasi
+- [x] lista se strange intr-o coloana in stanga, editorul ocupa restul;
+      obiectul se schimba cu un clic in coloana, fara sa pleci din editor
+- [x] `Esc` (si sageata din capul coloanei) readuce lista la latime intreaga
+- [x] antetul (obiect N din M, Revizuit, Omite, In plan) ramane acelasi
+- [ ] marginea dintre coloana si editor se trage cu mouse-ul
 
 **C. Incadrare si lizibilitate**
 - [ ] la 1366x768 si 1920x1080 nu iese nimic din ecran si nu se taie butoane
@@ -84,6 +85,21 @@ lansare.
 
 - **2026-11-18** Etapa deschisa, cu criteriile scrise inainte de cod, din
   lista lui Mihai de dupa prima rulare pe Windows.
+- **2026-11-18** B gata, in forma propusa in macheta: coloana de 300 px in
+  stanga editorului, cu starea, numele, baza si cat difera, similaritatea si
+  bifa; randul deschis marcat; clic = alt obiect pe loc. Randurile se
+  construiesc **o singura data** (`randuri_lista_ui`), ca lista intreaga si
+  coloana sa nu poata spune altceva despre acelasi obiect.
+  Ramane o diferenta fata de macheta: ecranele sunt tot doua ferestre Slint
+  care se schimba la Deschide si la Esc; vizual lista nu mai dispare, dar
+  trecerea nu e o animatie. O singura fereastra ar insemna mutat tot
+  editorul in `lista.slint` — se poate face, dar e o rescriere, nu o
+  ajustare.
+  Pe drum: `captura_flux` construia aplicatia cu numele bazei scris de mana
+  („Client1" in loc de `CharismaERP_Client1`), deci randurile nu-si gaseau
+  obiectele si nu se deschidea nimic. Nu se vedea pana acum fiindca nimeni
+  nu se uita la ce iese.
+
 - **2026-11-18** E, partea de fereastra: 143 de texte au iesit din `.slint`
   intr-un tabel unic (`fereastra::texte`), in romana si engleza, cu un
   comutator in antet si alegerea tinuta minte in configurare. „Sursa" /

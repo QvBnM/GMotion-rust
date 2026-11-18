@@ -57,7 +57,10 @@ toate blocurile pe el si verifica forma normalizata.
 (`fereastra::texte`), in romana si engleza, cu comutator in antet si alegerea
 tinuta minte; „Sursa" / „Baza" sunt acum „Martor" / „Modificata".
 
-**Urmatorul pas: ce a ramas din E, apoi B.** Inaintea rearanjarii ecranelor,
+**Facut din B:** lista ramane in stanga cand deschizi un obiect — coloana de
+300 px, clic pe rand = alt obiect pe loc, Esc o largeste la loc.
+
+**Urmatorul pas: ce a ramas din E, apoi C (incadrarea).** Inaintea rearanjarii ecranelor,
 fiindca atinge fiecare text:
 
 1. redenumirea „Martor" / „Modificata" si in `cli` si in documente;

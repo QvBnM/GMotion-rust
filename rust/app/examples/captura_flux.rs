@@ -63,7 +63,9 @@ fn main() {
     let mut app = Aplicatie::noua(
         comparare.randuri,
         sursa,
-        vec![("Client1".to_string(), tinta)],
+        // numele bazei trebuie sa fie exact cel din comparare, altfel
+        // randurile nu-si mai gasesc obiectele si nu se deschide nimic
+        vec![(a[3].clone(), tinta)],
         modul::Revizuire::noua(),
     );
     app.asigura_detalii(0, 40);
@@ -81,8 +83,14 @@ fn main() {
     let (w, h) = (1440u32, 900u32);
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
+    let tema = a
+        .iter()
+        .position(|x| x == "--tema")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_fereastra::Mod::din_nume(n))
+        .unwrap_or_default();
     let lista_ui = FereastraLista::new().expect("fereastra listei");
-    aplica_tema(&lista_ui, gmotion_fereastra::Mod::default());
+    aplica_tema(&lista_ui, tema);
     gmotion_fereastra::aplica_limba(&lista_ui, Default::default());
     incarca_lista(
         &lista_ui,
@@ -127,10 +135,12 @@ fn main() {
         "Deschide trebuia sa duca in editor"
     );
     let editor_ui = EditorDiferente::new().expect("fereastra editorului");
-    aplica_tema(&editor_ui, gmotion_fereastra::Mod::default());
+    aplica_tema(&editor_ui, tema);
     gmotion_fereastra::aplica_limba(&editor_ui, Default::default());
     let o = app.obiect().expect("un obiect deschis").clone();
     let model = app.model_editor().expect("modelul editorului");
+    // coloana din stanga: lista stransa, ca in aplicatie
+    gmotion_fereastra::incarca_coloana_lista(&editor_ui, app.lista());
     incarca_editor(
         &editor_ui,
         &AntetEditor {

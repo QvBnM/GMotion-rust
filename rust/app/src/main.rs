@@ -469,6 +469,7 @@ fn ruleaza() -> Result<(), String> {
                         },
                         &model,
                     );
+                    gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista());
                     e_ui.set_are_cursor(app.are_cursor());
                     e_ui.set_uneste_cursorul(app.uneste_cursorul());
                     let (editat, _) = app.stare_text_final();
@@ -1166,6 +1167,24 @@ fn ruleaza() -> Result<(), String> {
         editor_ui.on_obiect_anterior(move || c(Comanda::ObiectAnterior));
         let c = comanda.clone();
         editor_ui.on_comuta_revizuit(move || c(Comanda::ComutaRevizuit));
+        // clic in coloana din stanga: schimba obiectul pe loc, fara sa pleci
+        // din editor (pachetul B)
+        let c = comanda.clone();
+        editor_ui.on_alege_randul(move |i| c(Comanda::Selecteaza(i.max(0) as usize)));
+        let c = comanda.clone();
+        editor_ui.on_cauta(move |t| c(Comanda::Cauta(t.to_string())));
+        let e = editor_ui.as_weak();
+        let d = deseneaza.clone();
+        editor_ui.on_ascunde_lista(move || {
+            if let Some(ui) = e.upgrade() {
+                ui.set_latime_lista(if ui.get_latime_lista() > 0.0 {
+                    0.0
+                } else {
+                    300.0
+                });
+            }
+            d();
+        });
         // plierea si alaturat / unificat stau in fereastra; modelul se
         // reconstruieste la redesenare, din ce arata fereastra acum
         let c = comanda.clone();

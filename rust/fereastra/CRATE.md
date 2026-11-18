@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 61d42225fb80b43b -->
+<!-- api-hash: 3b34a89ee7034ee4 -->
 
 ## Rol
 
@@ -34,6 +34,7 @@ si editorul de diferente (etapa 8).
 | `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire}` | modelul listei; cheia unui rand e `(baza, schema.nume)` |
+| `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
 | `AJUTOR` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
 | `texte::{Limba, Texte, RO, EN}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |

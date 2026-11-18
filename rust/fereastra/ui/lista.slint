@@ -62,7 +62,7 @@ export struct GrupHartaUi {
 }
 
 // Culoarea unei stari: M chihlimbar, S verde, B rosu, = / # gri.
-global Stari {
+export global Stari {
     public pure function culoare(stare: int) -> color {
         return stare == 0 ? Tema.mod-text
              : stare == 1 ? Tema.add-text

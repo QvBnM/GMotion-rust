@@ -430,6 +430,66 @@ fn detaliu_panou(server: &str, linii: usize) -> String {
 }
 
 /// Umple editorul cu modelul unui obiect. Nu atinge jetoanele: `aplica_tema`
+/// Randurile listei, pentru tabelul intreg si pentru coloana ingusta din
+/// editor. Un singur loc: altfel cele doua ar arata altceva despre acelasi
+/// obiect.
+fn randuri_lista_ui(lista: &model_lista::Lista) -> Vec<RandListaUi> {
+    use model_lista::Stare;
+    let cod = |s: Stare| match s {
+        Stare::Modificat => 0,
+        Stare::DoarSursa => 1,
+        Stare::DoarBaza => 2,
+        Stare::Identic => 3,
+        Stare::Criptat => 4,
+    };
+    lista
+        .vizibile()
+        .iter()
+        .map(|&i| {
+            let o = &lista.obiecte()[i];
+            let (plus, minus) = match &o.detalii {
+                Some(d) => (
+                    format!("+{}", d.linii_plus),
+                    format!("\u{2212}{}", d.linii_minus),
+                ),
+                None => (String::new(), String::new()),
+            };
+            RandListaUi {
+                schema: o.schema.as_str().into(),
+                nume: o.nume.as_str().into(),
+                baza: o.baza.as_str().into(),
+                tip: gmotion_core::nume_tip(&o.tip).into(),
+                litera: o.stare.litera().into(),
+                stare: cod(o.stare),
+                plus: plus.into(),
+                minus: minus.into(),
+                difera_in: o
+                    .detalii
+                    .as_ref()
+                    .map_or("", |d| d.difera_in.as_str())
+                    .into(),
+                revizuit: o.revizuit,
+                in_plan: o.in_plan,
+                omis: o.omis,
+                scor: o.scor.unwrap_or(0.0) as f32 / 100.0,
+                scor_text: o.scor.map_or(String::new(), |x| format!("{x:.0}%")).into(),
+                deploy: cod_deploy(o),
+            }
+        })
+        .collect()
+}
+
+/// Umple coloana din stanga a editorului: lista stransa, din acelasi model
+/// ca lista intreaga. Fara ea, „Deschide" te scotea din ecran si trebuia sa
+/// te intorci cu Esc pentru fiecare obiect (pachetul B al etapei 15).
+pub fn incarca_coloana_lista(ui: &EditorDiferente, lista: &model_lista::Lista) {
+    let t = ui.global::<Texte>();
+    let (nerevizuite, vizibile) = lista.rezumat_vizibile();
+    ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
+    ui.set_selectat_lista(lista.selectat().map_or(0, |p| p as i32));
+    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_lista_ui(lista))));
+}
+
 /// se cheama o data, la pornire.
 pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEditor) {
     let (randuri, start) = randuri_ui(model, ui.get_pliaza_identicul(), !ui.get_alaturat());
@@ -674,45 +734,14 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             F::Nedeployate => t.get_filtru_nedeployate(),
         }
     };
-    let cod_stare = |s: Stare| match s {
+    let randuri = randuri_lista_ui(lista);
+    let cod_categorie = |s: Stare| match s {
         Stare::Modificat => 0,
         Stare::DoarSursa => 1,
         Stare::DoarBaza => 2,
         Stare::Identic => 3,
         Stare::Criptat => 4,
     };
-    let randuri: Vec<RandListaUi> = lista
-        .vizibile()
-        .iter()
-        .map(|&i| {
-            let o = &lista.obiecte()[i];
-            let (plus, minus) = match &o.detalii {
-                Some(d) => (format!("+{}", d.linii_plus), format!("−{}", d.linii_minus)),
-                None => (String::new(), String::new()),
-            };
-            RandListaUi {
-                schema: o.schema.as_str().into(),
-                nume: o.nume.as_str().into(),
-                baza: o.baza.as_str().into(),
-                tip: gmotion_core::nume_tip(&o.tip).into(),
-                litera: o.stare.litera().into(),
-                stare: cod_stare(o.stare),
-                plus: plus.into(),
-                minus: minus.into(),
-                difera_in: o
-                    .detalii
-                    .as_ref()
-                    .map_or("", |d| d.difera_in.as_str())
-                    .into(),
-                revizuit: o.revizuit,
-                in_plan: o.in_plan,
-                omis: o.omis,
-                scor: o.scor.unwrap_or(0.0) as f32 / 100.0,
-                scor_text: o.scor.map_or(String::new(), |x| format!("{x:.0}%")).into(),
-                deploy: cod_deploy(o),
-            }
-        })
-        .collect();
     let categorii: Vec<CategorieUi> = lista
         .contoare_stari()
         .into_iter()
@@ -720,7 +749,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             litera: s.litera().into(),
             nume: categorie(s),
             numar: n.to_string().into(),
-            stare: cod_stare(s),
+            stare: cod_categorie(s),
         })
         .collect();
     let tipuri: Vec<TipUi> = lista
@@ -1246,13 +1275,23 @@ mod teste {
         });
         let a = apeluri.clone();
         ui.on_aplica_diferenta(move |_| a.borrow_mut().push("aplica-bloc"));
+        // coloana din stanga: un clic pe un rand schimba obiectul pe loc
+        let a = apeluri.clone();
+        ui.on_alege_randul(move |i| a.borrow_mut().push(if i == 3 { "rand3" } else { "rand?" }));
+        ui.invoke_alege_randul(3);
         ui.invoke_resincronizeaza();
         ui.invoke_comuta_unirea_cursorului(true);
         ui.invoke_comuta_unirea_cursorului(false);
         ui.invoke_aplica_diferenta(0);
         assert_eq!(
             *apeluri.borrow(),
-            ["resincronizeaza", "uneste", "desparte", "aplica-bloc"],
+            [
+                "rand3",
+                "resincronizeaza",
+                "uneste",
+                "desparte",
+                "aplica-bloc"
+            ],
             "butoanele noi din editor au actiune"
         );
         apeluri.borrow_mut().clear();
@@ -1393,6 +1432,38 @@ mod teste {
         }
         // un cod necunoscut nu da panica: cade pe sortarea implicita
         assert_eq!(ordine_din_cod(99), Ordine::Nume);
+    }
+
+    /// Coloana din stanga arata aceleasi randuri ca lista intreaga: daca ar
+    /// fi construita separat, cele doua ar putea spune altceva despre acelasi
+    /// obiect.
+    #[test]
+    fn coloana_din_editor_arata_aceleasi_randuri_ca_lista() {
+        let ui_lista = fereastra_lista();
+        let ui_editor = fereastra();
+        aplica_limba(&ui_lista, texte::Limba::default());
+        aplica_limba(&ui_editor, texte::Limba::default());
+        let mut lista = lista_de_proba();
+        lista.selecteaza(1);
+        incarca_lista(&ui_lista, &antet_lista(), &lista);
+        incarca_coloana_lista(&ui_editor, &lista);
+
+        assert_eq!(
+            ui_editor.get_randuri_lista().row_count(),
+            ui_lista.get_randuri().row_count()
+        );
+        for i in 0..ui_lista.get_randuri().row_count() {
+            let (a, b) = (
+                ui_lista.get_randuri().row_data(i).unwrap(),
+                ui_editor.get_randuri_lista().row_data(i).unwrap(),
+            );
+            assert_eq!(a.nume, b.nume);
+            assert_eq!(a.baza, b.baza);
+            assert_eq!(a.stare, b.stare);
+            assert_eq!(a.scor_text, b.scor_text);
+        }
+        assert_eq!(ui_editor.get_selectat_lista(), 1, "acelasi rand selectat");
+        assert_eq!(ui_editor.get_rezumat_lista(), ui_lista.get_rezumat_lista());
     }
 
     #[test]
