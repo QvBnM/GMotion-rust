@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (461 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-18 · commit `a35dc85` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (472 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -65,14 +65,20 @@ Din `cli`: `gmotion impact`, `revizuire --nota`.
 **Facut din B:** lista ramane in stanga cand deschizi un obiect — coloana de
 300 px, clic pe rand = alt obiect pe loc, Esc o largeste la loc.
 
-**Urmatorul pas: auditul QA (etapa 15, pachetul H), inaintea oricarui alt
+**Auditul QA (etapa 15, pachetul H) e in lucru, inaintea oricarui alt
 lucru** — cererea lui Mihai. `cercetare/audit-qa-2026-11-18.md` a fost facut
 pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
-test care cade, abia apoi se repara.
+test care cade, abia apoi se repara. Verdictele intra in sectiunea
+„Verdicte" de la finalul auditului.
+
+**H1 (siguranta deploy-ului) e gata**: C1, C2, C5, C6, C7, C8, F-D1, F-D2,
+F-A5, cate un commit fiecare, cu poarta verde inainte de fiecare. Toate noua
+s-au reprodus pe codul de acum. F-D7 a ramas nefacut, deliberat: cere o
+proba pe Windows (vezi mai jos).
 
 **Tot ce e de facut, in ordine:**
 
-1. **H1** siguranta deploy-ului: C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5.
+1. ~~**H1** siguranta deploy-ului~~ — gata (2026-11-18).
 2. **H2** pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3.
 3. **H3** cadere si ecrane: C9, V9, V1, V2, V3, V10.
 4. **H4** inghetari: P4, P1, P2, P3.
@@ -112,6 +118,21 @@ stiu: (1) daca umbrele insulelor din editor se misca greu prin RDP (daca da,
 se scot umbrele, nu insulele); (2) cat tine bara de progres pe bazele lui si
 daca „Anuleaza" raspunde pe loc; (3) daca tragerea unui bloc peste panoul din
 dreapta se simte natural sau e prea sensibila.
+
+**Si o proba de SQL, pentru F-D7** (oprirea deploy-ului intre obiecte). Nu pot
+afla pe Linux ce vede `@@ERROR` **dupa un `GO`**, iar fara asta n-am ce scrie
+in script. Pe o baza de test, in SSMS sau `sqlcmd`:
+
+```
+CREATE OR ALTER PROCEDURE dbo.pTestEroare AS SELECT * FROM dbo.TabelaCareNuExista;
+GO
+IF @@ERROR <> 0 PRINT 'eroarea se vede dupa GO'; ELSE PRINT 'nu se vede';
+GO
+```
+
+Imi trebuie exact ce tipareste al doilea batch. Daca iese „nu se vede",
+oprirea intre obiecte se face altfel (`sqlcmd -b`, sau o variabila de
+sesiune scrisa de fiecare batch), si atunci e o decizie, nu o reparatie.
 
 Ramase deschise, documentate: performanta patratica pe obiecte uriase (se
 vede si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura data,
@@ -165,6 +186,23 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Textul de afisare e si textul care pleaca in baza.** `pregateste_afisare`
+  da si ce vede editorul, si ce trimite „Aplica toate". De-aia nu mai atinge
+  interiorul sirurilor (C5): granitele vin din `lexer::segmente`. O regula
+  noua pe text acolo schimba datele produse de proceduri in PROD.
+- **Un text final egal cu textul bazei NU e lipsa de editare**, e decizia
+  „pastreaza tinta" (modul ghidat, „din tinta" la tot). De-aia `Editari::pune`
+  nu-l mai sterge; doar „Reset" sterge decizia. Daca il stergi iar, deploy-ul
+  scrie toata sursa peste ce a ales omul sa pastreze (F-A5).
+- **Planul de deploy nu se refoloseste pe o cheie incompleta.**
+  `deploy::Cheie` = ce e in plan + amprenta textelor finale +
+  `Aplicatie::id_comparare`. Daca adaugi o stare noua de care depinde planul
+  si n-o pui in cheie, se intoarce C1/C2: scriere cu text vechi sau cu garda
+  mostenita de la alta comparare.
+- **Liniile scrise de GMotion in scripturi au `\r\n`, codul obiectului nu se
+  atinge.** `crlf()` nu se cheama niciodata pe un text care contine `o.cod`
+  (F-D2 si C5 sunt aceeasi regula din doua parti).
 
 - **Dublu clicul pe rand trimite intai doua clicuri.** Slint cheama
   `clicked` de doua ori, apoi `double-clicked`: panoul se deschide, se
@@ -243,7 +281,8 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
 - **Paritatea cu v3.4 nu mai e totala, deliberat.** Normalizarea nu mai atinge
   string-urile, „identic" nu mai foloseste scorul, criptatele au categorie
-  proprie. Orice diferenta noua fata de v3.4 intra in `*.asteptari.json` cu
+  proprie, iar de la auditul QA acelasi cod cu alt `QUOTED_IDENTIFIER` nu mai
+  e „identic" (C6). Orice diferenta noua fata de v3.4 intra in `*.asteptari.json` cu
   motivul ei — niciodata „ca sa treaca poarta". Divergentele fata de JS stau
   in `DIVERGENTE_DELIBERATE` din `core/tests/conformitate.rs`.
 - **Granitele cod / string / comentariu se decid intr-un singur loc:**

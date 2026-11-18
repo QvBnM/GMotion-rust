@@ -929,6 +929,56 @@ comune si taiate la capat arata identic.
 
 ---
 
+## 2026-11-18 — Auditul QA, H1: ce s-a decis pe siguranta deploy-ului
+
+Noua constatari reparate (C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5). Patru
+decizii merita scrise, fiindca nu erau singura varianta posibila.
+
+**1. Planul de deploy e legat de starea care l-a produs, nu de o lista de
+nume.** C1 si C2 veneau amandoua din aceeasi cheie prea slaba: „ce e in
+plan". Varianta minima ar fi fost `st.deploy = None` in `on_recompara` si
+la fiecare comanda care schimba textul — adica o lista de locuri de care
+cineva isi aminteste. Alegerea: o cheie explicita (`deploy::Cheie`) din ce e
+in plan, amprenta textelor finale si `Aplicatie::id_comparare`, luat dintr-un
+numarator la **construire**. O `Aplicatie` noua are mereu alt id, deci
+„am uitat sa invalidez" nu se mai poate scrie. In plus `StareDeploy` nu mai
+tine textele finale: le primeste la scriere, deci nu pot fi vechi.
+
+**2. Afisarea nu mai atinge interiorul sirurilor — si asta schimba si
+editorul, nu doar deploy-ul.** `pregateste_afisare` taia spatiile de la
+capatul fiecarei linii fizice si unifica `\r\n` oriunde, inclusiv in
+siruri; acelasi text e si ce vede omul in editor si ce trimite „Aplica
+toate" in baza. Varianta „taie doar pentru afisare, trimite altceva in baza"
+ar fi insemnat doua texte pentru acelasi obiect — exact clasa de bug de la
+care am scapat la etapa 7. Alegerea: granitele vin din `lexer::segmente`, ca
+orice regula pe text, iar un text final egal cu afisarea referintei nu mai e
+socotit editare (se deployeaza `definitie`, octet cu octet).
+
+**3. Setarile de creare conteaza: acelasi cod cu alt `QUOTED_IDENTIFIER` nu
+mai e „identic" (C6).** Divergenta deliberata fata de v3.4. Alternativa ar
+fi fost o categorie noua („doar setari"), care ar fi atins filtrele, culorile
+si modelul listei; am ales un rand `Diferit` cu rezumatul „difera doar
+setarile: ...", fara procent de similaritate — textul e acelasi, un procent
+ar minti. Deploy-ul scria deja setarile corect, deci randul e deployabil fara
+alta schimbare.
+
+**4. Cautarea in baza tinta e acum case-insensitive, dar numai in plan,
+garda si revenire (C8).** Colatia implicita la SQL Server nu deosebeste
+majusculele, deci `CREATE OR ALTER PROCEDURE dbo.GetX` **modifica** un
+`dbo.getx` existent; planul il credea inexistent si revenirea il stergea.
+Varianta „uneste perechile lipsa/extra la comparare" ar fi schimbat
+clasificarea si paritatea; am atins doar partea care scrie in baza, plus un
+rezumat care spune varianta gasita. Pe o colatie case-sensitive (rara)
+reparatia lasa in urma un obiect in plus la revenire, in loc sa stearga unul
+care exista — partea recuperabila a greselii.
+
+**Nefacut, deliberat:** F-D7 (oprirea intre obiecte, `IF @@ERROR <> 0 SET
+NOEXEC ON` dupa fiecare obiect). Nu pot afla pe Linux ce vede `@@ERROR` dupa
+un `GO`, si o garda care nu garanteaza nimic e mai rea decat lipsa ei.
+Proba ceruta lui Mihai e in `STARE.md`.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

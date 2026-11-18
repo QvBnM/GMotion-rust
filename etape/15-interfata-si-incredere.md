@@ -86,7 +86,9 @@ un test care cade** (vazut cazand), abia apoi se repara. Daca nu se mai
 reproduce, se noteaza asa, cu testul care o dovedeste. O constatare care cere
 o decizie de produs (ex. C5, F-A18) nu se decide tacit: intra la „Ce astept
 de la Mihai" din `STARE.md`.
-- [ ] H1 siguranta deploy-ului: C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5
+- [x] H1 siguranta deploy-ului: C1, C2, C5, C6, C7, C8, F-D1, F-D2, F-A5
+      (verdictele si testele: sectiunea „Verdicte" din audit; F-D7 amanat,
+      cere o proba pe Windows)
 - [ ] H2 pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3
 - [ ] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
       intra in setul standard
@@ -172,6 +174,23 @@ de la Mihai" din `STARE.md`.
 
 - **2026-11-18** Adaugat pachetul H (auditul QA), inaintea restului, la
   cererea lui Mihai. Criteriile scrise inainte de orice reparatie.
+
+- **2026-11-18** H1 (siguranta deploy-ului) gata: C1, C2, C5, C6, C7, C8,
+  F-D1, F-D2, F-A5, cate un commit fiecare, fiecare reprodusa intai cu un
+  test vazut cazand pe codul de acum, nu pe `aec038a`. Toate noua s-au
+  reprodus: niciuna nu disparuse de la sine.
+  Trei lucruri ies din tipar:
+  - **C5 a schimbat ce vede editorul**, nu doar ce pleaca in baza:
+    `pregateste_afisare` e si textul afisat, si textul pe care "Aplica toate"
+    il trimite. Acum granitele vin din `lexer::segmente`, ca orice regula pe
+    text (capcana din `STARE.md`). Paritatea cu JS n-a cazut.
+  - **C6 e o divergenta deliberata fata de v3.4**: acelasi cod cu alt
+    `QUOTED_IDENTIFIER` nu mai e "identic". Fixture-ul real n-are astfel de
+    perechi, deci paritatea n-a cazut; daca va avea, intrarea merge in
+    `*.asteptari.json`.
+  - **F-D7 nu s-a facut** si nu e bifat: tiparul `IF @@ERROR <> 0 SET NOEXEC
+    ON` dupa fiecare obiect cere stiut ce vede `@@ERROR` peste granita de
+    batch (dupa `GO`). Nu se poate proba pe Linux; cerut lui Mihai.
 
 ## Ce a iesit altfel decat planul
 
