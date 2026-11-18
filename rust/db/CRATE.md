@@ -31,6 +31,7 @@ se testeaza fara SQL Server.
 | Metoda | Ce face |
 |---|---|
 | `descriere()` | pentru jurnal si diagnostic. Niciodata parole |
+| `identitate()` | **cine** e sursa, pe scurt si stabil: `host[:port]`, sau `instantaneu <server declarat>`. Intra in cheia sesiunii, deci nu se schimba cand se schimba autentificarea (F-B4) |
 | `baze()` | bazele disponibile, sortate, fara cele de sistem |
 | `obiecte(baza)` | proceduri, view-uri, functii, triggere |
 | `obiecte_multe(baze, progres)` | bucla cu raportare de progres; prima eroare opreste citirea |

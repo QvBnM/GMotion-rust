@@ -28,6 +28,15 @@ pub trait SursaObiecte {
     /// Pentru jurnal, diagnostic si rapoarte. Niciodata parole.
     fn descriere(&self) -> String;
 
+    /// **Cine** e sursa, pe scurt si stabil: `host[:port]` pentru un server,
+    /// calea pentru un instantaneu. Niciodata parole, niciodata felul
+    /// autentificarii.
+    ///
+    /// Diferita de `descriere`, care e o propozitie pentru om si se schimba
+    /// cand se schimba autentificarea. Asta intra in cheia sesiunii, deci
+    /// trebuie sa insemne „acelasi server" si maine (F-B4 din auditul QA).
+    fn identitate(&self) -> String;
+
     /// Bazele disponibile, sortate. Exclude bazele de sistem.
     fn baze(&mut self) -> Rezultat<Vec<String>>;
 
@@ -72,6 +81,9 @@ mod teste {
 
     impl SursaObiecte for SursaTest {
         fn descriere(&self) -> String {
+            "test".into()
+        }
+        fn identitate(&self) -> String {
             "test".into()
         }
         fn baze(&mut self) -> Rezultat<Vec<String>> {

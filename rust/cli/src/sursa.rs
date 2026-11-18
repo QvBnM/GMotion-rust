@@ -55,6 +55,16 @@ impl ArgumenteSursa {
         })
     }
 
+    /// Cine e sursa, pentru **cheia sesiunii**: deschide sursa si o intreaba.
+    ///
+    /// Nu se ghiceste din argumente: pentru un instantaneu identitatea e
+    /// serverul declarat **in fisier**, nu calea lui. Acelasi lucru la
+    /// scriere si la citire, altfel progresul s-ar salva sub o cheie si s-ar
+    /// cauta sub alta (F-B4).
+    pub fn identitate(&self) -> Result<String, String> {
+        Ok(self.deschide()?.identitate())
+    }
+
     pub fn deschide(&self) -> Result<Box<dyn SursaObiecte>, String> {
         match (&self.sursa, &self.server) {
             (Some(cale), _) => {

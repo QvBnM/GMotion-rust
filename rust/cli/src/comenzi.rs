@@ -344,13 +344,13 @@ fn sesiune_sau_noua(
     args: &ArgumenteSursa,
     referinta: &str,
 ) -> Result<gmotion_platforma::Sesiune, String> {
+    let identitate = args.identitate()?;
     Ok(sesiuni
-        .incarca(referinta)
+        .incarca(&identitate, referinta)
         .map_err(|e| e.to_string())?
         .unwrap_or_else(|| {
             gmotion_platforma::Sesiune::noua(
-                args.eticheta_server()
-                    .unwrap_or_else(|| "instantaneu".to_string()),
+                identitate.clone(),
                 if args.sursa.is_some() {
                     "instantaneu"
                 } else if args.auth.utilizator.is_some() {
@@ -382,7 +382,9 @@ pub fn revizuire(
     let sesiuni =
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
     if goleste {
-        let sters = sesiuni.sterge(referinta).map_err(|e| e.to_string())?;
+        let sters = sesiuni
+            .sterge(&args.identitate()?, referinta)
+            .map_err(|e| e.to_string())?;
         format.progres(if sters {
             "Progresul salvat a fost sters."
         } else {
@@ -840,11 +842,11 @@ pub fn export(
 }
 
 /// Planul din compararea de acum: randurile alese (toate, sau `--doar`).
-fn plan_din(r: &Rulare, doar: Option<&str>) -> modul::Plan {
+fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> modul::Plan {
     let filtru = doar.map(lista);
     // ce s-a omis (in fereastra sau cu `revizuire --omite`) nu intra in deploy,
     // ca in v3.4; cu `--doar` se poate cere totusi explicit
-    let omise = salvate(&r.comparare.referinta).0;
+    let omise = salvate(args, &r.comparare.referinta).0;
     modul::Plan::din_comparare(
         &r.comparare,
         &r.referinta,
@@ -899,10 +901,13 @@ fn marcheaza_deployatele(
 /// Revizuirea (cu omisele) si textele finale salvate pentru referinta. Lipsa
 /// sesiunii sau o sesiune de neinteles dau stari goale: deploy-ul merge si
 /// fara ele, cu codul din referinta.
-fn salvate(referinta: &str) -> (modul::Revizuire, modul::Editari) {
+fn salvate(args: &ArgumenteSursa, referinta: &str) -> (modul::Revizuire, modul::Editari) {
     gmotion_platforma::Sesiuni::pentru_modul(modul::NUME)
         .ok()
-        .and_then(|s| s.incarca(referinta).ok().flatten())
+        .and_then(|s| {
+            let id = args.identitate().ok()?;
+            s.incarca(&id, referinta).ok().flatten()
+        })
         .map(|s| {
             (
                 modul::Revizuire::din_sesiune(&s),
@@ -923,7 +928,7 @@ pub fn plan(
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-    let p = plan_din(&r, doar);
+    let p = plan_din(args, &r, doar);
     if p.pasi.is_empty() {
         return Err(modul::Eroare::NimicDeDeployat.to_string());
     }
@@ -993,13 +998,15 @@ pub fn deploy(
         }
         None => {
             let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-            (plan_din(&r, doar), r)
+            (plan_din(args, &r, doar), r)
         }
     };
 
     // textele finale facute in editor (sau cu `gmotion editare`), daca sunt
     // inca valabile pentru obiectele de acum
-    let texte_finale = salvate(referinta).1.pentru_deploy(&r.comparare.randuri);
+    let texte_finale = salvate(args, referinta)
+        .1
+        .pentru_deploy(&r.comparare.randuri);
     let cu_text_final = plan
         .pasi
         .iter()

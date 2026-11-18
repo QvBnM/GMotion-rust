@@ -157,6 +157,13 @@ impl SursaFixture {
 }
 
 impl SursaObiecte for SursaFixture {
+    fn identitate(&self) -> String {
+        // serverul **declarat in instantaneu**, nu calea fisierului: acelasi
+        // server exportat de doua ori e tot acelasi server, deci aceeasi
+        // sesiune (F-B4). Calea e in `descriere`, pentru om.
+        format!("instantaneu {}", self.instantaneu.server)
+    }
+
     fn descriere(&self) -> String {
         match &self.cale {
             Some(c) => format!(

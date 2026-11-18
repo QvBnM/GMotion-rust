@@ -265,6 +265,14 @@ impl std::fmt::Debug for SursaSqlServer {
 }
 
 impl SursaObiecte for SursaSqlServer {
+    fn identitate(&self) -> String {
+        format!(
+            "{}{}",
+            self.tinta.server,
+            self.tinta.port.map(|p| format!(":{p}")).unwrap_or_default()
+        )
+    }
+
     fn descriere(&self) -> String {
         let parola = match &self.auth {
             Autentificare::Sql { parola, .. } => format!(", parola {}", Redactat(parola)),

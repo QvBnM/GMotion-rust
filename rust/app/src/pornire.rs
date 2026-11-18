@@ -265,7 +265,9 @@ pub fn compara_cu(
         return Err("nicio baza de comparat".to_string());
     }
     let mut sursa_db = deschide(c, &c.sursa)?;
-    let server = sursa_db.descriere();
+    // identitatea, nu descrierea: intra in cheia sesiunii si in antet, deci
+    // trebuie sa insemne „acelasi server" si maine, fara felul autentificarii
+    let server = sursa_db.identitate();
     if !progres(Pas {
         baza: c.sursa.baza.clone(),
         facut: 0,

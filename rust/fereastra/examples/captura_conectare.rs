@@ -60,18 +60,21 @@ fn main() {
     c.recente = vec![
         Recenta {
             sursa: "CharismaDev".into(),
+            server: "SRV01".into(),
             baza: "CharismaProd".into(),
             cand: "ieri, 17:40".into(),
             progres: "124 din 336 revizuite".into(),
         },
         Recenta {
             sursa: "CharismaDev".into(),
+            server: "SRV01".into(),
             baza: "CharismaTest".into(),
             cand: "luni, 10:12".into(),
             progres: "deploy facut".into(),
         },
         Recenta {
             sursa: "Charisma_Copy".into(),
+            server: "SRV02".into(),
             baza: "CharismaDev".into(),
             cand: "12 noiembrie".into(),
             progres: "96 din 1.204 revizuite".into(),

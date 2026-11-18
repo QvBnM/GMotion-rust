@@ -181,6 +181,10 @@ impl Parte {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recenta {
     pub sursa: String,
+    /// Serverul (sau instantaneul) pe care s-a facut compararea. Nu se
+    /// deseneaza, dar face parte din cheia sesiunii: fara el, „nu mai arata
+    /// compararea asta" ar sterge sesiunea altui server (F-B4).
+    pub server: String,
     pub baza: String,
     /// „ieri, 17:40" sau data exacta.
     pub cand: String,

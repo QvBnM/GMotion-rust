@@ -90,6 +90,13 @@ impl Sesiune {
 /// `Prod_2024` (doua baze distincte) aveau acelasi fisier, iar o sesiune o
 /// suprascria tacut pe cealalta.
 pub fn slug(nume: &str) -> String {
+    let h = gmotion_core::calc_hash(nume);
+    format!("{}-{}", nume_lizibil(nume), &h[..12])
+}
+
+/// Partea lizibila a unui nume de fisier: litere, cifre si cratima, cel mult
+/// 48 de caractere. Nu e unica singura — de-aia peste ea vine un hash.
+fn nume_lizibil(nume: &str) -> String {
     let mut s: String = nume
         .chars()
         .map(|c| {
@@ -105,9 +112,18 @@ pub fn slug(nume: &str) -> String {
     }
     let s = s.trim_matches('-').to_string();
     let baza = if s.is_empty() { "baza".to_string() } else { s };
-    let baza: String = baza.chars().take(48).collect();
-    let h = gmotion_core::calc_hash(nume);
-    format!("{baza}-{}", &h[..12])
+    baza.chars().take(48).collect()
+}
+
+/// Numele de fisier al unei sesiuni: baza de referinta **si serverul**.
+///
+/// `PROD\\Ref` si `TEST\\Ref` sunt doua sesiuni diferite. Pana la auditul QA
+/// cheia era doar referinta, deci isi suprascriau una alteia progresul si
+/// `incarca` intorcea sesiunea celuilalt server (F-B4). Partea lizibila
+/// ramane numele bazei; discriminantul e hash-ul perechii exacte.
+pub fn slug_sesiune(server: &str, referinta: &str) -> String {
+    let h = gmotion_core::calc_hash(&format!("{server}\0{referinta}"));
+    format!("{}-{}", nume_lizibil(referinta), &h[..12])
 }
 
 /// Sesiunile unui modul. Un `Sesiuni` e legat de **un** modul: platforma da
@@ -135,12 +151,58 @@ impl Sesiuni {
         &self.director
     }
 
-    fn cale(&self, referinta: &str) -> PathBuf {
+    fn cale(&self, server: &str, referinta: &str) -> PathBuf {
+        self.director
+            .join(format!("{}.dat", slug_sesiune(server, referinta)))
+    }
+
+    /// Calea de dinainte de auditul QA: numai pe referinta. Se citeste o
+    /// singura data, ca sa mute sesiunea pe numele nou.
+    fn cale_veche(&self, referinta: &str) -> PathBuf {
         self.director.join(format!("{}.dat", slug(referinta)))
     }
 
+    /// Muta o sesiune scrisa sub numele vechi (doar pe referinta) pe numele
+    /// nou, care tine si serverul. Intoarce `true` daca a mutat ceva.
+    ///
+    /// Se cheama la `incarca`: altfel progresul de pana acum ar aparea
+    /// pierdut la prima pornire cu versiunea noua.
+    fn migreaza(&self, referinta: &str) -> bool {
+        let vechi = self.cale_veche(referinta);
+        let Ok(date) = std::fs::read(&vechi) else {
+            return false;
+        };
+        let Some(s) = deprotejeaza(&date)
+            .and_then(|clar| serde_json::from_slice::<Sesiune>(&clar).ok())
+            .filter(|s| s.referinta == referinta)
+        else {
+            return false;
+        };
+        let nou = self.cale(&s.server, referinta);
+        if nou.exists() {
+            return false;
+        }
+        match std::fs::rename(&vechi, &nou) {
+            Ok(()) => {
+                tracing::info!(
+                    target: "gmotion::platforma",
+                    de_la = %vechi.display(), la = %nou.display(),
+                    "sesiune mutata pe numele care tine si serverul"
+                );
+                true
+            }
+            Err(e) => {
+                tracing::warn!(
+                    target: "gmotion::platforma", eroare = %e,
+                    cale = %vechi.display(), "sesiunea veche nu s-a putut muta"
+                );
+                false
+            }
+        }
+    }
+
     pub fn salveaza(&self, sesiune: &Sesiune) -> Rezultat<PathBuf> {
-        let cale = self.cale(&sesiune.referinta);
+        let cale = self.cale(&sesiune.server, &sesiune.referinta);
         std::fs::create_dir_all(&self.director).map_err(|e| Eroare::ScriereSesiune {
             cale: self.director.display().to_string(),
             detaliu: e.to_string(),
@@ -166,8 +228,15 @@ impl Sesiuni {
     }
 
     /// `Ok(None)` cand nu exista sesiune — nu e o eroare.
-    pub fn incarca(&self, referinta: &str) -> Rezultat<Option<Sesiune>> {
-        let cale = self.cale(referinta);
+    ///
+    /// `server` face parte din cheie: sesiunea lui `PROD` nu se intoarce cand
+    /// se cere a lui `TEST` (F-B4). O sesiune scrisa sub numele vechi (doar pe
+    /// referinta) se muta pe numele nou la prima citire.
+    pub fn incarca(&self, server: &str, referinta: &str) -> Rezultat<Option<Sesiune>> {
+        let mut cale = self.cale(server, referinta);
+        if !cale.exists() && self.migreaza(referinta) {
+            cale = self.cale(server, referinta);
+        }
         let protejat = match std::fs::read(&cale) {
             Ok(d) => d,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -203,11 +272,21 @@ impl Sesiuni {
                 ),
             });
         }
+        if s.server != server {
+            return Err(Eroare::CitireSesiune {
+                cale: cale.display().to_string(),
+                detaliu: format!(
+                    "fisierul e sesiunea serverului {:?}, nu a lui {:?}",
+                    s.server, server
+                ),
+            });
+        }
         Ok(Some(s))
     }
 
-    pub fn sterge(&self, referinta: &str) -> Rezultat<bool> {
-        let cale = self.cale(referinta);
+    pub fn sterge(&self, server: &str, referinta: &str) -> Rezultat<bool> {
+        self.migreaza(referinta);
+        let cale = self.cale(server, referinta);
         match std::fs::remove_file(&cale) {
             Ok(()) => Ok(true),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),

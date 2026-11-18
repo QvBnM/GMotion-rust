@@ -1,6 +1,6 @@
 # gmotion-platforma
 
-<!-- api-hash: 19ba8e168bdd6f7c -->
+<!-- api-hash: b37ef24f8f05c0f8 -->
 
 ## Rol
 
@@ -25,7 +25,7 @@ unei unelte sta in crate-ul uneltei.
 |---|---|
 | `cai` | `director_date`, `director_sesiuni(modul)`, `cale_configurare`, `director_jurnale` |
 | `protejare` | `protejeaza`, `deprotejeaza`, `e_criptat` |
-| `sesiune` | `Sesiune` (`adauga_baze` — bazele comparate se adauga, nu se inlocuiesc), `Sesiuni::pentru_modul(m)` cu `salveaza/incarca/sterge/lista`, `slug` |
+| `sesiune` | `Sesiune` (`adauga_baze` — bazele comparate se adauga, nu se inlocuiesc), `Sesiuni::pentru_modul(m)` cu `salveaza`, `incarca(server, referinta)`, `sterge(server, referinta)`, `lista`; `slug`, `slug_sesiune(server, referinta)` |
 | `configurare` | `Configurare::citeste/scrie`, cu implicite in cod; `tema` tine modul ferestrei ales cu butonul (`intunecat` / `luminos` / gol) |
 | `timp` | `acum()` („2026-11-18 14:52"), `acum_compact()` („20261118_1452"): marcajul de timp, acelasi in `cli` si in fereastra |
 | `jurnal` | `porneste`, `linii(de_la)`, `adauga_linie`, `goleste` (Sterge log: uita liniile fara sa dea indexul inapoi) |
@@ -58,9 +58,12 @@ publica drept `<nume>/<metoda>`.
 3b. **Doua nume de baza diferite nu impart niciodata un fisier de sesiune:**
    `slug()` se termina cu 48 de biti de SHA-256 pe numele exact (pana la audit,
    lungimea numelui — `Prod.2024` si `Prod_2024` coliziau). `incarca` verifica
-   si ca sesiunea citita e a bazei cerute. Serverul **nu** face parte din cheie:
-   aceeasi baza pe doua servere imparte sesiunea (deschis, de decis cand
-   sesiunile vor fi folosite din interfata).
+   si ca sesiunea citita e a bazei cerute.
+3c. **Cheia unei sesiuni e perechea (server, referinta)** (`slug_sesiune`), si
+   `incarca` verifica amandoua. Pana la auditul QA era doar referinta, deci
+   `PROD\Ref` si `TEST\Ref` isi suprascriau progresul si `incarca` intorcea
+   sesiunea celuilalt server (F-B4). O sesiune scrisa sub numele vechi se muta
+   singura pe numele nou la prima citire.
 4. **Doua module pot avea metode cu acelasi nume.** Rutarea e cu prefix.
 5. **Un modul nu poate calca o metoda comuna.** Inregistrarea o refuza: altfel
    comportamentul ar depinde de modulul activ.

@@ -153,6 +153,7 @@ fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
                 },
                 cand: s.salvata.clone(),
                 sursa: s.referinta.clone(),
+                server: s.server.clone(),
                 baza,
             }
         })
@@ -520,7 +521,7 @@ fn ruleaza() -> Result<(), String> {
                 .unwrap_or_default();
             let mut sesiune = s
                 .sesiuni
-                .incarca(&referinta)
+                .incarca(&server, &referinta)
                 .ok()
                 .flatten()
                 .unwrap_or_else(|| {
@@ -852,7 +853,7 @@ fn ruleaza() -> Result<(), String> {
                 .get(usize::try_from(i).unwrap_or(0))
                 .cloned()
             {
-                match st.sesiuni.sterge(&r.sursa) {
+                match st.sesiuni.sterge(&r.server, &r.sursa) {
                     Ok(_) => tracing::info!(target: "gmotion::app", referinta = %r.sursa, "comparare ignorata"),
                     Err(e) => tracing::warn!(target: "gmotion::app", eroare = %e, "nu pot sterge sesiunea"),
                 }
@@ -1285,7 +1286,11 @@ fn ruleaza() -> Result<(), String> {
                                     }
                                     None => {
                                         let salvata =
-                                            st.sesiuni.incarca(&referinta).ok().flatten();
+                                            // cheia sesiunii tine si serverul
+                                            st.sesiuni
+                                                .incarca(&r.server, &referinta)
+                                                .ok()
+                                                .flatten();
                                         (
                                             salvata
                                                 .as_ref()

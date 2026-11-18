@@ -57,11 +57,11 @@ fn tot_fluxul_de_sesiuni() {
         .unwrap();
 
     let a = diff
-        .incarca("Referinta")
+        .incarca("SRV01", "Referinta")
         .unwrap()
         .expect("diff are sesiune");
     let b = upgrade
-        .incarca("Referinta")
+        .incarca("SRV01", "Referinta")
         .unwrap()
         .expect("upgrade are sesiune");
     assert_eq!(a.date["nota"], "din diff", "upgrade a suprascris diff");
@@ -74,7 +74,7 @@ fn tot_fluxul_de_sesiuni() {
     assert_eq!(a.baze, vec!["Client1", "Client2"]);
 
     // --- sesiune inexistenta nu e eroare ---
-    assert!(diff.incarca("BazaCareNuExista").unwrap().is_none());
+    assert!(diff.incarca("SRV01", "BazaCareNuExista").unwrap().is_none());
 
     // --- listare, sortata, doar sesiunile modulului ---
     diff.salveaza(&sesiune("Alta", "a doua")).unwrap();
@@ -93,15 +93,18 @@ fn tot_fluxul_de_sesiuni() {
     );
 
     // --- stergere ---
-    assert!(diff.sterge("Alta").unwrap());
-    assert!(!diff.sterge("Alta").unwrap(), "a doua stergere nu e eroare");
+    assert!(diff.sterge("SRV01", "Alta").unwrap());
+    assert!(
+        !diff.sterge("SRV01", "Alta").unwrap(),
+        "a doua stergere nu e eroare"
+    );
     assert_eq!(diff.lista().unwrap().len(), 1);
 
     // --- parola nu ajunge pe disc, in nicio forma ---
-    let brut = std::fs::read(
-        diff.director()
-            .join(format!("{}.dat", gmotion_platforma::slug("Referinta"))),
-    )
+    let brut = std::fs::read(diff.director().join(format!(
+        "{}.dat",
+        gmotion_platforma::slug_sesiune("SRV01", "Referinta")
+    )))
     .unwrap();
     let text = String::from_utf8_lossy(&brut);
     for cuvant in ["parola", "password", "secret"] {
@@ -140,9 +143,64 @@ fn nume_de_baze_dificile() {
             cale.starts_with(s.director()),
             "{referinta:?} a scris in afara directorului: {cale:?}"
         );
-        let citit = s.incarca(referinta).unwrap().expect(referinta);
+        let citit = s.incarca("SRV", referinta).unwrap().expect(referinta);
         assert_eq!(citit.date["marcaj"], referinta);
     }
+
+    std::env::remove_var("GMOTION_DIR_DATE");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// F-B4 din `cercetare/audit-qa-2026-11-18.md`: cheia sesiunii era doar
+/// referinta, deci `PROD\Ref` si `TEST\Ref` isi suprascriau progresul, iar
+/// `incarca` intorcea sesiunea celuilalt server. Si: o sesiune scrisa sub
+/// numele vechi se muta singura pe numele nou, ca progresul de pana acum sa
+/// nu para pierdut.
+#[test]
+fn doua_servere_cu_aceeasi_referinta_au_sesiuni_separate() {
+    let (_lacat, dir) = pregateste("doua-servere");
+    let s = Sesiuni::pentru_modul("diff-obiecte").unwrap();
+
+    let mut prod = sesiune("Ref", "de pe PROD");
+    prod.server = "SRV-PROD".into();
+    s.salveaza(&prod).unwrap();
+    let mut test = sesiune("Ref", "de pe TEST");
+    test.server = "SRV-TEST".into();
+    s.salveaza(&test).unwrap();
+
+    assert_eq!(
+        s.incarca("SRV-PROD", "Ref").unwrap().unwrap().date["nota"],
+        "de pe PROD",
+        "sesiunea lui PROD a fost suprascrisa de a lui TEST"
+    );
+    assert_eq!(
+        s.incarca("SRV-TEST", "Ref").unwrap().unwrap().date["nota"],
+        "de pe TEST"
+    );
+    // un server pe care nu s-a lucrat n-are sesiune, nu o imprumuta
+    assert!(s.incarca("SRV-ALTUL", "Ref").unwrap().is_none());
+    // stergerea e tot pe pereche
+    assert!(s.sterge("SRV-TEST", "Ref").unwrap());
+    assert!(s.incarca("SRV-PROD", "Ref").unwrap().is_some());
+
+    // --- migrarea unei sesiuni scrise sub numele vechi (doar pe referinta)
+    let vechi = s
+        .director()
+        .join(format!("{}.dat", gmotion_platforma::slug("Veche")));
+    let nou = s.director().join(format!(
+        "{}.dat",
+        gmotion_platforma::slug_sesiune("SRV-PROD", "Veche")
+    ));
+    let mut veche = sesiune("Veche", "scrisa inainte");
+    veche.server = "SRV-PROD".into();
+    std::fs::rename(s.salveaza(&veche).unwrap(), &vechi).unwrap();
+    assert!(!nou.exists());
+    assert_eq!(
+        s.incarca("SRV-PROD", "Veche").unwrap().unwrap().date["nota"],
+        "scrisa inainte",
+        "sesiunea veche trebuie gasita si mutata, nu pierduta"
+    );
+    assert!(nou.exists() && !vechi.exists(), "mutata, nu copiata");
 
     std::env::remove_var("GMOTION_DIR_DATE");
     std::fs::remove_dir_all(&dir).ok();

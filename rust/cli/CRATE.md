@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 889e50f4dd7cdf87 -->
+<!-- api-hash: ee9231dbe51c5a5a -->
 
 ## Rol
 
@@ -62,6 +62,10 @@ autoritati de certificare.
    `SRV,PORT`, din `ArgumenteSursa::eticheta_server`), nu descrierea pentru
    jurnal. Instantaneele ajung in repo ca fixture; o data a ajuns acolo
    lungimea parolei pe calea asta.
+7. **Cheia sesiunii e perechea (sursa, referinta)**, iar identitatea sursei
+   vine din sursa deschisa (`ArgumenteSursa::identitate` ->
+   `SursaObiecte::identitate`), nu ghicita din argumente: pentru un
+   instantaneu e serverul declarat in fisier, nu calea lui (F-B4).
 
 ## Erori tipice
 

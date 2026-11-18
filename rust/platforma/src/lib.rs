@@ -28,4 +28,4 @@ pub mod timp;
 pub use configurare::Configurare;
 pub use eroare::{valideaza_identificator, Eroare, Rezultat};
 pub use modul::{CerinteBaze, Ecran, Modul, Registru, Ruta, METODE_PLATFORMA};
-pub use sesiune::{slug, Sesiune, Sesiuni, VERSIUNE_SESIUNE};
+pub use sesiune::{slug, slug_sesiune, Sesiune, Sesiuni, VERSIUNE_SESIUNE};
