@@ -15,7 +15,9 @@
 //! Deterministe: acelasi seed da acelasi text. Un esec se reproduce cu
 //! `cargo test --test invariante -- --nocapture` si seed-ul din mesaj.
 
-use gmotion_core::{diff_aliniat, norm, normalizeaza, scor_similaritate, split_statements};
+use gmotion_core::{
+    aliniaza, compune, diff_aliniat, norm, normalizeaza, scor_similaritate, split_statements,
+};
 
 /// Cate intrari se genereaza per test. Bugetul de timp al portii e de ordinul
 /// secundelor, nu al minutelor — un fuzz care nu se ruleaza nu prinde nimic.
@@ -310,5 +312,38 @@ fn intrari_degenerate() {
         let n = norm(cod);
         assert_eq!(norm(&n), n, "norm neidempotenta pe {cod:?}");
         let _ = diff_aliniat(cod, cod);
+    }
+}
+
+/// Compunerea textului final (Aplica bloc / toate): fara nimic aplicat,
+/// textul e exact cel din dreapta, octet cu octet; cu toate diferentele
+/// aplicate, obiectul iese **identic** cu stanga, cum il clasifica lista (forma
+/// normalizata egala). Daca prima cade, deploy-ul ar schimba cod pe care
+/// nimeni nu l-a atins; daca a doua cade, aplicarea pierde sau inventeaza cod.
+///
+/// Nu se cere „zero blocuri diferite" la recalculare: liniile dintre blocuri
+/// (comentarii, linii goale) raman din dreapta, iar un comentariu lipit de cod
+/// muta granitele segmentarii. Gasit de fuzz la seed 14.
+#[test]
+fn compunerea_pastreaza_dreapta_si_aplica_tot() {
+    for seed in 0..SEED_URI {
+        let st = genereaza(seed, false);
+        let dr = genereaza(seed + 10_000, false);
+        let (st, dr) = (
+            gmotion_core::pregateste_afisare(&st),
+            gmotion_core::pregateste_afisare(&dr),
+        );
+        let a = aliniaza(&st, &dr);
+        assert_eq!(
+            compune(&a, &st, &dr, |_| false),
+            dr,
+            "seed {seed}: nimic aplicat"
+        );
+        let tot = compune(&a, &st, &dr, |_| true);
+        assert_eq!(
+            normalizeaza(&tot),
+            normalizeaza(&st),
+            "seed {seed}: dupa Aplica toate obiectul nu e identic\n--- stanga\n{st}\n--- rezultat\n{tot}"
+        );
     }
 }

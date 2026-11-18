@@ -429,14 +429,40 @@ pub fn cheie_bloc(bloc: &str) -> String {
 /// segmentarea arunca liniile goale folosite ca separator, deci suma
 /// subestimeaza pozitia reala cu o linie pentru fiecare gol intalnit. Se cauta
 /// in schimb blocul ca subsir literal in textul original.
+///
+/// O potrivire conteaza doar daca incepe la inceputul unei linii (dupa
+/// spatii) si **nu** in interiorul unui comentariu sau al unui literal inceput
+/// inaintea ei — granitele vin din [`crate::lexer`], ca peste tot. Pana la
+/// 2026-11-18 blocul `SELECT 1` se aseza pe linia `SELECT 1 din comentariu`
+/// dintr-un `/* ... */` (gasit de fuzz-ul compunerii, seed 61): editorul il
+/// desena acolo, iar „Aplica" ar fi inlocuit linii gresite.
 pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
+    use crate::lexer::{segmente, Fel};
+    let seg = segmente(cod);
+    let in_interior = |poz: usize| {
+        seg.iter()
+            .any(|s| s.fel != Fel::Cod && s.start < poz && poz < s.sfarsit)
+    };
+    let la_inceput_de_linie = |poz: usize| {
+        cod[..poz].rsplit('\n').next().map_or(true, |inainte| {
+            inainte.chars().all(|c| c == ' ' || c == '\t')
+        })
+    };
     let mut out: Vec<usize> = Vec::with_capacity(blocuri.len());
     let mut poz = 0usize;
     for bloc in blocuri {
-        match cod.get(poz..).and_then(|rest| rest.find(bloc.as_str())) {
+        let gasit = if bloc.is_empty() {
+            None
+        } else {
+            cod.get(poz..).and_then(|rest| {
+                rest.match_indices(bloc.as_str())
+                    .map(|(i, _)| poz + i)
+                    .find(|&idx| la_inceput_de_linie(idx) && !in_interior(idx))
+            })
+        };
+        match gasit {
             None => out.push(out.last().copied().unwrap_or(0)),
-            Some(relativ) => {
-                let idx = poz + relativ;
+            Some(idx) => {
                 out.push(cod[..idx].matches('\n').count());
                 poz = idx + bloc.len();
             }
@@ -467,6 +493,20 @@ mod teste {
             "c".repeat(1_000_000)
         );
         assert_eq!(split_statements(&t, true).len(), 2);
+    }
+
+    #[test]
+    fn blocul_nu_se_aseaza_in_interiorul_unui_comentariu() {
+        let cod = "SELECT 2\n/* vechi\nSELECT 1 din comentariu\n*/\nSELECT 1";
+        let blocuri = vec!["SELECT 2".to_string(), "SELECT 1".to_string()];
+        assert_eq!(linii_start_blocuri(cod, &blocuri), vec![0, 4]);
+    }
+
+    #[test]
+    fn nici_in_interiorul_unui_sir_sau_in_mijlocul_liniei() {
+        let cod = "PRINT 'x\nEXEC p'\nSELECT a, EXEC_p\nEXEC p";
+        let blocuri = vec!["EXEC p".to_string()];
+        assert_eq!(linii_start_blocuri(cod, &blocuri), vec![3]);
     }
 
     #[test]

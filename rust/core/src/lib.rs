@@ -11,7 +11,8 @@
 //!
 //! Fiecare modul are antetul lui, cu categoria de bug care ii apartine:
 //! `normalizare` (fals „modificat"), `segmentare` (blocuri taiate prost),
-//! `diff` (blocuri imperecheate gresit), `seqmatch` (abateri de la `difflib`).
+//! `diff` (blocuri imperecheate gresit), `aliniere` (linii pierdute la
+//! compunerea textului final), `seqmatch` (abateri de la `difflib`).
 //! Contractul complet — invariante, erori tipice, depanare — e in `CRATE.md`.
 //!
 //! ```
@@ -24,6 +25,7 @@
 //! assert_eq!(diff_aliniat(referinta, curent).len(), 1);
 //! ```
 
+pub mod aliniere;
 pub mod clasificare;
 pub mod diff;
 pub mod lexer;
@@ -31,6 +33,7 @@ pub mod normalizare;
 pub mod segmentare;
 pub mod seqmatch;
 
+pub use aliniere::{aliniaza, compune, Aliniere, Linie, RandAliniat};
 pub use diff::{
     diff_aliniat, rezumat_diff, rezumat_rapid, FelSchimbare, RandDiff, Segment, TipDiferenta,
 };

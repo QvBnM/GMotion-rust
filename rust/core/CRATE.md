@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: dd6699882594c467 -->
+<!-- api-hash: 1614c2dc6084d47e -->
 
 ## Rol
 
@@ -46,7 +46,7 @@ proiectul.
 |---|---|
 | `split_statements(cod, uneste_cursor)` | taie obiectul in blocuri |
 | `cheie_bloc(bloc)` | cheia de imperechere a unui bloc |
-| `linii_start_blocuri(cod, blocuri)` | linia de start a fiecarui bloc, pentru ancore |
+| `linii_start_blocuri(cod, blocuri)` | linia de start a fiecarui bloc, pentru ancore; potrivirea se cauta doar la inceput de linie si in afara comentariilor / literalelor (prin `lexer`) |
 
 ### `diff`
 | Functie / tip | Ce face |
@@ -55,6 +55,13 @@ proiectul.
 | `rezumat_rapid(ref, cur)` | rezumatul pentru lista de obiecte |
 | `rezumat_diff(randuri)` | rezumatul dintr-un diff deja calculat |
 | `RandDiff`, `Segment`, `FelSchimbare`, `TipDiferenta` | tipurile rezultatului |
+
+### `aliniere`
+| Functie / tip | Ce face |
+|---|---|
+| `aliniaza(stanga, dreapta) -> Aliniere` | diff-ul asezat pe linii, cu umplutura si cu liniile dintre blocuri; ce deseneaza editorul |
+| `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: „Aplica bloc" |
+| `Aliniere` (`randuri`, `diff`, `diferente()`), `RandAliniat`, `Linie` | tipurile rezultatului |
 
 ### `seqmatch`
 `SequenceMatcher` — port fidel al `difflib.SequenceMatcher` din Python, cu
@@ -106,6 +113,11 @@ intra in lista. Decizie confirmata 2026-11-17; vezi testul
    normalizata. Consecinta practica: un bloc **nu** e garantat subsir al textului
    original, de-aia `linii_start_blocuri` are o ramura de rezerva cand nu
    gaseste blocul.
+5b. **`compune` cu nimic aplicat da exact textul din dreapta, octet cu
+   octet; cu toate diferentele aplicate, forma normalizata e a stangii.**
+   Lucreaza pe liniile originale, nu pe textul blocurilor (care nu e garantat
+   subsir, vezi 5). Liniile dintre blocuri (goale, comentarii) raman din
+   dreapta. Verificat de fuzz in `tests/invariante.rs`.
 6. Functiile sunt totale pe intrari UTF-8 valide: nu intorc `Result`, nu dau
    panica.
 
@@ -118,6 +130,7 @@ intra in lista. Decizie confirmata 2026-11-17; vezi testul
 | Scor absurd | `scor_similaritate` sau `round_py` | `src/normalizare.rs` |
 | Bloc taiat in mijlocul unui string / comentariu / `CASE` | urmarirea stivei si a literalelor | `src/segmentare.rs` |
 | `UNION`, cursor `FOR`, `INSERT ... SELECT` rupt in doua | `bloc_este_continuat` si uniunile de blocuri | `src/segmentare.rs` |
+| Blocul desenat la alta linie decat cea reala; „Aplica" schimba alte linii | `linii_start_blocuri` sau `aliniaza` | `src/segmentare.rs`, `src/aliniere.rs` |
 | Numar de blocuri diferit de ce arata editorul | segmentare — clasa de bug care a produs toate divergentele din v3.4 | `src/segmentare.rs` |
 | „sters + adaugat" in loc de „modificat" | alinierea `perechi_replace` | `src/diff.rs` |
 | Rezumat care raporteaza blocuri inexistente | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `src/diff.rs` |
