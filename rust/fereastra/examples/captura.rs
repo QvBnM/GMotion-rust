@@ -106,6 +106,7 @@ fn main() {
     incarca_editor(
         &ui,
         &AntetEditor {
+            id: &format!("{}/{schema}.{nume}", a[3]),
             schema,
             nume,
             tip: gmotion_core::nume_tip(&tip),

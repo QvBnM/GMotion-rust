@@ -360,6 +360,11 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
 
 /// Datele afisate in antetul editorului.
 pub struct AntetEditor<'a> {
+    /// Cheia obiectului deschis, `baza/schema.nume`. Cand se schimba,
+    /// `incarca_editor` **inchide editarea de mana**: altfel campul ramanea cu
+    /// textul obiectului dinainte (legatura spre Slint se rupe la prima tasta)
+    /// si „Salveaza" il punea pe obiectul nou (F-A1 din auditul QA).
+    pub id: &'a str,
     pub schema: &'a str,
     pub nume: &'a str,
     /// „procedura", „vedere", „functie"...
@@ -497,6 +502,11 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     };
 
     ui.set_tigla_hasura(tigla_hasura(mod_curent(ui)));
+    if ui.get_obiect_id() != antet.id {
+        // alt obiect: editarea de mana nu se duce cu el
+        ui.set_editeaza_mod(false);
+        ui.set_obiect_id(antet.id.into());
+    }
     ui.set_obiect_schema(antet.schema.into());
     ui.set_obiect_nume(antet.nume.into());
     ui.set_tip_obiect(antet.tip.into());
@@ -1611,6 +1621,7 @@ mod teste {
         incarca_editor(
             &ui,
             &AntetEditor {
+                id: "Prod/dbo.usp_Test",
                 schema: "dbo",
                 nume: "p",
                 tip: "procedura",
@@ -1772,6 +1783,7 @@ mod teste {
         incarca_editor(
             &ui,
             &AntetEditor {
+                id: "Prod/dbo.usp_Test",
                 schema: "dbo",
                 nume: "usp_Test",
                 tip: "procedura",
@@ -1807,6 +1819,7 @@ mod teste {
         let ui = fereastra();
         let model = model_de_proba();
         let antet = AntetEditor {
+            id: "Prod/dbo.p",
             schema: "dbo",
             nume: "usp_Test",
             tip: "procedura",
@@ -1845,6 +1858,7 @@ mod teste {
         let ui = fereastra();
         let model = model_de_proba();
         let antet = AntetEditor {
+            id: "Prod/dbo.p",
             schema: "dbo",
             nume: "usp_Test",
             tip: "procedura",
@@ -2324,5 +2338,57 @@ mod teste {
         assert_eq!(ui.get_sursa().servere_gasite.row_count(), 2);
         assert_eq!(ui.get_baza().servere_gasite.row_count(), 0);
         assert_eq!(ui.get_baza().baza, "CharismaProd");
+    }
+
+    /// F-A1 din `cercetare/audit-qa-2026-11-18.md`: `editeaza-mod` nu se
+    /// inchidea la schimbarea obiectului. Campul `TextInput` isi rupe
+    /// legatura cu modelul la prima tasta, deci dupa „›" arata tot textul
+    /// obiectului dinainte, iar „Salveaza" il punea pe obiectul nou.
+    #[test]
+    fn editarea_de_mana_se_inchide_la_schimbarea_obiectului() {
+        let ui = fereastra();
+        let model = model_de_proba();
+        let antet = |id: &'static str, nume: &'static str| AntetEditor {
+            id,
+            schema: "dbo",
+            nume,
+            tip: "procedura",
+            sursa_baza: "Dev",
+            sursa_server: "srv-dev",
+            tinta_baza: "Prod",
+            tinta_server: "srv-prod",
+            stare_obiecte: "obiectul 1 din 2 nerevizuite",
+            revizuit: false,
+            in_plan: false,
+        };
+        incarca_editor(&ui, &antet("Prod/dbo.pA", "pA"), &model);
+        assert_eq!(ui.get_obiect_id(), "Prod/dbo.pA");
+        // omul apasa „Editeaza" si scrie
+        ui.set_editeaza_mod(true);
+        // acelasi obiect, o redesenare: editarea continua
+        incarca_editor(&ui, &antet("Prod/dbo.pA", "pA"), &model);
+        assert!(ui.get_editeaza_mod(), "o redesenare nu intrerupe editarea");
+        // alt obiect: editarea de mana nu se duce cu el
+        incarca_editor(&ui, &antet("Prod/dbo.pB", "pB"), &model);
+        assert!(
+            !ui.get_editeaza_mod(),
+            "editarea de mana trebuie sa se inchida la alt obiect"
+        );
+        assert_eq!(ui.get_obiect_id(), "Prod/dbo.pB");
+
+        // Esc, cat se scrie de mana, renunta la editare si **nu** pleaca din
+        // ecran: inainte urca la `inapoi-lista`, cu textul nesalvat
+        ui.show().expect("fereastra se arata");
+        ui.invoke_focus_taste();
+        let plecat = std::rc::Rc::new(std::cell::Cell::new(false));
+        let p2 = plecat.clone();
+        ui.on_inapoi_lista(move || p2.set(true));
+        ui.set_editeaza_mod(true);
+        apasa(&ui, "\u{1b}");
+        assert!(!ui.get_editeaza_mod(), "Esc inchide editarea de mana");
+        assert!(!plecat.get(), "Esc nu pleaca din editor cat se scrie");
+        // a doua apasare, fara editare, pleaca din editor ca pana acum
+        apasa(&ui, "\u{1b}");
+        assert!(plecat.get());
     }
 }

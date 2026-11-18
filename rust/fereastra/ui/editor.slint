@@ -163,6 +163,10 @@ export component EditorDiferente inherits Window {
     // starea obiectului
     in property <bool> revizuit: false;
     in property <bool> in-plan: false;
+    // cheia obiectului deschis, `baza/schema.nume`. Pleaca inapoi cu textul
+    // scris de mana, ca Rust sa poata refuza un text venit pentru alt obiect
+    // (F-A1 din auditul QA).
+    in property <string> obiect-id;
     in-out property <bool> alaturat: true;
     in-out property <bool> pliaza-identicul: true;
     in property <string> stare-obiecte;      // „obiectul 4 din 212 nerevizuite"
@@ -202,7 +206,7 @@ export component EditorDiferente inherits Window {
     callback aplica-toate();
     callback reset();
     callback anuleaza();
-    callback salveaza-textul(string);
+    callback salveaza-textul(string, string);   // (obiect-id, text)
     callback ghidat-porneste();
     callback ghidat-opreste();
     callback ghidat-alege(bool);
@@ -255,6 +259,12 @@ export component EditorDiferente inherits Window {
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
+            // cat se scrie textul de mana: Esc renunta la editare, nu pleaca
+            // din ecran, iar restul scurtaturilor nu au ce cauta (F-A1)
+            if (root.editeaza-mod) {
+                if (e.text == Key.Escape) { root.editeaza-mod = false; taste.focus(); return accept; }
+                return accept;
+            }
             // modul ghidat: Enter aplica, Esc sare, sus / jos alta diferenta
             if (root.ghidat && root.ghidat-terminat) {
                 if (e.text == Key.Return || e.text == Key.Escape) { root.ghidat-opreste(); return accept; }
@@ -592,7 +602,7 @@ export component EditorDiferente inherits Window {
                                     spacing: 6px;
                                     Text { text: Texte.scrii-textul; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                                     ButonInsula { text: Texte.renunta; apasat => { root.editeaza-mod = false; taste.focus(); } }
-                                    ButonInsula { text: Texte.salveaza; fel: 1; apasat => { root.salveaza-textul(ed.text); root.editeaza-mod = false; taste.focus(); } }
+                                    ButonInsula { text: Texte.salveaza; fel: 1; apasat => { root.salveaza-textul(root.obiect-id, ed.text); root.editeaza-mod = false; taste.focus(); } }
                                 }
                             }
                         }

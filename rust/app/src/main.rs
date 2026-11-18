@@ -434,6 +434,7 @@ fn ruleaza() -> Result<(), String> {
                     incarca_editor(
                         &e_ui,
                         &AntetEditor {
+                            id: &format!("{}/{}.{}", o.baza, o.schema, o.nume),
                             schema: &o.schema,
                             nume: &o.nume,
                             tip: gmotion_core::nume_tip(&o.tip),
@@ -1203,7 +1204,12 @@ fn ruleaza() -> Result<(), String> {
         let c = comanda.clone();
         editor_ui.on_anuleaza(move || c(Comanda::Anuleaza));
         let c = comanda.clone();
-        editor_ui.on_salveaza_textul(move |t| c(Comanda::SalveazaText(t.to_string())));
+        editor_ui.on_salveaza_textul(move |id, t| {
+            c(Comanda::SalveazaText {
+                id: id.to_string(),
+                text: t.to_string(),
+            })
+        });
         let c = comanda.clone();
         editor_ui.on_ghidat_porneste(move || c(Comanda::PornesteGhidat));
         let c = comanda.clone();

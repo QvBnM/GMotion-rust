@@ -68,8 +68,15 @@ pub enum Comanda {
     Reset,
     /// Ctrl+Z: ultima schimbare a textului final, pe orice obiect.
     Anuleaza,
-    /// „Editeaza": textul final scris de mana.
-    SalveazaText(String),
+    /// „Editeaza": textul final scris de mana, cu cheia obiectului pentru
+    /// care s-a scris (`baza/schema.nume`, vezi `Aplicatie::id_obiect`).
+    /// Textul venit pentru alt obiect se refuza: campul din Slint isi rupe
+    /// legatura cu modelul la prima tasta, deci dupa „‹ ›" tinea textul
+    /// obiectului dinainte (F-A1 din auditul QA).
+    SalveazaText {
+        id: String,
+        text: String,
+    },
     /// „Omite" (`o`): analizat, lasat in afara deploy-ului.
     ComutaOmis,
     /// „Uneste ciclul cursor": blocul de cursor se ia intreg.
@@ -417,6 +424,14 @@ impl Aplicatie {
         self.lista.obiect_selectat()
     }
 
+    /// Cheia obiectului deschis, `baza/schema.nume`. Pleaca spre fereastra si
+    /// se intoarce cu textul scris de mana, ca sa nu poata ajunge pe alt
+    /// obiect (F-A1).
+    pub fn id_obiect(&self) -> Option<String> {
+        self.obiect()
+            .map(|o| format!("{}/{}.{}", o.baza, o.schema, o.nume))
+    }
+
     fn rand(&self, baza: &str, id: &str) -> Option<&Rand> {
         self.randuri
             .iter()
@@ -586,7 +601,15 @@ impl Aplicatie {
                     e.reset(r);
                 });
             }
-            Comanda::SalveazaText(text) => {
+            Comanda::SalveazaText { id, text } => {
+                if self.id_obiect() != Some(id.clone()) {
+                    tracing::warn!(
+                        target: "gmotion::app",
+                        trimis = %id, curent = ?self.id_obiect(),
+                        "text scris de mana pentru alt obiect: refuzat"
+                    );
+                    return false;
+                }
                 let text = gmotion_core::pregateste_afisare(&text);
                 return self.schimba_textul(move |e, r, _, _| e.pune(r, text, true));
             }
@@ -1461,12 +1484,29 @@ mod teste {
     fn textul_scris_de_mana_e_marcat_si_ajunge_in_deploy() {
         let (mut a, _, baza) = aplicatie_editare();
         let text = format!("{baza}\n-- scris de mine");
-        assert!(a.comanda(Comanda::SalveazaText(text.clone())));
+        let id = a.id_obiect().expect("un obiect deschis");
+        assert!(a.comanda(Comanda::SalveazaText {
+            id: id.clone(),
+            text: text.clone()
+        }));
         assert_eq!(a.stare_text_final(), (true, true));
         let t = a.texte_finale();
         assert_eq!(t[&("Client1".to_string(), "dbo.pE".to_string())], text);
         // acelasi text inca o data nu e o schimbare
-        assert!(!a.comanda(Comanda::SalveazaText(text)));
+        assert!(!a.comanda(Comanda::SalveazaText {
+            id: id.clone(),
+            text: text.clone()
+        }));
+        // F-A1: un text venit pentru alt obiect nu se scrie nicaieri
+        assert!(!a.comanda(Comanda::SalveazaText {
+            id: "Client1/dbo.altul".to_string(),
+            text: format!("{text}\n-- pentru altul")
+        }));
+        assert_eq!(
+            a.texte_finale()[&("Client1".to_string(), "dbo.pE".to_string())],
+            text,
+            "textul obiectului deschis a ramas al lui"
+        );
     }
 
     #[test]

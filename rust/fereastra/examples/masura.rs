@@ -90,6 +90,7 @@ fn main() {
             incarca_editor(
                 &ui,
                 &AntetEditor {
+                    id: "CharismaProd/dbo.usp_Uriasa",
                     schema: "dbo",
                     nume: "usp_Uriasa",
                     tip: "procedura",

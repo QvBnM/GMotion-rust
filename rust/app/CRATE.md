@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 732619b47cd2f013 -->
+<!-- api-hash: 2a721dac9fba0c3c -->
 
 ## Rol
 
@@ -31,7 +31,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::baze()`, `tinte()` | bazele comparate si obiectele lor pregatite |
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
 | `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |
-| `Comanda` | tot ce poate cere utilizatorul din oricare ecran |
+| `Comanda` | tot ce poate cere utilizatorul din oricare ecran; `SalveazaText { id, text }` duce si cheia obiectului si se refuza daca nu e cel deschis (F-A1) |
+| `Aplicatie::id_obiect()` | cheia obiectului deschis, `baza/schema.nume`: pleaca spre fereastra si se intoarce cu textul scris de mana |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul |
 | `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul (calculat lenes, o data per comparare) si nota (`PuneNota`) |

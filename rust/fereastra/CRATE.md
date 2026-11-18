@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: a56fffa312a327d6 -->
+<!-- api-hash: 940238dabfd745a9 -->
 
 ## Rol
 
@@ -61,7 +61,7 @@ si editorul de diferente (etapa 8).
 | `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
 | `mod_curent(ui)` | modul pus ultima data in `Tema` |
 | `tigla_hasura(mod)` | tigla hasurii de pe partea fara linii, in culorile modului |
-| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `in_plan`) | umple editorul |
+| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `id` si `in_plan`) | umple editorul; cand `id` (`baza/schema.nume`) se schimba, **inchide editarea de mana** — altfel campul ramanea cu textul obiectului dinainte (F-A1) |
 
 ## Invariante
 

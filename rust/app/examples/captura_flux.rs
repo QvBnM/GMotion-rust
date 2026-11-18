@@ -143,6 +143,7 @@ fn main() {
     incarca_editor(
         &editor_ui,
         &AntetEditor {
+            id: &format!("{}/{}.{}", o.baza, o.schema, o.nume),
             schema: &o.schema,
             nume: &o.nume,
             tip: gmotion_core::nume_tip(&o.tip),

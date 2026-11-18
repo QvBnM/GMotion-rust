@@ -205,9 +205,10 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
     app.comanda(Comanda::Selecteaza(p));
     app.comanda(Comanda::Deschide);
     assert_eq!(app.ecran(), Ecran::Editor);
-    assert!(app.comanda(Comanda::SalveazaText(
-        "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
-    )));
+    assert!(app.comanda(Comanda::SalveazaText {
+        id: app.id_obiect().expect("un obiect deschis"),
+        text: "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
+    }));
     app.comanda(Comanda::ComutaInPlan);
     let mut st = StareDeploy::nou(app.plan("CharismaDev", "acum"));
     let recitit = pornire::compara(&c).expect("recitirea merge");
@@ -433,9 +434,10 @@ fn deploy_redeschis_dupa_o_editare_scrie_textul_de_acum() {
     app.comanda(Comanda::InapoiLaLista);
     app.comanda(Comanda::Selecteaza(pozitie(&app, "pStoc")));
     app.comanda(Comanda::Deschide);
-    assert!(app.comanda(Comanda::SalveazaText(
-        "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
-    )));
+    assert!(app.comanda(Comanda::SalveazaText {
+        id: app.id_obiect().expect("un obiect deschis"),
+        text: "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
+    }));
 
     // 3. deploy din nou: aceeasi multime „in plan", deci aici se refolosea
     app.comanda(Comanda::DeschideDeploy);
