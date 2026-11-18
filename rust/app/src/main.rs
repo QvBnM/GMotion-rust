@@ -36,6 +36,11 @@ struct Stare {
     sesiuni: gmotion_platforma::Sesiuni,
     /// Ce scrie pe ecran despre sursa (server sau cale de instantaneu).
     server: String,
+    /// Baza de referinta **cu care a rulat compararea**, nu ce scrie in
+    /// formular acum. Formularul se poate schimba cat ruleaza (si se poate
+    /// schimba de mana oricand dupa): sesiunea, deploy-ul si antetul se
+    /// sprijina pe asta (F-A3 din auditul QA).
+    referinta: String,
     /// Planul de deploy deschis, cu cheia lui: cand se schimba ce e „in
     /// plan", textele finale sau compararea, planul se reface de la zero —
     /// deci si fara garda. Decizia e in `deploy::asigura_planul`, nu aici.
@@ -50,12 +55,21 @@ struct Stare {
 impl Stare {
     /// Partea aleasa, ca sa nu se repete `if sursa { ... } else { ... }` la
     /// fiecare camp din ecranul de conectare.
-    fn parte(&mut self, sursa: bool) -> &mut gmotion_fereastra::model_conectare::Parte {
-        if sursa {
+    ///
+    /// `None` cat ruleaza o comparare: formularul e desenat blocat, dar
+    /// primeste tastatura, si o tasta in campul bazei schimba sub noi
+    /// referinta cu care s-a pornit (F-A3 din auditul QA). Intoarce `Option`
+    /// tocmai ca sa nu se poata uita: compilatorul cere tratat cazul la
+    /// fiecare camp.
+    fn parte(&mut self, sursa: bool) -> Option<&mut gmotion_fereastra::model_conectare::Parte> {
+        if self.rulare.is_some() {
+            return None;
+        }
+        Some(if sursa {
             &mut self.conectare.sursa
         } else {
             &mut self.conectare.baza
-        }
+        })
     }
 }
 
@@ -192,6 +206,7 @@ fn ruleaza() -> Result<(), String> {
         app: None,
         sesiuni,
         server: String::new(),
+        referinta: String::new(),
         deploy: None,
         rulare: None,
         salvat_la: String::new(),
@@ -387,15 +402,17 @@ fn ruleaza() -> Result<(), String> {
                 let Stare {
                     app,
                     deploy,
-                    conectare,
+                    referinta,
                     ..
                 } = &mut *s;
                 if let Some(app) = app.as_ref().filter(|a| a.ecran() == Ecran::Deploy) {
                     let acum = gmotion_platforma::timp::acum();
-                    gmotion_app::deploy::asigura_planul(deploy, app, &conectare.sursa.baza, &acum);
+                    gmotion_app::deploy::asigura_planul(deploy, app, referinta, &acum);
                 }
             }
-            let referinta = s.conectare.sursa.baza.clone();
+            // referinta cu care a rulat compararea, nu ce scrie acum in
+            // formular: formularul se poate schimba intre timp (F-A3)
+            let referinta = s.referinta.clone();
             let baze = s
                 .app
                 .as_ref()
@@ -497,7 +514,7 @@ fn ruleaza() -> Result<(), String> {
         let stare = stare.clone();
         move || {
             let mut s = stare.borrow_mut();
-            let referinta = s.conectare.sursa.baza.clone();
+            let referinta = s.referinta.clone();
             // bazele comparate chiar acum, toate, nu doar prima bifata
             let baze = s
                 .app
@@ -572,7 +589,7 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         conectare_ui.on_server_schimbat(move |sursa, text| {
             let mut st = s.borrow_mut();
-            let p = st.parte(sursa);
+            let Some(p) = st.parte(sursa) else { return };
             p.server = text.to_string();
             // serverul s-a schimbat: ce stiam despre el nu mai e valabil
             p.baze.clear();
@@ -585,7 +602,7 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         conectare_ui.on_auth_schimbat(move |sursa, windows| {
             let mut st = s.borrow_mut();
-            let p = st.parte(sursa);
+            let Some(p) = st.parte(sursa) else { return };
             p.auth_windows = windows;
             p.baze.clear();
             p.stare = StareConexiune::Neincercat;
@@ -595,23 +612,24 @@ fn ruleaza() -> Result<(), String> {
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_utilizator_schimbat(move |sursa, text| {
-            s.borrow_mut().parte(sursa).acreditari.utilizator = text.to_string();
+            if let Some(p) = s.borrow_mut().parte(sursa) {
+                p.acreditari.utilizator = text.to_string();
+            }
             d();
         });
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_parola_schimbata(move |sursa, text| {
-            s.borrow_mut()
-                .parte(sursa)
-                .acreditari
-                .pune_parola(text.to_string());
+            if let Some(p) = s.borrow_mut().parte(sursa) {
+                p.acreditari.pune_parola(text.to_string());
+            }
             d();
         });
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_baza_schimbata(move |sursa, text| {
             let mut st = s.borrow_mut();
-            let p = st.parte(sursa);
+            let Some(p) = st.parte(sursa) else { return };
             if sursa {
                 p.baza = text.to_string();
             } else {
@@ -634,7 +652,7 @@ fn ruleaza() -> Result<(), String> {
                 None => pornire::citeste_bazele(&c, p),
             };
             let mut st = s.borrow_mut();
-            let tinta = st.parte(sursa);
+            let Some(tinta) = st.parte(sursa) else { return };
             tinta.baze = baze;
             tinta.stare = stare_noua;
             drop(st);
@@ -648,7 +666,7 @@ fn ruleaza() -> Result<(), String> {
             tracing::info!(target: "gmotion::app", "caut servere in retea");
             let gasite = gmotion_db::cauta_instante(timeout);
             let mut st = s.borrow_mut();
-            let p = st.parte(sursa);
+            let Some(p) = st.parte(sursa) else { return };
             match gasite {
                 Ok(v) if v.is_empty() => {
                     p.servere_gasite.clear();
@@ -679,7 +697,7 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         conectare_ui.on_server_ales(move |sursa, server| {
             let mut st = s.borrow_mut();
-            let p = st.parte(sursa);
+            let Some(p) = st.parte(sursa) else { return };
             p.server = server.to_string();
             p.servere_gasite.clear();
             p.baze.clear();
@@ -786,7 +804,9 @@ fn ruleaza() -> Result<(), String> {
                 Ok(t) => StareConexiune::Conectat(t),
                 Err(e) => StareConexiune::Eroare(e),
             };
-            s.borrow_mut().parte(sursa).stare = stare_noua;
+            if let Some(p) = s.borrow_mut().parte(sursa) {
+                p.stare = stare_noua;
+            }
             d();
         });
         let d = deseneaza.clone();
@@ -819,6 +839,7 @@ fn ruleaza() -> Result<(), String> {
                 Ok(r) => {
                     let mut st = s.borrow_mut();
                     st.server = r.server;
+                    st.referinta = r.referinta.clone();
                     st.app = Some(Aplicatie::noua(
                         r.randuri,
                         r.sursa,
@@ -937,6 +958,7 @@ fn ruleaza() -> Result<(), String> {
             st.app = None;
             st.deploy = None;
             st.rulare = None;
+            st.referinta = String::new();
             let recente_noi = recente(&st.sesiuni);
             st.conectare.recente = recente_noi;
             drop(st);
@@ -1056,7 +1078,7 @@ fn ruleaza() -> Result<(), String> {
             let Some(app) = st.app.as_ref() else {
                 return;
             };
-            let cale = cale_csv(&st.conectare.sursa.baza);
+            let cale = cale_csv(&st.referinta);
             let mesaj = match cale.parent().map(std::fs::create_dir_all) {
                 Some(Err(e)) => format!("nu pot scrie: {e}"),
                 _ => match app.exporta_csv(&cale) {
@@ -1125,7 +1147,7 @@ fn ruleaza() -> Result<(), String> {
         let sv = salveaza.clone();
         deploy_ui.on_scrie_scripturile(move || {
             let mut st = s.borrow_mut();
-            let referinta = st.conectare.sursa.baza.clone();
+            let referinta = st.referinta.clone();
             let mut scris = None;
             // textele finale se iau acum, din aplicatie, nu dintr-un
             // instantaneu luat la deschiderea planului (C1 din auditul QA)
@@ -1281,9 +1303,9 @@ fn ruleaza() -> Result<(), String> {
                     Some(rezultat) => {
                         let mut st = s.borrow_mut();
                         st.rulare = None;
-                        let referinta = st.conectare.sursa.baza.clone();
                         match rezultat {
                             Ok(r) => {
+                                let referinta = r.referinta.clone();
                                 // la recomparare pastram ce s-a revizuit deja;
                                 // la prima comparare, ce s-a salvat in sesiune
                                 let (revizuire, editari) = match st.app.as_mut() {
@@ -1310,6 +1332,7 @@ fn ruleaza() -> Result<(), String> {
                                     }
                                 };
                                 st.server = r.server;
+                                st.referinta = referinta;
                                 st.app = Some(
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
                                         .cu_editari(editari),

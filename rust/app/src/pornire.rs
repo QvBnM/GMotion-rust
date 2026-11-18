@@ -233,6 +233,7 @@ pub fn compara_offline(sursa: &str, tinta: &str) -> Result<Comparata, String> {
         sursa: s,
         tinte,
         server: "comparare offline".to_string(),
+        referinta: "Lipit (sursa)".to_string(),
     })
 }
 
@@ -243,6 +244,13 @@ pub struct Comparata {
     /// Bazele comparate, in ordinea bifata. Una singura e cazul obisnuit.
     pub tinte: Vec<(String, modul::Baza)>,
     pub server: String,
+    /// Baza de referinta **cu care a rulat**, nu ce scrie in formular acum.
+    ///
+    /// Compararea ruleaza pe alt fir, iar formularul primea tastatura cat
+    /// rula: o tasta in campul bazei si rezultatul se incarca sub referinta
+    /// "", sesiunea se salveaza sub cheia "", directorul de deploy devine
+    /// „_<data>" (F-A3 din auditul QA).
+    pub referinta: String,
 }
 
 impl Comparata {
@@ -304,6 +312,7 @@ pub fn compara_cu(
         sursa,
         tinte,
         server,
+        referinta: c.sursa.baza.clone(),
     })
 }
 
@@ -388,6 +397,35 @@ mod teste {
         assert_eq!(r.randuri.len(), 1);
         assert_eq!(r.randuri[0].obiect, "dbo.p");
         assert_eq!(r.prima_tinta(), "B");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-A3 din `cercetare/audit-qa-2026-11-18.md`: compararea ruleaza pe alt
+    /// fir, iar formularul primeste tastatura cat ruleaza (e desenat blocat,
+    /// dar nu e). Rezultatul se folosea de formularul **de acum**: o tasta in
+    /// campul bazei si rezultatul se incarca sub referinta "", sesiunea se
+    /// salveaza sub cheia "", iar directorul de deploy devine „_<data>".
+    #[test]
+    fn rezultatul_spune_cu_ce_referinta_a_rulat() {
+        let d = std::env::temp_dir().join(format!("gmotion-fa3-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        instantaneu(&cale);
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        c.sursa.baza = "A".into();
+        c.baza.baza = "B".into();
+
+        let r = compara(&c).expect("compararea merge");
+        assert_eq!(r.referinta, "A");
+        // formularul se goleste dupa ce compararea a pornit (o tasta in camp,
+        // sau Deconecteaza): rezultatul tot despre „A" vorbeste
+        c.sursa.baza = String::new();
+        assert_eq!(
+            r.referinta, "A",
+            "rezultatul nu are voie sa depinda de formularul de acum"
+        );
+        assert!(!r.referinta.is_empty());
         std::fs::remove_dir_all(&d).ok();
     }
 
