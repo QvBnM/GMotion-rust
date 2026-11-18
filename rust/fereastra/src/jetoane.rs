@@ -14,9 +14,10 @@ pub type Culoare = u32;
 /// Modul ferestrei. Acelasi set de jetoane, alte valori.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Mod {
-    Intunecat,
-    /// Implicit pana sunt rescrise toate ecranele (etapa 13).
+    /// Implicit: stilul hartii, ales primul de Mihai. Butonul de tema il
+    /// schimba, iar alegerea se tine minte in configurare.
     #[default]
+    Intunecat,
     Luminos,
 }
 
@@ -524,7 +525,7 @@ mod teste {
         for m in [Mod::Intunecat, Mod::Luminos] {
             assert_eq!(Mod::din_nume(m.nume()), Some(m));
         }
-        assert_eq!(Mod::default(), Mod::Luminos);
+        assert_eq!(Mod::default(), Mod::Intunecat);
         assert_eq!(Mod::Intunecat.paleta(), &INTUNECAT);
     }
 

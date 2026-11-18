@@ -8,9 +8,9 @@ Interfata nativa a GMotion, desenata cu Slint (randare software: merge si prin
 RDP pe servere fara GPU). Contine ferestrele si componentele, si modelele lor
 in Rust (ce se deseneaza pe fiecare rand), testabile fara fereastra.
 
-Aspectul e in tranzitie (etapa 13): ecranele se rescriu dupa schita aprobata
-in `cercetare/schita-slint/`; pana atunci au asezarea din
-`cercetare/design-aprobat.md`. Jetoanele, in doua palete cu aceleasi nume
+Aspectul e cel din schita aprobata (`cercetare/schita-slint/`, etapa 13):
+conectarea, lista cu harta, editorul cu doua panouri si planul de deploy,
+aceleasi pe ambele moduri; capturile sunt in `cercetare/capturi/`. Jetoanele, in doua palete cu aceleasi nume
 (`INTUNECAT`, `LUMINOS`), si fonturile (Geist si Geist Mono, incorporate in
 binar) stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
 
@@ -46,7 +46,7 @@ si editorul de diferente (etapa 8).
 | `model_editor::diferenta_fiecarui_rand(model)` | a cata diferenta e fiecare rand (bara mai lata pe cea curenta) |
 | `ModelEditor`, `Rand`, `Parte`, `Bucata`, `Sintaxa`, `Stare`, `RandAfisat` | modelul |
 | `jetoane::{Paleta, INTUNECAT, LUMINOS, contrast}` | cele doua palete, cu aceleasi jetoane, si contrastul WCAG |
-| `Mod` (`jetoane::Mod`) | intunecat / luminos; `paleta()`, `din_nume("intunecat")`, `nume()`; implicit luminos |
+| `Mod` (`jetoane::Mod`) | intunecat / luminos; `paleta()`, `din_nume("intunecat")`, `nume()`; implicit intunecat |
 | `EditorDiferente` (Slint) | fereastra editorului |
 | `Tema` (global Slint) | culorile si fonturile, puse din Rust |
 | `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
