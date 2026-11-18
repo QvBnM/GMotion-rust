@@ -33,12 +33,22 @@ pub fn deschide(c: &Conectare, p: &Parte) -> Result<Box<dyn SursaObiecte>, Strin
         Tinta {
             server,
             port,
-            certificat: Certificat::Nevalidat,
+            certificat: certificat(c),
         },
         auth,
     )
     .map(|s| Box::new(s) as Box<dyn SursaObiecte>)
     .map_err(|e| e.to_string())
+}
+
+/// Ce alege ecranul ajunge in conexiune. Pana la 2026-11-18 aici era mereu
+/// `Nevalidat`, desi ecranul putea spune „se verifica".
+fn certificat(c: &Conectare) -> Certificat {
+    if c.verifica_certificatul {
+        Certificat::Sistem
+    } else {
+        Certificat::Nevalidat
+    }
 }
 
 /// `srv.domeniu.local,1433` -> (`srv.domeniu.local`, 1433). Forma cu virgula e
@@ -122,6 +132,14 @@ pub fn compara(c: &Conectare) -> Result<Comparata, String> {
 mod teste {
     use super::*;
     use gmotion_fereastra::model_conectare::Acreditari;
+
+    #[test]
+    fn alegerea_certificatului_ajunge_in_conexiune() {
+        let mut c = Conectare::noua();
+        assert_eq!(certificat(&c), Certificat::Nevalidat);
+        c.verifica_certificatul = true;
+        assert_eq!(certificat(&c), Certificat::Sistem);
+    }
 
     #[test]
     fn portul_se_desparte_de_server_ca_in_machete() {

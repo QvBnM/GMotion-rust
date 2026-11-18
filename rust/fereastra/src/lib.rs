@@ -804,7 +804,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
     ));
     ui.set_baza(parte(&c.baza, "Baza", "unde ajunge", mediu_tinta));
     ui.set_mediu(mediu_tinta.cod());
-    ui.set_certificat(c.certificat.as_str().into());
+    ui.set_certificat(c.text_certificat().into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
     ui.set_ce_lipseste(c.ce_lipseste().unwrap_or_default().into());

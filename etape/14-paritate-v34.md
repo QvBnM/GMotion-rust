@@ -23,8 +23,8 @@ care il apasa; accesibila din `cli` daca schimba date (CLAUDE.md §3). Randul
 corespunzator dispare din `cercetare/lipsuri-portare.md`.
 
 **A. Bug-uri**
-- [ ] pe instantaneu, lista de baze din conectare vine din instantaneu
-- [ ] pe instantaneu, randul certificatului nu se arata
+- [x] pe instantaneu, lista de baze din conectare vine din instantaneu
+- [x] pe instantaneu, randul certificatului nu se arata
 
 **B. Editorul**
 - [ ] alinierea pe linii sta in `core`; editorul si compunerea textului final
@@ -99,6 +99,10 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
 ## Jurnal de lucru
 
 - **2026-11-18** Etapa deschisa, cu criteriile scrise inainte de cod.
+- **2026-11-18** A gata. Gasit pe drum, mai grav decat cele doua: alegerea
+  „se verifica certificatul" din ecran **nu ajungea in conexiune**
+  (`pornire::deschide` punea mereu `Nevalidat`). Acum `Conectare` tine
+  `verifica_certificatul: bool`, iar textul se deriva din el.
 
 ## Ce a iesit altfel decat planul
 

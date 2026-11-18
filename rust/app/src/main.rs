@@ -428,7 +428,7 @@ fn ruleaza() -> Result<(), String> {
         conectare_ui.on_cere_bazele(move |sursa| {
             let c = s.borrow().conectare.clone();
             let p = if sursa { &c.sursa } else { &c.baza };
-            let (baze, stare_noua) = match p.ce_lipseste() {
+            let (baze, stare_noua) = match c.ce_lipseste_pentru_baze(sursa) {
                 Some(ce) => (
                     Vec::new(),
                     StareConexiune::Eroare(format!("completeaza {ce}")),
@@ -501,11 +501,7 @@ fn ruleaza() -> Result<(), String> {
             // doua stari, ca in v3.4: nevalidat (implicit) sau depozitul
             // sistemului. Calea unei autoritati se da din linia de comanda.
             let mut st = s.borrow_mut();
-            st.conectare.certificat = if st.conectare.certificat.contains("nu se verifica") {
-                "Certificatul serverului se verifica cu depozitul sistemului.".into()
-            } else {
-                "Certificatul serverului nu se verifica.".into()
-            };
+            st.conectare.verifica_certificatul = !st.conectare.verifica_certificatul;
             drop(st);
             d();
         });

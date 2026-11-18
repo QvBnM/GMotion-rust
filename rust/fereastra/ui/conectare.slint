@@ -467,6 +467,8 @@ export component FereastraConectare inherits Window {
                     alignment: center;
                     horizontal-stretch: 0;
                     Rectangle {
+                        // pe un instantaneu nu exista server, deci nici certificat
+                        visible: root.certificat != "";
                         height: 24px;
                         width: schimba.preferred-width + 12px;
                         border-radius: 6px;

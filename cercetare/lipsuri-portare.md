@@ -23,14 +23,9 @@ pliaza identicul au acum actiune; eticheta „Ctrl K" nu se mai deseneaza.
 „Editeaza textul final" nu se mai deseneaza pana nu exista tinta editabila
 (sectiunea 4); callback-ul a ramas declarat in `editor.slint`, fara buton.
 
-**Bug-uri gasite la rularea lui Mihai pe Windows (2026-11-18):**
-
-- Pornit cu `--sursa instantaneu.json`, lista de baze din ecranul de conectare
-  cere server (`completeaza serverul`): `on_cere_bazele` foloseste
-  `Parte::ce_lipseste`, care nu stie de instantaneu. Bazele trebuie luate din
-  instantaneu.
-- Tot pe instantaneu, randul despre certificatul serverului e afisat, desi nu
-  exista server.
+Bug-urile gasite la rularea lui Mihai pe Windows (lista de baze pe
+instantaneu, randul certificatului pe instantaneu) si certificatul ales in
+ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 ## 1. Conectare si servere
 

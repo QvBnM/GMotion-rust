@@ -143,9 +143,11 @@ pub struct Recenta {
 pub struct Conectare {
     pub sursa: Parte,
     pub baza: Parte,
-    /// Textul despre certificat, ca in macheta: „Certificatul serverului nu se
-    /// verifica." Se schimba din legatura „Schimba".
-    pub certificat: String,
+    /// Se verifica certificatul serverului cu depozitul sistemului? Implicit
+    /// nu, ca in v3.4. Se schimba din legatura „Schimba". **Asta** ajunge in
+    /// conexiune, nu doar textul: pana la 2026-11-18 ecranul spunea „se
+    /// verifica", iar conexiunea tot nu verifica.
+    pub verifica_certificatul: bool,
     pub recente: Vec<Recenta>,
     /// Instantaneul deschis in locul serverelor („Deschide un instantaneu…").
     pub instantaneu: Option<String>,
@@ -162,8 +164,32 @@ impl Conectare {
                 auth_windows: true,
                 ..Parte::default()
             },
-            certificat: "Certificatul serverului nu se verifica.".to_string(),
             ..Conectare::default()
+        }
+    }
+
+    /// Textul despre certificat, ca in macheta. Gol pe un instantaneu: acolo
+    /// nu exista server, deci nici certificat.
+    pub fn text_certificat(&self) -> &'static str {
+        if self.instantaneu.is_some() {
+            ""
+        } else if self.verifica_certificatul {
+            "Certificatul serverului se verifica cu depozitul sistemului."
+        } else {
+            "Certificatul serverului nu se verifica."
+        }
+    }
+
+    /// Ce lipseste ca sa se poata citi bazele unei parti. Pe un instantaneu,
+    /// nimic: bazele vin din fisier, nu de pe un server.
+    pub fn ce_lipseste_pentru_baze(&self, sursa: bool) -> Option<&'static str> {
+        if self.instantaneu.is_some() {
+            return None;
+        }
+        if sursa {
+            self.sursa.ce_lipseste()
+        } else {
+            self.baza.ce_lipseste()
         }
     }
 
@@ -316,6 +342,28 @@ mod teste {
         assert_eq!(c.baza.server, "SRV-DEV");
         assert_eq!(c.baza.baze, ["Dev"]);
         assert!(c.poate_compara());
+    }
+
+    /// Bug de pe Windows (2026-11-18): pornit cu `--sursa`, lista de baze
+    /// cerea server si scria „completeaza serverul".
+    #[test]
+    fn pe_instantaneu_bazele_nu_cer_server() {
+        let mut c = Conectare::noua();
+        assert_eq!(c.ce_lipseste_pentru_baze(true), Some("serverul"));
+        c.instantaneu = Some("/tmp/inst.json".into());
+        assert_eq!(c.ce_lipseste_pentru_baze(true), None);
+        assert_eq!(c.ce_lipseste_pentru_baze(false), None);
+    }
+
+    #[test]
+    fn textul_certificatului_urmeaza_alegerea_si_dispare_pe_instantaneu() {
+        let mut c = Conectare::noua();
+        assert!(!c.verifica_certificatul, "implicit ca in v3.4");
+        assert!(c.text_certificat().contains("nu se verifica"));
+        c.verifica_certificatul = true;
+        assert!(c.text_certificat().contains("depozitul sistemului"));
+        c.instantaneu = Some("/tmp/inst.json".into());
+        assert_eq!(c.text_certificat(), "");
     }
 
     #[test]
