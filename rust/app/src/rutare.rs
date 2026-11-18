@@ -7,7 +7,9 @@
 //! se testeaza ca atare.
 
 use gmotion_fereastra::model_editor::{construieste, marcheaza_textul_final, ModelEditor};
-use gmotion_fereastra::model_lista::{Deploy, Detalii, Lista, Obiect, Ordine, Stare};
+use gmotion_fereastra::model_lista::{
+    Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
+};
 use gmotion_modul_diff_obiecte::{self as modul, Baza, Editari, Rand, Revizuire, TextFinal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,7 +21,9 @@ pub enum Ecran {
 }
 
 /// Tot ce poate cere utilizatorul, din oricare ecran.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Fara `Eq`: `FiltreazaScor` tine procente.
+#[derive(Debug, Clone, PartialEq)]
 pub enum Comanda {
     MutaSelectia(i32),
     Selecteaza(usize),
@@ -32,6 +36,12 @@ pub enum Comanda {
     FiltreazaTip(Option<String>),
     Cauta(String),
     Sorteaza(Ordine),
+    /// Filtrul pe ce ai facut cu obiectul (nerevizuite, omise, deployate...).
+    FiltreazaRevizuire(Option<FiltruRevizuire>),
+    /// Intervalul de similaritate, in procente.
+    FiltreazaScor(f64, f64),
+    /// „In plan" pe tot ce se vede; `true` = si pe ce s-a deployat deja.
+    PuneVizibileleInPlan(bool),
     /// Pune sau scoate obiectul selectat din plan.
     ComutaInPlan,
     /// Scoate din plan obiectul `schema.nume` (din ecranul de deploy).
@@ -318,6 +328,11 @@ impl Aplicatie {
             Comanda::FiltreazaTip(t) => self.lista.filtreaza_tip(t),
             Comanda::Cauta(t) => self.lista.cauta(&t),
             Comanda::Sorteaza(o) => self.lista.sorteaza(o),
+            Comanda::FiltreazaRevizuire(f) => self.lista.filtreaza_revizuire(f),
+            Comanda::FiltreazaScor(min, max) => self.lista.filtreaza_scor(min, max),
+            Comanda::PuneVizibileleInPlan(cu_deployate) => {
+                self.lista.pune_vizibilele_in_plan(cu_deployate);
+            }
             Comanda::ComutaInPlan => {
                 if let Some(p) = self.lista.selectat() {
                     self.lista.comuta_in_plan(p);
@@ -460,6 +475,65 @@ impl Aplicatie {
         self.schimba_textul(|e, r, a, b| {
             e.aplica_blocuri(r, a, b, &[bloc]);
         })
+    }
+
+    /// Dupa un deploy scris: obiectele din plan sunt deployate. Starea se
+    /// tine pe amprenta (`Revizuire`), nu pe nume, deci un obiect schimbat
+    /// pe server devine singur „versiune noua". Intoarce `true` daca s-a
+    /// schimbat ceva, deci sesiunea trebuie salvata.
+    pub fn marcheaza_deployate(&mut self, plan: &modul::Plan) -> bool {
+        let mut schimbat = false;
+        for pas in &plan.pasi {
+            let Some(r) = self
+                .randuri
+                .iter()
+                .find(|r| r.baza == pas.baza && r.obiect == pas.obiect)
+                .cloned()
+            else {
+                continue;
+            };
+            self.revizuire.marcheaza_deployat(&r);
+            self.lista.pune_deploy(&pas.obiect, Deploy::Deployat);
+            schimbat = true;
+        }
+        schimbat
+    }
+
+    #[cfg(test)]
+    fn randuri_vizibile_toate(&self) -> Vec<Rand> {
+        self.randuri.clone()
+    }
+
+    /// Randurile compararii pentru obiectele vizibile acum, in ordinea
+    /// afisata: exact ce vede utilizatorul, nu toata compararea.
+    pub fn randuri_vizibile(&self) -> Vec<Rand> {
+        (0..self.lista.vizibile().len())
+            .filter_map(|p| self.lista.obiect(p))
+            .filter_map(|o| self.rand(&o.id()))
+            .cloned()
+            .collect()
+    }
+
+    /// Exporta lista **filtrata** in CSV (acelasi fisier ca `gmotion export`).
+    /// Intoarce cate randuri s-au scris.
+    pub fn exporta_csv(&self, cale: &std::path::Path) -> Result<usize, String> {
+        let randuri = self.randuri_vizibile();
+        let stare: std::collections::BTreeMap<usize, modul::export::Stare> = randuri
+            .iter()
+            .map(|r| {
+                (
+                    r.id,
+                    modul::export::Stare {
+                        rezolvat: self.revizuire.e_revizuit(r),
+                        omis: self.revizuire.e_omis(r),
+                    },
+                )
+            })
+            .collect();
+        modul::scrie_csv(cale, &randuri, |id| {
+            stare.get(&id).copied().unwrap_or_default()
+        })
+        .map_err(|e| e.to_string())
     }
 
     fn comuta_omis(&mut self) -> bool {
@@ -609,6 +683,100 @@ mod teste {
         app.comanda(Comanda::ScoateDinPlan(id));
         assert_eq!(app.ecran(), Ecran::Lista);
         assert!(app.lista().in_plan().is_empty());
+    }
+
+    #[test]
+    fn filtrele_noi_ajung_la_lista_prin_comenzi() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::FiltreazaRevizuire(Some(
+            FiltruRevizuire::Nerevizuite,
+        )));
+        assert_eq!(a.lista().vizibile().len(), 3);
+        a.comanda(Comanda::Selecteaza(0));
+        a.comanda(Comanda::ComutaRevizuit);
+        assert_eq!(
+            a.lista().vizibile().len(),
+            3,
+            "ca in v3.4: bifa nu smulge randul de sub cursor; filtrul se \
+             re-aplica la urmatoarea atingere"
+        );
+        a.comanda(Comanda::FiltreazaRevizuire(Some(
+            FiltruRevizuire::Nerevizuite,
+        )));
+        assert_eq!(a.lista().vizibile().len(), 2, "acum iese");
+        a.comanda(Comanda::FiltreazaRevizuire(Some(
+            FiltruRevizuire::Revizuite,
+        )));
+        assert_eq!(a.lista().vizibile().len(), 1);
+        a.comanda(Comanda::FiltreazaRevizuire(None));
+        assert_eq!(a.lista().vizibile().len(), 3);
+        // pDoarSursa n-are scor: iese cand filtrul de scor e activ
+        a.comanda(Comanda::FiltreazaScor(0.0, 99.0));
+        assert_eq!(a.lista().vizibile().len(), 2);
+        a.comanda(Comanda::FiltreazaScor(0.0, 100.0));
+        assert_eq!(a.lista().vizibile().len(), 3);
+    }
+
+    #[test]
+    fn in_plan_pe_tot_ce_se_vede_respecta_filtrul() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Cauta("pA".into()));
+        a.comanda(Comanda::PuneVizibileleInPlan(false));
+        assert_eq!(a.lista().in_plan(), ["dbo.pA"]);
+        a.comanda(Comanda::Cauta(String::new()));
+        a.comanda(Comanda::PuneVizibileleInPlan(false));
+        assert_eq!(
+            a.lista().in_plan(),
+            ["dbo.pA", "dbo.pB", "dbo.pDoarSursa"],
+            "toate se pot deploia"
+        );
+    }
+
+    #[test]
+    fn dupa_deploy_obiectele_din_plan_sunt_deployate_si_tin_minte() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::PuneVizibileleInPlan(false));
+        let plan = a.plan("Referinta", "Client1", "acum");
+        assert_eq!(plan.pasi.len(), 3);
+        assert!(a.marcheaza_deployate(&plan), "e de salvat in sesiune");
+        assert_eq!(a.lista().progres_deploy(), (3, 3));
+        a.comanda(Comanda::FiltreazaRevizuire(Some(
+            FiltruRevizuire::Nedeployate,
+        )));
+        assert!(a.lista().vizibile().is_empty());
+
+        // starea e pe amprenta: aceeasi comparare o regaseste, una schimbata nu
+        let randuri: Vec<Rand> = a.randuri_vizibile_toate();
+        let rev = a.revizuire().clone();
+        for r in &randuri {
+            assert!(rev.e_deployat(r));
+            let mut schimbat = r.clone();
+            schimbat.hash_curent = Some("altceva".into());
+            assert!(!rev.e_deployat(&schimbat), "versiune noua, nu deployat");
+            assert!(rev.a_fost_deployat(&schimbat));
+        }
+    }
+
+    #[test]
+    fn exportul_csv_scrie_doar_randurile_vizibile() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Cauta("pA".into()));
+        let dir = std::env::temp_dir().join(format!("gmotion-export-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let cale = dir.join("lista.csv");
+        assert_eq!(a.exporta_csv(&cale).unwrap(), 1);
+        let text = std::fs::read_to_string(&cale).unwrap();
+        assert!(text.contains("dbo.pA") && !text.contains("dbo.pB"));
+        // starea utilizatorului intra in fisier
+        a.comanda(Comanda::Selecteaza(0));
+        a.comanda(Comanda::ComutaOmis);
+        a.exporta_csv(&cale).unwrap();
+        let text = std::fs::read_to_string(&cale).unwrap();
+        assert!(text.trim_end().ends_with("NU;DA"), "coloana Omis: {text}");
+        // o lista filtrata la zero nu scrie un fisier gol, da eroare
+        a.comanda(Comanda::Cauta("nu-exista".into()));
+        assert!(a.exporta_csv(&cale).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -409,10 +409,12 @@ fn ruleaza() -> Result<(), String> {
         }
     };
 
+    let salveaza = Rc::new(salveaza);
+
     let comanda = {
         let stare = stare.clone();
         let deseneaza = deseneaza.clone();
-        let salveaza = Rc::new(salveaza);
+        let salveaza = salveaza.clone();
         move |c: Comanda| {
             let schimbat = stare
                 .borrow_mut()
@@ -739,17 +741,29 @@ fn ruleaza() -> Result<(), String> {
         });
         let s = stare.clone();
         let d = deseneaza.clone();
+        let sv = salveaza.clone();
         deploy_ui.on_scrie_scripturile(move || {
             let mut st = s.borrow_mut();
             let (referinta, tinta) = (st.conectare.sursa.baza.clone(), st.conectare.baza.baza.clone());
+            let mut scris = None;
             if let Some((_, dep)) = st.deploy.as_mut() {
                 let dir = director_deploy(&referinta);
                 dep.scrie(&dir, &tinta, &gmotion_platforma::timp::acum());
                 if let Some(Ok(r)) = &dep.rezultat {
                     tracing::info!(target: "gmotion::app", director = %r.director.display(), fisiere = r.fisiere.len(), "deploy scris");
+                    scris = Some(dep.plan.clone());
                 }
             }
+            // obiectele scrise devin „deployate" in lista si in sesiune;
+            // doar dupa o scriere reusita, nu dupa o incercare
+            let de_salvat = match (scris, st.app.as_mut()) {
+                (Some(plan), Some(app)) => app.marcheaza_deployate(&plan),
+                _ => false,
+            };
             drop(st);
+            if de_salvat {
+                sv();
+            }
             d();
         });
         let s = stare.clone();

@@ -721,6 +721,45 @@ fn plan_din(r: &Rulare, doar: Option<&str>) -> modul::Plan {
     )
 }
 
+/// Dupa un deploy scris: obiectele din plan se tin minte ca deployate, cu
+/// amprenta de acum. Fereastra arata coloana „Deploy" din aceeasi stare, deci
+/// un deploy facut din `cli` se vede si acolo.
+///
+/// Nu opreste deploy-ul daca sesiunea nu se poate salva: scripturile sunt deja
+/// pe disc, iar pierderea e doar a marcajului.
+fn marcheaza_deployatele(
+    args: &ArgumenteSursa,
+    referinta: &str,
+    plan: &modul::Plan,
+    randuri: &[modul::Rand],
+) {
+    let Ok(sesiuni) = gmotion_platforma::Sesiuni::pentru_modul(modul::NUME) else {
+        return;
+    };
+    let Ok(mut sesiune) = sesiune_sau_noua(&sesiuni, args, referinta) else {
+        return;
+    };
+    let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
+    let mut marcate = 0;
+    for pas in &plan.pasi {
+        if let Some(rand) = randuri
+            .iter()
+            .find(|r| r.baza == pas.baza && r.obiect == pas.obiect)
+        {
+            revizuire.marcheaza_deployat(rand);
+            marcate += 1;
+        }
+    }
+    if marcate == 0 {
+        return;
+    }
+    revizuire.in_sesiune(&mut sesiune);
+    sesiune.salvata = acum();
+    if let Err(e) = sesiuni.salveaza(&sesiune) {
+        tracing::warn!(target: "gmotion::cli", eroare = %e, "marcajul de deploy nu s-a salvat");
+    }
+}
+
 /// Revizuirea (cu omisele) si textele finale salvate pentru referinta. Lipsa
 /// sesiunii sau o sesiune de neinteles dau stari goale: deploy-ul merge si
 /// fara ele, cu codul din referinta.
@@ -859,6 +898,8 @@ pub fn deploy(
         &acum(),
     )
     .map_err(|e| e.to_string())?;
+
+    marcheaza_deployatele(args, referinta, &plan, &r.comparare.randuri);
 
     format.progres(&format!(
         "Scris {} fisiere in {} ({} obiecte{}).\n\

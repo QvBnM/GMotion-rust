@@ -876,3 +876,80 @@ fn editarea_si_omiterea_ajung_in_deploy() {
         "{sql}"
     );
 }
+
+/// Deploy-ul scris din `cli` tine minte obiectele ca „deployate", cu amprenta
+/// lor: coloana Deploy din fereastra se umple si cand deploy-ul s-a facut din
+/// linia de comanda. Fara asta, cele doua jumatati ale aplicatiei ar tine
+/// evidente separate — exact divergenta din v3.4.
+#[test]
+fn deploy_ul_din_cli_tine_minte_obiectele_deployate() {
+    let d = dir("deploy-marcaj");
+    let date = d.join("date");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            inst.to_str().unwrap(),
+            "--referinta",
+            "Referinta",
+            "-d",
+            d.join("dep").to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+
+    let sesiune = cauta_sesiunea(&date);
+    let v: serde_json::Value = serde_json::from_str(&sesiune).expect("sesiune JSON valida");
+    let deployate = &v["date"]["revizuire"]["deployate"]["Client1"];
+    assert!(
+        deployate["dbo.pClienti"].is_object() && deployate["dbo.pStoc"].is_object(),
+        "obiectele deployate lipsesc din sesiune: {v}"
+    );
+    assert!(
+        deployate["dbo.pLocal"].is_null(),
+        "ce exista doar in tinta nu s-a deployat, deci nu se marcheaza: {v}"
+    );
+    assert!(
+        deployate["dbo.vFacturi"].is_null(),
+        "obiectul cu diferenta cosmetica nu intra in deploy: {v}"
+    );
+    assert!(
+        deployate["dbo.pStoc"]["curent"].is_null(),
+        "pStoc nu exista in tinta: n-are amprenta acolo: {v}"
+    );
+    // marcajul e pe amprenta, nu pe nume
+    assert!(
+        deployate["dbo.pClienti"]["referinta"].is_string(),
+        "fara amprenta, marcajul n-ar cadea cand obiectul se schimba: {v}"
+    );
+}
+
+/// Singurul fisier de sesiune din directorul de date al testului, ca JSON.
+/// Pe Linux sesiunea se scrie in clar, cu un antet care spune asta.
+fn cauta_sesiunea(date: &Path) -> String {
+    fn cauta(dir: &Path, gasite: &mut Vec<PathBuf>) {
+        let Ok(intrari) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for e in intrari.flatten() {
+            let cale = e.path();
+            if cale.is_dir() {
+                cauta(&cale, gasite);
+            } else if cale.extension().is_some_and(|x| x == "dat") {
+                gasite.push(cale);
+            }
+        }
+    }
+    let mut gasite = Vec::new();
+    cauta(date, &mut gasite);
+    assert_eq!(gasite.len(), 1, "o singura sesiune salvata: {gasite:?}");
+    let text = std::fs::read_to_string(&gasite[0]).unwrap();
+    let (antet, json) = text
+        .split_once('\0')
+        .expect("sesiunea are antetul care spune cum e scrisa");
+    assert_eq!(antet, "GMOTION-CLAR", "pe Linux sesiunea se scrie in clar");
+    json.to_string()
+}

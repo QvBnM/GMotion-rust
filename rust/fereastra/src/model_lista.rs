@@ -771,6 +771,260 @@ mod teste {
         assert_eq!(l.rezumat_vizibile(), "1 nerevizuite din 2");
     }
 
+    /// Lista pentru filtrele noi: scor, revizuire, deploy.
+    fn lista_stari() -> Lista {
+        let mut o1 = obiect("pMic", "P", Stare::Modificat);
+        o1.scor = Some(20.0);
+        let mut o2 = obiect("pMediu", "P", Stare::Modificat);
+        o2.scor = Some(60.0);
+        o2.revizuit = true;
+        let mut o3 = obiect("pMare", "P", Stare::Modificat);
+        o3.scor = Some(95.0);
+        o3.omis = true;
+        let mut o4 = obiect("pNou", "P", Stare::DoarSursa);
+        o4.in_plan = true;
+        o4.deploy = Deploy::Deployat;
+        let mut o5 = obiect("pVechi", "P", Stare::DoarBaza);
+        o5.deploy = Deploy::VersiuneNoua;
+        Lista::noua(vec![o1, o2, o3, o4, o5])
+    }
+
+    fn nume_vizibile(l: &Lista) -> Vec<String> {
+        (0..l.vizibile().len())
+            .map(|p| l.obiect(p).unwrap().nume.clone())
+            .collect()
+    }
+
+    #[test]
+    fn filtrul_pe_stare_de_revizuire_separa_cele_sase_cazuri() {
+        let mut l = lista_stari();
+        let cu = |l: &mut Lista, f: FiltruRevizuire| {
+            l.filtreaza_revizuire(Some(f));
+            nume_vizibile(l)
+        };
+        assert_eq!(
+            cu(&mut l, FiltruRevizuire::Nerevizuite),
+            ["pMic", "pNou", "pVechi"],
+            "omisul nu e nerevizuit: e analizat, doar lasat deoparte"
+        );
+        assert_eq!(cu(&mut l, FiltruRevizuire::Revizuite), ["pMediu"]);
+        assert_eq!(cu(&mut l, FiltruRevizuire::Omise), ["pMare"]);
+        assert_eq!(cu(&mut l, FiltruRevizuire::InPlan), ["pNou"]);
+        assert_eq!(cu(&mut l, FiltruRevizuire::Deployate), ["pNou"]);
+        assert_eq!(
+            cu(&mut l, FiltruRevizuire::Nedeployate),
+            ["pMare", "pMediu", "pMic", "pVechi"],
+            "versiunea noua nu e deployata: s-a schimbat de atunci"
+        );
+        l.filtreaza_revizuire(None);
+        assert_eq!(l.vizibile().len(), 5);
+    }
+
+    #[test]
+    fn filtrul_pe_scor_taie_capetele_si_ascunde_obiectele_fara_scor() {
+        let mut l = lista_stari();
+        l.filtreaza_scor(50.0, 100.0);
+        assert_eq!(
+            nume_vizibile(&l),
+            ["pMare", "pMediu"],
+            "obiectele fara scor ies cand filtrul e activ"
+        );
+        // capetele sunt incluse
+        l.filtreaza_scor(20.0, 20.0);
+        assert_eq!(nume_vizibile(&l), ["pMic"]);
+        // un interval scris invers se indreapta, nu goleste lista
+        l.filtreaza_scor(100.0, 60.0);
+        assert_eq!(nume_vizibile(&l), ["pMare", "pMediu"]);
+        // in afara 0-100 se taie, iar 0-100 inseamna „fara filtru"
+        l.filtreaza_scor(-30.0, 500.0);
+        assert_eq!(l.vizibile().len(), 5, "si cele fara scor revin");
+    }
+
+    /// Cheia dupa care ar trebui sa iasa sortata coloana, ca text comparabil
+    /// (numerele cu zerouri in fata, ca sa se compare ca numere).
+    fn cheia(o: &Obiect, coloana: Ordine) -> String {
+        let linii = o
+            .detalii
+            .as_ref()
+            .map_or(0, |d| d.linii_plus + d.linii_minus);
+        match coloana {
+            Ordine::Nume => o.id(),
+            Ordine::Tip => o.tip.clone(),
+            Ordine::Linii => format!("{linii:06}"),
+            // fara scor: la capat, ca „necunoscut"
+            Ordine::Scor => format!("{:09.3}", o.scor.unwrap_or(101.0)),
+            Ordine::DiferaIn => o
+                .detalii
+                .as_ref()
+                .map_or_else(String::new, |d| d.difera_in.clone()),
+            Ordine::Revizuire => u8::from(o.omis)
+                .max(if o.revizuit { 2 } else { 0 })
+                .to_string(),
+            Ordine::Deploy => match o.deploy {
+                Deploy::Nu => u8::from(o.in_plan),
+                Deploy::VersiuneNoua => 2,
+                Deploy::Deployat => 3,
+            }
+            .to_string(),
+        }
+    }
+
+    const COLOANE: [Ordine; 7] = [
+        Ordine::Nume,
+        Ordine::Tip,
+        Ordine::Linii,
+        Ordine::Scor,
+        Ordine::DiferaIn,
+        Ordine::Revizuire,
+        Ordine::Deploy,
+    ];
+
+    #[test]
+    fn fiecare_coloana_sorteaza_in_ambele_sensuri() {
+        let mut l = lista_stari();
+        for p in 0..l.vizibile().len() {
+            let n = l.obiect(p).unwrap().nume.clone();
+            l.pune_detalii(
+                p,
+                Detalii {
+                    difera_in: format!("in-{n}"),
+                    linii_plus: n.len(),
+                    linii_minus: 0,
+                },
+            );
+        }
+        for coloana in COLOANE {
+            // prima apasare: sensul implicit al coloanei; a doua: invers
+            l.sorteaza(coloana);
+            let sens = l.descrescator();
+            verifica_ordinea(&l, coloana);
+            l.sorteaza(coloana);
+            assert_ne!(
+                sens,
+                l.descrescator(),
+                "{coloana:?}: a doua apasare schimba sensul"
+            );
+            verifica_ordinea(&l, coloana);
+            // alta coloana si inapoi: sensul reporneste de la implicit
+            l.sorteaza(Ordine::Nume);
+            l.sorteaza(coloana);
+            assert_eq!(
+                l.descrescator(),
+                coloana == Ordine::Linii,
+                "{coloana:?}: sensul implicit, nu cel de data trecuta"
+            );
+        }
+    }
+
+    /// Cheile merg in sensul cerut, iar la chei egale numele ramane crescator
+    /// — altfel randurile ar sari intre ele la fiecare resortare.
+    fn verifica_ordinea(l: &Lista, coloana: Ordine) {
+        let desc = l.descrescator();
+        let randuri: Vec<&Obiect> = (0..l.vizibile().len())
+            .map(|p| l.obiect(p).unwrap())
+            .collect();
+        for pereche in randuri.windows(2) {
+            let (a, b) = (pereche[0], pereche[1]);
+            let (ka, kb) = (cheia(a, coloana), cheia(b, coloana));
+            if ka == kb {
+                assert!(
+                    a.id() < b.id(),
+                    "{coloana:?}: la chei egale numele departajeaza crescator"
+                );
+            } else if desc {
+                assert!(ka > kb, "{coloana:?} descrescator: {ka} dupa {kb}");
+            } else {
+                assert!(ka < kb, "{coloana:?} crescator: {ka} inaintea {kb}");
+            }
+        }
+    }
+
+    #[test]
+    fn sortarea_pe_scor_pune_la_capat_obiectele_fara_scor() {
+        let mut l = lista_stari();
+        l.sorteaza(Ordine::Scor);
+        assert_eq!(
+            nume_vizibile(&l),
+            ["pMic", "pMediu", "pMare", "pNou", "pVechi"],
+            "cele fara scor stau dupa 100%, nu inaintea celor de 20%"
+        );
+    }
+
+    #[test]
+    fn sortarea_pe_deploy_urca_deployatele_si_lasa_jos_ce_nu_e_in_plan() {
+        let mut l = lista_stari();
+        l.sorteaza(Ordine::Deploy);
+        assert_eq!(
+            nume_vizibile(&l),
+            ["pMare", "pMediu", "pMic", "pVechi", "pNou"],
+            "nimic < in plan < versiune noua < deployat"
+        );
+    }
+
+    #[test]
+    fn in_plan_intra_doar_vizibilele_care_au_rost() {
+        let mut l = lista_stari();
+        // pNou e deja in plan si deployat; pMare e omis; pVechi n-are cod
+        assert_eq!(l.pune_vizibilele_in_plan(false), 2);
+        assert_eq!(
+            l.in_plan(),
+            ["dbo.pMic", "dbo.pMediu", "dbo.pNou"],
+            "ordinea e cea din lista completa, nu cea afisata"
+        );
+        // a doua oara nu mai are ce adauga
+        assert_eq!(l.pune_vizibilele_in_plan(false), 0);
+    }
+
+    #[test]
+    fn in_plan_sare_deployatele_pana_cand_se_cere_altfel() {
+        let mut l = lista_stari();
+        l.scoate_din_plan("dbo.pNou");
+        assert_eq!(
+            l.pune_vizibilele_in_plan(false),
+            2,
+            "pNou e deployat si neschimbat, deci se sare"
+        );
+        assert!(!l.in_plan().contains(&"dbo.pNou".to_string()));
+        assert_eq!(l.pune_vizibilele_in_plan(true), 1, "acum intra si el");
+        assert!(l.in_plan().contains(&"dbo.pNou".to_string()));
+    }
+
+    #[test]
+    fn in_plan_se_uita_doar_la_ce_e_filtrat() {
+        let mut l = lista_stari();
+        l.scoate_din_plan("dbo.pNou");
+        l.filtreaza_scor(0.0, 50.0);
+        assert_eq!(nume_vizibile(&l), ["pMic"]);
+        assert_eq!(l.pune_vizibilele_in_plan(true), 1);
+        assert_eq!(l.in_plan(), ["dbo.pMic"], "ce nu se vede nu intra in plan");
+    }
+
+    #[test]
+    fn progresul_de_deploy_numara_doar_ce_difera_si_e_neschimbat() {
+        let mut l = lista_stari();
+        assert_eq!(
+            l.progres_deploy(),
+            (1, 5),
+            "versiunea noua nu se pune la bifate"
+        );
+        l.pune_deploy("dbo.pMic", Deploy::Deployat);
+        assert_eq!(l.progres_deploy(), (2, 5));
+        l.pune_deploy("dbo.pMic", Deploy::VersiuneNoua);
+        assert_eq!(l.progres_deploy(), (1, 5));
+    }
+
+    #[test]
+    fn un_obiect_omis_iese_din_plan_si_nu_mai_e_revizuit() {
+        let mut l = lista_stari();
+        let p = (0..l.vizibile().len())
+            .find(|&p| l.obiect(p).unwrap().nume == "pNou")
+            .unwrap();
+        l.pune_revizuirea(p, true, true);
+        let o = l.obiect(p).unwrap();
+        assert!(o.omis && !o.revizuit && !o.in_plan);
+        assert!(l.in_plan().is_empty());
+    }
+
     #[test]
     fn navigarea_cu_tastatura_nu_iese_din_lista() {
         let mut l = lista_proba();
