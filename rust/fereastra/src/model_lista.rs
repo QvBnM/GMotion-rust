@@ -139,6 +139,9 @@ impl FiltruRevizuire {
 pub struct Obiect {
     pub schema: String,
     pub nume: String,
+    /// Baza comparata in care s-a gasit obiectul. Cand referinta se compara cu
+    /// mai multe baze, acelasi `schema.nume` apare o data pentru fiecare.
+    pub baza: String,
     /// Codul din `sys.objects.type` (`P`, `V`, `FN`...); numele pentru
     /// utilizator vine din `gmotion_core::nume_tip`.
     pub tip: String,
@@ -159,6 +162,12 @@ impl Obiect {
         format!("{}.{}", self.schema, self.nume)
     }
 
+    /// Cheia care chiar e unica: acelasi obiect din doua baze sunt doua
+    /// randuri. `id()` singur nu ajunge de cand se compara mai multe baze.
+    pub fn cheie(&self) -> (String, String) {
+        (self.baza.clone(), self.id())
+    }
+
     /// Se poate deploia: are cod in sursa care se poate citi. Un obiect doar
     /// in baza n-are ce scrie, unul criptat n-are cod.
     pub fn se_poate_deploia(&self) -> bool {
@@ -175,6 +184,8 @@ pub enum Ordine {
     Tip,
     /// Liniile mutate (`+N −M`); implicit, cele mai multe primele.
     Linii,
+    /// Baza comparata.
+    Baza,
     /// Similaritatea; implicit, cele mai diferite primele.
     Scor,
     DiferaIn,
@@ -194,6 +205,8 @@ impl Ordine {
 #[derive(Debug, Clone)]
 pub struct Filtru {
     pub stare: Option<Stare>,
+    /// Numele bazei comparate; `None` = toate.
+    pub baza: Option<String>,
     /// Codul tipului (`P`, `V`...).
     pub tip: Option<String>,
     pub cautare: String,
@@ -209,6 +222,7 @@ impl Default for Filtru {
     fn default() -> Self {
         Filtru {
             stare: None,
+            baza: None,
             tip: None,
             cautare: String::new(),
             revizuire: None,
@@ -306,6 +320,11 @@ impl Lista {
         self.recalculeaza();
     }
 
+    pub fn filtreaza_baza(&mut self, baza: Option<String>) {
+        self.filtru.baza = baza;
+        self.recalculeaza();
+    }
+
     pub fn filtreaza_tip(&mut self, tip: Option<String>) {
         self.filtru.tip = tip;
         self.recalculeaza();
@@ -342,9 +361,13 @@ impl Lista {
         self.recalculeaza();
     }
 
-    /// Starea de deploy a obiectului `schema.nume`.
-    pub fn pune_deploy(&mut self, id: &str, d: Deploy) {
-        for o in self.obiecte.iter_mut().filter(|o| o.id() == id) {
+    /// Starea de deploy a obiectului `schema.nume` dintr-o anume baza.
+    pub fn pune_deploy(&mut self, baza: &str, id: &str, d: Deploy) {
+        for o in self
+            .obiecte
+            .iter_mut()
+            .filter(|o| o.baza == baza && o.id() == id)
+        {
             o.deploy = d;
         }
     }
@@ -400,19 +423,24 @@ impl Lista {
         true
     }
 
-    /// Scoate din plan obiectul cu `schema.nume` dat, vizibil sau nu.
-    pub fn scoate_din_plan(&mut self, id: &str) {
-        for o in self.obiecte.iter_mut().filter(|o| o.id() == id) {
+    /// Scoate din plan obiectul dat (baza si `schema.nume`), vizibil sau nu.
+    pub fn scoate_din_plan(&mut self, baza: &str, id: &str) {
+        for o in self
+            .obiecte
+            .iter_mut()
+            .filter(|o| o.baza == baza && o.id() == id)
+        {
             o.in_plan = false;
         }
     }
 
-    /// Obiectele din plan, `schema.nume`, in ordinea din lista completa.
-    pub fn in_plan(&self) -> Vec<String> {
+    /// Obiectele din plan, `(baza, schema.nume)`, in ordinea din lista
+    /// completa.
+    pub fn in_plan(&self) -> Vec<(String, String)> {
         self.obiecte
             .iter()
             .filter(|o| o.in_plan)
-            .map(Obiect::id)
+            .map(Obiect::cheie)
             .collect()
     }
 
@@ -461,6 +489,19 @@ impl Lista {
         rez
     }
 
+    /// Bazele comparate, cu cate obiecte care difera are fiecare, in ordinea
+    /// in care apar.
+    pub fn contoare_baze(&self) -> Vec<(String, usize)> {
+        let mut rez: Vec<(String, usize)> = Vec::new();
+        for o in self.obiecte.iter().filter(|o| o.stare.difera()) {
+            match rez.iter_mut().find(|(b, _)| *b == o.baza) {
+                Some((_, n)) => *n += 1,
+                None => rez.push((o.baza.clone(), 1)),
+            }
+        }
+        rez
+    }
+
     /// Cate obiecte care difera au fost deployate (si sunt inca cele de
     /// atunci), din cate.
     pub fn progres_deploy(&self) -> (usize, usize) {
@@ -480,21 +521,21 @@ impl Lista {
         (difera.iter().filter(|o| o.revizuit).count(), difera.len())
     }
 
-    /// „212 nerevizuite din 312 modificate" — despre ce se vede acum.
-    pub fn rezumat_vizibile(&self) -> String {
+    /// Cate obiecte nerevizuite din cate se vad acum. Cuvintele le pune
+    /// fereastra, din `Texte`: aici stau doar cifrele.
+    pub fn rezumat_vizibile(&self) -> (usize, usize) {
         let nerevizuite = self
             .vizibile
             .iter()
             .filter(|&&i| self.obiecte[i].stare.difera() && !self.obiecte[i].revizuit)
             .count();
-        let total = self.vizibile.len();
-        format!("{nerevizuite} nerevizuite din {total}")
+        (nerevizuite, self.vizibile.len())
     }
 
     fn recalculeaza(&mut self) {
         // obiectul selectat ramane selectat daca mai e vizibil: altfel
         // previzualizarea de dedesubt ar sari pe alt obiect la fiecare filtru
-        let id_selectat = self.obiect_selectat().map(Obiect::id);
+        let id_selectat = self.obiect_selectat().map(Obiect::cheie);
         let cautare = self.filtru.cautare.to_lowercase();
         let mut v: Vec<usize> = self
             .obiecte
@@ -502,8 +543,11 @@ impl Lista {
             .enumerate()
             .filter(|(_, o)| {
                 self.filtru.stare.is_none_or(|s| o.stare == s)
+                    && self.filtru.baza.as_deref().is_none_or(|b| o.baza == b)
                     && self.filtru.tip.as_deref().is_none_or(|t| o.tip == t)
-                    && (cautare.is_empty() || o.id().to_lowercase().contains(&cautare))
+                    && (cautare.is_empty()
+                        || o.id().to_lowercase().contains(&cautare)
+                        || o.baza.to_lowercase().contains(&cautare))
                     && self.filtru.revizuire.is_none_or(|f| f.potriveste(o))
                     && (!self.filtru.scor_activ()
                         || o.scor.is_some_and(|x| {
@@ -539,6 +583,7 @@ impl Lista {
             let c = match ordine {
                 Ordine::Nume => std::cmp::Ordering::Equal,
                 Ordine::Tip => o[a].tip.cmp(&o[b].tip),
+                Ordine::Baza => o[a].baza.cmp(&o[b].baza),
                 Ordine::Linii => linii(a).cmp(&linii(b)),
                 // fara scor (doar intr-o parte): la capat, ca „necunoscut"
                 Ordine::Scor => o[a]
@@ -552,9 +597,10 @@ impl Lista {
                 Ordine::Revizuire => rang_revizuire(a).cmp(&rang_revizuire(b)),
                 Ordine::Deploy => rang_deploy(a).cmp(&rang_deploy(b)),
             };
-            // numele departajeaza mereu crescator, ca ordinea sa fie stabila
+            // numele (cu baza) departajeaza mereu crescator, ca ordinea sa fie
+            // stabila; `id()` singur nu mai e unic peste mai multe baze
             let c = if self.descrescator { c.reverse() } else { c };
-            c.then_with(|| o[a].id().cmp(&o[b].id()))
+            c.then_with(|| o[a].cheie().cmp(&o[b].cheie()))
         });
         if ordine == Ordine::Nume && self.descrescator {
             v.reverse();
@@ -564,7 +610,7 @@ impl Lista {
             Some(id) => self
                 .vizibile
                 .iter()
-                .position(|&i| self.obiecte[i].id() == id)
+                .position(|&i| self.obiecte[i].cheie() == id)
                 .or(if self.vizibile.is_empty() {
                     None
                 } else {
@@ -584,6 +630,7 @@ mod teste {
         Obiect {
             schema: "dbo".into(),
             nume: nume.into(),
+            baza: "Client1".into(),
             tip: tip.into(),
             stare,
             detalii: None,
@@ -593,6 +640,10 @@ mod teste {
             scor: None,
             deploy: Default::default(),
         }
+    }
+
+    fn cheie(nume: &str) -> (String, String) {
+        ("Client1".to_string(), format!("dbo.{nume}"))
     }
 
     fn lista_proba() -> Lista {
@@ -628,12 +679,9 @@ mod teste {
             let p = poz(&l, n);
             assert!(!l.comuta_in_plan(p), "{n} n-are cod de deploiat");
         }
-        assert_eq!(
-            l.in_plan(),
-            vec!["dbo.pMod".to_string(), "dbo.pNou".to_string()]
-        );
-        l.scoate_din_plan("dbo.pMod");
-        assert_eq!(l.in_plan(), vec!["dbo.pNou".to_string()]);
+        assert_eq!(l.in_plan(), [cheie("pMod"), cheie("pNou")]);
+        l.scoate_din_plan("Client1", "dbo.pMod");
+        assert_eq!(l.in_plan(), [cheie("pNou")]);
         // a doua apasare scoate
         let p = poz(&l, "pNou");
         assert!(l.comuta_in_plan(p));
@@ -766,9 +814,9 @@ mod teste {
     fn rezumatul_vorbeste_despre_ce_se_vede_acum() {
         let mut l = lista_proba();
         l.filtreaza_stare(Some(Stare::Modificat));
-        assert_eq!(l.rezumat_vizibile(), "2 nerevizuite din 2");
+        assert_eq!(l.rezumat_vizibile(), (2, 2));
         l.comuta_revizuit(0);
-        assert_eq!(l.rezumat_vizibile(), "1 nerevizuite din 2");
+        assert_eq!(l.rezumat_vizibile(), (1, 2));
     }
 
     /// Lista pentru filtrele noi: scor, revizuire, deploy.
@@ -850,6 +898,7 @@ mod teste {
         match coloana {
             Ordine::Nume => o.id(),
             Ordine::Tip => o.tip.clone(),
+            Ordine::Baza => o.baza.clone(),
             Ordine::Linii => format!("{linii:06}"),
             // fara scor: la capat, ca „necunoscut"
             Ordine::Scor => format!("{:09.3}", o.scor.unwrap_or(101.0)),
@@ -869,9 +918,10 @@ mod teste {
         }
     }
 
-    const COLOANE: [Ordine; 7] = [
+    const COLOANE: [Ordine; 8] = [
         Ordine::Nume,
         Ordine::Tip,
+        Ordine::Baza,
         Ordine::Linii,
         Ordine::Scor,
         Ordine::DiferaIn,
@@ -968,7 +1018,7 @@ mod teste {
         assert_eq!(l.pune_vizibilele_in_plan(false), 2);
         assert_eq!(
             l.in_plan(),
-            ["dbo.pMic", "dbo.pMediu", "dbo.pNou"],
+            [cheie("pMic"), cheie("pMediu"), cheie("pNou")],
             "ordinea e cea din lista completa, nu cea afisata"
         );
         // a doua oara nu mai are ce adauga
@@ -978,25 +1028,29 @@ mod teste {
     #[test]
     fn in_plan_sare_deployatele_pana_cand_se_cere_altfel() {
         let mut l = lista_stari();
-        l.scoate_din_plan("dbo.pNou");
+        l.scoate_din_plan("Client1", "dbo.pNou");
         assert_eq!(
             l.pune_vizibilele_in_plan(false),
             2,
             "pNou e deployat si neschimbat, deci se sare"
         );
-        assert!(!l.in_plan().contains(&"dbo.pNou".to_string()));
+        assert!(!l.in_plan().contains(&cheie("pNou")));
         assert_eq!(l.pune_vizibilele_in_plan(true), 1, "acum intra si el");
-        assert!(l.in_plan().contains(&"dbo.pNou".to_string()));
+        assert!(l.in_plan().contains(&cheie("pNou")));
     }
 
     #[test]
     fn in_plan_se_uita_doar_la_ce_e_filtrat() {
         let mut l = lista_stari();
-        l.scoate_din_plan("dbo.pNou");
+        l.scoate_din_plan("Client1", "dbo.pNou");
         l.filtreaza_scor(0.0, 50.0);
         assert_eq!(nume_vizibile(&l), ["pMic"]);
         assert_eq!(l.pune_vizibilele_in_plan(true), 1);
-        assert_eq!(l.in_plan(), ["dbo.pMic"], "ce nu se vede nu intra in plan");
+        assert_eq!(
+            l.in_plan(),
+            [cheie("pMic")],
+            "ce nu se vede nu intra in plan"
+        );
     }
 
     #[test]
@@ -1007,9 +1061,9 @@ mod teste {
             (1, 5),
             "versiunea noua nu se pune la bifate"
         );
-        l.pune_deploy("dbo.pMic", Deploy::Deployat);
+        l.pune_deploy("Client1", "dbo.pMic", Deploy::Deployat);
         assert_eq!(l.progres_deploy(), (2, 5));
-        l.pune_deploy("dbo.pMic", Deploy::VersiuneNoua);
+        l.pune_deploy("Client1", "dbo.pMic", Deploy::VersiuneNoua);
         assert_eq!(l.progres_deploy(), (1, 5));
     }
 

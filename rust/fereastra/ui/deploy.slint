@@ -8,7 +8,7 @@
 // (`deploy::StareDeploy::poate_scrie`), al doilea din `model_deploy::rezumat`.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Buton, Antet, ButonTema, Card } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, Antet, ButonTema, Card } from "comune.slint";
 
 export struct PasDeployUi {
     nr: string,
@@ -18,6 +18,8 @@ export struct PasDeployUi {
     tip: string,
     // `schema.nume`, pentru „scoate din plan"
     id: string,
+    // baza in care se scrie; randul o arata cand sunt mai multe
+    baza: string,
 }
 
 // O oprire de pe drumul spre scriere: cercul cu starea, titlul, textul.
@@ -92,11 +94,19 @@ export component FereastraDeploy inherits Window {
     callback verifica-baza();
     callback scrie-scripturile();
     callback alege-impartirea(int);
-    callback scoate-din-plan(string);
+    callback scoate-din-plan(string /* baza */, string /* schema.nume */);
+    // planul acopera mai multe baze: randurile arata in care se scriu
+    in property <bool> mai-multe-baze;
     callback alege-tema(bool);
+    // comutatorul de limba: etichetele si indicele ales vin din Rust
+    in property <[string]> limbi;
+    in property <int> limba-aleasa;
+    callback alege-limba(int);
+    callback ecran-complet();
 
     FocusScope {
         key-pressed(e) => {
+            if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
         }
@@ -108,10 +118,14 @@ export component FereastraDeploy inherits Window {
                 mediu: root.mediu;
                 VerticalLayout {
                     alignment: center;
-                    Text { text: "Se scriu doar scripturi; pe server nu se ruleaza nimic."; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                    Text { text: Texte.doar-scripturi; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
                 }
-                VerticalLayout { alignment: center; Buton { text: "← Inapoi la lista"; apasat => { root.inapoi-lista(); } } }
-                VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
+                VerticalLayout { alignment: center; Buton { text: Texte.inapoi-la-lista; apasat => { root.inapoi-lista(); } } }
+                VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    ButonLimba { limbi: root.limbi; aleasa: root.limba-aleasa; alege(i) => { root.alege-limba(i); } } }
             }
 
             HorizontalLayout {
@@ -132,8 +146,8 @@ export component FereastraDeploy inherits Window {
                             alignment: end;
                             padding-bottom: 14px;
                             spacing: 2px;
-                            Text { text: "pleaca spre " + root.tinta; font-family: Tema.font-ui; font-size: 22px; font-weight: 300; color: Tema.text; letter-spacing: -0.5px; }
-                            Text { text: root.rezumat + ", in ordinea din script."; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; }
+                            Text { text: Texte.pleaca-spre + root.tinta; font-family: Tema.font-ui; font-size: 22px; font-weight: 300; color: Tema.text; letter-spacing: -0.5px; }
+                            Text { text: root.rezumat + Texte.in-ordinea-din-script; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; }
                         }
                     }
                     if root.sarite != "": Text { text: root.sarite; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.mod-text; }
@@ -187,6 +201,7 @@ export component FereastraDeploy inherits Window {
                                         Text { text: p.schema + "."; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
                                         Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                                     }
+                                    if root.mai-multe-baze: Text { width: 150px; text: p.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
                                     Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                                     VerticalLayout {
                                         alignment: center;
@@ -197,7 +212,7 @@ export component FereastraDeploy inherits Window {
                                             background: zx.has-hover ? Tema.strat : transparent;
                                             opacity: rand.has-hover ? 1 : 0;
                                             Text { text: "×"; font-family: Tema.font-ui; font-size: 16px; color: Tema.text-secundar; }
-                                            zx := TouchArea { clicked => { root.scoate-din-plan(p.id); } }
+                                            zx := TouchArea { clicked => { root.scoate-din-plan(p.baza, p.id); } }
                                         }
                                     }
                                 }
@@ -213,34 +228,34 @@ export component FereastraDeploy inherits Window {
                     VerticalLayout {
                         padding: 24px;
                         spacing: 0px;
-                        Text { text: "Inainte de scriere"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; }
+                        Text { text: Texte.inainte-de-scriere; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; }
                         Rectangle { height: 18px; }
 
                         Oprire {
                             stare: root.garda == 1 ? 1 : root.garda == 0 ? 0 : 2;
-                            titlu: "Baza n-a mai fost atinsa";
+                            titlu: Texte.baza-neatinsa;
                             text: root.text-garda;
                             for s in root.schimbari: Text { text: s; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.del-text; wrap: word-wrap; }
                             HorizontalLayout {
                                 alignment: start;
                                 padding-top: 6px;
-                                Buton { text: root.garda == 0 ? "Verifica acum" : "Verifica din nou"; apasat => { root.verifica-baza(); } }
+                                Buton { text: root.garda == 0 ? Texte.verifica-acum : Texte.verifica-din-nou; apasat => { root.verifica-baza(); } }
                             }
                         }
                         Oprire {
                             stare: 3;
-                            titlu: "Versiunea actuala, salvata intai";
-                            text: "Inainte de scripturi se scrie revenirea, din ce e acum in " + root.tinta + ": obiectele schimbate se refac, cele noi se sterg.";
+                            titlu: Texte.versiunea-actuala;
+                            text: Texte.revenirea-inainte + root.tinta + Texte.revenirea-explicata;
                         }
                         Oprire {
                             stare: 3;
                             ultima: true;
-                            titlu: "Fisierele";
+                            titlu: Texte.fisierele;
                             text: root.director;
                             VerticalLayout {
                                 padding-top: 6px;
                                 spacing: 4px;
-                                for o[i] in ["Un fisier per baza", "Un singur fisier", "Un fisier per obiect", "Cate " + root.cate + " obiecte per fisier"]: Rectangle {
+                                for o[i] in [Texte.fisier-per-baza, Texte.un-singur-fisier, Texte.fisier-per-obiect, Texte.cate + root.cate + Texte.obiecte-per-fisier]: Rectangle {
                                     height: 30px;
                                     border-radius: 8px;
                                     background: root.impartire == i ? Tema.strat : zo.has-hover ? Tema.strat : transparent;
@@ -288,9 +303,9 @@ export component FereastraDeploy inherits Window {
                             background: root.poate-scrie ? Tema.accent : Tema.strat;
                             opacity: root.poate-scrie && zs.has-hover ? 0.88 : 1;
                             Text {
-                                text: root.poate-scrie ? "Scrie scripturile"
-                                    : root.rezultat == 1 ? "Scris"
-                                    : "Scrie scripturile, dupa verificare";
+                                text: root.poate-scrie ? Texte.scrie-scripturile
+                                    : root.rezultat == 1 ? Texte.scris
+                                    : Texte.scrie-dupa-verificare;
                                 font-family: Tema.font-ui;
                                 font-size: 15px;
                                 font-weight: 600;

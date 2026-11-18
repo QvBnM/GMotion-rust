@@ -11,7 +11,9 @@
 //! comentarii pe care segmentarea nu le pastreaza) completate din textul
 //! original, ca sa se vada tot obiectul.
 
-use crate::diff::{diff_aliniat, RandDiff, TipDiferenta};
+#[cfg(test)]
+use crate::diff::diff_aliniat;
+use crate::diff::{RandDiff, TipDiferenta};
 use crate::segmentare::{linii_start_blocuri, split_statements};
 
 /// O linie dintr-o parte, cu numarul ei real (de la 1).
@@ -62,9 +64,18 @@ impl Aliniere {
 /// Aliniaza doua texte deja pregatite pentru afisare
 /// ([`crate::pregateste_afisare`]).
 pub fn aliniaza(text_stanga: &str, text_dreapta: &str) -> Aliniere {
-    let diff = diff_aliniat(text_stanga, text_dreapta);
-    let start_st = linii_start_blocuri(text_stanga, &split_statements(text_stanga, false));
-    let start_dr = linii_start_blocuri(text_dreapta, &split_statements(text_dreapta, false));
+    aliniaza_cu(text_stanga, text_dreapta, false)
+}
+
+/// Ca [`aliniaza`], dar cu „uneste ciclul cursorului" pornit: blocurile se
+/// taie altfel, deci si alinierea. Optiunea trebuie sa ajunga **si** la diff,
+/// **si** la inceputurile de blocuri — altfel cele doua n-ar mai vorbi despre
+/// aceleasi blocuri.
+pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -> Aliniere {
+    let diff = crate::diff::diff_aliniat_cu(text_stanga, text_dreapta, uneste_cursor);
+    let start_st = linii_start_blocuri(text_stanga, &split_statements(text_stanga, uneste_cursor));
+    let start_dr =
+        linii_start_blocuri(text_dreapta, &split_statements(text_dreapta, uneste_cursor));
     let original_st: Vec<&str> = text_stanga.lines().collect();
     let original_dr: Vec<&str> = text_dreapta.lines().collect();
 

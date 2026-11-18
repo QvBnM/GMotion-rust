@@ -83,6 +83,11 @@ const DIVERGENTE_DELIBERATE: &[(&str, &str, &str)] = &[
         "norm_cur",
         "continutul string-urilor nu se mai trece in litere mici",
     ),
+    (
+        "mihai_offline_while_begin",
+        "norm_cur",
+        "continutul string-urilor nu se mai trece in litere mici",
+    ),
 ];
 
 #[test]

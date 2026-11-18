@@ -57,6 +57,25 @@ impl std::fmt::Debug for Acreditari {
     }
 }
 
+/// Un server gasit in retea. Etichetele vin din raspunsul SSRP
+/// (`gmotion_db::Instanta`), nu din ghicitul numelui.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ServerGasit {
+    pub nume: String,
+    /// Instanta implicita (fara `\instanta` in nume).
+    pub implicita: bool,
+    pub cluster: bool,
+}
+
+impl ServerGasit {
+    pub fn nou(nume: impl Into<String>) -> Self {
+        ServerGasit {
+            nume: nume.into(),
+            ..Default::default()
+        }
+    }
+}
+
 /// Unde a ajuns incercarea de conectare a unei parti.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum StareConexiune {
@@ -92,14 +111,47 @@ pub struct Parte {
     pub baza: String,
     /// Bazele citite de pe server, pentru lista de alegere.
     pub baze: Vec<String>,
+    /// Bazele bifate, cand aceeasi referinta se compara cu mai multe. Goala
+    /// inseamna „doar `baza`"; prima bifata e mereu si `baza`, ca restul
+    /// ecranului (mediul, titlul) sa aiba ce arata.
+    pub alese: Vec<String>,
     pub stare: StareConexiune,
     pub auth_windows: bool,
     /// Instantele gasite in retea (SQL Browser), de ales cu un clic. Goala
     /// pana se apasa cautarea.
-    pub servere_gasite: Vec<String>,
+    pub servere_gasite: Vec<ServerGasit>,
 }
 
 impl Parte {
+    /// Bazele cu care se compara efectiv: cele bifate, sau cea aleasa.
+    pub fn baze_alese(&self) -> Vec<String> {
+        if self.alese.is_empty() {
+            if self.baza.is_empty() {
+                Vec::new()
+            } else {
+                vec![self.baza.clone()]
+            }
+        } else {
+            self.alese.clone()
+        }
+    }
+
+    /// Bifeaza sau debifeaza o baza. `baza` ramane prima bifata, ca ecranele
+    /// care arata o singura baza sa nu ramana cu una debifata.
+    pub fn comuta_baza(&mut self, nume: &str) {
+        match self.alese.iter().position(|b| b == nume) {
+            Some(i) => {
+                self.alese.remove(i);
+            }
+            None => self.alese.push(nume.to_string()),
+        }
+        self.baza = self.alese.first().cloned().unwrap_or_default();
+    }
+
+    pub fn e_aleasa(&self, nume: &str) -> bool {
+        self.alese.iter().any(|b| b == nume) || (self.alese.is_empty() && self.baza == nume)
+    }
+
     pub fn auth(&self) -> Auth {
         if self.auth_windows {
             Auth::Windows
@@ -228,7 +280,13 @@ impl Conectare {
     fn acelasi_lucru(&self) -> Option<String> {
         let acelasi_server =
             self.instantaneu.is_some() || self.sursa.server.eq_ignore_ascii_case(&self.baza.server);
-        if acelasi_server && self.sursa.baza.eq_ignore_ascii_case(&self.baza.baza) {
+        if acelasi_server
+            && self
+                .baza
+                .baze_alese()
+                .iter()
+                .any(|b| self.sursa.baza.eq_ignore_ascii_case(b))
+        {
             return Some("sursa si baza sunt aceeasi".into());
         }
         None
@@ -252,6 +310,7 @@ mod teste {
             stare: StareConexiune::Conectat("conectat".into()),
             auth_windows: true,
             servere_gasite: Vec::new(),
+            alese: Vec::new(),
         }
     }
 
@@ -309,6 +368,43 @@ mod teste {
         p.auth_windows = true;
         p.acreditari = Acreditari::default();
         assert_eq!(p.ce_lipseste(), None);
+    }
+
+    #[test]
+    fn bifele_aleg_mai_multe_baze_si_prima_ramane_cea_aratata() {
+        let mut p = parte_gata("SRV", "Client1");
+        p.baze = vec!["Client1".into(), "Client2".into(), "Client3".into()];
+        assert_eq!(p.baze_alese(), ["Client1"], "fara bife, baza aleasa");
+        assert!(p.e_aleasa("Client1") && !p.e_aleasa("Client2"));
+
+        p.comuta_baza("Client2");
+        assert_eq!(p.baze_alese(), ["Client2"]);
+        assert_eq!(p.baza, "Client2", "prima bifata e si cea aratata");
+        p.comuta_baza("Client3");
+        assert_eq!(p.baze_alese(), ["Client2", "Client3"]);
+        assert_eq!(p.baza, "Client2");
+        // debifarea primei o muta pe urmatoarea
+        p.comuta_baza("Client2");
+        assert_eq!(p.baze_alese(), ["Client3"]);
+        assert_eq!(p.baza, "Client3");
+        // fara nicio bifa nu mai e nimic de comparat
+        p.comuta_baza("Client3");
+        assert!(p.baze_alese().is_empty());
+        assert_eq!(p.baza, "");
+    }
+
+    #[test]
+    fn sursa_bifata_si_printre_tinte_e_tot_aceeasi_comparare() {
+        let mut c = Conectare::noua();
+        c.sursa = parte_gata("SRV", "Referinta");
+        c.baza = parte_gata("SRV", "Client1");
+        c.baza.comuta_baza("Client1");
+        c.baza.comuta_baza("Referinta");
+        assert_eq!(
+            c.ce_lipseste().as_deref(),
+            Some("sursa si baza sunt aceeasi"),
+            "referinta bifata printre tinte nu are ce compara cu ea insasi"
+        );
     }
 
     #[test]

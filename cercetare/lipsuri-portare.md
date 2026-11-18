@@ -31,13 +31,8 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde in v3.4 | Rust | Nota |
 |---|---|---|---|
-| Etichete CLUSTER / IMPLICITA in lista de servere | `ui.py:1737` | nu | |
-| „Testeaza conexiunea" cu detalii server (editie, OS, uptime, nr. baze) | `app.py:320`, `ui.py:1764` | partial: se citesc bazele, fara detalii | |
-| **O referinta comparata cu mai multe baze** (bife) | `ui.py:1812-1877` | GUI **nu** (1 la 1); CLI da (`--baze A,B,C`) | modelul 1 la 1 a venit cu machetele, fara decizie scrisa |
-| Progres, timp, mesaje, **Anuleaza** | `app.py:363`, `ui.py:1933` | GUI **nu**: fereastra sta blocata (~12 s pe baza reala) | intrebarea 3 din `STARE.md` |
-| „Sterge log" in banda de jurnal | `ui.py:5043` | nu: banda exista (etapa 13), fara stergere | `platforma::jurnal` n-are inca golire |
-| Blocarea formularului cat ruleaza, „Deconecteaza" cu confirmare | `ui.py:1980,2056` | nu: din lista nu te mai intorci la conectare | |
-| Deschiderea unui instantaneu din fereastra | — (nou) | GUI doar prin `--sursa` la pornire | asteapta decizia pe `rfd` |
+| Progres la **Recompara** (din lista) si la garda de deploy | — | inca sincrone: fereastra sta cat se recitesc bazele | compararea din conectare are deja fir, progres si Anuleaza |
+| Deschiderea unui instantaneu din fereastra | — (nou) | da: alegere din `.json`-urile gasite pe disc, sau cale scrisa | dialogul nativ (`rfd`) ramane de decis |
 
 ## 2. Comparare offline
 
@@ -49,29 +44,32 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Filtru pe baza | `ui.py` `fBaza` | nu (o singura baza) | depinde de „mai multe baze" |
-| Coloane redimensionabile, autofit la dublu clic | `ui.py:2396-2440` | nu | |
 | Coloana „Ultima modificare" | `ui.py:2529` | nu, nici in CLI | trebuie citita si din `sys.objects.modify_date` |
-| Legenda / Ajutor | `ui.py:1071,2047` | nu | |
 
-Rezolvate in etapa 14: Ctrl+F in cautare, filtrul pe stare (sase cazuri),
+Rezolvate in etapa 14: coloane redimensionabile cu autofit la dublu clic,
+Ajutor (F1), filtrul pe baza, Ctrl+F in cautare, filtrul pe stare (sase cazuri),
 intervalul de similaritate si coloana Similar, sortarea pe fiecare coloana in
 ambele sensuri, coloana Deploy, contorul „% deploy", Export CSV al listei
-filtrate, „Toate in plan" cu optiunea pentru cele deja trimise.
+filtrate, „Toate in plan" cu optiunea pentru cele deja trimise. O referinta
+comparata cu mai multe baze (bife in conectare), cu filtrul si coloana Baza.
+Compararea din conectare pe alt fir: mesaj, bara, timp, Anuleaza, formularul
+blocat cat ruleaza. Deconecteaza (din lista, cu confirmare), Sterge in banda
+de jurnal, etichetele CLUSTER / IMPLICITA (si in `gmotion servere`), Testeaza
+conexiunea cu detaliile serverului (neverificat inca pe server real).
 
 ## 4. Editorul de diferente
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Drag & drop de blocuri, „Plaseaza aici" | `ui.py:1495,3975` | nu | |
-| Previzualizare la hover in modul inline | `ui.py:4385` | nu | |
-| Liniile de legatura dintre blocuri, in jgheab | `ui.py:3634` | nu (minimap si derulare sincronizata exista) | |
+| Evidentierea de sintaxa **in timp ce scrii** | `ui.py` | nu: editarea de mana e text simplu, culorile revin la salvare | |
 
 Rezolvate in etapa 14: tinta editabila (panoul Baza, „Editeaza", `e`),
 Aplica bloc (sageata din canal), Aplica toate, Reset, Ctrl+Z, modul ghidat
 (Din sursa / Din tinta / Editeaza / Aplica / Sari, cu final), Omite (`o`),
 Copiaza sursa / rezultatul, Ascunde diferentele, Re-sincronizeaza, deploy-ul
-cu textul final. Evidentierea de sintaxa **in timp ce scrii** lipseste:
+cu textul final, drag & drop de blocuri cu „Plaseaza aici", liniile de
+legatura din canal, previzualizarea la hover in modul unificat si „Uneste
+ciclul cursor". Evidentierea de sintaxa **in timp ce scrii** lipseste:
 editarea de mana e text simplu, culorile revin la salvare.
 
 Exista si merg: navigarea intre diferente (`n`/`p`), obiect anterior/urmator

@@ -148,12 +148,20 @@ sau din `unelte/api-hash.sh <crate>`.
   renumeroteaza; vezi `JURNAL.md`.
 - Jurnal cu `tracing`, o tinta per crate (`gmotion::db`, `gmotion::core`), ca sa
   se poata filtra la depanare.
-- Textele catre utilizator in romana, **fara diacritice, nicaieri**: nici in
-  interfata, nici in mesaje, comentarii sau documente (Mihai, 2026-11-18 —
-  textele vor trece in engleza). Poarta verifica. Exceptia: date de test care
+- **Fara diacritice, nicaieri**: nici in interfata, nici in mesaje,
+  comentarii sau documente. Poarta verifica. Exceptia: date de test care
   verifica intentionat nume cu diacritice ale utilizatorului, marcate pe
   aceeasi linie cu `diacritice-permise`. Identificatorii din cod in romana,
   consecvent cu ce exista deja.
+- **Niciun text pentru om scris direct in `.slint`.** Toate trec prin
+  `fereastra::texte`, care le tine in romana si engleza; `.slint` citeste din
+  globalul `Texte`. Un text nou se adauga in ambele limbi, altfel nu
+  compileaza. Comutatorul de limba din fereastra le schimba pe toate si tine
+  minte alegerea (Mihai, 2026-11-18).
+- **Denumirile celor doua parti sunt „Martor" si „Modificata"** („Witness" /
+  „Modified"): martorul e baza de referinta, modificata e cea care a primit
+  schimbari. Nu „sursa" / „baza" / „tinta" in textele catre utilizator;
+  in cod, `referinta` si `tinta` raman (asa e si in `cli` si in plan).
 - `cargo clippy --all-targets -- -D warnings` trebuie sa taca.
 - **Cod in spatele unui `cfg` pentru alta tinta nu e verificat de nimic pe
   masina de dezvoltare** — nici `build`, nici `clippy`, nici testele se uita la

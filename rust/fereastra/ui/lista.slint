@@ -9,11 +9,13 @@
 // clicul pe harta, din `src/harta.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
 
 export struct RandListaUi {
     schema: string,
     nume: string,
+    // baza comparata in care s-a gasit obiectul
+    baza: string,
     // numele tipului pentru utilizator („procedura")
     tip: string,
     litera: string,
@@ -64,7 +66,7 @@ export struct GrupHartaUi {
 }
 
 // Culoarea unei stari: M chihlimbar, S verde, B rosu, = / # gri.
-global Stari {
+export global Stari {
     public pure function culoare(stare: int) -> color {
         return stare == 0 ? Tema.mod-text
              : stare == 1 ? Tema.add-text
@@ -89,14 +91,40 @@ global Stari {
 }
 
 // Latimile coloanelor tabelului, aceleasi in cap si pe randuri.
-global Coloane {
-    out property <length> stare: 34px;
-    out property <length> tip: 92px;
-    out property <length> linii: 84px;
-    out property <length> scor: 118px;
-    out property <length> difera: 124px;
-    out property <length> revizuit: 62px;
-    out property <length> deploy: 100px;
+// Latimile coloanelor. `in-out`, fiindca marginea capului de coloana le
+// trage; dublu clic pune latimea ceruta de continut (calculata in Rust).
+export global Coloane {
+    in-out property <length> stare: 34px;
+    in-out property <length> baza: 152px;
+    in-out property <length> tip: 84px;
+    in-out property <length> linii: 84px;
+    in-out property <length> scor: 118px;
+    in-out property <length> difera: 124px;
+    in-out property <length> revizuit: 62px;
+    in-out property <length> deploy: 100px;
+    /// Sub atat o coloana nu mai are ce arata.
+    out property <length> minim: 48px;
+
+    public function pune(coloana: int, latime: length) {
+        if (coloana == Sortare.baza) { root.baza = Math.max(root.minim, latime); }
+        if (coloana == Sortare.tip) { root.tip = Math.max(root.minim, latime); }
+        if (coloana == Sortare.linii) { root.linii = Math.max(root.minim, latime); }
+        if (coloana == Sortare.scor) { root.scor = Math.max(root.minim, latime); }
+        if (coloana == Sortare.difera) { root.difera = Math.max(root.minim, latime); }
+        if (coloana == Sortare.revizuit) { root.revizuit = Math.max(root.minim, latime); }
+        if (coloana == Sortare.deploy) { root.deploy = Math.max(root.minim, latime); }
+    }
+
+    public pure function ia(coloana: int) -> length {
+        return coloana == Sortare.baza ? root.baza
+             : coloana == Sortare.tip ? root.tip
+             : coloana == Sortare.linii ? root.linii
+             : coloana == Sortare.scor ? root.scor
+             : coloana == Sortare.difera ? root.difera
+             : coloana == Sortare.revizuit ? root.revizuit
+             : coloana == Sortare.deploy ? root.deploy
+             : 0px;
+    }
 }
 
 // Codurile coloanelor sortabile; aceeasi ordine ca `model_lista::Ordine`.
@@ -108,12 +136,16 @@ global Sortare {
     out property <int> difera: 4;
     out property <int> revizuit: 5;
     out property <int> deploy: 6;
+    out property <int> baza: 7;
 }
 
 // Un cap de coloana: clic = sorteaza; a doua oara, invers. Sageata arata
 // sensul, ca in v3.4.
 component CapColoana inherits Rectangle {
     in property <string> titlu;
+    /// Codul coloanei (`Sortare`), pentru tragere si autofit.
+    in property <int> coloana;
+    callback autofit();
     // 0 = stretch (coloana „Obiect")
     in property <length> latime;
     in property <bool> sortata;
@@ -142,8 +174,28 @@ component CapColoana inherits Rectangle {
             color: Tema.accent-text;
             vertical-alignment: center;
         }
+        // coloana care se intinde isi tine titlul la stanga, nu lipit de
+        // capul urmator
+        Rectangle { horizontal-stretch: 1; }
     }
     TouchArea { clicked => { root.apasat(); } }
+    // marginea din dreapta: trasa, schimba latimea; dublu clic o potriveste
+    // dupa continut (`autofit`, calculat in Rust)
+    if root.latime > 0px: Rectangle {
+        x: parent.width - 3px;
+        width: 7px;
+        height: parent.height;
+        background: tragere.has-hover || tragere.pressed ? Tema.linie : transparent;
+        tragere := TouchArea {
+            mouse-cursor: col-resize;
+            moved => {
+                if (self.pressed) {
+                    Coloane.pune(root.coloana, root.latime + (self.mouse-x - self.pressed-x));
+                }
+            }
+            double-clicked => { root.autofit(); }
+        }
+    }
 }
 
 // Filtru cu meniu derulant (v3.4: „Stare"). `-1` = fara filtru.
@@ -231,7 +283,7 @@ component MeniuPlan inherits Rectangle {
     et := HorizontalLayout {
         alignment: center;
         spacing: 6px;
-        Text { text: "Toate in plan"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+        Text { text: Texte.toate-in-plan; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
         VerticalLayout { alignment: center; Chevron { drum: "M 3 6 L 8 11 L 13 6"; culoare: Tema.text-tert; } }
     }
     zona := TouchArea { clicked => { meniu.show(); } }
@@ -249,8 +301,8 @@ component MeniuPlan inherits Rectangle {
             VerticalLayout {
                 padding: 6px;
                 for o in [
-                    { t: "Fara cele deja trimise la deploy", cu: false },
-                    { t: "Include si ce a fost deja trimis", cu: true },
+                    { t: Texte.fara-deployate, cu: false },
+                    { t: Texte.include-deployate, cu: true },
                 ]: Rectangle {
                     height: 32px;
                     border-radius: 7px;
@@ -291,6 +343,8 @@ component CampProcent inherits Rectangle {
 component RandTabel inherits Rectangle {
     in property <RandListaUi> r;
     in property <bool> selectat;
+    // coloana Baza apare doar cand chiar sunt mai multe baze comparate
+    in property <bool> cu-baza;
     callback apasat();
     callback comuta-revizuit();
     height: 34px;
@@ -325,6 +379,7 @@ component RandTabel inherits Rectangle {
             Text { text: root.r.schema + "."; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
             Text { text: root.r.nume; font-family: Tema.font-mono; font-size: 12.5px; color: root.r.revizuit ? Tema.text-secundar : Tema.text; vertical-alignment: center; overflow: elide; }
         }
+        if root.cu-baza: Text { width: Coloane.baza; text: root.r.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
         Text { width: Coloane.tip; text: root.r.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
         HorizontalLayout {
             width: Coloane.linii;
@@ -370,7 +425,7 @@ component RandTabel inherits Rectangle {
         }
         Text {
             width: Coloane.deploy;
-            text: root.r.deploy == 1 ? "Pregatit" : root.r.deploy == 2 ? "Trimis" : root.r.deploy == 3 ? "Versiune noua" : root.r.deploy == 4 ? "Omis" : "Neintrodus";
+            text: root.r.deploy == 1 ? Texte.pregatit : root.r.deploy == 2 ? Texte.trimis : root.r.deploy == 3 ? Texte.versiune-noua : root.r.deploy == 4 ? Texte.omis : Texte.neintrodus;
             color: root.r.deploy == 1 ? Tema.accent-text : root.r.deploy == 2 ? Tema.add-text : root.r.deploy == 3 ? Tema.mod-text : Tema.text-tert;
             font-family: Tema.font-ui;
             font-size: 12.5px;
@@ -422,6 +477,10 @@ export component FereastraLista inherits Window {
     in property <float> progres-fractie;      // 0..1
     in property <[CategorieUi]> categorii;
     in property <[TipUi]> tipuri;
+    in property <[TipUi]> baze;
+    in property <bool> mai-multe-baze;
+    in property <int> baza-activa: -1;
+    in property <[string]> nume-baze;
     in property <int> categorie-activa: -1;   // indice in `categorii`, -1 = toate
     in property <int> tip-activ: -1;
 
@@ -457,20 +516,35 @@ export component FereastraLista inherits Window {
     in property <image> tigla-hasura;
 
     callback recompara();
+    callback ajutor();
+    in property <string> text-ajutor;
+    in-out property <bool> arata-ajutorul;
+    /// „Deconecteaza": intai se cere confirmarea, apoi se face.
+    callback cere-deconectarea();
+    callback deconecteaza();
+    callback renunta-la-deconectare();
+    in property <bool> intreaba-deconectarea;
     callback deschide-deploy();
     callback alege-categoria(int);
     callback alege-tipul(int);
+    callback alege-baza(int);
     callback alege-randul(int);
     callback comuta-revizuit(int);
     callback deschide-obiectul();
     callback adauga-in-plan();
     callback cauta(string);
     callback sorteaza-coloana(int);
+    callback autofit-coloana(int);
     callback alege-starea(int);
     callback schimba-scorul(string, string);
     callback exporta-csv();
     callback pune-vizibilele-in-plan(bool);
     callback alege-tema(bool);
+    // comutatorul de limba: etichetele si indicele ales vin din Rust
+    in property <[string]> limbi;
+    in property <int> limba-aleasa;
+    callback alege-limba(int);
+    callback ecran-complet();
 
     // bula de pe harta: numele si starea patratului de sub mouse, si coltul
     // lui in coordonatele hartii; toate puse din Rust
@@ -497,6 +571,7 @@ export component FereastraLista inherits Window {
 
     taste := FocusScope {
         key-pressed(e) => {
+            if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             if (e.text == Key.DownArrow || e.text == "j") { root.muta-selectia(1); return accept; }
             if (e.text == Key.UpArrow || e.text == "k") { root.muta-selectia(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
@@ -504,6 +579,9 @@ export component FereastraLista inherits Window {
             if (e.text == "i") { root.adauga-in-plan(); return accept; }
             // Ctrl+F: cursorul in cautare, ca in v3.4
             if (e.text == "f" && e.modifiers.control) { camp.focus(); return accept; }
+            if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
+            if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
+            if (e.text == Key.Escape && root.intreaba-deconectarea) { root.renunta-la-deconectare(); return accept; }
             return reject;
         }
 
@@ -533,7 +611,7 @@ export component FereastraLista inherits Window {
                     width: 130px;
                     HorizontalLayout {
                         Text { text: root.progres-revizuite; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
-                        Text { text: "revizuite"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; horizontal-alignment: right; horizontal-stretch: 1; }
+                        Text { text: Texte.revizuite; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; horizontal-alignment: right; horizontal-stretch: 1; }
                     }
                     Rectangle {
                         height: 3px;
@@ -548,7 +626,7 @@ export component FereastraLista inherits Window {
                     width: 110px;
                     HorizontalLayout {
                         Text { text: root.progres-deployate; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
-                        Text { text: "deploy"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; horizontal-alignment: right; horizontal-stretch: 1; }
+                        Text { text: Texte.deploy-mic; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; horizontal-alignment: right; horizontal-stretch: 1; }
                     }
                     Rectangle {
                         height: 3px;
@@ -557,8 +635,14 @@ export component FereastraLista inherits Window {
                         Rectangle { x: 0; width: parent.width * Math.max(0.02, root.progres-deploy); border-radius: 1.5px; background: Tema.accent; }
                     }
                 }
-                VerticalLayout { alignment: center; Buton { text: "Recompara"; apasat => { root.recompara(); } } }
-                VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
+                VerticalLayout { alignment: center; Buton { text: Texte.recompara; apasat => { root.recompara(); } } }
+                VerticalLayout { alignment: center; Buton { text: Texte.ajutor-tasta; apasat => { root.arata-ajutorul = true; root.ajutor(); } } }
+                VerticalLayout { alignment: center; Buton { text: Texte.deconecteaza; apasat => { root.cere-deconectarea(); } } }
+                VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    ButonLimba { limbi: root.limbi; aleasa: root.limba-aleasa; alege(i) => { root.alege-limba(i); } } }
             }
 
             // ---- cautarea, tipurile, deploy-ul
@@ -596,11 +680,20 @@ export component FereastraLista inherits Window {
                     }
                     if root.cautare == "" && !camp.has-focus: Text {
                         x: 34px;
-                        text: "Cauta obiect";
+                        text: Texte.cauta-obiect;
                         font-family: Tema.font-ui;
                         font-size: 13px;
                         color: Tema.text-tert;
                         vertical-alignment: center;
+                    }
+                }
+                if root.mai-multe-baze: VerticalLayout {
+                    alignment: center;
+                    MeniuFiltru {
+                        eticheta: Texte.toate-bazele;
+                        optiuni: root.nume-baze;
+                        ales: root.baza-activa;
+                        alege(i) => { root.alege-baza(i); }
                     }
                 }
                 for t[i] in root.tipuri: VerticalLayout {
@@ -615,7 +708,7 @@ export component FereastraLista inherits Window {
                 VerticalLayout {
                     alignment: center;
                     MeniuFiltru {
-                        eticheta: "Toate starile";
+                        eticheta: Texte.toate-starile;
                         optiuni: root.stari;
                         ales: root.stare-activa;
                         alege(i) => { root.alege-starea(i); }
@@ -635,7 +728,7 @@ export component FereastraLista inherits Window {
                             padding-left: 11px;
                             padding-right: 11px;
                             spacing: 6px;
-                            Text { text: "Similar"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                            Text { text: Texte.similar; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                             VerticalLayout {
                                 alignment: center;
                                 CampProcent {
@@ -659,7 +752,7 @@ export component FereastraLista inherits Window {
                     alignment: center;
                     MeniuPlan { alege(cu) => { root.pune-vizibilele-in-plan(cu); } }
                 }
-                VerticalLayout { alignment: center; Buton { text: "Export CSV"; apasat => { root.exporta-csv(); } } }
+                VerticalLayout { alignment: center; Buton { text: Texte.export-csv; apasat => { root.exporta-csv(); } } }
                 if root.mesaj-csv != "": VerticalLayout {
                     alignment: center;
                     Text { text: root.mesaj-csv; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; overflow: elide; }
@@ -668,7 +761,7 @@ export component FereastraLista inherits Window {
                 VerticalLayout {
                     alignment: center;
                     ButonPrincipal {
-                        text: "Deploy (" + root.numar-deploy + ")";
+                        text: Texte.deploy-paranteza + root.numar-deploy + ")";
                         apasat => { root.deschide-deploy(); }
                     }
                 }
@@ -811,49 +904,72 @@ export component FereastraLista inherits Window {
                             padding-right: 10px;
                             Text { width: Coloane.stare; text: ""; }
                             CapColoana {
-                                titlu: "Obiect  " + root.rezumat-lista;
+                                titlu: Texte.obiect-cap + root.rezumat-lista;
+                                coloana: Sortare.nume;
+                                autofit => { root.autofit-coloana(Sortare.nume); }
                                 latime: 0px;
                                 sortata: root.coloana-sortata == Sortare.nume;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.nume); }
                             }
+                            if root.mai-multe-baze: CapColoana {
+                                titlu: Texte.modificata;
+                                coloana: Sortare.baza;
+                                autofit => { root.autofit-coloana(Sortare.baza); }
+                                latime: Coloane.baza;
+                                sortata: root.coloana-sortata == Sortare.baza;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.baza); }
+                            }
                             CapColoana {
-                                titlu: "Tip";
+                                titlu: Texte.tip;
+                                coloana: Sortare.tip;
+                                autofit => { root.autofit-coloana(Sortare.tip); }
                                 latime: Coloane.tip;
                                 sortata: root.coloana-sortata == Sortare.tip;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.tip); }
                             }
                             CapColoana {
-                                titlu: "Linii";
+                                titlu: Texte.linii;
+                                coloana: Sortare.linii;
+                                autofit => { root.autofit-coloana(Sortare.linii); }
                                 latime: Coloane.linii;
                                 sortata: root.coloana-sortata == Sortare.linii;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.linii); }
                             }
                             CapColoana {
-                                titlu: "Similar";
+                                titlu: Texte.similar;
+                                coloana: Sortare.scor;
+                                autofit => { root.autofit-coloana(Sortare.scor); }
                                 latime: Coloane.scor;
                                 sortata: root.coloana-sortata == Sortare.scor;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.scor); }
                             }
                             CapColoana {
-                                titlu: "Difera in";
+                                titlu: Texte.difera-in;
+                                coloana: Sortare.difera;
+                                autofit => { root.autofit-coloana(Sortare.difera); }
                                 latime: Coloane.difera;
                                 sortata: root.coloana-sortata == Sortare.difera;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.difera); }
                             }
                             CapColoana {
-                                titlu: "Revizuit";
+                                titlu: Texte.revizuit;
+                                coloana: Sortare.revizuit;
+                                autofit => { root.autofit-coloana(Sortare.revizuit); }
                                 latime: Coloane.revizuit;
                                 sortata: root.coloana-sortata == Sortare.revizuit;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.revizuit); }
                             }
                             CapColoana {
-                                titlu: "Deploy";
+                                titlu: Texte.deploy;
+                                coloana: Sortare.deploy;
+                                autofit => { root.autofit-coloana(Sortare.deploy); }
                                 latime: Coloane.deploy;
                                 sortata: root.coloana-sortata == Sortare.deploy;
                                 descrescator: root.sens-descrescator;
@@ -866,6 +982,7 @@ export component FereastraLista inherits Window {
                         vertical-stretch: 1;
                         for r[i] in root.randuri: RandTabel {
                             r: r;
+                            cu-baza: root.mai-multe-baze;
                             selectat: i == root.selectat;
                             apasat => {
                                 root.selectat = i;
@@ -876,7 +993,7 @@ export component FereastraLista inherits Window {
                         }
                     }
                     if root.randuri.length == 0: Text {
-                        text: "Niciun obiect nu se potriveste. Sterge cautarea sau alege alt filtru.";
+                        text: Texte.niciun-obiect;
                         font-family: Tema.font-ui;
                         font-size: 13px;
                         color: Tema.text-secundar;
@@ -904,11 +1021,11 @@ export component FereastraLista inherits Window {
                                 spacing: 8px;
                                 alignment: start;
                                 Buton {
-                                    text: root.obiect-revizuit ? "Revizuit ✓" : "Revizuit";
+                                    text: root.obiect-revizuit ? Texte.revizuit-bifat : Texte.revizuit;
                                     apasat => { root.comuta-revizuit(root.selectat); }
                                 }
-                                Buton { text: root.obiect-in-plan ? "In plan ✓" : "In plan"; apasat => { root.adauga-in-plan(); } }
-                                ButonPrincipal { text: "Deschide"; apasat => { root.deschide-obiectul(); } }
+                                Buton { text: root.obiect-in-plan ? Texte.in-plan-bifat : Texte.in-plan; apasat => { root.adauga-in-plan(); } }
+                                ButonPrincipal { text: Texte.deschide; apasat => { root.deschide-obiectul(); } }
                             }
                         }
                         Rectangle { height: 1px; background: Tema.linie; }
@@ -961,7 +1078,7 @@ export component FereastraLista inherits Window {
                             if root.previzualizare.length == 0: Text {
                                 x: 18px;
                                 y: 14px;
-                                text: "Alege un obiect ca sa vezi diferenta.";
+                                text: Texte.alege-un-obiect;
                                 font-family: Tema.font-ui;
                                 font-size: 12.5px;
                                 color: Tema.text-secundar;
@@ -978,7 +1095,7 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: "obiect" }, { t: "enter", e: "deschide" }, { t: "r", e: "revizuit" }, { t: "i", e: "in plan" }, { t: "ctrl f", e: "cauta" }]: HorizontalLayout {
+                    for k in [{ t: "j k", e: Texte.obiect-mic }, { t: "enter", e: Texte.deschide-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "i", e: Texte.in-plan-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
@@ -988,6 +1105,45 @@ export component FereastraLista inherits Window {
                 }
             }
         }
+    }
+
+    // ---- „Te deconectezi?": v3.4 intreba, fiindca se pierde ecranul de
+    // lucru. Progresul e salvat, deci asta si scrie in dialog.
+    if root.intreaba-deconectarea: Rectangle {
+        background: Tema.intunecat ? #00000099 : #0f111566;
+        TouchArea { }
+        Rectangle {
+            width: 420px;
+            height: 184px;
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            VerticalLayout {
+                padding: 18px;
+                spacing: 10px;
+                Text { text: Texte.te-deconectezi; font-family: Tema.font-ui; font-size: 15px; font-weight: 600; color: Tema.text; }
+                Text {
+                    text: Texte.progresul-salvat;
+                    font-family: Tema.font-ui;
+                    font-size: 12.5px;
+                    color: Tema.text-secundar;
+                    wrap: word-wrap;
+                    vertical-stretch: 1;
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: end;
+                    Buton { text: Texte.ramai-esc; apasat => { root.renunta-la-deconectare(); } }
+                    ButonPrincipal { text: Texte.deconecteaza; apasat => { root.deconecteaza(); } }
+                }
+            }
+        }
+    }
+
+    if root.arata-ajutorul: Ajutor {
+        text: root.text-ajutor;
+        inchide => { root.arata-ajutorul = false; }
     }
 
     init => { taste.focus(); }

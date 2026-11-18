@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 1af99c8017d137a9 -->
+<!-- api-hash: 06bda09d3ee368a9 -->
 
 ## Rol
 
@@ -28,12 +28,15 @@ si editorul de diferente (etapa 8).
 | Element | Ce face |
 |---|---|
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie |
-| `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta}` | modelul lui; `Acreditari` **nu are `Debug` derivat** |
+| `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta, ServerGasit}` | modelul lui; `Acreditari` **nu are `Debug` derivat**; `Parte::{comuta_baza, baze_alese, e_aleasa}` tin bifele cand se compara mai multe baze |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
-| `model_lista::Lista` | lista: filtre, cautare, sortare, contoare, selectie, detalii la cerere |
-| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru}` | modelul listei |
+| `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
+| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire}` | modelul listei; cheia unui rand e `(baza, schema.nume)` |
+| `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
+| `AJUTOR` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
+| `texte::{Limba, Texte, RO, EN}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `ordine_din_cod(cod)` | ce coloana a apasat utilizatorul; inversul codurilor din `global Sortare` (`lista.slint`) |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_bara, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}`, `LATIME_HARTA` | harta de deasupra tabelului: o coloana pe tip, care umplu cartusul; bara de proportie a starilor; patrate pictate in Rust, in ordinea din tabel; zoom automat pe trepte (`SCARI`) cand nu intra in `INALTIME_MAXIMA`; clic → rand |
@@ -42,6 +45,8 @@ si editorul de diferente (etapa 8).
 | `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra |
 | `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
+| `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
+| `latime_autofit(lista, coloana)` | latimea ceruta de o coloana la dublu clic pe marginea capului |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente |
 | `model_editor::plieaza(model, context) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
 | `model_lista`: `Deploy`, `FiltruRevizuire`, `filtreaza_revizuire`, `filtreaza_scor`, `pune_vizibilele_in_plan`, `pune_deploy`, `progres_deploy`; `Ordine` pe orice coloana, sensul in `descrescator()` | lista la paritate cu v3.4 (etapa 14, C — modelul; ecranul inca nu) |
@@ -116,8 +121,9 @@ cargo run --release -p gmotion-fereastra --example captura -- \
 Cu `--font-mono UnNumeInexistent` iese alt PNG: asa se vede ca fonturile
 incorporate chiar se folosesc, nu rezerva de sistem.
 
-Ecranul listei: `--example captura_lista`; conectarea:
-`--example captura_conectare`.
+Conectarea: `--example captura_conectare`. Ecranul listei se fotografiaza din
+`app` (`-p gmotion-app --example captura_lista`): captura trece prin
+`Aplicatie`, ca sa nu existe o a doua constructie a listei.
 
 Pe obiecte uriase: `cargo run --release -p gmotion-fereastra --example masura`
 (implicit 200 / 2.000 / 20.000 de linii, pliat si nepliat); pe liste uriase:

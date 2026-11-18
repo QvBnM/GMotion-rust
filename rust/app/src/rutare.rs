@@ -6,7 +6,7 @@
 //! sunt bug-uri de stare, nu de desen — de-aia starea sta aici, fara Slint, si
 //! se testeaza ca atare.
 
-use gmotion_fereastra::model_editor::{construieste, marcheaza_textul_final, ModelEditor};
+use gmotion_fereastra::model_editor::{construieste_cu, marcheaza_textul_final, ModelEditor};
 use gmotion_fereastra::model_lista::{
     Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
 };
@@ -34,6 +34,8 @@ pub enum Comanda {
     ComutaRevizuit,
     Filtreaza(Option<Stare>),
     FiltreazaTip(Option<String>),
+    /// Filtrul pe baza comparata (cand sunt mai multe).
+    FiltreazaBaza(Option<String>),
     Cauta(String),
     Sorteaza(Ordine),
     /// Filtrul pe ce ai facut cu obiectul (nerevizuite, omise, deployate...).
@@ -44,8 +46,9 @@ pub enum Comanda {
     PuneVizibileleInPlan(bool),
     /// Pune sau scoate obiectul selectat din plan.
     ComutaInPlan,
-    /// Scoate din plan obiectul `schema.nume` (din ecranul de deploy).
-    ScoateDinPlan(String),
+    /// Scoate din plan obiectul dat, ca `baza|schema.nume` (din ecranul de
+    /// deploy, unde randul stie din ce baza e).
+    ScoateDinPlan(String, String),
     /// Deschide planul de deploy; ramane pe loc daca planul e gol.
     DeschideDeploy,
     // ---- editorul: textul final (vezi `modul::Editari`)
@@ -60,6 +63,8 @@ pub enum Comanda {
     SalveazaText(String),
     /// „Omite" (`o`): analizat, lasat in afara deploy-ului.
     ComutaOmis,
+    /// „Uneste ciclul cursor": blocul de cursor se ia intreg.
+    ComutaUnireaCursorului(bool),
     /// Diferenta curenta s-a mutat (n / p, clic pe harta).
     MergiLaDiferenta(usize),
     // ---- modul ghidat: ia diferentele pe rand
@@ -93,7 +98,9 @@ pub struct Aplicatie {
     /// Randurile compararii, pe `schema.nume`: de acolo vin amprentele.
     randuri: Vec<Rand>,
     sursa: Baza,
-    tinta: Baza,
+    /// Bazele comparate, pe nume. De cand o referinta se compara cu mai
+    /// multe, obiectul se cauta in baza randului lui, nu intr-una singura.
+    tinte: Vec<(String, Baza)>,
     /// Textele finale (Aplica, Reset, scris de mana), salvate in sesiune.
     editari: Editari,
     /// Pentru Ctrl+Z: obiectul si textul lui final de dinainte de fiecare
@@ -103,12 +110,19 @@ pub struct Aplicatie {
     /// diferenta aplicata dispare si urmatoarea ii ia locul.
     diferenta: usize,
     ghidat: Option<Ghidat>,
+    /// „Uneste ciclul cursor": schimba taierea blocurilor in editor.
+    uneste_cursorul: bool,
 }
 
 impl Aplicatie {
-    /// `randuri` sunt randurile compararii; `sursa` si `tinta`, obiectele
-    /// pregatite ale celor doua baze.
-    pub fn noua(randuri: Vec<Rand>, sursa: Baza, tinta: Baza, revizuire: Revizuire) -> Self {
+    /// `randuri` sunt randurile compararii; `sursa`, obiectele pregatite ale
+    /// referintei, `tinte`, ale fiecarei baze comparate.
+    pub fn noua(
+        randuri: Vec<Rand>,
+        sursa: Baza,
+        tinte: Vec<(String, Baza)>,
+        revizuire: Revizuire,
+    ) -> Self {
         let obiecte: Vec<Obiect> = randuri
             .iter()
             .map(|r| {
@@ -116,6 +130,7 @@ impl Aplicatie {
                 Obiect {
                     schema: schema.to_string(),
                     nume: nume.to_string(),
+                    baza: r.baza.clone(),
                     tip: r.tip.clone(),
                     stare: match r.categorie {
                         modul::Categorie::Diferit => Stare::Modificat,
@@ -138,6 +153,35 @@ impl Aplicatie {
                 }
             })
             .collect();
+        // obiectele identice nu ajung in randurile compararii (nu e nimic de
+        // spus despre ele), dar lista le numara si le filtreaza: fara ele,
+        // categoria „Identice" ar arata mereu 0, iar cautarea n-ar gasi un
+        // obiect care exista si e la fel.
+        let mut obiecte = obiecte;
+        for (nume_baza, tinta) in &tinte {
+            for (id, o) in &sursa {
+                let are_rand = randuri
+                    .iter()
+                    .any(|r| &r.baza == nume_baza && &r.obiect == id);
+                if are_rand || !tinta.contains_key(id) {
+                    continue;
+                }
+                let (schema, nume) = id.split_once('.').unwrap_or(("dbo", id));
+                obiecte.push(Obiect {
+                    schema: schema.to_string(),
+                    nume: nume.to_string(),
+                    baza: nume_baza.clone(),
+                    tip: o.tip.clone(),
+                    stare: Stare::Identic,
+                    detalii: None,
+                    revizuit: false,
+                    in_plan: false,
+                    omis: false,
+                    scor: None,
+                    deploy: Deploy::Nu,
+                });
+            }
+        }
         let mut lista = Lista::noua(obiecte);
         if !lista.vizibile().is_empty() {
             lista.selecteaza(0);
@@ -148,11 +192,12 @@ impl Aplicatie {
             revizuire,
             randuri,
             sursa,
-            tinta,
+            tinte,
             editari: Editari::noi(),
             istoric: Vec::new(),
             diferenta: 0,
             ghidat: None,
+            uneste_cursorul: false,
         }
     }
 
@@ -187,11 +232,23 @@ impl Aplicatie {
         self.ghidat.as_ref()
     }
 
+    pub fn uneste_cursorul(&self) -> bool {
+        self.uneste_cursorul
+    }
+
+    /// Obiectul curent are un cursor, deci butonul „Uneste ciclul cursor"
+    /// are ce face.
+    pub fn are_cursor(&self) -> bool {
+        self.obiect()
+            .and_then(|o| self.texte(&o.baza, &o.id()))
+            .is_some_and(|(a, b)| gmotion_core::are_cursor(a) || gmotion_core::are_cursor(b))
+    }
+
     /// Obiectul curent are text final (deci „Reset" are ce face), si e scris
     /// si de mana?
     pub fn stare_text_final(&self) -> (bool, bool) {
         self.obiect()
-            .and_then(|o| self.rand(&o.id()))
+            .and_then(|o| self.rand(&o.baza, &o.id()))
             .and_then(|r| self.editari.text_final(r))
             .map_or((false, false), |t| (true, t.manual))
     }
@@ -204,9 +261,9 @@ impl Aplicatie {
     /// Textul curent al obiectului din dreapta (final sau al bazei) si cel al
     /// sursei: ce arata „Copiaza" si ce se editeaza de mana.
     pub fn texte_curente(&self) -> Option<(String, String)> {
-        let id = self.obiect()?.id();
-        let r = self.rand(&id)?;
-        let (a, b) = self.texte(&id)?;
+        let (baza, id) = self.cheia_curenta()?;
+        let r = self.rand(&baza, &id)?;
+        let (a, b) = self.texte(&baza, &id)?;
         Some((a.to_string(), self.editari.curent(r, b).to_string()))
     }
 
@@ -229,16 +286,28 @@ impl Aplicatie {
         self.lista.obiect_selectat()
     }
 
-    fn rand(&self, id: &str) -> Option<&Rand> {
-        self.randuri.iter().find(|r| r.obiect == id)
+    fn rand(&self, baza: &str, id: &str) -> Option<&Rand> {
+        self.randuri
+            .iter()
+            .find(|r| r.baza == baza && r.obiect == id)
     }
 
-    /// Textele pregatite ale obiectului selectat, daca exista in ambele baze.
-    fn texte(&self, id: &str) -> Option<(&str, &str)> {
-        match (self.sursa.get(id), self.tinta.get(id)) {
+    /// Obiectele pregatite ale unei baze comparate.
+    fn tinta(&self, baza: &str) -> Option<&Baza> {
+        self.tinte.iter().find(|(n, _)| n == baza).map(|(_, b)| b)
+    }
+
+    /// Textele pregatite ale obiectului, daca exista in ambele baze.
+    fn texte(&self, baza: &str, id: &str) -> Option<(&str, &str)> {
+        match (self.sursa.get(id), self.tinta(baza).and_then(|t| t.get(id))) {
             (Some(a), Some(b)) => Some((a.afisare.as_str(), b.afisare.as_str())),
             _ => None,
         }
+    }
+
+    /// Baza si `schema.nume` ale obiectului curent.
+    fn cheia_curenta(&self) -> Option<(String, String)> {
+        self.obiect().map(Obiect::cheie)
     }
 
     /// Modelul editorului pentru obiectul curent. `None` pentru obiectele care
@@ -248,13 +317,13 @@ impl Aplicatie {
     /// arata mereu sursa fata de ce va ajunge in baza, iar liniile schimbate
     /// fata de baza sunt marcate (adus / scris de tine).
     pub fn model_editor(&self) -> Option<ModelEditor> {
-        let id = self.obiect()?.id();
-        let (a, b) = self.texte(&id)?;
-        let Some(r) = self.rand(&id) else {
-            return Some(construieste(a, b));
+        let (baza, id) = self.cheia_curenta()?;
+        let (a, b) = self.texte(&baza, &id)?;
+        let Some(r) = self.rand(&baza, &id) else {
+            return Some(construieste_cu(a, b, self.uneste_cursorul));
         };
         let curent = self.editari.curent(r, b);
-        let mut m = construieste(a, curent);
+        let mut m = construieste_cu(a, curent, self.uneste_cursorul);
         let manual = self.editari.text_final(r).is_some_and(|t| t.manual);
         marcheaza_textul_final(&mut m, b, curent, manual);
         Some(m)
@@ -262,9 +331,12 @@ impl Aplicatie {
 
     /// Propozitia pentru previzualizare si detaliile randului curent.
     pub fn texte_obiect(&self) -> Option<(&str, &str, Vec<&'static str>)> {
-        let id = self.obiect()?.id();
-        let (a, b) = self.texte(&id)?;
-        let setari = match (self.sursa.get(&id), self.tinta.get(&id)) {
+        let (baza, id) = self.cheia_curenta()?;
+        let (a, b) = self.texte(&baza, &id)?;
+        let setari = match (
+            self.sursa.get(&id),
+            self.tinta(&baza).and_then(|t| t.get(&id)),
+        ) {
             (Some(x), Some(y)) => modul::setari_diferite(x.setari, y.setari),
             _ => Vec::new(),
         };
@@ -278,8 +350,11 @@ impl Aplicatie {
             let Some(o) = self.lista.obiect(p) else {
                 continue;
             };
-            let id = o.id();
-            let (Some(a), Some(b)) = (self.sursa.get(&id), self.tinta.get(&id)) else {
+            let (baza, id) = o.cheie();
+            let (Some(a), Some(b)) = (
+                self.sursa.get(&id),
+                self.tinta(&baza).and_then(|t| t.get(&id)),
+            ) else {
                 continue;
             };
             let setari = modul::setari_diferite(a.setari, b.setari);
@@ -326,6 +401,7 @@ impl Aplicatie {
             Comanda::ComutaRevizuit => return self.comuta_revizuit(),
             Comanda::Filtreaza(s) => self.lista.filtreaza_stare(s),
             Comanda::FiltreazaTip(t) => self.lista.filtreaza_tip(t),
+            Comanda::FiltreazaBaza(b) => self.lista.filtreaza_baza(b),
             Comanda::Cauta(t) => self.lista.cauta(&t),
             Comanda::Sorteaza(o) => self.lista.sorteaza(o),
             Comanda::FiltreazaRevizuire(f) => self.lista.filtreaza_revizuire(f),
@@ -338,8 +414,8 @@ impl Aplicatie {
                     self.lista.comuta_in_plan(p);
                 }
             }
-            Comanda::ScoateDinPlan(id) => {
-                self.lista.scoate_din_plan(&id);
+            Comanda::ScoateDinPlan(baza, id) => {
+                self.lista.scoate_din_plan(&baza, &id);
                 // planul golit nu mai are ce arata
                 if self.ecran == Ecran::Deploy && self.lista.in_plan().is_empty() {
                     self.ecran = Ecran::Lista;
@@ -373,6 +449,13 @@ impl Aplicatie {
                 }
             }
             Comanda::ComutaOmis => return self.comuta_omis(),
+            Comanda::ComutaUnireaCursorului(cu) => {
+                self.uneste_cursorul = cu;
+                // blocurile se taie altfel, deci diferenta curenta poate sa
+                // nu mai existe
+                let n = self.numar_diferente();
+                self.diferenta = self.diferenta.min(n.saturating_sub(1));
+            }
             Comanda::MergiLaDiferenta(k) => self.diferenta = k,
             Comanda::PornesteGhidat => {
                 self.ghidat = Some(Ghidat {
@@ -447,10 +530,11 @@ impl Aplicatie {
     /// Schimba textul final al obiectului curent, cu intrare in istoric.
     /// Intoarce `true` (de salvat) daca s-a schimbat ceva.
     fn schimba_textul(&mut self, f: impl FnOnce(&mut Editari, &Rand, &str, &str)) -> bool {
-        let Some(id) = self.obiect().map(|o| o.id()) else {
+        let Some((baza, id)) = self.cheia_curenta() else {
             return false;
         };
-        let (Some(r), Some((a, b))) = (self.rand(&id).cloned(), self.texte(&id)) else {
+        let (Some(r), Some((a, b))) = (self.rand(&baza, &id).cloned(), self.texte(&baza, &id))
+        else {
             return false;
         };
         let (a, b) = (a.to_string(), b.to_string());
@@ -493,7 +577,8 @@ impl Aplicatie {
                 continue;
             };
             self.revizuire.marcheaza_deployat(&r);
-            self.lista.pune_deploy(&pas.obiect, Deploy::Deployat);
+            self.lista
+                .pune_deploy(&pas.baza, &pas.obiect, Deploy::Deployat);
             schimbat = true;
         }
         schimbat
@@ -509,7 +594,7 @@ impl Aplicatie {
     pub fn randuri_vizibile(&self) -> Vec<Rand> {
         (0..self.lista.vizibile().len())
             .filter_map(|p| self.lista.obiect(p))
-            .filter_map(|o| self.rand(&o.id()))
+            .filter_map(|o| self.rand(&o.baza, &o.id()))
             .cloned()
             .collect()
     }
@@ -543,8 +628,8 @@ impl Aplicatie {
         let Some(o) = self.lista.obiect(p) else {
             return false;
         };
-        let (id, era) = (o.id(), o.omis);
-        let Some(rand) = self.rand(&id).cloned() else {
+        let ((baza, id), era) = (o.cheie(), o.omis);
+        let Some(rand) = self.rand(&baza, &id).cloned() else {
             return false;
         };
         if era {
@@ -557,22 +642,33 @@ impl Aplicatie {
     }
 
     /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii.
-    /// `referinta` si `tinta` sunt numele bazelor; `facut_la`, momentul.
-    pub fn plan(&self, referinta: &str, tinta: &str, facut_la: &str) -> modul::Plan {
+    /// `referinta` e numele bazei sursa; `facut_la`, momentul. Bazele tinta
+    /// sunt cele comparate: planul le acopera pe toate deodata.
+    pub fn plan(&self, referinta: &str, facut_la: &str) -> modul::Plan {
         let alese = self.lista.in_plan();
         let comparare = modul::Comparare {
             referinta: referinta.to_string(),
-            baze: vec![tinta.to_string()],
+            baze: self.tinte.iter().map(|(n, _)| n.clone()).collect(),
             randuri: self.randuri.clone(),
             numaratoare: modul::Numaratoare::default(),
         };
         modul::Plan::din_comparare(
             &comparare,
             &self.sursa,
-            &[(tinta.to_string(), self.tinta.clone())],
-            |r| alese.iter().any(|a| a == &r.obiect),
+            &self.tinte,
+            |r| alese.iter().any(|(b, o)| b == &r.baza && o == &r.obiect),
             facut_la,
         )
+    }
+
+    /// Bazele comparate, in ordine.
+    pub fn baze(&self) -> Vec<String> {
+        self.tinte.iter().map(|(n, _)| n.clone()).collect()
+    }
+
+    /// Obiectele pregatite ale bazelor comparate: de aici se recitesc la garda.
+    pub fn tinte(&self) -> &[(String, Baza)] {
+        &self.tinte
     }
 
     /// Obiectele pregatite ale sursei: de aici se scrie codul in deploy.
@@ -606,8 +702,8 @@ impl Aplicatie {
         let Some(o) = self.lista.obiect(p) else {
             return false;
         };
-        let (id, era) = (o.id(), o.revizuit);
-        let Some(rand) = self.rand(&id).cloned() else {
+        let ((baza, id), era) = (o.cheie(), o.revizuit);
+        let Some(rand) = self.rand(&baza, &id).cloned() else {
             return false;
         };
         if era {
@@ -661,7 +757,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        Aplicatie::noua(comparare.randuri, sursa, tinta, Revizuire::noua())
+        Aplicatie::noua(
+            comparare.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        )
     }
 
     #[test]
@@ -672,15 +773,16 @@ mod teste {
         assert_eq!(app.ecran(), Ecran::Lista);
         app.comanda(Comanda::Selecteaza(0));
         app.comanda(Comanda::ComutaInPlan);
-        let id = app.obiect().unwrap().id();
-        assert_eq!(app.lista().in_plan(), vec![id.clone()]);
+        let (baza, id) = app.obiect().unwrap().cheie();
+        assert_eq!(app.lista().in_plan(), [(baza.clone(), id.clone())]);
         app.comanda(Comanda::DeschideDeploy);
         assert_eq!(app.ecran(), Ecran::Deploy);
-        let plan = app.plan("Ref", "Baza", "acum");
+        let plan = app.plan("Ref", "acum");
         assert_eq!(plan.pasi.len(), 1);
         assert_eq!(plan.pasi[0].obiect, id);
+        assert_eq!(plan.pasi[0].baza, baza);
         // scos ultimul obiect: inapoi in lista, planul e gol
-        app.comanda(Comanda::ScoateDinPlan(id));
+        app.comanda(Comanda::ScoateDinPlan(baza, id));
         assert_eq!(app.ecran(), Ecran::Lista);
         assert!(app.lista().in_plan().is_empty());
     }
@@ -722,11 +824,15 @@ mod teste {
         let mut a = aplicatie();
         a.comanda(Comanda::Cauta("pA".into()));
         a.comanda(Comanda::PuneVizibileleInPlan(false));
-        assert_eq!(a.lista().in_plan(), ["dbo.pA"]);
-        a.comanda(Comanda::Cauta(String::new()));
-        a.comanda(Comanda::PuneVizibileleInPlan(false));
         assert_eq!(
             a.lista().in_plan(),
+            [("Client1".to_string(), "dbo.pA".to_string())]
+        );
+        a.comanda(Comanda::Cauta(String::new()));
+        a.comanda(Comanda::PuneVizibileleInPlan(false));
+        let plan: Vec<String> = a.lista().in_plan().into_iter().map(|(_, o)| o).collect();
+        assert_eq!(
+            plan,
             ["dbo.pA", "dbo.pB", "dbo.pDoarSursa"],
             "toate se pot deploia"
         );
@@ -736,7 +842,7 @@ mod teste {
     fn dupa_deploy_obiectele_din_plan_sunt_deployate_si_tin_minte() {
         let mut a = aplicatie();
         a.comanda(Comanda::PuneVizibileleInPlan(false));
-        let plan = a.plan("Referinta", "Client1", "acum");
+        let plan = a.plan("Referinta", "acum");
         assert_eq!(plan.pasi.len(), 3);
         assert!(a.marcheaza_deployate(&plan), "e de salvat in sesiune");
         assert_eq!(a.lista().progres_deploy(), (3, 3));
@@ -777,6 +883,120 @@ mod teste {
         a.comanda(Comanda::Cauta("nu-exista".into()));
         assert!(a.exporta_csv(&cale).is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Aceeasi referinta, doua baze: obiectul apare o data pentru fiecare,
+    /// fiecare rand isi vede textul din baza lui, si planul le acopera pe
+    /// amandoua.
+    #[test]
+    fn doua_baze_dau_doua_randuri_cu_texte_diferite() {
+        let sursa = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1")]);
+        let c1 = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 11")]);
+        let c2 = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 22")]);
+        let tinte = vec![("C1".to_string(), c1), ("C2".to_string(), c2)];
+        let comparare = modul::compara("Ref", &sursa, &tinte, |_| {});
+        let mut a = Aplicatie::noua(comparare.randuri, sursa, tinte, Revizuire::noua());
+
+        assert_eq!(a.lista().vizibile().len(), 2);
+        assert_eq!(a.baze(), ["C1", "C2"]);
+
+        // fiecare rand arata textul bazei lui, nu al primei
+        for (p, asteptat) in [(0, "SELECT 11"), (1, "SELECT 22")] {
+            a.comanda(Comanda::Selecteaza(p));
+            let (_, baza) = a.texte_curente().expect("texte");
+            assert!(
+                baza.contains(asteptat),
+                "randul {p} ar trebui sa arate {asteptat}, arata:\n{baza}"
+            );
+        }
+
+        // planul le ia pe amandoua, fiecare cu baza ei
+        a.comanda(Comanda::PuneVizibileleInPlan(false));
+        let plan = a.plan("Ref", "acum");
+        let baze: Vec<&str> = plan.pasi.iter().map(|p| p.baza.as_str()).collect();
+        assert_eq!(baze, ["C1", "C2"]);
+
+        // filtrul pe baza taie una din ele
+        a.comanda(Comanda::FiltreazaBaza(Some("C2".into())));
+        assert_eq!(a.lista().vizibile().len(), 1);
+        assert_eq!(a.obiect().unwrap().baza, "C2");
+
+        // „scoate din plan" scoate doar randul bazei date
+        a.comanda(Comanda::ScoateDinPlan("C1".into(), "dbo.pA".into()));
+        assert_eq!(
+            a.lista().in_plan(),
+            [("C2".to_string(), "dbo.pA".to_string())]
+        );
+    }
+
+    #[test]
+    fn bifa_pusa_pe_o_baza_nu_se_intinde_la_cealalta() {
+        let sursa = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1")]);
+        let c1 = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 11")]);
+        let c2 = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 22")]);
+        let tinte = vec![("C1".to_string(), c1), ("C2".to_string(), c2)];
+        let comparare = modul::compara("Ref", &sursa, &tinte, |_| {});
+        let mut a = Aplicatie::noua(comparare.randuri, sursa, tinte, Revizuire::noua());
+        a.comanda(Comanda::Selecteaza(0));
+        a.comanda(Comanda::ComutaRevizuit);
+        assert!(a.lista().obiect(0).unwrap().revizuit);
+        assert!(
+            !a.lista().obiect(1).unwrap().revizuit,
+            "acelasi obiect in alta baza e alta treaba"
+        );
+        assert_eq!(a.lista().progres_revizuire(), (1, 2));
+    }
+
+    /// „Uneste ciclul cursor": blocurile se taie altfel, deci editorul arata
+    /// mai putine diferente — una singura pe tot ciclul, in loc de cate una
+    /// pe fiecare instructiune.
+    #[test]
+    fn unirea_ciclului_de_cursor_strange_blocurile_intr_unul() {
+        const CICLU: &str = "CREATE PROCEDURE dbo.pC AS\n\
+            DECLARE c CURSOR FOR SELECT id FROM dbo.T;\n\
+            OPEN c;\n\
+            FETCH NEXT FROM c INTO @id;\n\
+            WHILE @@FETCH_STATUS = 0\n\
+            BEGIN\n\
+                FETCH NEXT FROM c INTO @id;\n\
+            END\n\
+            CLOSE c;\n\
+            DEALLOCATE c;";
+        let sursa = modul::pregateste(&[obiect_db("pC", CICLU)]);
+        let tinta = modul::pregateste(&[obiect_db(
+            "pC",
+            &CICLU.replace(
+                "SELECT id FROM dbo.T",
+                "SELECT id FROM dbo.T WHERE activ = 1",
+            ),
+        )]);
+        let tinte = vec![("Client1".to_string(), tinta)];
+        let c = modul::compara("Ref", &sursa, &tinte, |_| {});
+        let mut a = Aplicatie::noua(c.randuri, sursa, tinte, Revizuire::noua());
+        a.comanda(Comanda::Selecteaza(0));
+
+        assert!(a.are_cursor(), "obiectul are cursor, deci butonul are rost");
+        assert!(!a.uneste_cursorul());
+        let separat = a.model_editor().expect("model").diferente.len();
+
+        a.comanda(Comanda::ComutaUnireaCursorului(true));
+        assert!(a.uneste_cursorul());
+        let unit = a.model_editor().expect("model").diferente.len();
+        assert_eq!(unit, 1, "tot ciclul devine o singura diferenta");
+        assert!(
+            separat >= unit,
+            "unirea nu poate da mai multe blocuri: {separat} -> {unit}"
+        );
+
+        a.comanda(Comanda::ComutaUnireaCursorului(false));
+        assert_eq!(a.model_editor().expect("model").diferente.len(), separat);
+    }
+
+    #[test]
+    fn butonul_de_cursor_nu_apare_pe_obiectele_fara_cursor() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Selecteaza(0));
+        assert!(!a.are_cursor(), "pA n-are cursor");
     }
 
     #[test]
@@ -863,7 +1083,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        let b = Aplicatie::noua(c.randuri, sursa, tinta, salvata.clone());
+        let b = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            salvata.clone(),
+        );
         assert!(b.obiect().unwrap().revizuit);
 
         // obiectul s-a schimbat pe server: bifa nu se mai reia
@@ -875,7 +1100,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        let b = Aplicatie::noua(c.randuri, sursa, tinta, salvata);
+        let b = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            salvata,
+        );
         assert!(!b.obiect().unwrap().revizuit);
     }
 
@@ -928,7 +1158,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        let mut a = Aplicatie::noua(c.randuri, sursa, tinta, Revizuire::noua());
+        let mut a = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        );
         a.comanda(Comanda::Deschide);
         (a, SURSA, BAZA)
     }

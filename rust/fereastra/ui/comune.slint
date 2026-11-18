@@ -16,6 +16,157 @@ import "../fonturi/Geist-600.ttf";
 import "../fonturi/GeistMono-400.ttf";
 import "../fonturi/GeistMono-500.ttf";
 
+
+// Toate textele interfetei. Umplut din Rust (`texte::aplica_limba`):
+// in `.slint` nu se scrie text pentru om, ca sa existe doua limbi.
+export global Texte {
+    in-out property <string> obiecte-per-fisier;
+    in-out property <string> in-ordinea-din-script;
+    in-out property <string> revenirea-explicata;
+    in-out property <string> ajutor;
+    in-out property <string> ajutor-tasta;
+    in-out property <string> alaturat;
+    in-out property <string> alege-un-obiect;
+    in-out property <string> aplica-enter;
+    in-out property <string> aplica-toate;
+    in-out property <string> arata;
+    in-out property <string> arata-diferentele;
+    in-out property <string> ascunde;
+    in-out property <string> ascunde-diferentele;
+    in-out property <string> modificata;
+    in-out property <string> baza-neatinsa;
+    in-out property <string> baze;
+    in-out property <string> cate;
+    in-out property <string> cauta-obiect;
+    in-out property <string> ce-pui-in-baza;
+    in-out property <string> compara;
+    in-out property <string> comparare-offline;
+    in-out property <string> comparari-recente;
+    in-out property <string> conectare;
+    in-out property <string> continua;
+    in-out property <string> copiaza;
+    in-out property <string> deconecteaza;
+    in-out property <string> deploy;
+    in-out property <string> deploy-paranteza;
+    in-out property <string> deschide;
+    in-out property <string> deschide-instantaneu;
+    in-out property <string> desparte-cursor;
+    in-out property <string> difera-in;
+    in-out property <string> din-martor;
+    in-out property <string> din-modificata;
+    in-out property <string> editeaza;
+    in-out property <string> export-csv;
+    in-out property <string> fara-deployate;
+    in-out property <string> fisierele;
+    in-out property <string> ignora;
+    in-out property <string> in-plan;
+    in-out property <string> in-plan-bifat;
+    in-out property <string> inainte-de-scriere;
+    in-out property <string> revenirea-inainte;
+    in-out property <string> inca-nimic;
+    in-out property <string> inchide-esc;
+    in-out property <string> inchide-enter;
+    in-out property <string> include-deployate;
+    in-out property <string> intunecat;
+    in-out property <string> jurnal;
+    in-out property <string> linii;
+    in-out property <string> lipeste-codul;
+    in-out property <string> luminos;
+    in-out property <string> mod-ghidat;
+    in-out property <string> mod-ghidat-pornit;
+    in-out property <string> neintrodus;
+    in-out property <string> nicio-comparare;
+    in-out property <string> niciun-json;
+    in-out property <string> niciun-obiect;
+    in-out property <string> gata-diferentele;
+    in-out property <string> obiect-cap;
+    in-out property <string> omis;
+    in-out property <string> omis-bifat;
+    in-out property <string> omite;
+    in-out property <string> parola;
+    in-out property <string> plaseaza-aici;
+    in-out property <string> pliaza-identicul;
+    in-out property <string> pliaza-identicul-bifat;
+    in-out property <string> pregatit;
+    in-out property <string> progresul-salvat;
+    in-out property <string> ramai-esc;
+    in-out property <string> resincronizeaza;
+    in-out property <string> recompara;
+    in-out property <string> renunta;
+    in-out property <string> reset;
+    in-out property <string> revizuit;
+    in-out property <string> revizuit-bifat;
+    in-out property <string> salveaza;
+    in-out property <string> sari-peste-esc;
+    in-out property <string> schimba;
+    in-out property <string> scrie-scripturile;
+    in-out property <string> scrie-dupa-verificare;
+    in-out property <string> scrii-textul;
+    in-out property <string> scris;
+    in-out property <string> doar-citire-mesaj;
+    in-out property <string> doar-scripturi;
+    in-out property <string> server-sql;
+    in-out property <string> similar;
+    in-out property <string> sterge-log;
+    in-out property <string> martor;
+    in-out property <string> sus-jos;
+    in-out property <string> te-deconectezi;
+    in-out property <string> tema;
+    in-out property <string> testeaza-conexiunea;
+    in-out property <string> tip;
+    in-out property <string> toate-bazele;
+    in-out property <string> toate-in-plan;
+    in-out property <string> toate-starile;
+    in-out property <string> trage-peste;
+    in-out property <string> trimis;
+    in-out property <string> fisier-per-baza;
+    in-out property <string> fisier-per-obiect;
+    in-out property <string> un-singur-fisier;
+    in-out property <string> uneste-cursor;
+    in-out property <string> unificat;
+    in-out property <string> utilizator;
+    in-out property <string> verifica-acum;
+    in-out property <string> verifica-din-nou;
+    in-out property <string> versiune-noua;
+    in-out property <string> versiunea-actuala;
+    in-out property <string> adus-din-martor;
+    in-out property <string> alege-baza;
+    in-out property <string> cauta-mic;
+    in-out property <string> ce-face-aplicatia;
+    in-out property <string> conecteaza-te-intai;
+    in-out property <string> deploy-mic;
+    in-out property <string> deschide-mic;
+    in-out property <string> doar-citire;
+    in-out property <string> doar-in-modificata;
+    in-out property <string> editabil;
+    in-out property <string> in-plan-mic;
+    in-out property <string> modificat;
+    in-out property <string> obiect-mic;
+    in-out property <string> pleaca-spre;
+    in-out property <string> revizuit-mic;
+    in-out property <string> revizuite;
+    in-out property <string> sau-scrie-calea;
+    in-out property <string> scris-de-tine;
+    in-out property <string> categorie-modificate;
+    in-out property <string> categorie-doar-martor;
+    in-out property <string> categorie-doar-modificata;
+    in-out property <string> categorie-identice;
+    in-out property <string> categorie-criptate;
+    in-out property <string> filtru-nerevizuite;
+    in-out property <string> filtru-revizuite;
+    in-out property <string> filtru-omise;
+    in-out property <string> filtru-in-plan;
+    in-out property <string> filtru-deployate;
+    in-out property <string> filtru-nedeployate;
+    in-out property <string> nerevizuite-din;
+    in-out property <string> martor-explicatie;
+    in-out property <string> modificata-explicatie;
+    in-out property <string> anuleaza-ctrlz;
+    in-out property <string> opreste;
+    in-out property <string> inapoi-la-lista;
+    in-out property <string> lista-scurt;
+}
+
 export global Tema {
     in-out property <string> font-ui;
     in-out property <string> font-mono;
@@ -336,6 +487,62 @@ export component ButonTema inherits Rectangle {
 
 // Antetul ecranelor: semnul, locul (sau drumul sursa → baza cu mediul) si,
 // in dreapta, ce pune ecranul (copiii). Acelasi pe conectare, lista, deploy.
+// Comutatorul de limba, langa cel de tema. Limbile vin din Rust
+// (`texte::Limba::toate`), ca sa nu existe o a doua lista.
+export component ButonLimba inherits Rectangle {
+    in property <[string]> limbi;
+    in property <int> aleasa;
+    callback alege(int);
+    width: 38px;
+    height: 34px;
+    border-radius: 8px;
+    background: zona.has-hover ? Tema.strat : transparent;
+    Text {
+        text: root.aleasa >= 0 && root.limbi.length > 0 ? root.limbi[root.aleasa] : "";
+        font-family: Tema.font-mono;
+        font-size: 11.5px;
+        font-weight: 500;
+        color: Tema.text-secundar;
+    }
+    zona := TouchArea { clicked => { meniu.show(); } }
+    meniu := PopupWindow {
+        x: root.width - 170px;
+        y: root.height + 6px;
+        width: 170px;
+        Rectangle {
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111526;
+            VerticalLayout {
+                padding: 6px;
+                for l[i] in root.limbi: Rectangle {
+                    height: 32px;
+                    border-radius: 7px;
+                    background: z.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 8px;
+                        Text { text: l; font-family: Tema.font-ui; font-size: 13px; color: Tema.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        if i == root.aleasa: VerticalLayout {
+                            alignment: center;
+                            Path {
+                                width: 12px; height: 12px; viewbox-width: 16; viewbox-height: 16;
+                                commands: "M 3 8.5 L 6 11.5 L 13 4.5"; stroke: Tema.accent-text; stroke-width: 2px; fill: transparent;
+                            }
+                        }
+                    }
+                    z := TouchArea { clicked => { root.alege(i); } }
+                }
+            }
+        }
+    }
+}
+
 export component Antet inherits Rectangle {
     in property <string> loc;
     in property <string> sursa;
@@ -398,6 +605,12 @@ export struct RandUi {
     // primul rand al unei diferente (sageata din canal) sau al unui sir de
     // linii aduse (bifa)
     inceput: bool,
+    // cate randuri afisate tine diferenta, pus doar pe randul de inceput:
+    // de aici se deseneaza linia de legatura din canal
+    linii-bloc: int,
+    // in modul unificat: cealalta versiune a liniei, aratata la hover
+    pereche: [BucataUi],
+    pereche-nr: string,
 }
 
 export struct MarcajUi {
@@ -518,3 +731,40 @@ export component Jumatate inherits Rectangle {
     }
 }
 
+
+// Fereastra de ajutor (F1). Textul vine din Rust (`gmotion_fereastra::AJUTOR`),
+// ca sa fie acelasi pe toate ecranele.
+export component Ajutor inherits Rectangle {
+    in property <string> text;
+    callback inchide();
+    background: Tema.intunecat ? #00000099 : #0f111566;
+    TouchArea { clicked => { root.inchide(); } }
+    Rectangle {
+        width: Math.min(root.width - 80px, 640px);
+        height: Math.min(root.height - 80px, 560px);
+        border-radius: 14px;
+        border-width: 1px;
+        border-color: Tema.linie;
+        background: Tema.suprafata;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            HorizontalLayout {
+                Text { text: "Ajutor"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                Buton { text: "Inchide  Esc"; apasat => { root.inchide(); } }
+            }
+            Flickable {
+                vertical-stretch: 1;
+                content-height: continut.preferred-height;
+                continut := Text {
+                    width: parent.width;
+                    text: root.text;
+                    font-family: Tema.font-ui;
+                    font-size: 13px;
+                    color: Tema.text-secundar;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

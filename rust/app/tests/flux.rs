@@ -56,7 +56,7 @@ fn din_conectare_pana_in_editor() {
 
     // 3. compararea
     let r = pornire::compara(&c).expect("compararea merge");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
     app.asigura_detalii(0, 10);
 
     // lista are cele trei obiecte, clasificate
@@ -126,7 +126,7 @@ fn din_lista_pana_la_scripturile_de_deploy() {
     c.sursa.baza = "CharismaDev".into();
     c.baza.baza = "CharismaProd".into();
     let r = pornire::compara(&c).expect("compararea merge");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
 
     // 1. doua obiecte in plan: unul modificat, unul nou
     for nume in ["pStoc", "pNou"] {
@@ -138,18 +138,18 @@ fn din_lista_pana_la_scripturile_de_deploy() {
     }
     app.comanda(Comanda::DeschideDeploy);
     assert_eq!(app.ecran(), Ecran::Deploy);
-    let mut st = StareDeploy::nou(app.plan("CharismaDev", "CharismaProd", "2026-11-18 14:00"));
+    let mut st = StareDeploy::nou(app.plan("CharismaDev", "2026-11-18 14:00"));
     let pasi = st.pasi_in_ordine(app.sursa());
     assert_eq!(pasi.len(), 2);
 
     // 2. garda, pe ce se reciteste acum din instantaneu
     let recitit = pornire::compara(&c).expect("recitirea merge");
-    st.aplica_verificarea(recitit.sursa, "CharismaProd", recitit.tinta, "14:05");
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:05");
     assert!(matches!(st.garda, Garda::Ok { .. }), "{:?}", st.garda);
 
     // 3. scrierea: scripturile si revenirea, pe disc
     let dir = cale.parent().unwrap().join("deploy");
-    st.scrie(&dir, "CharismaProd", "2026-11-18 14:05");
+    st.scrie(&dir, "2026-11-18 14:05");
     let raport = st
         .rezultat
         .as_ref()
@@ -198,7 +198,7 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
     c.sursa.baza = "CharismaDev".into();
     c.baza.baza = "CharismaProd".into();
     let r = pornire::compara(&c).expect("compararea merge");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
     let p = (0..app.lista().vizibile().len())
         .find(|&p| app.lista().obiect(p).unwrap().nume == "pStoc")
         .unwrap();
@@ -209,12 +209,12 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
         "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
     )));
     app.comanda(Comanda::ComutaInPlan);
-    let mut st = StareDeploy::nou(app.plan("CharismaDev", "CharismaProd", "acum"))
-        .cu_texte_finale(app.texte_finale());
+    let mut st =
+        StareDeploy::nou(app.plan("CharismaDev", "acum")).cu_texte_finale(app.texte_finale());
     let recitit = pornire::compara(&c).expect("recitirea merge");
-    st.aplica_verificarea(recitit.sursa, "CharismaProd", recitit.tinta, "acum");
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "acum");
     let dir = cale.parent().unwrap().join("deploy");
-    st.scrie(&dir, "CharismaProd", "acum");
+    st.scrie(&dir, "acum");
     let raport = st
         .rezultat
         .as_ref()
@@ -228,4 +228,170 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
     );
     assert!(!script.contains("WHERE activ = 1"), "nu codul din sursa");
     std::fs::remove_dir_all(cale.parent().unwrap()).ok();
+}
+
+/// Modul de previzualizare: `gmotion-ui --previzualizare` trebuie sa intre
+/// direct in lista, pe instantaneul sintetic, fara server. Testul verifica
+/// instantaneul insusi: daca nu mai acopera toate categoriile si tipurile,
+/// previzualizarea nu-si mai face treaba, si asta se vede abia la Mihai pe
+/// ecran.
+#[test]
+fn instantaneul_de_previzualizare_acopera_tot_ce_trebuie_probat() {
+    use gmotion_fereastra::model_lista::Stare as StareLista;
+
+    let cale = std::path::Path::new("../../referinta/instantanee/previzualizare.json");
+    assert!(
+        cale.is_file(),
+        "lipseste {}; ruleaza unelte/genereaza-previzualizare.py",
+        cale.display()
+    );
+
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.display().to_string());
+    let (baze, stare) = pornire::citeste_bazele(&c, &c.sursa);
+    assert!(stare.e_conectat(), "{stare:?}");
+    assert!(baze.len() >= 3, "mai multe baze comparate: {baze:?}");
+
+    // ca in fereastra: prima baza e referinta, restul se bifeaza
+    let (prima, restul) = baze.split_first().expect("cel putin o baza");
+    c.sursa.baza = prima.clone();
+    for b in restul {
+        c.baza.comuta_baza(b);
+    }
+    assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
+
+    let r = pornire::compara(&c).expect("compararea merge pe instantaneu");
+    assert_eq!(r.tinte.len(), baze.len() - 1);
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+    app.asigura_detalii(0, 200);
+
+    // toate categoriile, ca sa se vada fiecare culoare si fiecare filtru
+    let stari: Vec<StareLista> = app
+        .lista()
+        .contoare_stari()
+        .into_iter()
+        .filter(|(_, n)| *n > 0)
+        .map(|(s, _)| s)
+        .collect();
+    for ceruta in [
+        StareLista::Modificat,
+        StareLista::DoarSursa,
+        StareLista::DoarBaza,
+        StareLista::Identic,
+        StareLista::Criptat,
+    ] {
+        assert!(stari.contains(&ceruta), "lipseste categoria {ceruta:?}");
+    }
+
+    // toate tipurile din machete
+    let tipuri: Vec<String> = app
+        .lista()
+        .obiecte()
+        .iter()
+        .map(|o| o.tip.clone())
+        .collect();
+    for t in ["P", "V", "FN", "IF", "TF", "TR"] {
+        assert!(tipuri.iter().any(|x| x == t), "lipseste tipul {t}");
+    }
+
+    // obiecte mari (de aia se vede daca lista se impiedica) si scoruri variate
+    let linii_max = app
+        .lista()
+        .obiecte()
+        .iter()
+        .filter_map(|o| o.detalii.as_ref())
+        .map(|d| d.linii_plus + d.linii_minus)
+        .max()
+        .unwrap_or(0);
+    assert!(
+        linii_max >= 10,
+        "niciun obiect mare: {linii_max} linii mutate"
+    );
+    let scoruri: Vec<f64> = app
+        .lista()
+        .obiecte()
+        .iter()
+        .filter_map(|o| o.scor)
+        .collect();
+    assert!(
+        scoruri.iter().any(|s| *s < 70.0) && scoruri.iter().any(|s| *s > 95.0),
+        "scorurile nu acopera si rescrieri, si retusuri: {scoruri:?}"
+    );
+
+    // codul dezordonat chiar e dezordonat (tab-uri, comentarii imbricate, GO)
+    let dezordonat = app
+        .sursa()
+        .values()
+        .any(|o| o.afisare.contains("/*") && o.afisare.contains("GO"));
+    assert!(dezordonat, "lipseste obiectul cu cod scris dezordonat");
+}
+
+/// Cap-coada pe cod scris urat: se ia obiectul cu ciclu de cursor din
+/// instantaneul de previzualizare, se apasa „Aplica toate", si rezultatul
+/// trebuie sa fie **acelasi cod ca in martor**, normalizat.
+///
+/// Invarianta e pe forma normalizata, nu pe text: un comentariu lipit de cod
+/// muta granitele segmentarii, deci „zero diferente" ar fi prea tare (vezi
+/// jurnalul etapei 14).
+#[test]
+fn pe_cod_deformat_aplica_toate_aduce_martorul_in_baza() {
+    let cale = std::path::Path::new("../../referinta/instantanee/previzualizare.json");
+    assert!(cale.is_file(), "lipseste {}", cale.display());
+
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.display().to_string());
+    let (baze, _) = pornire::citeste_bazele(&c, &c.sursa);
+    let (prima, restul) = baze.split_first().expect("cel putin o baza");
+    c.sursa.baza = prima.clone();
+    c.baza.comuta_baza(&restul[0]);
+
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+
+    // obiectul cu cursor: ala e cel scris urat
+    let pozitie = (0..app.lista().vizibile().len())
+        .find(|&p| {
+            app.lista()
+                .obiect(p)
+                .is_some_and(|o| o.nume == "uspReproceseazaFacturi")
+        })
+        .expect("obiectul cu cursor e in lista");
+    app.comanda(Comanda::Selecteaza(pozitie));
+    app.comanda(Comanda::Deschide);
+    assert_eq!(app.ecran(), Ecran::Editor);
+
+    let model = app.model_editor().expect("editorul are model");
+    assert!(
+        !model.diferente.is_empty(),
+        "obiectul chiar difera, altfel testul nu probeaza nimic"
+    );
+    // codul e deformat: majuscule amestecate si tab-uri, in ambele parti
+    let (martor, baza) = app.texte_curente().expect("texte");
+    for text in [&martor, &baza] {
+        assert!(text.contains('\t'), "codul de proba are tab-uri");
+        assert!(
+            text.contains("WHile") || text.contains("while"),
+            "codul de proba are cuvinte cheie scrise amestecat"
+        );
+    }
+    assert!(app.are_cursor(), "obiectul are un ciclu de cursor");
+
+    app.comanda(Comanda::AplicaToate);
+    let (martor_dupa, final_dupa) = app.texte_curente().expect("texte dupa aplicare");
+    assert_eq!(
+        gmotion_core::norm(&martor_dupa),
+        gmotion_core::norm(&final_dupa),
+        "dupa Aplica toate, baza trebuie sa spuna acelasi lucru ca martorul"
+    );
+
+    // si cu ciclul de cursor unit, rezultatul e acelasi
+    app.comanda(Comanda::Reset);
+    app.comanda(Comanda::ComutaUnireaCursorului(true));
+    app.comanda(Comanda::AplicaToate);
+    let (martor_unit, final_unit) = app.texte_curente().expect("texte");
+    assert_eq!(
+        gmotion_core::norm(&martor_unit),
+        gmotion_core::norm(&final_unit),
+        "unirea ciclului de cursor schimba taierea blocurilor, nu rezultatul"
+    );
 }

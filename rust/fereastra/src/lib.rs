@@ -15,12 +15,71 @@ pub mod model_conectare;
 pub mod model_deploy;
 pub mod model_editor;
 pub mod model_lista;
+pub mod texte;
 
 slint::include_modules!();
 
 pub use jetoane::Mod;
 use model_editor::{Bucata, Marcaj, ModelEditor, RandAfisat, Sintaxa, Stare};
 use slint::{Color, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
+
+/// Pune textele limbii alese in globalul `Texte`. Se cheama inainte de orice
+/// afisare si din nou la fiecare schimbare de limba, ca `aplica_tema`.
+pub fn aplica_limba<'a, T>(ui: &'a T, l: texte::Limba)
+where
+    T: slint::ComponentHandle,
+    Texte<'a>: slint::Global<'a, T>,
+{
+    let g = ui.global::<Texte>();
+    macro_rules! pune {
+        ($($camp:ident $set:ident),* $(,)?) => {
+            // destructurare fara `..`: un camp din `Texte` lipsa din lista
+            // nu compileaza, deci nu poate ramane nepus
+            let texte::Texte { $($camp),* } = *l.texte();
+            $( g.$set($camp.into()); )*
+        };
+    }
+    cu_textele!(pune);
+}
+
+/// Textul ferestrei de ajutor (F1). Intr-un singur loc, ca ecranele sa nu
+/// spuna lucruri diferite despre aceleasi taste.
+pub const AJUTOR: &str = "\
+GMotion compara obiectele programabile (proceduri, functii, view-uri, \
+triggere) dintr-o baza de referinta cu una sau mai multe baze comparate, si \
+scrie scripturile de deploy. Citeste; nu scrie nimic pe server.\n\
+\n\
+CONECTARE\n\
+  Alege serverul si baza de referinta in stanga, serverul si bazele \
+comparate in dreapta. Bifeaza mai multe baze ca sa compari aceeasi \
+referinta cu toate deodata.\n\
+  Testeaza conexiunea  spune ce raspunde serverul (editie, sistem, cate baze).\n\
+  Comparare offline    doua bucati de cod lipite, fara server.\n\
+  Esc                  anuleaza compararea care ruleaza.\n\
+\n\
+LISTA\n\
+  j k / sageti   obiectul urmator, anterior\n\
+  Enter          deschide obiectul in editor\n\
+  r              revizuit\n\
+  i              pune sau scoate din planul de deploy\n\
+  Ctrl+F         cauta\n\
+  Clic pe capul unei coloane sorteaza; al doilea clic inverseaza.\n\
+\n\
+EDITOR\n\
+  Esc            inapoi la lista\n\
+  j k            obiectul urmator, anterior\n\
+  n p            diferenta urmatoare, anterioara\n\
+  u              alaturat / unificat\n\
+  e              editeaza textul final de mana\n\
+  g              modul ghidat (fiecare diferenta pe rand)\n\
+  o              omite obiectul\n\
+  Ctrl+Z         anuleaza ultima schimbare a textului final\n\
+\n\
+DEPLOY\n\
+  Planul se verifica inainte de scriere (ca bazele n-au mai fost atinse de \
+la comparare), iar revenirea se scrie inaintea scripturilor.\n\
+\n\
+F1 deschide si inchide fereastra asta. F11 trece pe tot ecranul.";
 
 /// Mediul bazei tinta: da culoarea benzii de sus si a etichetei.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -250,6 +309,9 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                 diferenta: -1,
                 dr_marcaj: 0,
                 inceput: false,
+                linii_bloc: 0,
+                pereche: gol(),
+                pereche_nr: SharedString::new(),
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -278,6 +340,9 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                     inceput: rand.inceput_bloc
                         || (rand.marcaj != Marcaj::Niciunul
                             && (i == 0 || model.randuri[i - 1].marcaj == Marcaj::Niciunul)),
+                    linii_bloc: 0,
+                    pereche: gol(),
+                    pereche_nr: SharedString::new(),
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     randuri.push(baza);
@@ -285,10 +350,14 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                 }
                 // unificat: blocul modificat se vede de doua ori, intai cum e
                 // in sursa, apoi cum e in baza
+                // cealalta versiune ramane pe rand, in `pereche`: la hover
+                // se vede fara sa comuti pe alaturat (v3.4 facea la fel)
                 if rand.stanga.nr.is_some() {
                     randuri.push(RandUi {
                         dr_nr: SharedString::new(),
                         dr: gol(),
+                        pereche: bucati_ui(&rand.dreapta.bucati),
+                        pereche_nr: nr(rand.dreapta.nr),
                         ..baza.clone()
                     });
                 }
@@ -296,11 +365,26 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                     randuri.push(RandUi {
                         st_nr: SharedString::new(),
                         st: gol(),
+                        pereche: bucati_ui(&rand.stanga.bucati),
+                        pereche_nr: nr(rand.stanga.nr),
                         ..baza
                     });
                 }
             }
         }
+    }
+    // cate randuri afisate tine fiecare diferenta: linia de legatura din
+    // canal se deseneaza de la primul la ultimul rand al blocului
+    let mut cate = vec![0i32; model.diferente.len()];
+    for r in &randuri {
+        if r.diferenta >= 0 {
+            if let Some(n) = cate.get_mut(r.diferenta as usize) {
+                *n += 1;
+            }
+        }
+    }
+    for r in randuri.iter_mut().filter(|r| r.inceput && r.diferenta >= 0) {
+        r.linii_bloc = cate.get(r.diferenta as usize).copied().unwrap_or(0);
     }
     (randuri, start)
 }
@@ -350,6 +434,66 @@ fn detaliu_panou(server: &str, linii: usize) -> String {
 }
 
 /// Umple editorul cu modelul unui obiect. Nu atinge jetoanele: `aplica_tema`
+/// Randurile listei, pentru tabelul intreg si pentru coloana ingusta din
+/// editor. Un singur loc: altfel cele doua ar arata altceva despre acelasi
+/// obiect.
+fn randuri_lista_ui(lista: &model_lista::Lista) -> Vec<RandListaUi> {
+    use model_lista::Stare;
+    let cod = |s: Stare| match s {
+        Stare::Modificat => 0,
+        Stare::DoarSursa => 1,
+        Stare::DoarBaza => 2,
+        Stare::Identic => 3,
+        Stare::Criptat => 4,
+    };
+    lista
+        .vizibile()
+        .iter()
+        .map(|&i| {
+            let o = &lista.obiecte()[i];
+            let (plus, minus) = match &o.detalii {
+                Some(d) => (
+                    format!("+{}", d.linii_plus),
+                    format!("\u{2212}{}", d.linii_minus),
+                ),
+                None => (String::new(), String::new()),
+            };
+            RandListaUi {
+                schema: o.schema.as_str().into(),
+                nume: o.nume.as_str().into(),
+                baza: o.baza.as_str().into(),
+                tip: gmotion_core::nume_tip(&o.tip).into(),
+                litera: o.stare.litera().into(),
+                stare: cod(o.stare),
+                plus: plus.into(),
+                minus: minus.into(),
+                difera_in: o
+                    .detalii
+                    .as_ref()
+                    .map_or("", |d| d.difera_in.as_str())
+                    .into(),
+                revizuit: o.revizuit,
+                in_plan: o.in_plan,
+                omis: o.omis,
+                scor: o.scor.unwrap_or(0.0) as f32 / 100.0,
+                scor_text: o.scor.map_or(String::new(), |x| format!("{x:.0}%")).into(),
+                deploy: cod_deploy(o),
+            }
+        })
+        .collect()
+}
+
+/// Umple coloana din stanga a editorului: lista stransa, din acelasi model
+/// ca lista intreaga. Fara ea, „Deschide" te scotea din ecran si trebuia sa
+/// te intorci cu Esc pentru fiecare obiect (pachetul B al etapei 15).
+pub fn incarca_coloana_lista(ui: &EditorDiferente, lista: &model_lista::Lista) {
+    let t = ui.global::<Texte>();
+    let (nerevizuite, vizibile) = lista.rezumat_vizibile();
+    ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
+    ui.set_selectat_lista(lista.selectat().map_or(0, |p| p as i32));
+    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_lista_ui(lista))));
+}
+
 /// se cheama o data, la pornire.
 pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEditor) {
     let (randuri, start) = randuri_ui(model, ui.get_pliaza_identicul(), !ui.get_alaturat());
@@ -480,6 +624,7 @@ fn cod_ordine(o: model_lista::Ordine) -> i32 {
         Ordine::DiferaIn => 4,
         Ordine::Revizuire => 5,
         Ordine::Deploy => 6,
+        Ordine::Baza => 7,
     }
 }
 
@@ -493,6 +638,7 @@ pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
         4 => Ordine::DiferaIn,
         5 => Ordine::Revizuire,
         6 => Ordine::Deploy,
+        7 => Ordine::Baza,
         _ => Ordine::Nume,
     }
 }
@@ -512,56 +658,102 @@ fn cod_deploy(o: &model_lista::Obiect) -> i32 {
     }
 }
 
+/// Latimea de care are nevoie o coloana ca sa-si arate tot continutul, in
+/// pixeli logici („autofit", dublu clic pe marginea capului).
+///
+/// Latimea unui text nu se poate masura din Slint, deci se socoteste din
+/// numarul de caractere si latimea unui caracter mono la 12px. E o
+/// aproximare deliberata: mai bine cu cateva zeci de pixeli in plus decat un
+/// nume taiat.
+pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) -> f32 {
+    use model_lista::Ordine;
+    const CARACTER: f32 = 7.3;
+    const PADDING: f32 = 20.0;
+    let text = |o: &model_lista::Obiect| -> usize {
+        match coloana {
+            Ordine::Nume => o.id().chars().count(),
+            Ordine::Baza => o.baza.chars().count(),
+            Ordine::Tip => gmotion_core::nume_tip(&o.tip).chars().count(),
+            Ordine::Linii => o.detalii.as_ref().map_or(0, |d| {
+                format!("+{} −{}", d.linii_plus, d.linii_minus)
+                    .chars()
+                    .count()
+            }),
+            Ordine::Scor => 10,
+            Ordine::DiferaIn => o
+                .detalii
+                .as_ref()
+                .map_or(0, |d| d.difera_in.chars().count()),
+            Ordine::Revizuire => 8,
+            Ordine::Deploy => "Versiune noua".len(),
+        }
+    };
+    // doar randurile vizibile: autofit pe ce se vede, ca in orice tabel
+    let maxim = lista
+        .vizibile()
+        .iter()
+        .map(|&i| text(&lista.obiecte()[i]))
+        .max()
+        .unwrap_or(0);
+    // si capul coloanei trebuie sa incapa
+    let cap = match coloana {
+        Ordine::Nume => "Obiect",
+        Ordine::Baza => "Baza",
+        Ordine::Tip => "Tip",
+        Ordine::Linii => "Linii",
+        Ordine::Scor => "Similar",
+        Ordine::DiferaIn => "Difera in",
+        Ordine::Revizuire => "Revizuit",
+        Ordine::Deploy => "Deploy",
+    }
+    .chars()
+    .count();
+    (maxim.max(cap) as f32) * CARACTER + PADDING
+}
+
 /// Umple ecranul listei din modelul ei. Nu calculeaza nimic: filtrele,
 /// contoarele si selectia sunt deja decise in `model_lista`.
 pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_lista::Lista) {
     use model_lista::Stare;
-    let cod_stare = |s: Stare| match s {
+    // etichetele vin din `Texte`, nu din constante in Rust: altfel bara
+    // laterala si filtrele ar ramane intr-o singura limba
+    let t = ui.global::<Texte>();
+    let categorie = |s: Stare| -> SharedString {
+        match s {
+            Stare::Modificat => t.get_categorie_modificate(),
+            Stare::DoarSursa => t.get_categorie_doar_martor(),
+            Stare::DoarBaza => t.get_categorie_doar_modificata(),
+            Stare::Identic => t.get_categorie_identice(),
+            Stare::Criptat => t.get_categorie_criptate(),
+        }
+    };
+    let eticheta_filtru = |f: model_lista::FiltruRevizuire| -> SharedString {
+        use model_lista::FiltruRevizuire as F;
+        match f {
+            F::Nerevizuite => t.get_filtru_nerevizuite(),
+            F::Revizuite => t.get_filtru_revizuite(),
+            F::Omise => t.get_filtru_omise(),
+            F::InPlan => t.get_filtru_in_plan(),
+            F::Deployate => t.get_filtru_deployate(),
+            F::Nedeployate => t.get_filtru_nedeployate(),
+        }
+    };
+    let randuri = randuri_lista_ui(lista);
+    let cod_categorie = |s: Stare| match s {
         Stare::Modificat => 0,
         Stare::DoarSursa => 1,
         Stare::DoarBaza => 2,
         Stare::Identic => 3,
         Stare::Criptat => 4,
     };
-    let randuri: Vec<RandListaUi> = lista
-        .vizibile()
-        .iter()
-        .map(|&i| {
-            let o = &lista.obiecte()[i];
-            let (plus, minus) = match &o.detalii {
-                Some(d) => (format!("+{}", d.linii_plus), format!("−{}", d.linii_minus)),
-                None => (String::new(), String::new()),
-            };
-            RandListaUi {
-                schema: o.schema.as_str().into(),
-                nume: o.nume.as_str().into(),
-                tip: gmotion_core::nume_tip(&o.tip).into(),
-                litera: o.stare.litera().into(),
-                stare: cod_stare(o.stare),
-                plus: plus.into(),
-                minus: minus.into(),
-                difera_in: o
-                    .detalii
-                    .as_ref()
-                    .map_or("", |d| d.difera_in.as_str())
-                    .into(),
-                revizuit: o.revizuit,
-                in_plan: o.in_plan,
-                omis: o.omis,
-                scor: o.scor.unwrap_or(0.0) as f32 / 100.0,
-                scor_text: o.scor.map_or(String::new(), |x| format!("{x:.0}%")).into(),
-                deploy: cod_deploy(o),
-            }
-        })
-        .collect();
     let categorii: Vec<CategorieUi> = lista
         .contoare_stari()
         .into_iter()
         .map(|(s, n)| CategorieUi {
             litera: s.litera().into(),
-            nume: s.categorie().into(),
+            nume: categorie(s),
             numar: n.to_string().into(),
-            stare: cod_stare(s),
+            stare: cod_categorie(s),
         })
         .collect();
     let tipuri: Vec<TipUi> = lista
@@ -602,13 +794,37 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .and_then(|t| lista.contoare_tipuri().iter().position(|(x, _)| x == t))
             .map_or(-1, |i| i as i32),
     );
-    ui.set_rezumat_lista(lista.rezumat_vizibile().into());
+    let baze: Vec<(String, usize)> = lista.contoare_baze();
+    ui.set_baze(ModelRc::new(VecModel::from(
+        baze.iter()
+            .map(|(b, n)| TipUi {
+                nume: b.as_str().into(),
+                numar: n.to_string().into(),
+            })
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_baza_activa(
+        lista
+            .filtru()
+            .baza
+            .as_deref()
+            .and_then(|b| baze.iter().position(|(x, _)| x == b))
+            .map_or(-1, |i| i as i32),
+    );
+    ui.set_nume_baze(ModelRc::new(VecModel::from(
+        baze.iter()
+            .map(|(b, _)| SharedString::from(b.as_str()))
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_mai_multe_baze(baze.len() > 1);
+    let (nerevizuite, vizibile) = lista.rezumat_vizibile();
+    ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
     ui.set_coloana_sortata(cod_ordine(lista.ordine()));
     ui.set_sens_descrescator(lista.descrescator());
     ui.set_stari(ModelRc::new(VecModel::from(
         model_lista::FiltruRevizuire::TOATE
             .iter()
-            .map(|f| SharedString::from(f.eticheta()))
+            .map(|&f| eticheta_filtru(f))
             .collect::<Vec<_>>(),
     )));
     ui.set_stare_activa(lista.filtru().revizuire.map_or(-1, |f| {
@@ -688,6 +904,17 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
     ui.set_previzualizare(ModelRc::new(VecModel::from(Vec::<RandUi>::new())));
 }
 
+/// Ce scrie in campul bazelor cand se pot bifa mai multe: numele, daca sunt
+/// una sau doua, altfel „N baze" — un sir lung ar iesi din camp oricum.
+fn eticheta_baze(p: &model_conectare::Parte) -> String {
+    let alese = p.baze_alese();
+    match alese.len() {
+        0 => String::new(),
+        1 | 2 => alese.join(", "),
+        n => format!("{n} baze"),
+    }
+}
+
 /// Umple ecranul de conectare din modelul lui.
 /// Umple ecranul de deploy. Numarul mare si propozitia vin din pasi
 /// (`model_deploy::rezumat`), ca sa nu poata spune altceva decat lista.
@@ -698,6 +925,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
     ui.set_mediu(mediu.cod());
     ui.set_numar(e.pasi.len().to_string().into());
     ui.set_rezumat(model_deploy::rezumat(&e.pasi).into());
+    ui.set_mai_multe_baze(e.baze.len() > 1);
     let pasi: Vec<PasDeployUi> = e
         .pasi
         .iter()
@@ -711,6 +939,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
                 nume: nume.into(),
                 tip: p.tip.as_str().into(),
                 id: p.obiect.as_str().into(),
+                baza: p.baza.as_str().into(),
             }
         })
         .collect();
@@ -959,12 +1188,20 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
                 .map(|b| SharedString::from(b.as_str()))
                 .collect::<Vec<_>>(),
         )),
+        alese: ModelRc::new(VecModel::from(
+            p.baze.iter().map(|b| p.e_aleasa(b)).collect::<Vec<bool>>(),
+        )),
+        eticheta_baze: eticheta_baze(p).into(),
         stare: p.stare.text().into(),
         fel_stare: fel(&p.stare),
         servere_gasite: ModelRc::new(VecModel::from(
             p.servere_gasite
                 .iter()
-                .map(|s| SharedString::from(s.as_str()))
+                .map(|s| ServerGasitUi {
+                    nume: s.nume.as_str().into(),
+                    cluster: s.cluster,
+                    implicita: s.implicita,
+                })
                 .collect::<Vec<_>>(),
         )),
     };
@@ -981,13 +1218,20 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         })
         .collect();
     let mediu_tinta = mediu_dupa_nume(&c.baza.baza);
+    // numele panourilor vin din `Texte`, ca sa urmeze limba aleasa
+    let t = ui.global::<Texte>();
     ui.set_sursa(parte(
         &c.sursa,
-        "Sursa",
-        "de unde vine codul",
+        &t.get_martor(),
+        &t.get_martor_explicatie(),
         mediu_dupa_nume(&c.sursa.baza),
     ));
-    ui.set_baza(parte(&c.baza, "Baza", "unde ajunge", mediu_tinta));
+    ui.set_baza(parte(
+        &c.baza,
+        &t.get_modificata(),
+        &t.get_modificata_explicatie(),
+        mediu_tinta,
+    ));
     ui.set_mediu(mediu_tinta.cod());
     ui.set_certificat(c.text_certificat().into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
@@ -1034,6 +1278,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = EditorDiferente::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         ui
     }
 
@@ -1064,6 +1309,7 @@ mod teste {
         }
         inregistreaza!(
             on_comuta_omis => "omite",
+            on_resincronizeaza => "resincronizeaza",
             on_ghidat_porneste => "ghidat",
             on_ghidat_opreste => "opreste",
             on_ghidat_aplica => "aplica",
@@ -1072,6 +1318,35 @@ mod teste {
             on_editeaza_textul_final => "editeaza",
             on_inapoi_lista => "lista",
         );
+        // butoanele noi din insula de jos: unirea cursorului si tragerea
+        // unui bloc peste panoul din dreapta
+        let a = apeluri.clone();
+        ui.on_comuta_unirea_cursorului(move |cu| {
+            a.borrow_mut().push(if cu { "uneste" } else { "desparte" })
+        });
+        let a = apeluri.clone();
+        ui.on_aplica_diferenta(move |_| a.borrow_mut().push("aplica-bloc"));
+        // coloana din stanga: un clic pe un rand schimba obiectul pe loc
+        let a = apeluri.clone();
+        ui.on_alege_randul(move |i| a.borrow_mut().push(if i == 3 { "rand3" } else { "rand?" }));
+        ui.invoke_alege_randul(3);
+        ui.invoke_resincronizeaza();
+        ui.invoke_comuta_unirea_cursorului(true);
+        ui.invoke_comuta_unirea_cursorului(false);
+        ui.invoke_aplica_diferenta(0);
+        assert_eq!(
+            *apeluri.borrow(),
+            [
+                "rand3",
+                "resincronizeaza",
+                "uneste",
+                "desparte",
+                "aplica-bloc"
+            ],
+            "butoanele noi din editor au actiune"
+        );
+        apeluri.borrow_mut().clear();
+
         apasa(&ui, "o");
         apasa(&ui, "g");
         apasa(&ui, "e");
@@ -1115,6 +1390,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraLista::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
         let a = apeluri.clone();
         ui.on_sorteaza_coloana(move |c| a.borrow_mut().push(format!("sort{c}")));
@@ -1134,9 +1410,31 @@ mod teste {
         ui.invoke_schimba_scorul("40".into(), "90".into());
         ui.invoke_exporta_csv();
         ui.invoke_pune_vizibilele_in_plan(true);
+        let a = apeluri.clone();
+        ui.on_cere_deconectarea(move || a.borrow_mut().push("cere".into()));
+        let a = apeluri.clone();
+        ui.on_deconecteaza(move || a.borrow_mut().push("deconecteaza".into()));
+        let a = apeluri.clone();
+        ui.on_renunta_la_deconectare(move || a.borrow_mut().push("ramai".into()));
+        let a = apeluri.clone();
+        ui.on_alege_baza(move |i| a.borrow_mut().push(format!("baza{i}")));
+        ui.invoke_cere_deconectarea();
+        ui.invoke_deconecteaza();
+        ui.invoke_renunta_la_deconectare();
+        ui.invoke_alege_baza(1);
         assert_eq!(
             *apeluri.borrow(),
-            ["sort3", "stare2", "scor40-90", "csv", "plantrue"],
+            [
+                "sort3",
+                "stare2",
+                "scor40-90",
+                "csv",
+                "plantrue",
+                "cere",
+                "deconecteaza",
+                "ramai",
+                "baza1"
+            ],
             "fiecare element nou din bara de filtre are actiune"
         );
 
@@ -1185,6 +1483,38 @@ mod teste {
         }
         // un cod necunoscut nu da panica: cade pe sortarea implicita
         assert_eq!(ordine_din_cod(99), Ordine::Nume);
+    }
+
+    /// Coloana din stanga arata aceleasi randuri ca lista intreaga: daca ar
+    /// fi construita separat, cele doua ar putea spune altceva despre acelasi
+    /// obiect.
+    #[test]
+    fn coloana_din_editor_arata_aceleasi_randuri_ca_lista() {
+        let ui_lista = fereastra_lista();
+        let ui_editor = fereastra();
+        aplica_limba(&ui_lista, texte::Limba::default());
+        aplica_limba(&ui_editor, texte::Limba::default());
+        let mut lista = lista_de_proba();
+        lista.selecteaza(1);
+        incarca_lista(&ui_lista, &antet_lista(), &lista);
+        incarca_coloana_lista(&ui_editor, &lista);
+
+        assert_eq!(
+            ui_editor.get_randuri_lista().row_count(),
+            ui_lista.get_randuri().row_count()
+        );
+        for i in 0..ui_lista.get_randuri().row_count() {
+            let (a, b) = (
+                ui_lista.get_randuri().row_data(i).unwrap(),
+                ui_editor.get_randuri_lista().row_data(i).unwrap(),
+            );
+            assert_eq!(a.nume, b.nume);
+            assert_eq!(a.baza, b.baza);
+            assert_eq!(a.stare, b.stare);
+            assert_eq!(a.scor_text, b.scor_text);
+        }
+        assert_eq!(ui_editor.get_selectat_lista(), 1, "acelasi rand selectat");
+        assert_eq!(ui_editor.get_rezumat_lista(), ui_lista.get_rezumat_lista());
     }
 
     #[test]
@@ -1248,12 +1578,51 @@ mod teste {
         );
     }
 
+    /// Niciun text nu e gol, in nicio limba. Un camp uitat ar ramane gol pe
+    /// ecran — exact ce nu se vede intr-o captura.
+    ///
+    /// Ca ajunge si in Slint o garanteaza `aplica_limba`: destructureaza
+    /// `Texte` fara `..`, deci un camp nou care nu e pus in globalul Slint nu
+    /// compileaza.
+    #[test]
+    fn niciun_text_nu_e_gol_in_nicio_limba() {
+        for l in texte::Limba::toate() {
+            let t = l.texte();
+            macro_rules! verifica {
+                ($($camp:ident $set:ident),* $(,)?) => {
+                    $(
+                        assert!(
+                            !t.$camp.trim().is_empty(),
+                            "textul `{}` e gol in limba {:?}",
+                            stringify!($camp),
+                            l
+                        );
+                    )*
+                };
+            }
+            cu_textele!(verifica);
+        }
+    }
+
+    /// Romana si engleza chiar difera: un tabel copiat de-a gata ar trece
+    /// testul de mai sus fara sa traduca nimic.
+    #[test]
+    fn cele_doua_limbi_nu_sunt_acelasi_tabel() {
+        let (ro, en) = (texte::Limba::Romana.texte(), texte::Limba::Engleza.texte());
+        assert_eq!(ro.compara, "Compara");
+        assert_eq!(en.compara, "Compare");
+        assert_eq!(ro.martor, "Martor");
+        assert_eq!(en.martor, "Witness");
+        assert_ne!(ro.deconecteaza, en.deconecteaza);
+    }
+
     #[test]
     fn aplica_tema_pune_fiecare_jeton_in_slint_in_ambele_moduri() {
         let ui = fereastra();
         let t = ui.global::<Tema>();
         for m in [Mod::Intunecat, Mod::Luminos] {
             aplica_tema(&ui, m);
+            aplica_limba(&ui, texte::Limba::default());
             let p = m.paleta();
             assert_eq!(mod_curent(&ui), m);
             macro_rules! verifica {
@@ -1456,6 +1825,7 @@ mod teste {
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraLista::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         ui
     }
 
@@ -1464,6 +1834,7 @@ mod teste {
         let o = |nume: &str, tip: &str, stare: Stare| Obiect {
             schema: "dbo".into(),
             nume: nume.into(),
+            baza: "CharismaProd".into(),
             tip: tip.into(),
             stare,
             detalii: None,
@@ -1493,12 +1864,28 @@ mod teste {
     /// Coloanele noi din lista (Similar, Deploy) si starea barei de filtre
     /// vin din model, nu din desen.
     #[test]
+    fn autofitul_tine_cont_si_de_cap_si_de_randuri() {
+        use model_lista::Ordine;
+        let mut lista = lista_de_proba();
+        // capul „Baza" e scurt, dar numele bazei e lung
+        let baza = latime_autofit(&lista, Ordine::Baza);
+        assert!(baza > 80.0, "numele bazei nu incape: {baza}");
+        // o coloana fara continut ramane cat capul ei
+        let tip = latime_autofit(&lista, Ordine::Tip);
+        assert!(tip > 20.0 && tip < baza, "{tip} vs {baza}");
+        // pe o lista filtrata la zero ramane latimea capului
+        lista.cauta("nu-exista");
+        let gol = latime_autofit(&lista, Ordine::DiferaIn);
+        assert!(gol > 20.0, "capul coloanei tot trebuie sa incapa: {gol}");
+    }
+
+    #[test]
     fn coloanele_de_scor_si_deploy_vin_din_model() {
         use model_lista::{Deploy, FiltruRevizuire, Ordine};
         let ui = fereastra_lista();
         let mut lista = lista_de_proba();
-        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
-        lista.pune_deploy("dbo.usp_Import", Deploy::VersiuneNoua);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Import", Deploy::VersiuneNoua);
         lista.sorteaza(Ordine::Scor);
         lista.filtreaza_revizuire(Some(FiltruRevizuire::Nerevizuite));
         lista.filtreaza_scor(30.0, 80.0);
@@ -1539,7 +1926,7 @@ mod teste {
         use model_lista::Deploy;
         let ui = fereastra_lista();
         let mut lista = lista_de_proba();
-        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Stoc", Deploy::Deployat);
         let p = (0..lista.vizibile().len())
             .find(|&p| lista.obiect(p).unwrap().nume == "usp_Stoc")
             .unwrap();
@@ -1575,8 +1962,8 @@ mod teste {
             categorii,
             [
                 "Modificate",
-                "Doar in sursa",
-                "Doar in baza",
+                "Doar in martor",
+                "Doar in modificata",
                 "Identice",
                 "Criptate"
             ]
@@ -1701,11 +2088,118 @@ mod teste {
         assert_eq!(ui.get_jurnal().row_count(), 0);
     }
 
+    /// Butoanele noi din conectare cheama fiecare actiunea lui. Ce se
+    /// deseneaza fara sa fie legat arata perfect in captura (etapele 8-11).
+    #[test]
+    fn butoanele_conectarii_cheama_actiunile() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let ui = fereastra_conectare();
+        let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
+        let a = apeluri.clone();
+        ui.on_testeaza(move |sursa| a.borrow_mut().push(format!("testeaza{sursa}")));
+        let a = apeluri.clone();
+        ui.on_sterge_jurnalul(move || a.borrow_mut().push("sterge".into()));
+        let a = apeluri.clone();
+        ui.on_deschide_offline(move || a.borrow_mut().push("offline".into()));
+        let a = apeluri.clone();
+        ui.on_compara_offline(move |x, y| a.borrow_mut().push(format!("cmp{x}|{y}")));
+        let a = apeluri.clone();
+        ui.on_inchide_offline(move || a.borrow_mut().push("inchide".into()));
+        let a = apeluri.clone();
+        ui.on_anuleaza(move || a.borrow_mut().push("anuleaza".into()));
+        let a = apeluri.clone();
+        ui.on_ignora_recenta(move |i| a.borrow_mut().push(format!("ignora{i}")));
+        let a = apeluri.clone();
+        ui.on_ajutor(move || a.borrow_mut().push("ajutor".into()));
+        let a = apeluri.clone();
+        ui.on_deschide_instantaneu(move || a.borrow_mut().push("instantaneu".into()));
+        let a = apeluri.clone();
+        ui.on_alege_instantaneul(move |c| a.borrow_mut().push(format!("ales{c}")));
+
+        ui.invoke_testeaza(true);
+        ui.invoke_sterge_jurnalul();
+        ui.invoke_deschide_offline();
+        ui.invoke_compara_offline("A".into(), "B".into());
+        ui.invoke_inchide_offline();
+        ui.invoke_anuleaza();
+        ui.invoke_ignora_recenta(2);
+        ui.invoke_ajutor();
+        ui.invoke_deschide_instantaneu();
+        ui.invoke_alege_instantaneul("/x/y.json".into());
+        assert_eq!(
+            *apeluri.borrow(),
+            [
+                "testeazatrue",
+                "sterge",
+                "offline",
+                "cmpA|B",
+                "inchide",
+                "anuleaza",
+                "ignora2",
+                "ajutor",
+                "instantaneu",
+                "ales/x/y.json"
+            ]
+        );
+    }
+
+    /// Progresul compararii si etichetele serverelor gasite ajung pe ecran.
+    #[test]
+    fn progresul_si_etichetele_serverelor_ajung_in_fereastra() {
+        use model_conectare::{Conectare, ServerGasit};
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        c.sursa.server = "SRV".into();
+        c.sursa.servere_gasite = vec![
+            ServerGasit {
+                nume: "SRV01".into(),
+                implicita: true,
+                cluster: false,
+            },
+            ServerGasit {
+                nume: "SRV02\\SQL2019".into(),
+                implicita: false,
+                cluster: true,
+            },
+        ];
+        c.baza.baze = vec!["C1".into(), "C2".into(), "C3".into()];
+        c.baza.comuta_baza("C1");
+        c.baza.comuta_baza("C3");
+        incarca_conectare(&ui, &c);
+
+        let g = ui.get_sursa().servere_gasite;
+        assert_eq!(g.row_count(), 2);
+        assert!(g.row_data(0).unwrap().implicita && !g.row_data(0).unwrap().cluster);
+        assert!(g.row_data(1).unwrap().cluster);
+        // bifele si eticheta bazelor
+        let b = ui.get_baza();
+        assert_eq!(b.eticheta_baze, "C1, C3");
+        let bifate: Vec<bool> = b.alese.iter().collect();
+        assert_eq!(bifate, [true, false, true]);
+    }
+
+    /// Eticheta bazelor se scurteaza cand sunt multe: un sir lung ar iesi
+    /// din camp.
+    #[test]
+    fn eticheta_bazelor_se_scurteaza_la_mai_mult_de_doua() {
+        use model_conectare::Parte;
+        let mut p = Parte::default();
+        assert_eq!(eticheta_baze(&p), "");
+        p.baza = "C1".into();
+        assert_eq!(eticheta_baze(&p), "C1");
+        p.alese = vec!["C1".into(), "C2".into()];
+        assert_eq!(eticheta_baze(&p), "C1, C2");
+        p.alese.push("C3".into());
+        assert_eq!(eticheta_baze(&p), "3 baze");
+    }
+
     fn fereastra_conectare() -> FereastraConectare {
         let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
         let ui = FereastraConectare::new().expect("fereastra de test");
         aplica_tema(&ui, Mod::Luminos);
+        aplica_limba(&ui, texte::Limba::default());
         ui
     }
 
@@ -1724,7 +2218,15 @@ mod teste {
             baze: vec!["CharismaDev".into(), "Altceva".into()],
             stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
             auth_windows: false,
-            servere_gasite: vec!["SRV-DEV\\SQL2019".into(), "SRV-PROD".into()],
+            servere_gasite: vec![
+                model_conectare::ServerGasit {
+                    nume: "SRV-DEV\\SQL2019".into(),
+                    implicita: false,
+                    cluster: true,
+                },
+                model_conectare::ServerGasit::nou("SRV-PROD"),
+            ],
+            alese: Vec::new(),
         };
         c.baza = Parte {
             server: "SRV-PROD".into(),

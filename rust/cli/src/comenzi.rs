@@ -117,12 +117,18 @@ pub fn servere(format: Format) -> Result<(), String> {
                         i.ip.clone(),
                         i.port.map(|p| p.to_string()).unwrap_or_else(|| "-".into()),
                         i.versiune.clone().unwrap_or_else(|| "-".into()),
+                        [(i.cluster, "CLUSTER"), (i.implicita, "IMPLICITA")]
+                            .iter()
+                            .filter(|(da, _)| *da)
+                            .map(|(_, e)| *e)
+                            .collect::<Vec<_>>()
+                            .join(" "),
                     ]
                 })
                 .collect();
             print!(
                 "{}",
-                afisare::tabel(&["SERVER", "IP", "PORT", "VERSIUNE"], &randuri)
+                afisare::tabel(&["SERVER", "IP", "PORT", "VERSIUNE", "ETICHETE"], &randuri)
             );
             Ok(())
         }

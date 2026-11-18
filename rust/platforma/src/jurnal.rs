@@ -39,6 +39,13 @@ impl Tampon {
         self.linii.push_back(linie);
     }
 
+    /// Uita tot ce s-a adunat, pastrand indexul absolut: cine citeste
+    /// incremental nu primeste iar liniile vechi.
+    fn goleste(&mut self) {
+        self.aruncate += self.linii.len();
+        self.linii.clear();
+    }
+
     /// Liniile de la indexul absolut `de_la`. Daca unele au fost deja aruncate,
     /// se incepe cu cea mai veche pastrata.
     fn de_la(&self, de_la: usize) -> (Vec<String>, usize) {
@@ -66,6 +73,13 @@ pub fn linii(de_la: usize) -> (Vec<String>, usize) {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .de_la(de_la)
+}
+
+/// Goleste tamponul („Sterge log" din ecranul de conectare). Indexul
+/// absolut **nu** se da inapoi: cine tine un index de unde a citit nu
+/// primeste de doua ori aceleasi linii.
+pub fn goleste() {
+    tampon().lock().unwrap_or_else(|e| e.into_inner()).goleste();
 }
 
 /// Adauga o linie in tampon. Publica fiindca o folosesc si straturile de
@@ -214,6 +228,20 @@ mod teste {
         assert_eq!(urmator, pana_aici + 1);
         // index peste total nu da panica si nu intoarce nimic
         assert_eq!(t.de_la(urmator + 100).0.len(), 0);
+    }
+
+    #[test]
+    fn golirea_uita_liniile_dar_nu_da_indexul_inapoi() {
+        let mut t = Tampon::default();
+        t.adauga("prima".into(), 10);
+        t.adauga("a doua".into(), 10);
+        let (_, inainte) = t.de_la(0);
+        t.goleste();
+        let (linii, total) = t.de_la(0);
+        assert!(linii.is_empty(), "tamponul e gol");
+        assert_eq!(total, inainte, "indexul merge mai departe de unde era");
+        t.adauga("a treia".into(), 10);
+        assert_eq!(t.de_la(inainte).0, vec!["a treia"], "si liniile noi se vad");
     }
 
     #[test]

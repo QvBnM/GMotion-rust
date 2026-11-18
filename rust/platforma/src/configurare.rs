@@ -31,6 +31,9 @@ pub struct Configurare {
     /// Modul ferestrei ales ultima data: `intunecat`, `luminos`, sau gol
     /// (implicitul aplicatiei). Il scrie butonul de tema din fereastra.
     pub tema: String,
+    /// Limba interfetei aleasa ultima data: `ro`, `en`, sau gol
+    /// (implicitul aplicatiei). O scrie comutatorul de limba din fereastra.
+    pub limba: String,
 }
 
 impl Default for Configurare {
@@ -45,6 +48,7 @@ impl Default for Configurare {
             obiecte_per_script: 10,
             uneste_cursor: false,
             tema: String::new(),
+            limba: String::new(),
         }
     }
 }
@@ -94,6 +98,8 @@ impl Configurare {
             Some("obiecte_per_script trebuie intre 1 si 10000")
         } else if !matches!(self.tema.as_str(), "" | "intunecat" | "luminos") {
             Some("tema trebuie sa fie intunecat, luminos sau goala")
+        } else if !matches!(self.limba.as_str(), "" | "ro" | "en") {
+            Some("limba trebuie sa fie ro, en sau goala")
         } else {
             None
         };
@@ -225,12 +231,23 @@ mod teste {
         assert_eq!(Configurare::default().tema, "", "implicit: alege aplicatia");
         let c = Configurare {
             tema: "intunecat".into(),
+            limba: "en".into(),
             ..Configurare::default()
         };
         c.scrie(&cale).unwrap();
         assert_eq!(Configurare::citeste(&cale).unwrap().tema, "intunecat");
         std::fs::write(&cale, r#"{"tema": "verde"}"#).unwrap();
         assert!(Configurare::citeste(&cale).is_err());
+        // acelasi lucru pentru limba
+        assert_eq!(
+            Configurare::default().limba,
+            "",
+            "implicit: alege aplicatia"
+        );
+        std::fs::write(&cale, r#"{"limba": "klingon"}"#).unwrap();
+        assert!(Configurare::citeste(&cale).is_err());
+        std::fs::write(&cale, r#"{"limba": "en"}"#).unwrap();
+        assert_eq!(Configurare::citeste(&cale).unwrap().limba, "en");
         std::fs::remove_dir_all(&d).ok();
     }
 

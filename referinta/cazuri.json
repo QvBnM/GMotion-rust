@@ -118,5 +118,10 @@
     "nume": "diacritice_si_unicode",
     "ref": "SELECT N'Mărfuri în stoc' AS descriere FROM t",
     "cur": "SELECT N'Mărfuri în depozit' AS descriere FROM t"
+  },
+  {
+    "nume": "mihai_offline_while_begin",
+    "ref": "WHile 1=1\nBEgin\n\nStard end\n\n\nEND\n\nMama 123",
+    "cur": "IF 1=1\n   While 1=1\n   BEGIN\n\n   Print 'Start END'\n   RETURN 'Mama123'\n\n   END"
   }
 ]

@@ -805,6 +805,60 @@ patratele sa ramana pe pixeli intregi si clicul sa nimereasca exact.
 
 ---
 
+## 2026-11-18 — Etapa 14: ce s-a decis pe drum
+
+**Bifa nu re-aplica filtrul pe loc.** Cu filtrul „Nerevizuite" pornit, randul
+bifat ramane pe ecran pana se atinge filtrul din nou. Asa face si v3.4
+(`marcheazaRezolvat` nu cheama `renderLista`), si e si mai bine: altfel randul
+dispare de sub cursor exact cand lucrezi pe el.
+
+**Mai multe baze deodata.** Cheia unui rand devine `(baza, schema.nume)`:
+acelasi obiect din doua baze sunt doua randuri, cu bife, plan si marcaj de
+deploy separate. Banda de sus arata mediul cel mai riscant dintre tinte — cu o
+baza PROD printre ele, ecranul n-are voie sa para DEV.
+
+**Compararea pe alt fir.** Firul trimite **mereu** o veste finala (gata, esuata
+sau anulata), ca ecranul sa nu ramana agatat pe „se compara" daca firul moare.
+Anularea e un steag citit intre baze, nu o oprire fortata.
+
+**Obiectele identice intra in lista.** Nu vin din comparare (n-au ce spune),
+dar fara ele categoria „Identice" arata mereu 0, iar cautarea nu gaseste un
+obiect care exista si e la fel. Le adauga `Aplicatie`, nu captura: captura
+listei s-a mutat in `app` si trece prin `Aplicatie`, ca sa nu existe o a doua
+constructie a listei (era deja divergenta — captura punea `scor: None`).
+
+**Selectorul de fisiere: fara dependinta noua, deocamdata.** „Deschide un
+instantaneu" arata `.json`-urile gasite langa aplicatie, in directorul de date
+si in `referinta/instantanee`, plus o cale scrisa de mana. Alternativa era
+`rfd` (dialogul nativ): o dependinta noua, care aduce GTK sau portalul XDG pe
+Linux si **pe care n-o pot proba fara ecran** — adica exact un buton livrat
+nedovedit. Ramane de decis de Mihai; daca raspunsul e „da", intra ca dependinta
+proprie, cu intrarea ei aici.
+
+**Unirea ciclului de cursor sta in `core`.** `aliniaza_cu` / `diff_aliniat_cu`
+duc optiunea pana la `split_statements`, care o avea deja. Un al doilea loc
+care decide granite de blocuri ar fi fost bug-ul reparat la etapa 7.
+
+---
+
+## 2026-11-18 — Fixture-ul de referinta, regenerat cu cazul lui Mihai
+
+**Motiv.** Mihai a raportat „inconsistenta motorului" pe o comparare offline
+(`WHile 1=1 / BEgin ...` fata de `IF 1=1 / While 1=1 / BEGIN ...`). Cazul a
+intrat in `referinta/cazuri.json` ca `mihai_offline_while_begin`, deci
+fixture-ul s-a regenerat explicit cu `unelte/regenereaza-fixture.sh`.
+Diff-ul adauga **doar** cazul nou.
+
+**Ce a aratat.** Rust da exact ce da motorul JS din v3.4: aceleasi patru
+blocuri de fiecare parte, acelasi sir de diferente. Singura divergenta e cea
+deja deliberata — continutul string-urilor nu se mai trece in litere mici
+(`'Start END'` ramane asa), deci cazul a intrat si in
+`DIVERGENTE_DELIBERATE`. Ce deranjeaza la privit tine de **afisare**, nu de
+motor: doua blocuri complet diferite se arata ca sters + adaugat, nu
+imperecheate.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
