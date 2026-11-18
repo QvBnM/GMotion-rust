@@ -1,6 +1,6 @@
 # gmotion-platforma
 
-<!-- api-hash: b7b7c0b5ddca1f73 -->
+<!-- api-hash: 7a40c671d5825f25 -->
 
 ## Rol
 
@@ -27,6 +27,7 @@ unei unelte sta in crate-ul uneltei.
 | `protejare` | `protejeaza`, `deprotejeaza`, `e_criptat` |
 | `sesiune` | `Sesiune`, `Sesiuni::pentru_modul(m)` cu `salveaza/incarca/sterge/lista`, `slug` |
 | `configurare` | `Configurare::citeste/scrie`, cu implicite in cod; `tema` tine modul ferestrei ales cu butonul (`intunecat` / `luminos` / gol) |
+| `timp` | `acum()` („2026-11-18 14:52"), `acum_compact()` („20261118_1452"): marcajul de timp, acelasi in `cli` si in fereastra |
 | `jurnal` | `porneste`, `linii(de_la)`, `adauga_linie` |
 | `modul` | `Modul`, `CerinteBaze`, `Ecran`, `Registru`, `Ruta`, `METODE_PLATFORMA` |
 

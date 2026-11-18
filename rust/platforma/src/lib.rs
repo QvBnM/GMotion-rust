@@ -23,6 +23,7 @@ pub mod jurnal;
 pub mod modul;
 pub mod protejare;
 pub mod sesiune;
+pub mod timp;
 
 pub use configurare::Configurare;
 pub use eroare::{valideaza_identificator, Eroare, Rezultat};
