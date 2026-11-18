@@ -7,7 +7,7 @@
 //! se testeaza ca atare.
 
 use gmotion_fereastra::model_editor::{construieste, marcheaza_textul_final, ModelEditor};
-use gmotion_fereastra::model_lista::{Detalii, Lista, Obiect, Ordine, Stare};
+use gmotion_fereastra::model_lista::{Deploy, Detalii, Lista, Obiect, Ordine, Stare};
 use gmotion_modul_diff_obiecte::{self as modul, Baza, Editari, Rand, Revizuire, TextFinal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,6 +117,14 @@ impl Aplicatie {
                     revizuit: revizuire.e_revizuit(r),
                     in_plan: false,
                     omis: revizuire.e_omis(r),
+                    scor: r.scor,
+                    deploy: if revizuire.e_deployat(r) {
+                        Deploy::Deployat
+                    } else if revizuire.a_fost_deployat(r) {
+                        Deploy::VersiuneNoua
+                    } else {
+                        Deploy::Nu
+                    },
                 }
             })
             .collect();

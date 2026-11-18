@@ -49,6 +49,11 @@ pub struct Revizuire {
     /// schimba. Un obiect e ori revizuit, ori omis, nu amandoua.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     omise: BTreeMap<String, BTreeMap<String, Amprenta>>,
+    /// Obiectele scrise intr-un deploy, cu amprenta de atunci. Spre deosebire
+    /// de bife, nu cad cand obiectul se schimba: atunci obiectul e o
+    /// „versiune noua" fata de ce s-a deployat (coloana Deploy din v3.4).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    deployate: BTreeMap<String, BTreeMap<String, Amprenta>>,
 }
 
 impl Revizuire {
@@ -81,6 +86,29 @@ impl Revizuire {
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
             .is_some_and(|a| *a == Amprenta::a_randului(r))
+    }
+
+    /// Obiectul a fost scris intr-un deploy.
+    pub fn marcheaza_deployat(&mut self, r: &Rand) {
+        self.deployate
+            .entry(r.baza.clone())
+            .or_default()
+            .insert(r.obiect.clone(), Amprenta::a_randului(r));
+    }
+
+    /// Deployat, si e tot obiectul de atunci.
+    pub fn e_deployat(&self, r: &Rand) -> bool {
+        self.deployate
+            .get(&r.baza)
+            .and_then(|b| b.get(&r.obiect))
+            .is_some_and(|a| *a == Amprenta::a_randului(r))
+    }
+
+    /// A fost deployat vreodata (poate intr-o versiune mai veche).
+    pub fn a_fost_deployat(&self, r: &Rand) -> bool {
+        self.deployate
+            .get(&r.baza)
+            .is_some_and(|b| b.contains_key(&r.obiect))
     }
 
     pub fn numar_omise(&self) -> usize {
@@ -165,7 +193,7 @@ impl Revizuire {
     }
 
     pub fn e_goala(&self) -> bool {
-        self.numar() == 0 && self.numar_omise() == 0
+        self.numar() == 0 && self.numar_omise() == 0 && self.deployate.is_empty()
     }
 
     /// Obiectele bifate pe o baza, in ordine.
@@ -331,6 +359,24 @@ mod teste {
         let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
         v.in_sesiune(&mut s);
         assert!(Revizuire::din_sesiune(&s).e_omis(&r));
+    }
+
+    #[test]
+    fn deployat_ramane_dar_devine_versiune_noua_la_schimbare() {
+        let r = rand_test("a", "b");
+        let mut v = Revizuire::noua();
+        assert!(!v.a_fost_deployat(&r));
+        v.marcheaza_deployat(&r);
+        assert!(v.e_deployat(&r) && v.a_fost_deployat(&r));
+        let schimbat = rand_test("a", "b2");
+        assert!(!v.e_deployat(&schimbat), "versiune noua");
+        assert!(v.a_fost_deployat(&schimbat));
+        // curatarea nu atinge istoricul de deploy
+        v.curata(std::slice::from_ref(&schimbat));
+        assert!(v.a_fost_deployat(&schimbat));
+        let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
+        v.in_sesiune(&mut s);
+        assert!(Revizuire::din_sesiune(&s).e_deployat(&r));
     }
 
     fn rand_test(hr: &str, hc: &str) -> Rand {

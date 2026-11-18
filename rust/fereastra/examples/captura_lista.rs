@@ -58,6 +58,8 @@ fn main() {
                 revizuit: false,
                 in_plan: false,
                 omis: false,
+                scor: None,
+                deploy: Default::default(),
             }
         })
         .chain(
@@ -76,6 +78,8 @@ fn main() {
                         revizuit: false,
                         in_plan: false,
                         omis: false,
+                        scor: None,
+                        deploy: Default::default(),
                     }
                 }),
         )

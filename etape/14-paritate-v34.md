@@ -114,6 +114,13 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   „Re-sincronizeaza" din v3.4 doar recalcula diff-ul (nu recitea serverul),
   deci aici redeseneaza. „Uneste cursorul" ramane la F.
 
+- **2026-11-18** C inceput, **doar modelul** (testat prin testele existente,
+  fara teste noi inca): `model_lista` are scorul, starea de deploy
+  (Nu / Deployat / VersiuneNoua), filtrul pe revizuire, intervalul de
+  similaritate, sortarea pe orice coloana in ambele sensuri,
+  `pune_vizibilele_in_plan(cu_deployate)`; `Revizuire` tine deployatele cu
+  amprenta. Sesiunea s-a oprit aici, la cererea lui Mihai.
+
 ## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

@@ -47,10 +47,28 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14, pachetul A:** bug-urile de pe instantaneu, apoi B (editorul).
-Ordinea si criteriile: `etape/14-paritate-v34.md`. Mihai a cerut (2026-11-18):
-toate functiile, **fara sa se atinga designul**; elementele noi se iau din
-schita. La final, modul de previzualizare.
+**Etapa 14 (`etape/14-paritate-v34.md`): A si B gata, C la jumatate.**
+Sesiunea s-a oprit in mijlocul pachetului C (lista), la cererea lui Mihai.
+
+Facut in C: **doar modelul** — `model_lista` (scor, `Deploy`,
+`FiltruRevizuire`, `filtreaza_scor`, sortare pe orice coloana cu sens,
+`pune_vizibilele_in_plan`, `progres_deploy`) si `Revizuire::marcheaza_deployat`
+/ `e_deployat` / `a_fost_deployat`. `rutare` pune deja `scor` si `deploy` pe
+obiecte. **Urmatorii pasi concreti, in ordine:**
+
+1. teste pentru ce e nou in `model_lista` (filtre, sortare + inversare,
+   `pune_vizibilele_in_plan` fara omise / deployate) si in `Revizuire`;
+2. in `rutare`: `Comanda::FiltreazaRevizuire`, `FiltreazaScor`,
+   `PuneVizibileleInPlan(bool)`, marcarea ca deployat dupa `StareDeploy::scrie`
+   reusit (si in `cli deploy`), exportul CSV al listei filtrate
+   (`modul::scrie_csv` pe randurile vizibile, in directorul de date);
+3. ecranul listei, dupa schita (`cercetare/schita-slint/README.md`, „Lista"):
+   coloanele Similar si Deploy, capete de coloana sortabile cu sageata,
+   filtrul pe stare (meniu), min-max %, Export CSV, „% deploy" in antet,
+   Ctrl+F; poarta „fiecare buton are actiune" prinde un callback uitat;
+4. apoi D (conectarea: mai multe baze, progres + Anuleaza...), F, E.
+
+**Nu schimba designul** (cererea lui Mihai): elementele noi vin din schita.
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).

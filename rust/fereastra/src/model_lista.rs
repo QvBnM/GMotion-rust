@@ -79,7 +79,63 @@ pub struct Detalii {
     pub linii_minus: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Ce s-a intamplat cu obiectul la deploy (coloana Deploy din v3.4).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Deploy {
+    #[default]
+    Nu,
+    /// Scris intr-un deploy, si obiectul e tot cel de atunci.
+    Deployat,
+    /// Scris intr-un deploy, dar s-a schimbat de atunci: e o versiune noua.
+    VersiuneNoua,
+}
+
+/// Filtrul pe ce ai facut cu obiectul (v3.4: „Stare").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FiltruRevizuire {
+    Nerevizuite,
+    Revizuite,
+    Omise,
+    InPlan,
+    Deployate,
+    Nedeployate,
+}
+
+impl FiltruRevizuire {
+    pub const TOATE: [FiltruRevizuire; 6] = [
+        FiltruRevizuire::Nerevizuite,
+        FiltruRevizuire::Revizuite,
+        FiltruRevizuire::Omise,
+        FiltruRevizuire::InPlan,
+        FiltruRevizuire::Deployate,
+        FiltruRevizuire::Nedeployate,
+    ];
+
+    pub fn eticheta(self) -> &'static str {
+        match self {
+            FiltruRevizuire::Nerevizuite => "Nerevizuite",
+            FiltruRevizuire::Revizuite => "Revizuite",
+            FiltruRevizuire::Omise => "Omise",
+            FiltruRevizuire::InPlan => "In plan",
+            FiltruRevizuire::Deployate => "Deployate",
+            FiltruRevizuire::Nedeployate => "Nedeployate",
+        }
+    }
+
+    fn potriveste(self, o: &Obiect) -> bool {
+        match self {
+            // nerezolvate: nici revizuite, nici omise
+            FiltruRevizuire::Nerevizuite => !o.revizuit && !o.omis,
+            FiltruRevizuire::Revizuite => o.revizuit,
+            FiltruRevizuire::Omise => o.omis,
+            FiltruRevizuire::InPlan => o.in_plan,
+            FiltruRevizuire::Deployate => o.deploy == Deploy::Deployat,
+            FiltruRevizuire::Nedeployate => o.deploy != Deploy::Deployat,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Obiect {
     pub schema: String,
     pub nume: String,
@@ -93,6 +149,9 @@ pub struct Obiect {
     pub in_plan: bool,
     /// Omis („Omite"): analizat, dar lasat in afara deploy-ului.
     pub omis: bool,
+    /// Similaritatea cu sursa, 0-100; doar pentru obiectele modificate.
+    pub scor: Option<f64>,
+    pub deploy: Deploy,
 }
 
 impl Obiect {
@@ -107,21 +166,62 @@ impl Obiect {
     }
 }
 
+/// Coloana dupa care se sorteaza; sensul il tine `Lista`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Ordine {
     /// Alfabetic pe `schema.nume`.
     #[default]
     Nume,
-    /// Cele mai multe linii mutate, primele („Linii ↓" din macheta).
-    LiniiDesc,
+    Tip,
+    /// Liniile mutate (`+N −M`); implicit, cele mai multe primele.
+    Linii,
+    /// Similaritatea; implicit, cele mai diferite primele.
+    Scor,
+    DiferaIn,
+    /// Revizuit / omis / nerevizuit.
+    Revizuire,
+    Deploy,
 }
 
-#[derive(Debug, Clone, Default)]
+impl Ordine {
+    /// Sensul cu care incepe o coloana: liniile, descrescator (cele mai
+    /// schimbate intai); restul, crescator.
+    fn implicit_descrescator(self) -> bool {
+        matches!(self, Ordine::Linii)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Filtru {
     pub stare: Option<Stare>,
     /// Codul tipului (`P`, `V`...).
     pub tip: Option<String>,
     pub cautare: String,
+    pub revizuire: Option<FiltruRevizuire>,
+    /// Intervalul de similaritate, in procente. Cat timp e 0-100, nu se
+    /// filtreaza nimic; altfel, obiectele fara scor (doar intr-o parte,
+    /// criptate) nu se mai vad.
+    pub scor_min: f64,
+    pub scor_max: f64,
+}
+
+impl Default for Filtru {
+    fn default() -> Self {
+        Filtru {
+            stare: None,
+            tip: None,
+            cautare: String::new(),
+            revizuire: None,
+            scor_min: 0.0,
+            scor_max: 100.0,
+        }
+    }
+}
+
+impl Filtru {
+    fn scor_activ(&self) -> bool {
+        self.scor_min > 0.0 || self.scor_max < 100.0
+    }
 }
 
 /// Lista, cu filtrul si selectia ei.
@@ -130,6 +230,7 @@ pub struct Lista {
     obiecte: Vec<Obiect>,
     filtru: Filtru,
     ordine: Ordine,
+    descrescator: bool,
     /// Indici in `obiecte`, in ordinea afisata.
     vizibile: Vec<usize>,
     /// Pozitia in `vizibile`.
@@ -142,6 +243,7 @@ impl Lista {
             obiecte,
             filtru: Filtru::default(),
             ordine: Ordine::default(),
+            descrescator: false,
             vizibile: Vec::new(),
             selectat: None,
         };
@@ -159,6 +261,10 @@ impl Lista {
 
     pub fn ordine(&self) -> Ordine {
         self.ordine
+    }
+
+    pub fn descrescator(&self) -> bool {
+        self.descrescator
     }
 
     /// Indicii obiectelor afisate, in ordinea afisata.
@@ -210,9 +316,56 @@ impl Lista {
         self.recalculeaza();
     }
 
+    /// Sorteaza dupa coloana; a doua oara pe aceeasi coloana, sensul se
+    /// inverseaza (ca in v3.4, clic pe capul coloanei).
     pub fn sorteaza(&mut self, ordine: Ordine) {
-        self.ordine = ordine;
+        if ordine == self.ordine {
+            self.descrescator = !self.descrescator;
+        } else {
+            self.ordine = ordine;
+            self.descrescator = ordine.implicit_descrescator();
+        }
         self.recalculeaza();
+    }
+
+    pub fn filtreaza_revizuire(&mut self, f: Option<FiltruRevizuire>) {
+        self.filtru.revizuire = f;
+        self.recalculeaza();
+    }
+
+    /// Intervalul de similaritate, in procente; capetele se ordoneaza si se
+    /// taie la 0-100, ca un interval scris invers sa nu goleasca lista.
+    pub fn filtreaza_scor(&mut self, min: f64, max: f64) {
+        let (a, b) = (min.clamp(0.0, 100.0), max.clamp(0.0, 100.0));
+        self.filtru.scor_min = a.min(b);
+        self.filtru.scor_max = a.max(b);
+        self.recalculeaza();
+    }
+
+    /// Starea de deploy a obiectului `schema.nume`.
+    pub fn pune_deploy(&mut self, id: &str, d: Deploy) {
+        for o in self.obiecte.iter_mut().filter(|o| o.id() == id) {
+            o.deploy = d;
+        }
+    }
+
+    /// Pune in plan tot ce se vede si se poate deploia, in afara de ce e omis
+    /// si — daca nu se cere altfel — de ce s-a deployat deja (v3.4: „include
+    /// si ce a fost deja trimis la deploy"). Intoarce cate s-au adaugat.
+    pub fn pune_vizibilele_in_plan(&mut self, cu_deployate: bool) -> usize {
+        let mut n = 0;
+        for &i in &self.vizibile {
+            let o = &mut self.obiecte[i];
+            if o.in_plan || o.omis || !o.se_poate_deploia() {
+                continue;
+            }
+            if o.deploy == Deploy::Deployat && !cu_deployate {
+                continue;
+            }
+            o.in_plan = true;
+            n += 1;
+        }
+        n
     }
 
     pub fn comuta_revizuit(&mut self, pozitie: usize) {
@@ -308,6 +461,19 @@ impl Lista {
         rez
     }
 
+    /// Cate obiecte care difera au fost deployate (si sunt inca cele de
+    /// atunci), din cate.
+    pub fn progres_deploy(&self) -> (usize, usize) {
+        let difera: Vec<&Obiect> = self.obiecte.iter().filter(|o| o.stare.difera()).collect();
+        (
+            difera
+                .iter()
+                .filter(|o| o.deploy == Deploy::Deployat)
+                .count(),
+            difera.len(),
+        )
+    }
+
     /// Cate obiecte care difera au fost revizuite, din cate.
     pub fn progres_revizuire(&self) -> (usize, usize) {
         let difera: Vec<&Obiect> = self.obiecte.iter().filter(|o| o.stare.difera()).collect();
@@ -338,24 +504,60 @@ impl Lista {
                 self.filtru.stare.is_none_or(|s| o.stare == s)
                     && self.filtru.tip.as_deref().is_none_or(|t| o.tip == t)
                     && (cautare.is_empty() || o.id().to_lowercase().contains(&cautare))
+                    && self.filtru.revizuire.is_none_or(|f| f.potriveste(o))
+                    && (!self.filtru.scor_activ()
+                        || o.scor.is_some_and(|x| {
+                            x >= self.filtru.scor_min && x <= self.filtru.scor_max
+                        }))
             })
             .map(|(i, _)| i)
             .collect();
-        match self.ordine {
-            Ordine::Nume => v.sort_by_key(|&i| self.obiecte[i].id()),
-            Ordine::LiniiDesc => {
-                let linii = |i: usize| -> usize {
-                    self.obiecte[i]
-                        .detalii
-                        .as_ref()
-                        .map_or(0, |d| d.linii_plus + d.linii_minus)
-                };
-                v.sort_by(|&a, &b| {
-                    linii(b)
-                        .cmp(&linii(a))
-                        .then_with(|| self.obiecte[a].id().cmp(&self.obiecte[b].id()))
-                });
+        let o = &self.obiecte;
+        let linii = |i: usize| -> usize {
+            o[i].detalii
+                .as_ref()
+                .map_or(0, |d| d.linii_plus + d.linii_minus)
+        };
+        let rang_revizuire = |i: usize| -> u8 {
+            if o[i].revizuit {
+                2
+            } else if o[i].omis {
+                1
+            } else {
+                0
             }
+        };
+        let rang_deploy = |i: usize| -> u8 {
+            match o[i].deploy {
+                Deploy::Nu => u8::from(o[i].in_plan),
+                Deploy::VersiuneNoua => 2,
+                Deploy::Deployat => 3,
+            }
+        };
+        let ordine = self.ordine;
+        v.sort_by(|&a, &b| {
+            let c = match ordine {
+                Ordine::Nume => std::cmp::Ordering::Equal,
+                Ordine::Tip => o[a].tip.cmp(&o[b].tip),
+                Ordine::Linii => linii(a).cmp(&linii(b)),
+                // fara scor (doar intr-o parte): la capat, ca „necunoscut"
+                Ordine::Scor => o[a]
+                    .scor
+                    .unwrap_or(101.0)
+                    .total_cmp(&o[b].scor.unwrap_or(101.0)),
+                Ordine::DiferaIn => {
+                    let d = |i: usize| o[i].detalii.as_ref().map(|d| d.difera_in.clone());
+                    d(a).cmp(&d(b))
+                }
+                Ordine::Revizuire => rang_revizuire(a).cmp(&rang_revizuire(b)),
+                Ordine::Deploy => rang_deploy(a).cmp(&rang_deploy(b)),
+            };
+            // numele departajeaza mereu crescator, ca ordinea sa fie stabila
+            let c = if self.descrescator { c.reverse() } else { c };
+            c.then_with(|| o[a].id().cmp(&o[b].id()))
+        });
+        if ordine == Ordine::Nume && self.descrescator {
+            v.reverse();
         }
         self.vizibile = v;
         self.selectat = match id_selectat {
@@ -388,6 +590,8 @@ mod teste {
             revizuit: false,
             in_plan: false,
             omis: false,
+            scor: None,
+            deploy: Default::default(),
         }
     }
 
@@ -541,7 +745,7 @@ mod teste {
                 },
             );
         }
-        l.sorteaza(Ordine::LiniiDesc);
+        l.sorteaza(Ordine::Linii);
         assert_eq!(l.obiect(0).unwrap().nume, "vw_Facturi");
         l.sorteaza(Ordine::Nume);
         assert_eq!(l.obiect(0).unwrap().nume, "usp_Stoc");

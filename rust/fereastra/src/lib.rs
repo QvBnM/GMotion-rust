@@ -550,7 +550,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .map_or(-1, |i| i as i32),
     );
     ui.set_rezumat_lista(lista.rezumat_vizibile().into());
-    ui.set_sortat_dupa_linii(lista.ordine() == model_lista::Ordine::LiniiDesc);
+    ui.set_sortat_dupa_linii(lista.ordine() == model_lista::Ordine::Linii);
     ui.set_selectat(lista.selectat().map_or(0, |p| p as i32));
     incarca_harta(ui, &randuri, lista.selectat());
     ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
@@ -1264,6 +1264,8 @@ mod teste {
             revizuit: false,
             in_plan: false,
             omis: false,
+            scor: None,
+            deploy: Default::default(),
         };
         model_lista::Lista::noua(vec![
             o("usp_Stoc", "P", Stare::Modificat),

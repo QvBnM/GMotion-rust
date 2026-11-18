@@ -693,20 +693,8 @@ fn ruleaza() -> Result<(), String> {
             c(Comanda::FiltreazaTip(tip))
         });
         let c = comanda.clone();
-        let s = stare.clone();
-        lista_ui.on_sorteaza_dupa_linii(move || {
-            let acum = s
-                .borrow()
-                .app
-                .as_ref()
-                .map(|a| a.lista().ordine())
-                .unwrap_or_default();
-            c(Comanda::Sorteaza(if acum == Ordine::LiniiDesc {
-                Ordine::Nume
-            } else {
-                Ordine::LiniiDesc
-            }))
-        });
+        // clic pe „Linii": sorteaza dupa linii; al doilea clic inverseaza sensul
+        lista_ui.on_sorteaza_dupa_linii(move || c(Comanda::Sorteaza(Ordine::Linii)));
     }
 
     // --- planul de deploy
