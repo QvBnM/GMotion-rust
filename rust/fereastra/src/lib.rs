@@ -81,33 +81,6 @@ la comparare), iar revenirea se scrie inaintea scripturilor.\n\
 \n\
 F1 deschide si inchide fereastra asta. F11 trece pe tot ecranul.";
 
-/// Mediul bazei tinta: da culoarea benzii de sus si a etichetei.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mediu {
-    Dev,
-    Test,
-    Prod,
-}
-
-impl Mediu {
-    fn cod(self) -> i32 {
-        match self {
-            Mediu::Dev => 0,
-            Mediu::Test => 1,
-            Mediu::Prod => 2,
-        }
-    }
-
-    /// Eticheta in mono de langa numele bazei.
-    pub fn eticheta(self) -> &'static str {
-        match self {
-            Mediu::Dev => "DEV",
-            Mediu::Test => "TEST",
-            Mediu::Prod => "PROD",
-        }
-    }
-}
-
 fn culoare(c: jetoane::Culoare) -> Color {
     Color::from_rgb_u8(
         ((c >> 16) & 0xff) as u8,
@@ -142,10 +115,6 @@ macro_rules! cu_jetoanele {
         accent_text set_accent_text get_accent_text,
         tine set_tine get_tine,
         pe_tine set_pe_tine get_pe_tine,
-        mediu_prod set_mediu_prod get_mediu_prod,
-        mediu_test set_mediu_test get_mediu_test,
-        mediu_dev set_mediu_dev get_mediu_dev,
-        pe_mediu set_pe_mediu get_pe_mediu,
         mod_text set_mod_text get_mod_text,
         mod_fundal set_mod_fundal get_mod_fundal,
         mod_bara set_mod_bara get_mod_bara,
@@ -399,7 +368,6 @@ pub struct AntetEditor<'a> {
     pub sursa_server: &'a str,
     pub tinta_baza: &'a str,
     pub tinta_server: &'a str,
-    pub mediu: Mediu,
     /// „obiectul 4 din 212 nerevizuite"
     pub stare_obiecte: &'a str,
     pub revizuit: bool,
@@ -538,8 +506,6 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_sursa_detaliu(detaliu_panou(antet.sursa_server, linii(model, true)).into());
     ui.set_tinta_baza(antet.tinta_baza.into());
     ui.set_tinta_detaliu(detaliu_panou(antet.tinta_server, linii(model, false)).into());
-    ui.set_mediu(antet.mediu.cod());
-    ui.set_eticheta_mediu(antet.mediu.eticheta().into());
     ui.set_stare_obiecte(antet.stare_obiecte.into());
     ui.set_revizuit(antet.revizuit);
     ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
@@ -606,7 +572,6 @@ pub struct AntetLista<'a> {
     pub tinta_baza: &'a str,
     /// „srv-dev → srv-prod · comparat la 14:32"
     pub servere: &'a str,
-    pub mediu: Mediu,
     /// Cate obiecte sunt in planul de deploy.
     pub in_plan: usize,
 }
@@ -770,8 +735,6 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     ui.set_sursa_baza(antet.sursa_baza.into());
     ui.set_tinta_baza(antet.tinta_baza.into());
     ui.set_servere(antet.servere.into());
-    ui.set_mediu(antet.mediu.cod());
-    ui.set_eticheta_mediu(antet.mediu.eticheta().into());
     ui.set_numar_deploy(antet.in_plan.to_string().into());
     ui.set_progres_revizuite(format!("{revizuite}/{total}").into());
     ui.set_progres_fractie(if total == 0 {
@@ -918,11 +881,10 @@ fn eticheta_baze(p: &model_conectare::Parte) -> String {
 /// Umple ecranul de conectare din modelul lui.
 /// Umple ecranul de deploy. Numarul mare si propozitia vin din pasi
 /// (`model_deploy::rezumat`), ca sa nu poata spune altceva decat lista.
-pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu: Mediu) {
+pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
     use model_deploy::{GardaDeploy, RezultatDeploy};
     ui.set_referinta(e.referinta.as_str().into());
     ui.set_tinta(e.tinta.as_str().into());
-    ui.set_mediu(mediu.cod());
     ui.set_numar(e.pasi.len().to_string().into());
     ui.set_rezumat(model_deploy::rezumat(&e.pasi).into());
     ui.set_mai_multe_baze(e.baze.len() > 1);
@@ -1169,11 +1131,9 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         StareConexiune::Conectat(_) => 2,
         StareConexiune::Eroare(_) => 3,
     };
-    let parte = |p: &model_conectare::Parte, eticheta: &str, rol: &str, mediu: Mediu| ParteUi {
+    let parte = |p: &model_conectare::Parte, eticheta: &str, rol: &str| ParteUi {
         eticheta: eticheta.into(),
         rol: rol.into(),
-        mediu: mediu.eticheta().into(),
-        cod_mediu: mediu.cod(),
         server: p.server.as_str().into(),
         auth_windows: p.auth_windows,
         utilizator: p.acreditari.utilizator.as_str().into(),
@@ -1211,46 +1171,22 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         .map(|r| RecentaUi {
             sursa: r.sursa.as_str().into(),
             baza: r.baza.as_str().into(),
-            mediu: r.mediu.as_str().into(),
-            cod_mediu: mediu_dupa_nume(&r.baza).cod(),
             cand: r.cand.as_str().into(),
             progres: r.progres.as_str().into(),
         })
         .collect();
-    let mediu_tinta = mediu_dupa_nume(&c.baza.baza);
     // numele panourilor vin din `Texte`, ca sa urmeze limba aleasa
     let t = ui.global::<Texte>();
-    ui.set_sursa(parte(
-        &c.sursa,
-        &t.get_martor(),
-        &t.get_martor_explicatie(),
-        mediu_dupa_nume(&c.sursa.baza),
-    ));
+    ui.set_sursa(parte(&c.sursa, &t.get_martor(), &t.get_martor_explicatie()));
     ui.set_baza(parte(
         &c.baza,
         &t.get_modificata(),
         &t.get_modificata_explicatie(),
-        mediu_tinta,
     ));
-    ui.set_mediu(mediu_tinta.cod());
     ui.set_certificat(c.text_certificat().into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
     ui.set_ce_lipseste(c.ce_lipseste().unwrap_or_default().into());
-}
-
-/// Mediul ghicit din numele bazei: `...Prod` e productie, `...Test` e test,
-/// restul dev. Banda de sus si eticheta nu au alta sursa de adevar pana cand
-/// mediul nu se configureaza explicit (decizie de luat cu Mihai).
-pub fn mediu_dupa_nume(baza: &str) -> Mediu {
-    let b = baza.to_lowercase();
-    if b.contains("prod") {
-        Mediu::Prod
-    } else if b.contains("test") || b.contains("uat") {
-        Mediu::Test
-    } else {
-        Mediu::Dev
-    }
 }
 
 #[cfg(test)]
@@ -1534,7 +1470,6 @@ mod teste {
                 sursa_server: "",
                 tinta_baza: "B",
                 tinta_server: "",
-                mediu: Mediu::Dev,
                 stare_obiecte: "",
                 revizuit: false,
                 in_plan: false,
@@ -1696,7 +1631,6 @@ mod teste {
                 sursa_server: "srv-dev",
                 tinta_baza: "Prod",
                 tinta_server: "srv-prod",
-                mediu: Mediu::Prod,
                 stare_obiecte: "obiectul 1 din 2 nerevizuite",
                 revizuit: false,
                 in_plan: false,
@@ -1704,8 +1638,6 @@ mod teste {
             &model,
         );
         assert_eq!(ui.get_obiect_schema(), "dbo");
-        assert_eq!(ui.get_eticheta_mediu(), "PROD");
-        assert_eq!(ui.get_mediu(), 2);
         assert_eq!(ui.get_rezumat(), "1 diferenta");
         assert_eq!(ui.get_total_diferente(), 1);
         assert!(ui.get_randuri().row_count() > 0);
@@ -1734,7 +1666,6 @@ mod teste {
             sursa_server: "",
             tinta_baza: "Prod",
             tinta_server: "",
-            mediu: Mediu::Test,
             stare_obiecte: "",
             revizuit: false,
             in_plan: false,
@@ -1773,7 +1704,6 @@ mod teste {
             sursa_server: "",
             tinta_baza: "Prod",
             tinta_server: "",
-            mediu: Mediu::Dev,
             stare_obiecte: "",
             revizuit: false,
             in_plan: false,
@@ -1856,7 +1786,6 @@ mod teste {
             sursa_baza: "CharismaDev",
             tinta_baza: "CharismaProd",
             servere: "srv-dev → srv-prod",
-            mediu: Mediu::Prod,
             in_plan: 2,
         }
     }
@@ -1949,7 +1878,6 @@ mod teste {
         incarca_lista(&ui, &antet_lista(), &lista);
 
         assert_eq!(ui.get_randuri().row_count(), 3);
-        assert_eq!(ui.get_eticheta_mediu(), "PROD");
         assert_eq!(ui.get_numar_deploy(), "2");
         assert_eq!(ui.get_progres_revizuite(), "0/2");
         // categoriile sunt toate cinci, in ordinea din machete
@@ -2248,18 +2176,5 @@ mod teste {
         assert_eq!(ui.get_sursa().servere_gasite.row_count(), 2);
         assert_eq!(ui.get_baza().servere_gasite.row_count(), 0);
         assert_eq!(ui.get_baza().baza, "CharismaProd");
-        // mediul tintei da banda si eticheta
-        assert_eq!(ui.get_mediu(), 2);
-        assert_eq!(ui.get_baza().mediu, "PROD");
-        assert_eq!(ui.get_sursa().mediu, "DEV");
-    }
-
-    #[test]
-    fn mediul_se_ghiceste_din_numele_bazei() {
-        assert_eq!(mediu_dupa_nume("CharismaProd").eticheta(), "PROD");
-        assert_eq!(mediu_dupa_nume("charisma_test").eticheta(), "TEST");
-        assert_eq!(mediu_dupa_nume("CharismaUAT").eticheta(), "TEST");
-        assert_eq!(mediu_dupa_nume("CharismaDev").eticheta(), "DEV");
-        assert_eq!(mediu_dupa_nume("").eticheta(), "DEV");
     }
 }

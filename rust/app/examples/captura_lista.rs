@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-app --example captura_lista -- \
-//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate]
+//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960]
 //!
 //! `BAZE` poate fi o lista separata prin virgula: asa se fotografiaza si
 //! coloana „Baza".
@@ -13,7 +13,6 @@ use gmotion_app::rutare::{Aplicatie, Comanda};
 use gmotion_db::SursaObiecte;
 use gmotion_fereastra::{
     aplica_tema, incarca_lista, incarca_previzualizare, model_lista, AntetLista, FereastraLista,
-    Mediu,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::platform::software_renderer::{
@@ -80,7 +79,14 @@ fn main() {
     };
     let lista = app.lista();
 
-    let (w, h) = (1440u32, 900u32);
+    // `--latime N`: fereastra mai ingusta, ca sa se vada cum curge antetul
+    let w = a
+        .iter()
+        .position(|x| x == "--latime")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(1440);
+    let h = 900u32;
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra nu se creeaza");
@@ -105,7 +111,6 @@ fn main() {
             sursa_baza: &a[2],
             tinta_baza: &tinta_baza,
             servere: &server,
-            mediu: Mediu::Prod,
             in_plan: lista.in_plan().len(),
         },
         lista,

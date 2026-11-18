@@ -122,6 +122,10 @@ lansare.
   `cercetare/capturi/harta-*.png` (`harta-zoom-*` pe 2980 de obiecte).
   Decizia in `JURNAL.md`.
 
+- **2026-11-18** Antetul listei: bazele pe primul rand, restul dedesubt, pe
+  randuri care se rup dupa latimea ferestrei (probat la 1440, 1200, 960,
+  760). Eticheta de mediu scoasa de peste tot. Decizia in `JURNAL.md`.
+
 ## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

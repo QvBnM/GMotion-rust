@@ -857,6 +857,24 @@ deja deliberata — continutul string-urilor nu se mai trece in litere mici
 motor: doua blocuri complet diferite se arata ca sters + adaugat, nu
 imperecheate.
 
+## 2026-11-18 — Fara eticheta de mediu; antetul listei curge dupa fereastra
+
+**Eticheta PROD / TEST / DEV scoasa de peste tot** (antet, editor, deploy,
+conectare, recente), la cererea lui Mihai: mediul se ghicea din numele
+bazei, iar GMotion nu are de unde sti la ce e folosita o baza. O eticheta
+gresita pe exact baza care conteaza e mai rea decat niciuna. S-a scos si
+logica din spate (`Mediu`, `mediu_dupa_nume`, jetoanele `mediu_*`), nu doar
+desenul: altfel ramanea o a doua sursa de adevar nefolosita. Intrebarea
+deschisa din etapa 11 („de unde se ia mediul") se inchide asa. Daca va fi
+nevoie de el (de exemplu pentru garda de deploy), vine configurat explicit,
+nu ghicit.
+
+**Antetul listei pe doua niveluri:** pe primul rand doar semnul si bazele
+(plus tema si limba); dedesubt, patru grupuri — starile, actiunile,
+cautarea, filtrele, planul — care stau alaturi cand incap si trec pe randul
+urmator cand nu. Slint n-are un layout care sa se rupa singur pe randuri,
+deci pozitiile se calculeaza din `preferred-width` al fiecarui grup.
+
 ---
 
 ## Coduri de eroare — registru

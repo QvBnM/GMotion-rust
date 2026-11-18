@@ -184,7 +184,6 @@ export global Tema {
     in-out property <color> accent-text;
     in-out property <color> tine;
     in-out property <color> pe-tine;
-    in-out property <color> pe-mediu;
     in-out property <color> set-bara;
     in-out property <color> ident;
     in-out property <color> harta-mod;
@@ -199,9 +198,6 @@ export global Tema {
     in-out property <color> text-secundar;
     in-out property <color> text-tert;
     in-out property <color> selectie;
-    in-out property <color> mediu-prod;
-    in-out property <color> mediu-test;
-    in-out property <color> mediu-dev;
     in-out property <color> mod-text;
     in-out property <color> mod-fundal;
     in-out property <color> mod-bara;
@@ -239,9 +235,6 @@ export global Tema {
              : stare == 1 ? root.mod-text
              : stare == 2 ? root.add-text
              : root.del-text;
-    }
-    public pure function culoare-mediu(mediu: int) -> color {
-        return mediu == 2 ? root.mediu-prod : mediu == 1 ? root.mediu-test : root.mediu-dev;
     }
 }
 
@@ -381,7 +374,7 @@ export component Bifa inherits Rectangle {
     }
 }
 
-// --- piesele care tin ecranele impreuna: semnul, antetul, mediul, tema
+// --- piesele care tin ecranele impreuna: semnul, antetul, tema
 
 // Semnul g•motion: acelasi pe toate ecranele.
 export component Semn inherits HorizontalLayout {
@@ -401,24 +394,6 @@ export component Semn inherits HorizontalLayout {
         }
     }
     Text { text: "motion"; font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.4px; }
-}
-
-// Eticheta de mediu: DEV / TEST / PROD, plina, cu text alb.
-export component EticMediu inherits Rectangle {
-    // 0 dev, 1 test, 2 prod
-    in property <int> mediu;
-    height: 20px;
-    width: et.preferred-width + 14px;
-    border-radius: 4px;
-    background: Tema.culoare-mediu(root.mediu);
-    et := Text {
-        text: root.mediu == 2 ? "PROD" : root.mediu == 1 ? "TEST" : "DEV";
-        font-family: Tema.font-ui;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        color: Tema.pe-mediu;
-    }
 }
 
 // Butonul dedicat temei: o iconita (luna / soare); la clic arata cele doua
@@ -485,7 +460,7 @@ export component ButonTema inherits Rectangle {
     }
 }
 
-// Antetul ecranelor: semnul, locul (sau drumul sursa → baza cu mediul) si,
+// Antetul ecranelor: semnul, locul (sau drumul sursa → baza) si,
 // in dreapta, ce pune ecranul (copiii). Acelasi pe conectare, lista, deploy.
 // Comutatorul de limba, langa cel de tema. Limbile vin din Rust
 // (`texte::Limba::toate`), ca sa nu existe o a doua lista.
@@ -547,7 +522,6 @@ export component Antet inherits Rectangle {
     in property <string> loc;
     in property <string> sursa;
     in property <string> tinta;
-    in property <int> mediu: -1;
     height: 60px;
     background: Tema.fundal;
     HorizontalLayout {
@@ -563,7 +537,6 @@ export component Antet inherits Rectangle {
             Text { text: root.sursa; font-family: Tema.font-ui; font-size: 13px; font-weight: 500; color: Tema.text; vertical-alignment: center; }
             Text { text: "→"; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
             Text { text: root.tinta; font-family: Tema.font-ui; font-size: 13px; font-weight: 500; color: Tema.text; vertical-alignment: center; }
-            if root.mediu >= 0: VerticalLayout { alignment: center; EticMediu { mediu: root.mediu; } }
         }
         Rectangle { horizontal-stretch: 1; }
         @children

@@ -10,9 +10,7 @@
 use std::rc::Rc;
 use std::time::Instant;
 
-use gmotion_fereastra::{
-    aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente, Mediu,
-};
+use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
@@ -99,7 +97,6 @@ fn main() {
                     sursa_server: "srv-dev",
                     tinta_baza: "CharismaProd",
                     tinta_server: "srv-prod",
-                    mediu: Mediu::Prod,
                     stare_obiecte: "obiectul 1 din 1 nerevizuite",
                     revizuit: false,
                     in_plan: false,

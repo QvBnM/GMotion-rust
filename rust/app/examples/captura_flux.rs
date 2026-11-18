@@ -13,7 +13,7 @@ use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
 use gmotion_db::SursaObiecte;
 use gmotion_fereastra::{
     aplica_tema, incarca_editor, incarca_lista, incarca_previzualizare, AntetEditor, AntetLista,
-    EditorDiferente, FereastraLista, Mediu,
+    EditorDiferente, FereastraLista,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::platform::software_renderer::{
@@ -98,7 +98,6 @@ fn main() {
             sursa_baza: &a[2],
             tinta_baza: &a[3],
             servere: &server,
-            mediu: Mediu::Prod,
             in_plan: app
                 .lista()
                 .obiecte()
@@ -151,7 +150,6 @@ fn main() {
             sursa_server: &server,
             tinta_baza: &a[3],
             tinta_server: &server,
-            mediu: Mediu::Prod,
             stare_obiecte: &format!(
                 "obiectul {} din {} nerevizuite",
                 app.lista().selectat().map_or(0, |p| p + 1),

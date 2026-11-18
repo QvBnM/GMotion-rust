@@ -9,7 +9,7 @@
 // fereastra); al doilea tine de tipul care o pastreaza, fara `Debug` derivat.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Chevron, Buton, ButonPrincipal, Antet, ButonTema, EticMediu, Card, Ajutor } from "comune.slint";
+import { Texte, Tema, ButonLimba, Chevron, Buton, ButonPrincipal, Antet, ButonTema, Card, Ajutor } from "comune.slint";
 
 // Un server gasit in retea, cu etichetele din raspunsul SSRP.
 export struct ServerGasitUi {
@@ -21,8 +21,6 @@ export struct ServerGasitUi {
 export struct ParteUi {
     eticheta: string,
     rol: string,
-    mediu: string,
-    cod-mediu: int,
     server: string,
     auth-windows: bool,
     utilizator: string,
@@ -44,8 +42,6 @@ export struct ParteUi {
 export struct RecentaUi {
     sursa: string,
     baza: string,
-    mediu: string,
-    cod-mediu: int,
     cand: string,
     progres: string,
 }
@@ -325,7 +321,6 @@ component PanouParte inherits Card {
             spacing: 10px;
             Text { text: p.eticheta; font-family: Tema.font-ui; font-size: 18px; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.3px; }
             Text { text: p.rol; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; }
-            VerticalLayout { alignment: center; EticMediu { mediu: p.cod-mediu; } }
         }
 
         if !root.fara-servere: Segment {
@@ -445,7 +440,6 @@ export component FereastraConectare inherits Window {
     in property <[RecentaUi]> recente;
     /// Ce lipseste ca sa se poata compara; gol = se poate.
     in property <string> ce-lipseste;
-    in property <int> mediu: 0;
     /// Ultimele linii din jurnalul aplicatiei, cea mai noua la sfarsit.
     in property <[LinieJurnalUi]> jurnal;
     in-out property <bool> jurnal-ascuns: false;
@@ -721,7 +715,6 @@ export component FereastraConectare inherits Window {
                                     Text { text: s.sursa; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
                                     Text { text: "→"; font-family: Tema.font-mono; color: Tema.text-tert; vertical-alignment: center; }
                                     Text { text: s.baza; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
-                                    VerticalLayout { alignment: center; EticMediu { mediu: s.cod-mediu; } }
                                 }
                                 Text { width: 160px; text: s.cand; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                                 Text { width: 220px; text: s.progres; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }

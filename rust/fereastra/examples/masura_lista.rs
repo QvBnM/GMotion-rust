@@ -11,9 +11,7 @@
 use std::rc::Rc;
 use std::time::Instant;
 
-use gmotion_fereastra::{
-    aplica_tema, incarca_lista, model_lista, AntetLista, FereastraLista, Mediu,
-};
+use gmotion_fereastra::{aplica_tema, incarca_lista, model_lista, AntetLista, FereastraLista};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
@@ -118,7 +116,6 @@ fn main() {
             sursa_baza: "CharismaDev",
             tinta_baza: "CharismaProd",
             servere: "srv-dev → srv-prod · comparat la 14:32",
-            mediu: Mediu::Prod,
             in_plan: 12,
         };
         let t = Instant::now();

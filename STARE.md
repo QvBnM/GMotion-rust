@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (450 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (449 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -132,9 +132,8 @@ schimba ce face, nu cum arata):
    nu o pot proba pe Linux fara ecran. Pana atunci, instantaneul se da la
    pornire (`gmotion-ui --sursa f.json`), iar deploy-ul se scrie in
    directorul de date.
-2. **Mediul (PROD / TEST / DEV) de unde se ia?** Acum se ghiceste din numele
-   bazei (`...Prod` → PROD). Ghicitul poate fi gresit exact unde conteaza. Ar
-   trebui configurat explicit, pe server sau pe baza?
+2. ~~Mediul (PROD / TEST / DEV) de unde se ia?~~ Inchisa: eticheta a fost
+   scoasa de peste tot (Mihai, 2026-11-18), fiindca nu exista de unde sti.
 3. **Compararea pe server real blocheaza fereastra** pana se termina (12 s pe
    baza ta, din masuratori). Machetele n-au ecran de progres; v3.4 avea. Il
    facem, sau e acceptabil asa?
@@ -184,6 +183,10 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   in acelasi pas, cu test.
 - **Ce patrat de pe harta e sub mouse se decide doar in `harta::indice_la`.**
   Slint trimite coordonatele. Nu repeta calculul in `.slint`.
+- **Antetul listei curge dupa latimea ferestrei in `lista.slint`** (`bara`:
+  grupuri pozitionate din `preferred-width`). Un buton nou intra intr-un
+  grup existent, nu ca element separat, altfel nu mai e luat in calcul la
+  trecerea pe randul urmator. Sub 760 px fereastra nu se mai strange.
 - **Cateva masuri ale hartii sunt scrise de doua ori:** `harta::CAP` (44),
   `Y_BARA` (28) si `SPATIU_X / 2` (linia la -20 px) apar si in `lista.slint`.
   Treapta de zoom ajunge in fereastra doar ca latura (`patrat`); clicul o

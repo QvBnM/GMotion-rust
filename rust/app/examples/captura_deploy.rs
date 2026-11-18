@@ -10,7 +10,7 @@ use gmotion_app::deploy::{ecran, StareDeploy};
 use gmotion_app::pornire;
 use gmotion_app::rutare::{Aplicatie, Comanda};
 use gmotion_fereastra::model_conectare::Conectare;
-use gmotion_fereastra::{aplica_tema, incarca_deploy, FereastraDeploy, Mediu, Mod};
+use gmotion_fereastra::{aplica_tema, incarca_deploy, FereastraDeploy, Mod};
 use gmotion_modul_diff_obiecte as modul;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
@@ -78,7 +78,7 @@ fn main() {
     aplica_tema(&ui, tema);
     gmotion_fereastra::aplica_limba(&ui, Default::default());
     let e = ecran(&st, app.sursa(), &director.display().to_string(), 10);
-    incarca_deploy(&ui, &e, Mediu::Prod);
+    incarca_deploy(&ui, &e);
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

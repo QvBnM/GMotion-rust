@@ -9,7 +9,7 @@
 
 import { ListView } from "std-widgets.slint";
 import { RandListaUi, Stari } from "lista.slint";
-import { Texte, Tema, ButonLimba, Semn, EticMediu, ButonTema, Bucati, Jumatate, RandUi, MarcajUi } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Insula inherits Rectangle {
@@ -93,7 +93,6 @@ component CapPanou inherits Rectangle {
     in property <string> baza;
     in property <string> detaliu;
     in property <string> eticheta;
-    in property <int> mediu: -1;
     in property <color> fond;
     in property <color> linie;
     // „editabil" (violet, ca liniile scrise de tine): clic = editeaza
@@ -111,7 +110,6 @@ component CapPanou inherits Rectangle {
         Text { text: root.rol; font-family: Tema.font-ui; font-size: 15px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
         Text { text: root.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; vertical-alignment: center; overflow: elide; }
         Text { text: root.detaliu; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-        if root.mediu >= 0: VerticalLayout { alignment: center; EticMediu { mediu: root.mediu; } }
         if root.eticheta != "": VerticalLayout {
             alignment: center;
             Rectangle {
@@ -155,8 +153,6 @@ export component EditorDiferente inherits Window {
     in property <string> sursa-detaliu;      // „srv-dev · 47 linii"
     in property <string> tinta-baza;
     in property <string> tinta-detaliu;
-    in property <string> eticheta-mediu;     // PROD / TEST / DEV
-    in property <int> mediu: 0;              // 0 dev, 1 test, 2 prod
     // continutul
     in property <[RandUi]> randuri;
     in property <[MarcajUi]> marcaje;
@@ -362,7 +358,6 @@ export component EditorDiferente inherits Window {
                                 rol: root.alaturat ? Texte.modificata : Texte.unificat;
                                 baza: root.alaturat ? root.tinta-baza : root.sursa-baza + " → " + root.tinta-baza;
                                 detaliu: root.tinta-detaliu;
-                                mediu: root.mediu;
                                 fond: Tema.cap-baza;
                                 linie: Tema.contur-baza;
                                 editabil: true;

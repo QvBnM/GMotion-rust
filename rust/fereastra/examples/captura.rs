@@ -2,12 +2,10 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--mediu prod] [--font-mono NUME] [--tema intunecat|luminos]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--font-mono NUME] [--tema intunecat|luminos]
 use std::rc::Rc;
 
-use gmotion_fereastra::{
-    aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente, Mediu,
-};
+use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
@@ -44,20 +42,11 @@ fn main() {
     if a.len() < 6 {
         eprintln!(
             "folosire: captura instantaneu.json SURSA BAZA schema.obiect iesire.png \
-             [--unificat] [--fara-pliere] [--mediu dev|test|prod] [--font-mono NUME]"
+             [--unificat] [--fara-pliere] [--font-mono NUME]"
         );
         std::process::exit(2);
     }
     let are = |f: &str| a.iter().any(|x| x == f);
-    let mediu = match a
-        .iter()
-        .position(|x| x == "--mediu")
-        .map(|i| a[i + 1].as_str())
-    {
-        Some("dev") => Mediu::Dev,
-        Some("test") => Mediu::Test,
-        _ => Mediu::Prod,
-    };
 
     let inst: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&a[1]).expect("instantaneul nu se citeste"))
@@ -124,7 +113,6 @@ fn main() {
             sursa_server: &server,
             tinta_baza: &a[3],
             tinta_server: &server,
-            mediu,
             stare_obiecte: "obiectul 4 din 18 nerevizuite",
             revizuit: false,
             in_plan: false,

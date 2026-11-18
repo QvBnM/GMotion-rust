@@ -92,14 +92,6 @@ pub struct Paleta {
     pub tine: Culoare,
     /// textul pe eticheta „editabil"
     pub pe_tine: Culoare,
-    /// eticheta PROD (fundal)
-    pub mediu_prod: Culoare,
-    /// eticheta TEST (fundal)
-    pub mediu_test: Culoare,
-    /// eticheta DEV (fundal)
-    pub mediu_dev: Culoare,
-    /// textul pe eticheta de mediu
-    pub pe_mediu: Culoare,
     pub mod_text: Culoare,
     pub mod_fundal: Culoare,
     pub mod_bara: Culoare,
@@ -156,10 +148,6 @@ pub const INTUNECAT: Paleta = Paleta {
     accent_text: 0xffb547,
     tine: 0xb98cff,
     pe_tine: 0x140a26,
-    mediu_prod: 0xd92b2b,
-    mediu_test: 0x3561d6,
-    mediu_dev: 0x3a4466,
-    pe_mediu: 0xffffff,
     mod_text: 0xffb547,
     mod_fundal: 0x312b29,
     mod_bara: 0xffb547,
@@ -209,10 +197,6 @@ pub const LUMINOS: Paleta = Paleta {
     accent_text: 0x8f5b00,
     tine: 0x7828c8,
     pe_tine: 0xffffff,
-    mediu_prod: 0xc62828,
-    mediu_test: 0x2f5fd0,
-    mediu_dev: 0x5f6572,
-    pe_mediu: 0xffffff,
     mod_text: 0x8f5b00,
     mod_fundal: 0xfdf1dc,
     mod_bara: 0xf5a524,
@@ -345,9 +329,6 @@ mod teste {
             |p| p.suprafata,
         ),
         ("accent ca text pe fundal", |p| p.accent_text, |p| p.fundal),
-        ("text pe PROD", |p| p.pe_mediu, |p| p.mediu_prod),
-        ("text pe TEST", |p| p.pe_mediu, |p| p.mediu_test),
-        ("text pe DEV", |p| p.pe_mediu, |p| p.mediu_dev),
         ("text pe „editabil”", |p| p.pe_tine, |p| p.tine),
         ("„scris de tine” pe capul bazei", |p| p.tine, |p| p.cap_baza),
         ("„scris de tine” pe suprafata", |p| p.tine, |p| p.suprafata),

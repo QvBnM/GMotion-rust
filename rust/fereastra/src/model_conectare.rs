@@ -113,7 +113,7 @@ pub struct Parte {
     pub baze: Vec<String>,
     /// Bazele bifate, cand aceeasi referinta se compara cu mai multe. Goala
     /// inseamna „doar `baza`"; prima bifata e mereu si `baza`, ca restul
-    /// ecranului (mediul, titlul) sa aiba ce arata.
+    /// ecranului (titlul) sa aiba ce arata.
     pub alese: Vec<String>,
     pub stare: StareConexiune,
     pub auth_windows: bool,
@@ -182,8 +182,6 @@ impl Parte {
 pub struct Recenta {
     pub sursa: String,
     pub baza: String,
-    /// `PROD` / `TEST` / `DEV`, sau gol.
-    pub mediu: String,
     /// „ieri, 17:40" sau data exacta.
     pub cand: String,
     /// „124 din 336 revizuite", sau gol daca nu s-a revizuit nimic.

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 06bda09d3ee368a9 -->
+<!-- api-hash: a275b35efeafc8b9 -->
 
 ## Rol
 
@@ -31,7 +31,6 @@ si editorul de diferente (etapa 8).
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta, ServerGasit}` | modelul lui; `Acreditari` **nu are `Debug` derivat**; `Parte::{comuta_baza, baze_alese, e_aleasa}` tin bifele cand se compara mai multe baze |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
-| `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire}` | modelul listei; cheia unui rand e `(baza, schema.nume)` |
 | `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
@@ -41,7 +40,7 @@ si editorul de diferente (etapa 8).
 | `ordine_din_cod(cod)` | ce coloana a apasat utilizatorul; inversul codurilor din `global Sortare` (`lista.slint`) |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_bara, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}`, `LATIME_HARTA` | harta de deasupra tabelului: o coloana pe tip, care umplu cartusul; bara de proportie a starilor; patrate pictate in Rust, in ordinea din tabel; zoom automat pe trepte (`SCARI`) cand nu intra in `INALTIME_MAXIMA`; clic → rand |
 | `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | clicul, bula si reasezarea la redimensionare; calculul e doar in `harta::indice_la` |
-| `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran, mediu)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |
+| `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |
 | `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra |
 | `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
@@ -61,7 +60,7 @@ si editorul de diferente (etapa 8).
 | `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
 | `mod_curent(ui)` | modul pus ultima data in `Tema` |
 | `tigla_hasura(mod)` | tigla hasurii de pe partea fara linii, in culorile modului |
-| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `in_plan`), `Mediu` | umple editorul |
+| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `in_plan`) | umple editorul |
 
 ## Invariante
 

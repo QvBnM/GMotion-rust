@@ -22,9 +22,8 @@ use gmotion_fereastra::model_conectare::{Conectare, Recenta, StareConexiune};
 use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
-    incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, mediu_dupa_nume,
-    AntetEditor, AntetLista, EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista,
-    Mediu, Mod, StareEditare,
+    incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, AntetEditor, AntetLista,
+    EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista, Mod, StareEditare,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -146,7 +145,6 @@ fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
             let baza = s.baze.first().cloned().unwrap_or_default();
             let revizuite = modul::Revizuire::din_sesiune(&s).numar();
             Recenta {
-                mediu: mediu_dupa_nume(&baza).eticheta().to_string(),
                 progres: if revizuite == 0 {
                     String::new()
                 } else {
@@ -416,17 +414,6 @@ fn ruleaza() -> Result<(), String> {
                 [una] => una.clone(),
                 multe => format!("{} baze", multe.len()),
             };
-            // cu mai multe baze, banda arata mediul cel mai riscant: daca
-            // una din tinte e PROD, ecranul nu are voie sa para DEV
-            let mediu = baze
-                .iter()
-                .map(|b| mediu_dupa_nume(b))
-                .max_by_key(|m| match m {
-                    Mediu::Prod => 2,
-                    Mediu::Test => 1,
-                    Mediu::Dev => 0,
-                })
-                .unwrap_or(Mediu::Dev);
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
             app.asigura_detalii(0, 60);
@@ -436,7 +423,6 @@ fn ruleaza() -> Result<(), String> {
                     sursa_baza: &referinta,
                     tinta_baza: &baza,
                     servere: &server,
-                    mediu,
                     in_plan: app.lista().in_plan().len(),
                 },
                 app.lista(),
@@ -462,7 +448,6 @@ fn ruleaza() -> Result<(), String> {
                             sursa_server: &server,
                             tinta_baza: &baza,
                             tinta_server: &server,
-                            mediu,
                             stare_obiecte: &pozitie,
                             revizuit: o.revizuit,
                             in_plan: o.in_plan,
@@ -505,7 +490,7 @@ fn ruleaza() -> Result<(), String> {
                 if let Some((_, st)) = s.deploy.as_ref() {
                     let director = director_deploy(&referinta).display().to_string();
                     let e = gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier);
-                    incarca_deploy(&d_ui, &e, mediu);
+                    incarca_deploy(&d_ui, &e);
                 }
                 arata(&d_ui, [l_ui.window(), e_ui.window(), c_ui.window()]);
             } else {
