@@ -62,7 +62,7 @@ fn main() {
     let director = std::env::temp_dir().join("gmotion-captura-deploy");
     if are("--scris") {
         std::fs::remove_dir_all(&director).ok();
-        st.scrie(&director, "2026-11-18 14:53");
+        st.scrie(&director, "2026-11-18 14:53", &Default::default());
     }
 
     let (w, h) = (1440u32, 900u32);

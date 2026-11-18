@@ -155,6 +155,16 @@ pub struct Aplicatie {
     folosit_de: std::cell::RefCell<std::collections::BTreeMap<String, FolositDe>>,
     /// „Uneste ciclul cursor": schimba taierea blocurilor in editor.
     uneste_cursorul: bool,
+    /// A cata comparare e asta. Dat de un numarator, la construire: ce s-a
+    /// calculat pe o comparare (planul de deploy, garda lui) nu se poate
+    /// refolosi dupa o recomparare, si uitarea era bug-ul C2 din auditul QA.
+    id_comparare: u64,
+}
+
+/// Numaratorul compararilor din sesiunea asta.
+fn urmatorul_id_comparare() -> u64 {
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
 impl Aplicatie {
@@ -243,7 +253,28 @@ impl Aplicatie {
             detalii: false,
             folosit_de: std::cell::RefCell::default(),
             uneste_cursorul: false,
+            id_comparare: urmatorul_id_comparare(),
         }
+    }
+
+    /// A cata comparare e asta: doua `Aplicatie` nu au niciodata acelasi id.
+    pub fn id_comparare(&self) -> u64 {
+        self.id_comparare
+    }
+
+    /// Amprenta textelor finale valabile: se schimba la orice editare care
+    /// ajunge in deploy, si cu ea se invalideaza planul deschis.
+    pub fn amprenta_texte_finale(&self) -> String {
+        let mut t = String::new();
+        for ((baza, obiect), text) in self.texte_finale() {
+            t.push_str(&baza);
+            t.push('\0');
+            t.push_str(&obiect);
+            t.push('\0');
+            t.push_str(&text);
+            t.push('\u{1}');
+        }
+        gmotion_core::calc_hash(&t)
     }
 
     /// Panoul de detalii e deschis (si are un obiect de aratat).

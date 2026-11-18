@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: aff957d341aa15be -->
+<!-- api-hash: 732619b47cd2f013 -->
 
 ## Rol
 
@@ -39,7 +39,9 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::plan(referinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii; acopera toate bazele comparate |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |
-| `deploy::StareDeploy` (`nou`, `pasi_in_ordine`, `aplica_verificarea(referinta, tinte, la)`, `verificare_esuata`, `poate_scrie`, `scrie(director, acum)`, `alege_impartirea`) | ecranul de deploy: garda pe obiectele recitite, scrierea cu revenirea inainte, aceleasi functii ca `gmotion deploy --plan` |
+| `deploy::StareDeploy` (`nou`, `pasi_in_ordine`, `aplica_verificarea(referinta, tinte, la)`, `verificare_esuata`, `poate_scrie`, `scrie(director, acum, texte_finale)`, `alege_impartirea`) | ecranul de deploy: garda pe obiectele recitite, scrierea cu revenirea inainte, aceleasi functii ca `gmotion deploy --plan`; textele finale se dau **la scriere** |
+| `deploy::{Cheie, Deschis, asigura_planul(deschis, app, referinta, acum)}` | planul deschis e legat de ce e „in plan", de textele finale si de `Aplicatie::id_comparare`; cand una se schimba, planul se reface fara garda |
+| `Aplicatie::id_comparare()`, `amprenta_texte_finale()` | identitatea compararii si a textelor finale: din ele se face `deploy::Cheie` |
 | `deploy::{ecran, impartire_din, pozitia_impartirii}`, `Garda`, `PasAfisat` | ce se deseneaza pe ecranul de deploy |
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |

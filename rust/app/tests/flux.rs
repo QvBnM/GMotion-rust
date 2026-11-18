@@ -149,7 +149,7 @@ fn din_lista_pana_la_scripturile_de_deploy() {
 
     // 3. scrierea: scripturile si revenirea, pe disc
     let dir = cale.parent().unwrap().join("deploy");
-    st.scrie(&dir, "2026-11-18 14:05");
+    st.scrie(&dir, "2026-11-18 14:05", &Default::default());
     let raport = st
         .rezultat
         .as_ref()
@@ -209,12 +209,11 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
         "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
     )));
     app.comanda(Comanda::ComutaInPlan);
-    let mut st =
-        StareDeploy::nou(app.plan("CharismaDev", "acum")).cu_texte_finale(app.texte_finale());
+    let mut st = StareDeploy::nou(app.plan("CharismaDev", "acum"));
     let recitit = pornire::compara(&c).expect("recitirea merge");
     st.aplica_verificarea(recitit.sursa, recitit.tinte, "acum");
     let dir = cale.parent().unwrap().join("deploy");
-    st.scrie(&dir, "acum");
+    st.scrie(&dir, "acum", &app.texte_finale());
     let raport = st
         .rezultat
         .as_ref()
@@ -394,4 +393,120 @@ fn pe_cod_deformat_aplica_toate_aduce_martorul_in_baza() {
         gmotion_core::norm(&final_unit),
         "unirea ciclului de cursor schimba taierea blocurilor, nu rezultatul"
     );
+}
+
+/// C1 si C2 din `cercetare/audit-qa-2026-11-18.md`: planul de deploy deschis
+/// o data se refolosea cat timp multimea „in plan" nu se schimba, deci
+/// scrierea punea in script **textul final de la prima deschidere** (C1), si
+/// supravietuia unei recomparari, cu garda ei veche (C2).
+///
+/// Testul merge pe acelasi drum ca `main.rs`: deschide deploy-ul, se intoarce
+/// in editor, schimba textul, redeschide deploy-ul — fara sa atinga ce e in
+/// plan.
+#[test]
+fn deploy_redeschis_dupa_o_editare_scrie_textul_de_acum() {
+    use gmotion_app::deploy::Garda;
+    let cale = instantaneu("deploy-text-vechi");
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.to_string_lossy().to_string());
+    c.sursa.baza = "CharismaDev".into();
+    c.baza.baza = "CharismaProd".into();
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+
+    let pozitie = |app: &Aplicatie, nume: &str| {
+        (0..app.lista().vizibile().len())
+            .find(|&p| app.lista().obiect(p).unwrap().nume == nume)
+            .unwrap()
+    };
+
+    // 1. pStoc in plan, apoi ecranul de deploy
+    let p = pozitie(&app, "pStoc");
+    app.comanda(Comanda::Selecteaza(p));
+    app.comanda(Comanda::ComutaInPlan);
+    app.comanda(Comanda::DeschideDeploy);
+    let mut deschis = None;
+    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "2026-11-18 14:00");
+    assert_eq!(deschis.as_ref().unwrap().stare.plan.pasi.len(), 1);
+
+    // 2. inapoi in editor, textul schimbat de mana
+    app.comanda(Comanda::InapoiLaLista);
+    app.comanda(Comanda::Selecteaza(pozitie(&app, "pStoc")));
+    app.comanda(Comanda::Deschide);
+    assert!(app.comanda(Comanda::SalveazaText(
+        "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
+    )));
+
+    // 3. deploy din nou: aceeasi multime „in plan", deci aici se refolosea
+    app.comanda(Comanda::DeschideDeploy);
+    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "2026-11-18 14:10");
+    let st = &mut deschis.as_mut().unwrap().stare;
+    assert!(
+        matches!(st.garda, Garda::Neverificata),
+        "planul refacut porneste fara garda: {:?}",
+        st.garda
+    );
+    let recitit = pornire::compara(&c).expect("recitirea merge");
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:10");
+    let dir = cale.parent().unwrap().join("deploy");
+    st.scrie(&dir, "2026-11-18 14:10", &app.texte_finale());
+    let raport = st
+        .rezultat
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .expect("scrierea merge");
+    let script = std::fs::read_to_string(&raport.fisiere[0]).unwrap();
+    assert!(
+        script.contains("WHERE activ = 7"),
+        "in script trebuie sa ajunga textul de acum:\n{script}"
+    );
+    assert!(
+        !script.contains("WHERE activ = 1"),
+        "nu textul de la prima deschidere a planului:\n{script}"
+    );
+    std::fs::remove_dir_all(cale.parent().unwrap()).ok();
+}
+
+/// C2: dupa o recomparare, `Aplicatie` e alta — planul si garda de dinainte
+/// nu mai sunt ale ei, oricat de identica ar fi multimea „in plan".
+#[test]
+fn recompararea_pierde_planul_si_garda_de_dinainte() {
+    use gmotion_app::deploy::Garda;
+    let cale = instantaneu("deploy-recompara");
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.to_string_lossy().to_string());
+    c.sursa.baza = "CharismaDev".into();
+    c.baza.baza = "CharismaProd".into();
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+    let p = (0..app.lista().vizibile().len())
+        .find(|&p| app.lista().obiect(p).unwrap().nume == "pStoc")
+        .unwrap();
+    app.comanda(Comanda::Selecteaza(p));
+    app.comanda(Comanda::ComutaInPlan);
+    app.comanda(Comanda::DeschideDeploy);
+    let mut deschis = None;
+    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "14:00");
+    let recitit = pornire::compara(&c).expect("recitirea merge");
+    let st = &mut deschis.as_mut().unwrap().stare;
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:05");
+    assert!(matches!(st.garda, Garda::Ok { .. }));
+
+    // recompararea: alta `Aplicatie`, cu acelasi obiect in plan
+    let r2 = pornire::compara(&c).expect("recompararea merge");
+    let mut app2 = Aplicatie::noua(r2.randuri, r2.sursa, r2.tinte, modul::Revizuire::noua());
+    let p = (0..app2.lista().vizibile().len())
+        .find(|&p| app2.lista().obiect(p).unwrap().nume == "pStoc")
+        .unwrap();
+    app2.comanda(Comanda::Selecteaza(p));
+    app2.comanda(Comanda::ComutaInPlan);
+    app2.comanda(Comanda::DeschideDeploy);
+    gmotion_app::deploy::asigura_planul(&mut deschis, &app2, "CharismaDev", "14:10");
+    assert!(
+        matches!(deschis.as_ref().unwrap().stare.garda, Garda::Neverificata),
+        "garda de dinainte de recomparare nu mai e valabila: {:?}",
+        deschis.as_ref().unwrap().stare.garda
+    );
+    std::fs::remove_dir_all(cale.parent().unwrap()).ok();
 }

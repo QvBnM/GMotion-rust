@@ -36,9 +36,10 @@ struct Stare {
     sesiuni: gmotion_platforma::Sesiuni,
     /// Ce scrie pe ecran despre sursa (server sau cale de instantaneu).
     server: String,
-    /// Planul de deploy deschis si obiectele din care s-a facut: cand se
-    /// schimba ce e „in plan", planul se reface (si garda se pierde).
-    deploy: Option<(Vec<(String, String)>, gmotion_app::deploy::StareDeploy)>,
+    /// Planul de deploy deschis, cu cheia lui: cand se schimba ce e „in
+    /// plan", textele finale sau compararea, planul se reface de la zero —
+    /// deci si fara garda. Decizia e in `deploy::asigura_planul`, nu aici.
+    deploy: Option<gmotion_app::deploy::Deschis>,
     /// Compararea care ruleaza acum, pe alt fir.
     rulare: Option<gmotion_app::fir::Rulare>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
@@ -379,29 +380,19 @@ fn ruleaza() -> Result<(), String> {
                 incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(0).0);
                 return;
             }
-            // planul de deploy: se reface doar cand s-a schimbat ce e in plan
-            let alese = s
-                .app
-                .as_ref()
-                .map(|a| a.lista().in_plan())
-                .unwrap_or_default();
-            let facut: Option<Vec<(String, String)>> = s.deploy.as_ref().map(|(a, _)| a.clone());
-            if s.app.as_ref().is_some_and(|a| a.ecran() == Ecran::Deploy)
-                && facut.as_ref() != Some(&alese)
+            // planul de deploy: se reface cand nu mai e al starii de acum
             {
-                let r = s.conectare.sursa.baza.clone();
-                let plan = s.app.as_ref().map(|a| {
-                    (
-                        a.plan(&r, &gmotion_platforma::timp::acum()),
-                        a.texte_finale(),
-                    )
-                });
-                s.deploy = plan.map(|(p, texte)| {
-                    (
-                        alese.clone(),
-                        gmotion_app::deploy::StareDeploy::nou(p).cu_texte_finale(texte),
-                    )
-                });
+                // campuri separate, ca sa se poata citi `app` si scrie `deploy`
+                let Stare {
+                    app,
+                    deploy,
+                    conectare,
+                    ..
+                } = &mut *s;
+                if let Some(app) = app.as_ref().filter(|a| a.ecran() == Ecran::Deploy) {
+                    let acum = gmotion_platforma::timp::acum();
+                    gmotion_app::deploy::asigura_planul(deploy, app, &conectare.sursa.baza, &acum);
+                }
             }
             let referinta = s.conectare.sursa.baza.clone();
             let baze = s
@@ -488,7 +479,7 @@ fn ruleaza() -> Result<(), String> {
                 arata(&e_ui, [l_ui.window(), d_ui.window(), c_ui.window()]);
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
-                if let Some((_, st)) = s.deploy.as_ref() {
+                if let Some(st) = s.deploy.as_ref().map(|d| &d.stare) {
                     let director = director_deploy(&referinta).display().to_string();
                     let e = gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier);
                     incarca_deploy(&d_ui, &e);
@@ -1109,7 +1100,7 @@ fn ruleaza() -> Result<(), String> {
             tracing::info!(target: "gmotion::app", "garda: recitesc bazele");
             let recitit = pornire::compara(&c);
             let mut st = s.borrow_mut();
-            if let Some((_, dep)) = st.deploy.as_mut() {
+            if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
                 match recitit {
                     Ok(r) => {
                         dep.aplica_verificarea(r.sursa, r.tinte, &gmotion_platforma::timp::acum())
@@ -1127,9 +1118,12 @@ fn ruleaza() -> Result<(), String> {
             let mut st = s.borrow_mut();
             let referinta = st.conectare.sursa.baza.clone();
             let mut scris = None;
-            if let Some((_, dep)) = st.deploy.as_mut() {
+            // textele finale se iau acum, din aplicatie, nu dintr-un
+            // instantaneu luat la deschiderea planului (C1 din auditul QA)
+            let texte = st.app.as_ref().map(|a| a.texte_finale()).unwrap_or_default();
+            if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
                 let dir = director_deploy(&referinta);
-                dep.scrie(&dir, &gmotion_platforma::timp::acum());
+                dep.scrie(&dir, &gmotion_platforma::timp::acum(), &texte);
                 if let Some(Ok(r)) = &dep.rezultat {
                     tracing::info!(target: "gmotion::app", director = %r.director.display(), fisiere = r.fisiere.len(), "deploy scris");
                     scris = Some(dep.plan.clone());
@@ -1150,7 +1144,7 @@ fn ruleaza() -> Result<(), String> {
         let s = stare.clone();
         let d = deseneaza.clone();
         deploy_ui.on_alege_impartirea(move |i| {
-            if let Some((_, dep)) = s.borrow_mut().deploy.as_mut() {
+            if let Some(dep) = s.borrow_mut().deploy.as_mut().map(|d| &mut d.stare) {
                 dep.alege_impartirea(gmotion_app::deploy::impartire_din(i, cate_per_fisier));
             }
             d();

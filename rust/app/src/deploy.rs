@@ -11,6 +11,8 @@ use std::path::Path;
 
 use gmotion_modul_diff_obiecte::{self as modul, Baza, ModImpartire, Plan, Raport};
 
+use crate::rutare::Aplicatie;
+
 /// Un pas, cum se arata: operatia, obiectul, tipul, in ordinea din script.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PasAfisat {
@@ -46,9 +48,6 @@ pub struct StareDeploy {
     /// Obiectele recitite la verificare (referinta, si fiecare baza tinta):
     /// din ele se scrie, nu din cele de la comparare.
     recitite: Option<(Baza, Vec<(String, Baza)>)>,
-    /// Textele finale din editor, pe `(baza, schema.nume)`: ce se scrie in
-    /// locul codului din sursa pentru obiectele editate.
-    pub texte_finale: std::collections::BTreeMap<(String, String), String>,
 }
 
 impl StareDeploy {
@@ -59,17 +58,7 @@ impl StareDeploy {
             impartire: ModImpartire::default(),
             rezultat: None,
             recitite: None,
-            texte_finale: Default::default(),
         }
-    }
-
-    /// Cu textele finale din editor (Aplica, scris de mana).
-    pub fn cu_texte_finale(
-        mut self,
-        texte: std::collections::BTreeMap<(String, String), String>,
-    ) -> Self {
-        self.texte_finale = texte;
-        self
     }
 
     /// Pasii, in ordinea in care ajung in script (dependentele intai), pe
@@ -138,7 +127,16 @@ impl StareDeploy {
     }
 
     /// Scrie scripturile si, inainte, revenirea, din obiectele recitite.
-    pub fn scrie(&mut self, director: &Path, acum: &str) {
+    ///
+    /// `texte_finale` se dau **la scriere**, nu la deschiderea planului: un
+    /// instantaneu tinut aici ar fi cel de la prima deschidere, si editorul ar
+    /// arata altceva decat ce pleaca in baza (C1 din auditul QA).
+    pub fn scrie(
+        &mut self,
+        director: &Path,
+        acum: &str,
+        texte_finale: &std::collections::BTreeMap<(String, String), String>,
+    ) {
         let Some((referinta, altele)) = self.recitite.as_ref().filter(|_| self.poate_scrie())
         else {
             self.rezultat = Some(Err("verifica intai ca baza n-a mai fost atinsa".to_string()));
@@ -147,7 +145,7 @@ impl StareDeploy {
         let altele = altele.clone();
         let r = self
             .plan
-            .de_deployat_cu(referinta, &self.texte_finale)
+            .de_deployat_cu(referinta, texte_finale)
             .and_then(|pe_baza| {
                 let revenire = self.plan.revenire(referinta, &altele);
                 modul::deploy::scrie_cu_revenire(
@@ -176,6 +174,53 @@ impl StareDeploy {
             }
         }
     }
+}
+
+/// De ce depinde planul deschis: ce e „in plan", textele finale din editor si
+/// **care** comparare l-a produs.
+///
+/// Exista fiindca planul si garda se refoloseau cat timp multimea „in plan"
+/// nu se schimba: o editare intre doua deschideri ajungea in script cu textul
+/// vechi (C1), iar o recomparare lasa in urma o garda „Ok" data pe obiecte
+/// recitite demult (C2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Cheie {
+    alese: Vec<(String, String)>,
+    texte: String,
+    comparare: u64,
+}
+
+impl Cheie {
+    /// Cheia starii de acum.
+    pub fn a_aplicatiei(app: &Aplicatie) -> Cheie {
+        Cheie {
+            alese: app.lista().in_plan(),
+            texte: app.amprenta_texte_finale(),
+            comparare: app.id_comparare(),
+        }
+    }
+}
+
+/// Planul de deploy deschis, legat de cheia lui.
+pub struct Deschis {
+    pub cheie: Cheie,
+    pub stare: StareDeploy,
+}
+
+/// Se asigura ca planul deschis e al starii de acum; altfel il reface de la
+/// zero — deci **si fara garda**, care nu se poate mosteni.
+///
+/// `referinta` e numele bazei sursa, `acum` momentul compararii pe care se
+/// sprijina planul.
+pub fn asigura_planul(deschis: &mut Option<Deschis>, app: &Aplicatie, referinta: &str, acum: &str) {
+    let cheie = Cheie::a_aplicatiei(app);
+    if deschis.as_ref().is_some_and(|d| d.cheie == cheie) {
+        return;
+    }
+    *deschis = Some(Deschis {
+        cheie,
+        stare: StareDeploy::nou(app.plan(referinta, acum)),
+    });
 }
 
 /// Modul de impartire dupa pozitia din ecran (0 per baza, 1 unul, 2 per
@@ -325,7 +370,7 @@ mod teste {
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi"]));
         assert!(!st.poate_scrie());
         let d = dir("fara-garda");
-        st.scrie(&d, "2026-11-18 14:05");
+        st.scrie(&d, "2026-11-18 14:05", &Default::default());
         assert!(matches!(st.rezultat, Some(Err(_))));
         assert!(!d.exists(), "nimic scris inainte de garda");
     }
@@ -352,7 +397,7 @@ mod teste {
         assert_eq!(st.garda, Garda::Ok { la: "14:05".into() });
         assert!(st.poate_scrie());
         let d = dir("scrie");
-        st.scrie(&d, "2026-11-18 14:05");
+        st.scrie(&d, "2026-11-18 14:05", &Default::default());
         let r = st
             .rezultat
             .as_ref()
@@ -379,7 +424,7 @@ mod teste {
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi"]));
         st.aplica_verificarea(s.clone(), vec![("Prod".to_string(), t.clone())], "14:05");
         let d = dir("impartire");
-        st.scrie(&d, "2026-11-18 14:05");
+        st.scrie(&d, "2026-11-18 14:05", &Default::default());
         assert!(!st.poate_scrie());
         st.alege_impartirea(ModImpartire::Unul);
         assert!(st.poate_scrie(), "alt mod de impartire = alta scriere");
