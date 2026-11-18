@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (336 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (338 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -31,8 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/12-plan-de-deploy.md` — planul de deploy, cu garda
-si scriptul de revenire.
+**Etapa activa:** `etape/13-aspectul-nou.md` — ferestrele rescrise dupa
+schita aprobata, cu aceeasi paleta pe toate ecranele, in mod intunecat si
+luminos. Etapa 12 (planul de deploy) e incheiata: garda, revenirea si `cli`
+sunt facute; ecranul de deploy vine dupa, in noul aspect.
 
 **Etapele 8-11 sunt incheiate.** `gmotion-ui` porneste din ecranul de
 conectare, compara, arata lista cu previzualizare, deschide editorul si tine
@@ -49,23 +51,17 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Directia s-a schimbat pe 2026-11-18 (Mihai): intai functionalitatile, apoi
-aspectul.** Lista completa a ce lipseste fata de v3.4:
-`cercetare/lipsuri-portare.md`. Mihai alege ordinea; pana atunci, nu se
-incepe nimic din ea.
+**Etapa 13, pasul 2: conectarea** dupa `cercetare/schita-slint/ui/conectare.slint`
+(jurnalul ca banda jos, cautarea ca iconita), pe jetoanele din `Tema`, nu pe
+culorile din schita. Pasul 1 e facut: doua palete cu aceleasi nume,
+`aplica_tema(ui, Mod)`, Geist in loc de IBM Plex, `gmotion-ui --tema`.
 
-- Ecranul de deploy din etapa 12 e **pus pe pauza**: deploy-ul din fereastra
-  e una dintre lipsuri si intra in ordinea aleasa de Mihai. Garda, revenirea
-  si `cli` (pasii 1-3) sunt facute.
-- **Aspectul vizual se discuta intr-o alta sesiune.** Nu se schimba nimic
-  vizual pana atunci.
+- **Ordinea s-a schimbat din nou (Mihai, 2026-11-18):** dupa ce a aprobat
+  schita, a cerut sa incepem rescrierea designului. Paritatea cu v3.4
+  (`cercetare/lipsuri-portare.md`) ramane de facut; regula ramane: nicio
+  functie nu dispare, iar un buton din schita fara logica nu se deseneaza.
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
-  obiecte" (`diff-obiecte`). Celelalte module, inclusiv `upgrade`, le decide
-  Mihai mai tarziu.
-
-Candidatul firesc pentru primul pas, daca Mihai nu decide altfel: sectiunea 0
-din `lipsuri-portare.md` (butoanele moarte si cele doua bug-uri de pe
-instantaneu). E mic si nu atinge aspectul.
+  obiecte" (`diff-obiecte`).
 
 Rulari pe Windows: nimic de cerut acum.
 
@@ -77,13 +73,8 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
 
-**Directia vizuala e aleasa** (2026-11-18, `JURNAL.md`): conectarea si lista in
-stilul hartii (intunecat), editorul ca panza (alb), cu **toate functiile din
-v3.4**. Schita in Slint, cu capturi si tabelul „functie v3.4 → unde e acum":
-`cercetare/schita-slint/README.md`. Nu se porteaza in `rust/fereastra` pana
-nu termina paritatea cu v3.4, decat daca Mihai cere altfel. **Inca de
-stiut:** planul de deploy (Deployer) urmeaza stilul listei (intunecat) sau al
-editorului (alb)?
+**Intrebare deschisa:** planul de deploy (Deployer) urmeaza stilul listei sau
+al editorului? Cu aceeasi paleta peste tot, intrebarea e doar de asezare.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
@@ -121,6 +112,17 @@ Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
+
+- **Modul implicit e luminos pana sunt rescrise toate ecranele.** Ecranele
+  vechi n-au fost gandite pe fond inchis: `--tema intunecat` merge, dar arata
+  ciudat pana la rescriere. Nu schimba implicitul inainte de pasul 5 al
+  etapei 13.
+- **Un jeton nou se adauga in trei locuri:** campul in `jetoane::Paleta` (cu
+  valoare in ambele palete), proprietatea in `Tema` din `comune.slint`, si
+  linia din `cu_jetoanele!` in `lib.rs`. Compilatorul prinde campul lipsa din
+  lista si linia fara proprietate in `Tema`. **Nu prinde** o proprietate pusa
+  in `Tema` si uitata in rest: ramane transparenta, iar ecranul o deseneaza
+  invizibil.
 
 - **`cercetare/schita-slint/` nu e in workspace si nu trece prin poarta.**
   E schita de fezabilitate a noii directii vizuale. Se construieste cu

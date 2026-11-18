@@ -720,6 +720,27 @@ de mai sus ramane: o functie din v3.4 nu se scoate tacit.
 
 ---
 
+## 2026-11-18 — Aceeasi paleta peste tot, in mod intunecat si luminos; incepe rescrierea
+
+**Context.** Schita avea conectarea si lista pe fond inchis, editorul pe alb.
+Mihai: „vreau sa fie paleta de culori asemanatoare la toate ecranele", iar la
+alegerea intre intunecat, luminos sau amandoua: „integrat ca dark si light
+mode". Si: „imi place cum arata, poti incepe sa rescrii designul".
+
+**Decizie (Mihai).** Doua palete, `INTUNECAT` si `LUMINOS`, cu **aceleasi
+nume de jetoane**, aplicate pe toate ecranele; modul se comuta. Rescrierea
+ferestrelor incepe acum (etapa 13), inaintea paritatii cu v3.4 — schimbare
+fata de intrarea „Intai paritatea functionala", la cererea lui Mihai. Etapa
+12 se inchide cu ecranul de deploy mutat dupa etapa 13.
+
+**Cum.** `jetoane::Paleta` e o singura structura; `aplica_tema(ui, Mod)` o
+pune in `Tema` dintr-o lista verificata de compilator. Testul de contrast
+ruleaza pe ambele palete (73 de perechi, abaterile comentariilor raman la
+3,5). Geist si Geist Mono inlocuiesc IBM Plex (schita le-a dovedit, cu
+diacritice). Implicitul ramane luminos pana sunt rescrise toate ecranele.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
