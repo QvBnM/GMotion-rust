@@ -57,6 +57,21 @@ Nu rezuma commit-uri acolo.
 
 ---
 
+## 0b. Cum raspunde asistentul
+
+Minimalist. Fara introduceri, fara rezumate ale cererii, fara recapitulari ale
+pasilor, fara oferte de ajutor suplimentar.
+
+Cand lucreaza: doar ce a facut, in 1-2 propozitii.
+
+Exceptia: daca apare o decizie reala sau o ambiguitate, da contextul strict
+necesar ca utilizatorul sa aleaga (cateva randuri).
+
+Detalii suplimentare doar daca sunt cerute explicit; dupa aceea, inapoi la
+minimalism.
+
+---
+
 ## 1. Poarta
 
 ```
