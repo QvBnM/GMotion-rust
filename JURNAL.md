@@ -741,6 +741,47 @@ diacritice). Implicitul ramane luminos pana sunt rescrise toate ecranele.
 
 ---
 
+## 2026-11-18 — Fara diacritice nicaieri; textele vor trece in engleza
+
+**Decizie (Mihai).** „Vreau sa dispara diacriticele de orice forma, o sa vreau
+sa o fac in engleza." Fara diacritice in interfata, mesaje, comentarii si
+documente. Regula 6 din `CLAUDE.md` s-a schimbat in acelasi commit, iar poarta
+cade pe orice diacritica noua (`unelte/verifica.sh`, „fara diacritice").
+
+**Exceptia, si de ce.** Datele de test care verifica intentionat nume cu
+diacritice ale utilizatorului (o baza cu t-virgula in nume, doua fisiere de
+deploy pe nume care difera doar prin a-caciula si a-breve, latimea unui tabel
+pe caractere, nu octeti) raman, marcate
+cu `diacritice-permise` pe aceeasi linie. Transliterate, doua teste ar fi
+trecut verificand altceva. Aplicatia trebuie in continuare sa trateze corect
+diacriticele din datele utilizatorului; doar textele noastre nu le mai au.
+
+**Ramane de facut.** Trecerea in engleza. Azi textele sunt imprastiate in
+`.slint`, `model_*` si `cli`; o traducere curata cere intai un singur loc
+pentru texte. Nu s-a inceput.
+
+---
+
+## 2026-11-18 — Deploy-ul din fereastra: doar scripturi, garda obligatorie
+
+**Context.** Mihai: „la deploy te las pe tine sa alegi cum arata".
+
+**Decizii.** (1) Ecranul spune explicit ca **se scriu doar scripturi** si ca
+pe server nu ruleaza nimic: asta face motorul (`deploy::scrie_cu_revenire`),
+ca Deployer-ul din v3.4. (2) Scrierea e posibila **doar dupa garda** pe
+obiectele recitite atunci, si se scrie din cele recitite, nu din cele de la
+comparare. (3) Fara confirmarea prin tastarea numelui bazei din machetele
+vechi: nimic nu se executa, iar garda opreste deja o baza atinsa. (4) Scrierea
+merge in directorul de date al aplicatiei (`<date>/deploy/<referinta>_<ora>`),
+fiindca fereastra n-are selector de fisiere (decizia pe `rfd`, inca deschisa).
+(5) Ce e „in plan" nu se tine minte intre porniri; v3.4 tinea starea de
+deploy. Ramas in `lipsuri-portare.md`.
+
+**Modul implicit** devine intunecat (stilul hartii, ales primul), acum ca
+toate ecranele sunt rescrise; butonul de tema il schimba si il tine minte.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

@@ -1,8 +1,8 @@
 # Etapa 13 — aspectul nou, in doua moduri
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-18 · **Incheiata:** —
+**Deschisa:** 2026-11-18 · **Incheiata:** 2026-11-18
 
 ## Scop
 
@@ -17,21 +17,21 @@ merg si dupa; nicio functie nu dispare.
 - [x] jetoanele au doua palete (`INTUNECAT`, `LUMINOS`) cu **aceleasi nume**;
       testul de contrast trece pe amandoua (4,5:1, abaterile notate)
 - [x] fonturile Geist si Geist Mono, incluse in binar, cu licenta OFL alaturi
-- [ ] modul se alege la pornire (`gmotion-ui --tema intunecat|luminos`) si se
+- [x] modul se alege la pornire (`gmotion-ui --tema intunecat|luminos`) si se
       comuta din fereastra; alegerea se tine minte intre porniri
-- [ ] conectarea, dupa schita: jurnalul ca banda jos, cautarea ca iconita;
+- [x] conectarea, dupa schita: jurnalul ca banda jos, cautarea ca iconita;
       captura in ambele moduri
-- [ ] lista, dupa schita: harta pictata in Rust, legata de tabel, cu
+- [x] lista, dupa schita: harta pictata in Rust, legata de tabel, cu
       coloanele existente; captura in ambele moduri
-- [ ] editorul, dupa schita: doua panouri (sursa doar citire, baza), canalul
+- [x] editorul, dupa schita: doua panouri (sursa doar citire, baza), canalul
       dintre ele; captura in ambele moduri
-- [ ] **niciun buton nou fara actiune**: ce din schita nu are inca logica
+- [x] **niciun buton nou fara actiune**: ce din schita nu are inca logica
       (functiile din `lipsuri-portare.md`) nu se deseneaza pana nu o are
-- [ ] testele de flux din `app` trec neschimbate in ce verifica
-- [ ] `CRATE.md` din `fereastra` actualizat (API, invariante)
-- [ ] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
+- [x] testele de flux din `app` trec neschimbate in ce verifica
+- [x] `CRATE.md` din `fereastra` actualizat (API, invariante)
+- [x] poarta verde: `unelte/verifica.sh`
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat, daca s-a luat vreo decizie
 
 ## Pasi
 
@@ -61,6 +61,36 @@ merg si dupa; nicio functie nu dispare.
   un bug real: `din_nume(" Intunecat ")` nu recunostea „I" (`to_ascii_lowercase`).
   IBM Plex scos din binar.
 
+- **2026-11-18** Pasii 2-6 facuti, plus ecranul de deploy. Cerute de Mihai pe
+  drum: buton dedicat pentru tema (pe toate cele patru ecrane), fara
+  diacritice nicaieri (poarta verifica), etapa dusa pana la capat cu deploy-ul
+  ales de mine. Conectarea: carduri sursa / baza, cautarea serverelor ca
+  iconita (legata la `db::cauta_instante`), banda de jurnal din
+  `platforma::jurnal`. Lista: harta pictata in Rust si legata de tabel, filtrele
+  pe stari in antet. Editorul: doua panouri, insule. Deploy: pasii in ordinea
+  din script, garda, revenirea, impartirea, scrierea. Butoanele moarte din
+  `lipsuri-portare.md` (sectiunea 0) au acum actiune. Testele au prins trei
+  bug-uri reale: prefixul `[GM-...]` luat drept nivel de jurnal, I-caciula majuscul nerecunoscut
+  la `--tema`, si (la diacritice) doua teste care ar fi incetat sa verifice
+  ceva. Calculul „ce patrat e sub mouse" era scris de doua ori (Rust si Slint);
+  mutat doar in `harta::indice_la`.
+
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+- **Etapa a crescut cu un ecran intreg.** Planul era rescrierea a trei ecrane;
+  Mihai a cerut si deploy-ul, ramas din etapa 12. A cerut logica pe care o
+  aveau deja `diff-obiecte` si `cli` (plan, garda, revenire), deci s-a facut
+  in `app::deploy` peste aceleasi functii, nu de la zero.
+- **Doua cereri noi la mijloc: butonul de tema si fara diacritice.** Prima a
+  adus tema in configurare (`Configurare::tema`). A doua a atins 87 de
+  fisiere si a cerut o exceptie marcata pentru datele de test care verifica
+  nume cu diacritice ale utilizatorului: fara ea, doua teste ar fi trecut
+  verificand altceva.
+- **Regula „niciun buton fara actiune" a scos butoane din schita.** Aplica
+  toate, Reset, Mod ghidat, Editeaza textul final, Ascunde diferentele,
+  Re-sincronizeaza, Uneste cursorul nu se deseneaza: logica lor e inca lipsa
+  (`lipsuri-portare.md`, sectiunea 4). Schita le arata; aplicatia le va arata
+  cand fac ceva.
+- **Recompara si cautarea serverelor au cerut logica, nu doar desen.** Erau
+  butoane moarte sau lipsa; s-au legat la ce exista deja (`pornire::compara`,
+  `db::cauta_instante`).

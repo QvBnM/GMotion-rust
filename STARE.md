@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (338 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (360 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -23,25 +23,21 @@ interfata grafica: binarul `gmotion`.
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
 | `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
 | `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
-| `rust/fereastra` | editorul, lista, conectarea se deseneaza; **7 butoane/comutatoare nelegate** (vezi `cercetare/lipsuri-portare.md`, sectiunea 0) |
-| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea; **nu e la paritate cu v3.4** |
+| `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema |
+| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **nu e la paritate cu v3.4** (`cercetare/lipsuri-portare.md`) |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/13-aspectul-nou.md` — ferestrele rescrise dupa
-schita aprobata, cu aceeasi paleta pe toate ecranele, in mod intunecat si
-luminos. Etapa 12 (planul de deploy) e incheiata: garda, revenirea si `cli`
-sunt facute; ecranul de deploy vine dupa, in noul aspect.
-
-**Etapele 8-11 sunt incheiate.** `gmotion-ui` porneste din ecranul de
-conectare, compara, arata lista cu previzualizare, deschide editorul si tine
-minte ce ai revizuit. Capturi, langa machete: `cercetare/machete/capturi/`.
+**Nicio etapa activa.** Etapa 13 (aspectul nou, in doua moduri) s-a incheiat
+pe 2026-11-18. Capturile, in ambele moduri: `cercetare/capturi/`. Urmatoarea
+etapa o alege Mihai (mai jos).
 
 ```
-cd rust && cargo run --release -p gmotion-app
+cd rust && cargo run --release -p gmotion-app            # implicit intunecat
+cargo run --release -p gmotion-app -- --tema luminos
 # sau direct pe un instantaneu:
 cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimilitudine.json \
     --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy
@@ -51,19 +47,24 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 13, pasul 2: conectarea** dupa `cercetare/schita-slint/ui/conectare.slint`
-(jurnalul ca banda jos, cautarea ca iconita), pe jetoanele din `Tema`, nu pe
-culorile din schita. Pasul 1 e facut: doua palete cu aceleasi nume,
-`aplica_tema(ui, Mod)`, Geist in loc de IBM Plex, `gmotion-ui --tema`.
+**De ales de Mihai: ce urmeaza.** Trei candidati, in ordinea in care cred
+ca se simt cel mai mult:
 
-- **Ordinea s-a schimbat din nou (Mihai, 2026-11-18):** dupa ce a aprobat
-  schita, a cerut sa incepem rescrierea designului. Paritatea cu v3.4
-  (`cercetare/lipsuri-portare.md`) ramane de facut; regula ramane: nicio
-  functie nu dispare, iar un buton din schita fara logica nu se deseneaza.
+1. **Paritatea cu v3.4 in editor** (`lipsuri-portare.md`, sectiunea 4): tinta
+   editabila, Aplica bloc / toate, Reset, Mod ghidat, Omite. Schita le are
+   desenate; aplicatia le arata cand fac ceva.
+2. **Trecerea in engleza.** Intai un singur loc pentru texte (azi sunt in
+   `.slint`, `model_*` si `cli`), apoi traducerea.
+3. **Restul paritatii** din `lipsuri-portare.md`: mai multe baze, progres si
+   Anuleaza la comparare, sesiuni, CSV din fereastra.
+
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
 
-Rulari pe Windows: nimic de cerut acum.
+**Rulare pe Windows, de cerut lui Mihai cand are timp** (ce n-am putut proba
+pe Linux): `gmotion-ui --tema intunecat` si `--tema luminos` pe un server
+real, prin RDP, si spus daca umbrele insulelor din editor se misca greu;
+daca da, se scot umbrele, nu insulele.
 
 Ramase deschise, documentate: performanta patratica pe obiecte uriase (se
 vede si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura data,
@@ -72,9 +73,6 @@ JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce astept de la Mihai
-
-**Intrebare deschisa:** planul de deploy (Deployer) urmeaza stilul listei sau
-al editorului? Cu aceeasi paleta peste tot, intrebarea e doar de asezare.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
@@ -85,21 +83,24 @@ unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
 filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
 nefolosit.
 
-**Ordinea lipsurilor** din `cercetare/lipsuri-portare.md` — asta blocheaza
-urmatorul pas.
+**Ce urmeaza** (cei trei candidati din „Urmatorul pas concret") — asta
+blocheaza urmatoarea etapa.
 
-**Doua intrebari din etapa 12** (pastrate ca idei, 2026-11-18) (blocheaza ecranul, nu modelul):
+**Doua intrebari din etapa 12** (ecranul de deploy exista acum; raspunsul
+schimba ce face, nu cum arata):
 
 4. **Deploy-ul sterge obiectele care nu mai sunt in sursa?** Macheta are un
    pas `DROP`. Acum obiectele `extra` se sar, ca in v3.4.
 5. **„Ruleaza" executa scriptul pe server din aplicatie?** Acum GMotion doar
    scrie `.sql`; rularea e in SSMS / sqlcmd. Daca da, e o etapa proprie.
 
-**Trei intrebari din etapa 11** (niciuna nu blocheaza etapa 12):
+**Trei intrebari din etapa 11:**
 
-1. **Selector de fisiere pentru „Deschide un instantaneu…"?** Ar fi o
-   dependinta noua (`rfd`, dialogul nativ) si nu o pot proba pe Linux fara
-   ecran. Pana atunci, calea se da la pornire: `gmotion-ui --sursa f.json`.
+1. **Selector de fisiere** (pentru „Deschide un instantaneu" si, acum, pentru
+   directorul de deploy)? Ar fi o dependinta noua (`rfd`, dialogul nativ) si
+   nu o pot proba pe Linux fara ecran. Pana atunci, instantaneul se da la
+   pornire (`gmotion-ui --sursa f.json`), iar deploy-ul se scrie in
+   directorul de date.
 2. **Mediul (PROD / TEST / DEV) de unde se ia?** Acum se ghiceste din numele
    bazei (`...Prod` → PROD). Ghicitul poate fi gresit exact unde conteaza. Ar
    trebui configurat explicit, pe server sau pe baza?
@@ -113,10 +114,15 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
-- **Modul implicit e luminos pana sunt rescrise toate ecranele.** Ecranele
-  vechi n-au fost gandite pe fond inchis: `--tema intunecat` merge, dar arata
-  ciudat pana la rescriere. Nu schimba implicitul inainte de pasul 5 al
-  etapei 13.
+- **Un buton din schita nu se deseneaza pana nu are logica.** Schita
+  (`cercetare/schita-slint/`) are butoane pe care aplicatia inca nu le are
+  (Aplica toate, Mod ghidat...). Cand le portezi, adaugi logica si butonul
+  in acelasi pas, cu test.
+- **Ce patrat de pe harta e sub mouse se decide doar in `harta::indice_la`.**
+  Slint trimite coordonatele. Nu repeta calculul in `.slint`.
+- **Fara diacritice nicaieri** (poarta cade). Datele de test care verifica
+  nume cu diacritice raman, marcate cu `diacritice-permise` pe aceeasi linie;
+  `cargo fmt` poate muta comentariul pe randul urmator, si atunci poarta cade.
 - **Un jeton nou se adauga in trei locuri:** campul in `jetoane::Paleta` (cu
   valoare in ambele palete), proprietatea in `Tema` din `comune.slint`, si
   linia din `cu_jetoanele!` in `lib.rs`. Compilatorul prinde campul lipsa din

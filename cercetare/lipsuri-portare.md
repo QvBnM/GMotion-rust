@@ -18,15 +18,10 @@ Legenda coloanei „Rust": **GUI** = `gmotion-ui`; **CLI** = `gmotion`.
 Callback declarat in `.slint`, fara handler in `rust/app/src/main.rs`. Sunt
 primele de reparat: un buton mort e mai rau decat unul lipsa.
 
-| Buton | Ecran | Callback |
-|---|---|---|
-| Recompara | lista | `recompara` |
-| Deploy N | lista | `deschide-deploy` |
-| In plan | lista, editor | `adauga-in-plan` |
-| editeaza textul final | editor | `editeaza-textul-final` |
-| Alaturat / Unificat, tasta `u` | editor | `comuta-alaturat` |
-| pliaza identicul | editor | `comuta-plierea` |
-| eticheta „Ctrl K" in cautare | lista | nicio tasta legata |
+Rezolvate in etapa 13: Recompara, Deploy (N), In plan, Alaturat / Unificat,
+pliaza identicul au acum actiune; eticheta „Ctrl K" nu se mai deseneaza.
+„Editeaza textul final" nu se mai deseneaza pana nu exista tinta editabila
+(sectiunea 4); callback-ul a ramas declarat in `editor.slint`, fara buton.
 
 **Bug-uri gasite la rularea lui Mihai pe Windows (2026-11-18):**
 
@@ -41,12 +36,11 @@ primele de reparat: un buton mort e mai rau decat unul lipsa.
 
 | Functie v3.4 | Unde in v3.4 | Rust | Nota |
 |---|---|---|---|
-| Cautarea serverelor in retea (SQL Browser, UDP 1434), cu lista | `app.py:116`, `ui.py:898,1717` | GUI **nu**; CLI da (`gmotion servere`, `db/src/descoperire.rs`) | codul exista, doar nelegat |
 | Etichete CLUSTER / IMPLICITA in lista de servere | `ui.py:1737` | nu | |
 | „Testeaza conexiunea" cu detalii server (editie, OS, uptime, nr. baze) | `app.py:320`, `ui.py:1764` | partial: se citesc bazele, fara detalii | |
 | **O referinta comparata cu mai multe baze** (bife) | `ui.py:1812-1877` | GUI **nu** (1 la 1); CLI da (`--baze A,B,C`) | modelul 1 la 1 a venit cu machetele, fara decizie scrisa |
 | Progres, timp, mesaje, **Anuleaza** | `app.py:363`, `ui.py:1933` | GUI **nu**: fereastra sta blocata (~12 s pe baza reala) | intrebarea 3 din `STARE.md` |
-| Panou cu jurnalul live, „Sterge log" | `ui.py:945,5043` | nu | |
+| „Sterge log" in banda de jurnal | `ui.py:5043` | nu: banda exista (etapa 13), fara stergere | `platforma::jurnal` n-are inca golire |
 | Blocarea formularului cat ruleaza, „Deconecteaza" cu confirmare | `ui.py:1980,2056` | nu: din lista nu te mai intorci la conectare | |
 | Deschiderea unui instantaneu din fereastra | — (nou) | GUI doar prin `--sursa` la pornire | asteapta decizia pe `rfd` |
 
@@ -99,15 +93,14 @@ comuta (sectiunea 0).
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Butonul „Deployer (N)" si fereastra lui | `ui.py:1125,1150-1165` | GUI nu; CLI da (`gmotion deploy`) | etapa 12 |
-| 4 moduri de impartire a fisierelor | `app.py:597` | CLI da (`--mod-fisiere`, `--cate`) | |
 | „Include si ce a fost deja trimis la deploy" | `ui.py:1161` | nu: starea „deployat" nu exista | |
 | **Deploy cu textul editat** (`__FINAL__`), blocuri excluse | `app.py:540-560` | nu: doar codul din referinta | depinde de tinta editabila |
-| Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE` | |
+| Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE`; GUI scrie in directorul de date, fara alegere | asteapta decizia pe `rfd` (selectorul de fisiere) |
+| Starea „deployat" tinuta minte | `ui.py:2533-2549` | nu: ce e „in plan" se pierde la inchidere | |
 
-Nou fata de v3.4, doar in CLI: planul cu amprente, garda „baza n-a mai fost
-atinsa", scriptul de revenire, garda de versiune, setarile `SET` refacute,
-ordinea pe dependente.
+Nou fata de v3.4, in CLI si (din etapa 13) in fereastra: planul cu
+amprente, garda „baza n-a mai fost atinsa", scriptul de revenire, ordinea pe
+dependente. Doar in CLI: garda de versiune, setarile `SET` refacute.
 
 ## 6. Sesiuni, setari, fereastra
 
@@ -115,7 +108,7 @@ ordinea pe dependente.
 |---|---|---|---|
 | Tab „Sesiuni": lista cu progres, Reia / Ignora, insigna | `ui.py:869,2218-2310`, `app.py:245-318` | partial: „Recente" pe ecranul de conectare; nu se pot sterge | |
 | Indicatorul „salvat" | `ui.py:2313` | nu (se salveaza tacit) | |
-| 6 teme, inclusiv intunecate | `ui.py:1075-1085` | nu: doar tema luminoasa | aspectul vizual se discuta separat |
+| 6 teme, inclusiv intunecate | `ui.py:1075-1085` | partial: doua moduri, intunecat si luminos, cu butonul de tema (etapa 13) | decizia lui Mihai: aceeasi paleta, doua moduri |
 | Ecran complet | `app.py:695-870` | nu | |
 | „Despre" | — | nu | **cerut de licenta Slint** (vezi `JURNAL.md`) |
 
