@@ -192,6 +192,7 @@ export component EditorDiferente inherits Window {
     callback comuta-alaturat(bool);
     callback editeaza-textul-final();
     callback alege-tema(bool);
+    callback ecran-complet();
     callback comuta-omis();
     callback aplica-diferenta(int);
     callback aplica-toate();
@@ -233,6 +234,7 @@ export component EditorDiferente inherits Window {
 
     taste := FocusScope {
         key-pressed(e) => {
+            if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             // modul ghidat: Enter aplica, Esc sare, sus / jos alta diferenta
             if (root.ghidat && root.ghidat-terminat) {
                 if (e.text == Key.Return || e.text == Key.Escape) { root.ghidat-opreste(); return accept; }

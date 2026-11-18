@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: f7d028269747158d -->
+<!-- api-hash: 16bf090bc04a2456 -->
 
 ## Rol
 
@@ -41,6 +41,9 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `deploy::{ecran, impartire_din, pozitia_impartirii}`, `Garda`, `PasAfisat` | ce se deseneaza pe ecranul de deploy |
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
+| `fir::Rulare` (`porneste`, `verifica`, `anuleaza`, `text`, `timp`, `fractie`) | compararea pe alt fir, cu progres si Anuleaza |
+| `pornire::testeaza(c, parte)` | Testeaza conexiunea: ce raspunde serverul, fara parola in mesaj |
+| `pornire::compara_offline(sursa, tinta)` | compararea a doua bucati de cod lipite, fara server |
 | `pornire::compara(c) -> Comparata`, `compara_cu(c, progres)`, `Pas`, `ANULAT` | citeste referinta si fiecare baza bifata si compara; `compara_cu` da progresul si se poate anula |
 
 ## Invariante

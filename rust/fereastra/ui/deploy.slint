@@ -98,9 +98,11 @@ export component FereastraDeploy inherits Window {
     // planul acopera mai multe baze: randurile arata in care se scriu
     in property <bool> mai-multe-baze;
     callback alege-tema(bool);
+    callback ecran-complet();
 
     FocusScope {
         key-pressed(e) => {
+            if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
         }

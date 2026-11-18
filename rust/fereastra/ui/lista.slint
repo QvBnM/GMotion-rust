@@ -9,7 +9,7 @@
 // clicul pe harta, din `src/harta.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi } from "comune.slint";
+import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
 
 export struct RandListaUi {
     schema: string,
@@ -456,6 +456,14 @@ export component FereastraLista inherits Window {
     in property <image> tigla-hasura;
 
     callback recompara();
+    callback ajutor();
+    in property <string> text-ajutor;
+    in-out property <bool> arata-ajutorul;
+    /// „Deconecteaza": intai se cere confirmarea, apoi se face.
+    callback cere-deconectarea();
+    callback deconecteaza();
+    callback renunta-la-deconectare();
+    in property <bool> intreaba-deconectarea;
     callback deschide-deploy();
     callback alege-categoria(int);
     callback alege-tipul(int);
@@ -471,6 +479,7 @@ export component FereastraLista inherits Window {
     callback exporta-csv();
     callback pune-vizibilele-in-plan(bool);
     callback alege-tema(bool);
+    callback ecran-complet();
 
     // bula de pe harta: numele patratului de sub mouse, pusa din Rust
     in-out property <string> bula;
@@ -488,6 +497,7 @@ export component FereastraLista inherits Window {
 
     taste := FocusScope {
         key-pressed(e) => {
+            if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             if (e.text == Key.DownArrow || e.text == "j") { root.muta-selectia(1); return accept; }
             if (e.text == Key.UpArrow || e.text == "k") { root.muta-selectia(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
@@ -495,6 +505,9 @@ export component FereastraLista inherits Window {
             if (e.text == "i") { root.adauga-in-plan(); return accept; }
             // Ctrl+F: cursorul in cautare, ca in v3.4
             if (e.text == "f" && e.modifiers.control) { camp.focus(); return accept; }
+            if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
+            if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
+            if (e.text == Key.Escape && root.intreaba-deconectarea) { root.renunta-la-deconectare(); return accept; }
             return reject;
         }
 
@@ -549,6 +562,8 @@ export component FereastraLista inherits Window {
                     }
                 }
                 VerticalLayout { alignment: center; Buton { text: "Recompara"; apasat => { root.recompara(); } } }
+                VerticalLayout { alignment: center; Buton { text: "Ajutor  F1"; apasat => { root.arata-ajutorul = true; root.ajutor(); } } }
+                VerticalLayout { alignment: center; Buton { text: "Deconecteaza"; apasat => { root.cere-deconectarea(); } } }
                 VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
             }
 
@@ -947,6 +962,45 @@ export component FereastraLista inherits Window {
             background: Tema.text;
             bt := Text { text: root.bula; font-family: Tema.font-mono; font-size: 12px; font-weight: 500; color: Tema.fundal; }
         }
+    }
+
+    // ---- „Te deconectezi?": v3.4 intreba, fiindca se pierde ecranul de
+    // lucru. Progresul e salvat, deci asta si scrie in dialog.
+    if root.intreaba-deconectarea: Rectangle {
+        background: Tema.intunecat ? #00000099 : #0f111566;
+        TouchArea { }
+        Rectangle {
+            width: 420px;
+            height: 184px;
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            VerticalLayout {
+                padding: 18px;
+                spacing: 10px;
+                Text { text: "Te deconectezi de la server?"; font-family: Tema.font-ui; font-size: 15px; font-weight: 600; color: Tema.text; }
+                Text {
+                    text: "Progresul (revizuite, editari, deploy) e salvat si poate fi reluat din Comparari recente.";
+                    font-family: Tema.font-ui;
+                    font-size: 12.5px;
+                    color: Tema.text-secundar;
+                    wrap: word-wrap;
+                    vertical-stretch: 1;
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: end;
+                    Buton { text: "Ramai  Esc"; apasat => { root.renunta-la-deconectare(); } }
+                    ButonPrincipal { text: "Deconecteaza"; apasat => { root.deconecteaza(); } }
+                }
+            }
+        }
+    }
+
+    if root.arata-ajutorul: Ajutor {
+        text: root.text-ajutor;
+        inchide => { root.arata-ajutorul = false; }
     }
 
     init => { taste.focus(); }

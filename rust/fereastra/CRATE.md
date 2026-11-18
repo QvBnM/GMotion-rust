@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 5f2cfb627186a29a -->
+<!-- api-hash: 2cfbd70c2518c66f -->
 
 ## Rol
 
@@ -28,12 +28,13 @@ si editorul de diferente (etapa 8).
 | Element | Ce face |
 |---|---|
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie |
-| `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta}` | modelul lui; `Acreditari` **nu are `Debug` derivat** |
+| `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta, ServerGasit}` | modelul lui; `Acreditari` **nu are `Debug` derivat**; `Parte::{comuta_baza, baze_alese, e_aleasa}` tin bifele cand se compara mai multe baze |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
-| `model_lista::Lista` | lista: filtre, cautare, sortare, contoare, selectie, detalii la cerere |
-| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru}` | modelul listei |
+| `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
+| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire}` | modelul listei; cheia unui rand e `(baza, schema.nume)` |
+| `AJUTOR` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `ordine_din_cod(cod)` | ce coloana a apasat utilizatorul; inversul codurilor din `global Sortare` (`lista.slint`) |
 | `harta::{aseaza, picteaza, indice_la, celula_la, pozitie_randului}`, `LATIME_HARTA` | harta de deasupra tabelului: grupuri pe tip, patrate pictate in Rust, clic → rand |

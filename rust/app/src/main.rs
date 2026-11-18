@@ -40,6 +40,8 @@ struct Stare {
     /// Planul de deploy deschis si obiectele din care s-a facut: cand se
     /// schimba ce e „in plan", planul se reface (si garda se pierde).
     deploy: Option<(Vec<(String, String)>, gmotion_app::deploy::StareDeploy)>,
+    /// Compararea care ruleaza acum, pe alt fir.
+    rulare: Option<gmotion_app::fir::Rulare>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
@@ -145,6 +147,7 @@ fn ruleaza() -> Result<(), String> {
         sesiuni,
         server: String::new(),
         deploy: None,
+        rulare: None,
         salvat_la: String::new(),
     }));
 
@@ -245,6 +248,16 @@ fn ruleaza() -> Result<(), String> {
             };
             if s.app.is_none() {
                 incarca_conectare(&c_ui, &s.conectare);
+                // progresul compararii, cat ruleaza pe alt fir
+                match s.rulare.as_ref() {
+                    Some(r) => {
+                        c_ui.set_ruleaza(true);
+                        c_ui.set_progres(r.fractie());
+                        c_ui.set_progres_text(r.text().into());
+                        c_ui.set_progres_timp(r.timp().into());
+                    }
+                    None => c_ui.set_ruleaza(false),
+                }
                 incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(0).0);
                 let _ = l_ui.hide();
                 let _ = e_ui.hide();
@@ -547,7 +560,14 @@ fn ruleaza() -> Result<(), String> {
                 }
                 Ok(v) => {
                     tracing::info!(target: "gmotion::app", gasite = v.len(), "servere gasite");
-                    p.servere_gasite = v.into_iter().map(|i| i.server).collect();
+                    p.servere_gasite = v
+                        .into_iter()
+                        .map(|i| gmotion_fereastra::model_conectare::ServerGasit {
+                            nume: i.server,
+                            implicita: i.implicita,
+                            cluster: i.cluster,
+                        })
+                        .collect();
                 }
                 Err(e) => {
                     p.servere_gasite.clear();
@@ -610,26 +630,103 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         conectare_ui.on_compara(move || {
             let c = s.borrow().conectare.clone();
-            match pornire::compara(&c) {
+            tracing::info!(target: "gmotion::app", "pornesc compararea");
+            s.borrow_mut().rulare = Some(gmotion_app::fir::Rulare::porneste(c));
+            d();
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_testeaza(move |sursa| {
+            let c = s.borrow().conectare.clone();
+            let p = if sursa { &c.sursa } else { &c.baza };
+            tracing::info!(target: "gmotion::app", sursa, "testez conexiunea");
+            let stare_noua = match pornire::testeaza(&c, p) {
+                Ok(t) => StareConexiune::Conectat(t),
+                Err(e) => StareConexiune::Eroare(e),
+            };
+            s.borrow_mut().parte(sursa).stare = stare_noua;
+            d();
+        });
+        let d = deseneaza.clone();
+        conectare_ui.on_sterge_jurnalul(move || {
+            gmotion_platforma::jurnal::goleste();
+            d();
+        });
+        let c_ui = conectare_ui.as_weak();
+        let d = deseneaza.clone();
+        conectare_ui.on_deschide_offline(move || {
+            if let Some(ui) = c_ui.upgrade() {
+                ui.set_offline(true);
+                ui.set_offline_eroare(Default::default());
+            }
+            d();
+        });
+        let c_ui = conectare_ui.as_weak();
+        let d = deseneaza.clone();
+        conectare_ui.on_inchide_offline(move || {
+            if let Some(ui) = c_ui.upgrade() {
+                ui.set_offline(false);
+            }
+            d();
+        });
+        let s = stare.clone();
+        let c_ui = conectare_ui.as_weak();
+        let d = deseneaza.clone();
+        conectare_ui.on_compara_offline(move |a, b| {
+            match pornire::compara_offline(&a, &b) {
                 Ok(r) => {
                     let mut st = s.borrow_mut();
-                    let salvata = st.sesiuni.incarca(&c.sursa.baza).ok().flatten();
-                    let revizuire = salvata
-                        .as_ref()
-                        .map(modul::Revizuire::din_sesiune)
-                        .unwrap_or_default();
-                    let editari = salvata
-                        .as_ref()
-                        .map(modul::Editari::din_sesiune)
-                        .unwrap_or_default();
                     st.server = r.server;
-                    st.app = Some(
-                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
-                    );
+                    st.app = Some(Aplicatie::noua(
+                        r.randuri,
+                        r.sursa,
+                        r.tinte,
+                        modul::Revizuire::noua(),
+                    ));
+                    // numele bazelor din antet: offline nu vine de pe server
+                    st.conectare.sursa.baza = "Lipit (sursa)".into();
+                    st.conectare.baza.baza = "Lipit".into();
+                    drop(st);
+                    if let Some(ui) = c_ui.upgrade() {
+                        ui.set_offline(false);
+                    }
                 }
                 Err(e) => {
-                    s.borrow_mut().conectare.sursa.stare = StareConexiune::Eroare(e);
+                    if let Some(ui) = c_ui.upgrade() {
+                        ui.set_offline_eroare(e.into());
+                    }
                 }
+            }
+            d();
+        });
+        conectare_ui.on_ajutor(|| {
+            tracing::info!(target: "gmotion::app", "deschid ajutorul");
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_ignora_recenta(move |i| {
+            let mut st = s.borrow_mut();
+            if let Some(r) = st
+                .conectare
+                .recente
+                .get(usize::try_from(i).unwrap_or(0))
+                .cloned()
+            {
+                match st.sesiuni.sterge(&r.sursa) {
+                    Ok(_) => tracing::info!(target: "gmotion::app", referinta = %r.sursa, "comparare ignorata"),
+                    Err(e) => tracing::warn!(target: "gmotion::app", eroare = %e, "nu pot sterge sesiunea"),
+                }
+                let recente_noi = recente(&st.sesiuni);
+                st.conectare.recente = recente_noi;
+            }
+            drop(st);
+            d();
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_anuleaza(move || {
+            if let Some(r) = s.borrow_mut().rulare.as_mut() {
+                r.anuleaza();
             }
             d();
         });
@@ -657,6 +754,42 @@ fn ruleaza() -> Result<(), String> {
         lista_ui.on_alege_randul(move |i| c(Comanda::Selecteaza(i.max(0) as usize)));
         let c = comanda.clone();
         lista_ui.on_deschide_obiectul(move || c(Comanda::Deschide));
+        lista_ui.on_ajutor(|| {
+            tracing::info!(target: "gmotion::app", "deschid ajutorul");
+        });
+        let l = lista_ui.as_weak();
+        lista_ui.on_cere_deconectarea(move || {
+            if let Some(ui) = l.upgrade() {
+                ui.set_intreaba_deconectarea(true);
+            }
+        });
+        let l = lista_ui.as_weak();
+        lista_ui.on_renunta_la_deconectare(move || {
+            if let Some(ui) = l.upgrade() {
+                ui.set_intreaba_deconectarea(false);
+            }
+        });
+        let s = stare.clone();
+        let l = lista_ui.as_weak();
+        let sv = salveaza.clone();
+        let d = deseneaza.clone();
+        lista_ui.on_deconecteaza(move || {
+            // progresul se salveaza inainte de a arunca starea: altfel
+            // „Deconecteaza" ar insemna „pierde ce ai revizuit"
+            sv();
+            let mut st = s.borrow_mut();
+            st.app = None;
+            st.deploy = None;
+            st.rulare = None;
+            let recente_noi = recente(&st.sesiuni);
+            st.conectare.recente = recente_noi;
+            drop(st);
+            if let Some(ui) = l.upgrade() {
+                ui.set_intreaba_deconectarea(false);
+            }
+            tracing::info!(target: "gmotion::app", "deconectat");
+            d();
+        });
         gmotion_fereastra::leaga_harta(&lista_ui);
         // recompararea: aceeasi conectare, revizuirea de pana acum ramane
         let s = stare.clone();
@@ -664,28 +797,9 @@ fn ruleaza() -> Result<(), String> {
         lista_ui.on_recompara(move || {
             let c = s.borrow().conectare.clone();
             tracing::info!(target: "gmotion::app", "recompar");
-            match pornire::compara(&c) {
-                Ok(r) => {
-                    let mut st = s.borrow_mut();
-                    let revizuire = st
-                        .app
-                        .as_mut()
-                        .map(|a| a.revizuire_de_salvat().clone())
-                        .unwrap_or_default();
-                    let editari = st
-                        .app
-                        .as_ref()
-                        .map(|a| a.editari().clone())
-                        .unwrap_or_default();
-                    st.server = r.server;
-                    st.app = Some(
-                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
-                    );
-                }
-                Err(e) => {
-                    tracing::warn!(target: "gmotion::app", eroare = %e, "recompararea a esuat");
-                }
-            }
+            // acelasi drum ca prima comparare: pe alt fir, cu progres. Ceasul
+            // pastreaza revizuirea de pana acum.
+            s.borrow_mut().rulare = Some(gmotion_app::fir::Rulare::porneste(c));
             d();
         });
         let c = comanda.clone();
@@ -928,6 +1042,98 @@ fn ruleaza() -> Result<(), String> {
             d();
         });
     }
+
+    // ceasul care aduce progresul compararii de pe celalalt fir. Bate tot
+    // timpul, dar nu face nimic cat nu ruleaza nimic.
+    let ceas = slint::Timer::default();
+    {
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        ceas.start(
+            slint::TimerMode::Repeated,
+            std::time::Duration::from_millis(120),
+            move || {
+                let gata = {
+                    let mut st = s.borrow_mut();
+                    match st.rulare.as_mut() {
+                        Some(r) => r.verifica(),
+                        None => return,
+                    }
+                };
+                match gata {
+                    // inca ruleaza: doar redesenam bara si ceasul
+                    None => d(),
+                    Some(rezultat) => {
+                        let mut st = s.borrow_mut();
+                        st.rulare = None;
+                        let referinta = st.conectare.sursa.baza.clone();
+                        match rezultat {
+                            Ok(r) => {
+                                // la recomparare pastram ce s-a revizuit deja;
+                                // la prima comparare, ce s-a salvat in sesiune
+                                let (revizuire, editari) = match st.app.as_mut() {
+                                    Some(a) => {
+                                        (a.revizuire_de_salvat().clone(), a.editari().clone())
+                                    }
+                                    None => {
+                                        let salvata =
+                                            st.sesiuni.incarca(&referinta).ok().flatten();
+                                        (
+                                            salvata
+                                                .as_ref()
+                                                .map(modul::Revizuire::din_sesiune)
+                                                .unwrap_or_default(),
+                                            salvata
+                                                .as_ref()
+                                                .map(modul::Editari::din_sesiune)
+                                                .unwrap_or_default(),
+                                        )
+                                    }
+                                };
+                                st.server = r.server;
+                                st.app = Some(
+                                    Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
+                                        .cu_editari(editari),
+                                );
+                            }
+                            Err(e) if e == pornire::ANULAT => {
+                                tracing::info!(target: "gmotion::app", "compararea a fost anulata");
+                                st.conectare.sursa.stare =
+                                    StareConexiune::Eroare("comparare anulata".into());
+                            }
+                            Err(e) => {
+                                tracing::warn!(target: "gmotion::app", eroare = %e, "compararea a esuat");
+                                st.conectare.sursa.stare = StareConexiune::Eroare(e);
+                            }
+                        }
+                        drop(st);
+                        d();
+                    }
+                }
+            },
+        );
+    }
+
+    // F11: tot ecranul, din oricare fereastra. Slint tine starea pe
+    // fereastra, deci se comuta pe cea care a primit tasta.
+    macro_rules! ecran_complet {
+        ($ui:expr) => {{
+            let w = $ui.as_weak();
+            $ui.on_ecran_complet(move || {
+                if let Some(ui) = w.upgrade() {
+                    let f = ui.window().is_fullscreen();
+                    ui.window().set_fullscreen(!f);
+                }
+            });
+        }};
+    }
+    ecran_complet!(conectare_ui);
+    ecran_complet!(lista_ui);
+    ecran_complet!(editor_ui);
+    ecran_complet!(deploy_ui);
+
+    conectare_ui.set_text_ajutor(gmotion_fereastra::AJUTOR.into());
+    lista_ui.set_text_ajutor(gmotion_fereastra::AJUTOR.into());
 
     deseneaza();
     slint::run_event_loop().map_err(|e| e.to_string())?;

@@ -91,6 +91,99 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
     }
 }
 
+/// Verifica o conexiune si intoarce ce a raspuns serverul: editia, sistemul,
+/// de cat timp merge si cate baze are. Pe instantaneu nu exista server, deci
+/// se spune de unde s-au luat obiectele.
+///
+/// Nu arunca parola in mesaj, ca peste tot aici.
+pub fn testeaza(c: &Conectare, p: &Parte) -> Result<String, String> {
+    if let Some(cale) = &c.instantaneu {
+        let mut s = SursaFixture::din_fisier(cale).map_err(|e| e.to_string())?;
+        let baze = s.baze().map_err(|e| e.to_string())?;
+        return Ok(format!(
+            "instantaneu · {} · {} baze",
+            s.descriere(),
+            baze.len()
+        ));
+    }
+    if let Some(ce) = p.ce_lipseste() {
+        return Err(format!("completeaza {ce}"));
+    }
+    let (server, port) = imparte_portul(&p.server);
+    let auth = if p.auth_windows {
+        Autentificare::Integrata
+    } else {
+        Autentificare::Sql {
+            utilizator: p.acreditari.utilizator.clone(),
+            parola: p.acreditari.parola().to_string(),
+        }
+    };
+    let mut s = SursaSqlServer::nou(
+        Tinta {
+            server,
+            port,
+            certificat: certificat(c),
+        },
+        auth,
+    )
+    .map_err(|e| e.to_string())?;
+    // `master` exista pe orice server si nu cere drepturi pe bazele
+    // utilizatorului: altfel „Testeaza" ar cadea acolo unde conectarea merge
+    let info = s.verifica("master").map_err(|e| e.to_string())?;
+    Ok(descrie_serverul(&info))
+}
+
+/// Propozitia din ecran, din ce a raspuns serverul.
+fn descrie_serverul(i: &gmotion_db::InfoServer) -> String {
+    let mut parti = vec![i.editie.clone(), i.sistem.clone()];
+    if let Some(s) = i.pornit_de_secunde {
+        parti.push(format!("pornit de {}", durata_scurta(s)));
+    }
+    if let Some(n) = i.nr_baze {
+        parti.push(format!("{n} baze"));
+    }
+    parti.retain(|p| !p.trim().is_empty());
+    parti.join(" · ")
+}
+
+/// „3 zile", „5 ore", „12 minute": destul pentru ecran, fara dependinte.
+/// Singularul si pluralul se scriu amandoua — „1 zile" se vede.
+fn durata_scurta(secunde: i64) -> String {
+    let s = secunde.max(0);
+    let (n, unu, multe) = match s {
+        0..=119 => (s, "secunda", "secunde"),
+        120..=7199 => (s / 60, "minut", "minute"),
+        7200..=86_399 => (s / 3600, "ora", "ore"),
+        _ => (s / 86_400, "zi", "zile"),
+    };
+    format!("{n} {}", if n == 1 { unu } else { multe })
+}
+
+/// Compararea offline din v3.4: doua bucati de cod lipite in ecran, fara
+/// server si fara instantaneu. Obiectul se numeste ca in machete.
+pub fn compara_offline(sursa: &str, tinta: &str) -> Result<Comparata, String> {
+    if sursa.trim().is_empty() || tinta.trim().is_empty() {
+        return Err("lipeste cod in ambele panouri".to_string());
+    }
+    let obiect = |text: &str| gmotion_db::Obiect {
+        schema: "dbo".into(),
+        nume: "cod_lipit".into(),
+        tip: "P".into(),
+        definitie: text.to_string(),
+        setari: None,
+    };
+    let s = modul::pregateste(&[obiect(sursa)]);
+    let t = modul::pregateste(&[obiect(tinta)]);
+    let tinte = vec![("Lipit".to_string(), t)];
+    let comparare = modul::compara("Lipit", &s, &tinte, |_| {});
+    Ok(Comparata {
+        randuri: comparare.randuri,
+        sursa: s,
+        tinte,
+        server: "comparare offline".to_string(),
+    })
+}
+
 /// Rezultatul unei comparari pornite din ecranul de conectare.
 pub struct Comparata {
     pub randuri: Vec<modul::Rand>,
@@ -293,6 +386,83 @@ mod teste {
         assert_eq!(citite.get(), 2, "s-a oprit la a doua intrebare");
 
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn compararea_offline_lucreaza_pe_doua_bucati_de_cod() {
+        let e = compara_offline("", "SELECT 1")
+            .map(|_| ())
+            .expect_err("gol");
+        assert_eq!(e, "lipeste cod in ambele panouri");
+        let r = compara_offline(
+            "CREATE PROC dbo.p AS\nSELECT 1",
+            "CREATE PROC dbo.p AS\nSELECT 2",
+        )
+        .expect("merge");
+        assert_eq!(r.randuri.len(), 1);
+        assert_eq!(r.randuri[0].obiect, "dbo.cod_lipit");
+        assert_eq!(r.prima_tinta(), "Lipit");
+        // cod identic: nu apare niciun rand, ca la comparare normala
+        let r = compara_offline("SELECT 1", "SELECT 1").expect("merge");
+        assert!(r.randuri.is_empty());
+    }
+
+    #[test]
+    fn durata_se_scrie_in_unitatea_potrivita() {
+        assert_eq!(durata_scurta(-5), "0 secunde");
+        assert_eq!(durata_scurta(1), "1 secunda");
+        assert_eq!(durata_scurta(119), "119 secunde");
+        assert_eq!(durata_scurta(120), "2 minute");
+        assert_eq!(durata_scurta(3600), "60 minute");
+        assert_eq!(durata_scurta(7200), "2 ore");
+        assert_eq!(durata_scurta(86_399), "23 ore");
+        assert_eq!(durata_scurta(86_400), "1 zi");
+        assert_eq!(durata_scurta(172_800), "2 zile");
+    }
+
+    #[test]
+    fn descrierea_serverului_sare_campurile_lipsa() {
+        use gmotion_db::InfoServer;
+        let i = InfoServer {
+            editie: "SQL Server 2019 Standard".into(),
+            sistem: "Windows Server 2019".into(),
+            pornit_de_secunde: Some(90_000),
+            nr_baze: Some(42),
+        };
+        assert_eq!(
+            descrie_serverul(&i),
+            "SQL Server 2019 Standard · Windows Server 2019 · pornit de 1 zi · 42 baze"
+        );
+        let gol = InfoServer {
+            editie: "SQL Server".into(),
+            sistem: String::new(),
+            pornit_de_secunde: None,
+            nr_baze: None,
+        };
+        assert_eq!(descrie_serverul(&gol), "SQL Server");
+    }
+
+    #[test]
+    fn testarea_pe_instantaneu_spune_de_unde_vin_obiectele() {
+        let d = std::env::temp_dir().join(format!("gmotion-test-con-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        instantaneu(&cale);
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        let t = testeaza(&c, &c.sursa).expect("instantaneul se citeste");
+        assert!(t.starts_with("instantaneu · "), "{t}");
+        assert!(t.ends_with("2 baze"), "{t}");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn testarea_fara_server_spune_ce_lipseste_nu_incearca_sa_se_conecteze() {
+        let c = Conectare::noua();
+        assert_eq!(
+            testeaza(&c, &c.sursa).expect_err("lipseste serverul"),
+            "completeaza serverul"
+        );
     }
 
     #[test]

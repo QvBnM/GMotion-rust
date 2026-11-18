@@ -57,6 +57,25 @@ impl std::fmt::Debug for Acreditari {
     }
 }
 
+/// Un server gasit in retea. Etichetele vin din raspunsul SSRP
+/// (`gmotion_db::Instanta`), nu din ghicitul numelui.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ServerGasit {
+    pub nume: String,
+    /// Instanta implicita (fara `\instanta` in nume).
+    pub implicita: bool,
+    pub cluster: bool,
+}
+
+impl ServerGasit {
+    pub fn nou(nume: impl Into<String>) -> Self {
+        ServerGasit {
+            nume: nume.into(),
+            ..Default::default()
+        }
+    }
+}
+
 /// Unde a ajuns incercarea de conectare a unei parti.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum StareConexiune {
@@ -100,7 +119,7 @@ pub struct Parte {
     pub auth_windows: bool,
     /// Instantele gasite in retea (SQL Browser), de ales cu un clic. Goala
     /// pana se apasa cautarea.
-    pub servere_gasite: Vec<String>,
+    pub servere_gasite: Vec<ServerGasit>,
 }
 
 impl Parte {

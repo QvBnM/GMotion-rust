@@ -22,6 +22,45 @@ pub use jetoane::Mod;
 use model_editor::{Bucata, Marcaj, ModelEditor, RandAfisat, Sintaxa, Stare};
 use slint::{Color, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 
+/// Textul ferestrei de ajutor (F1). Intr-un singur loc, ca ecranele sa nu
+/// spuna lucruri diferite despre aceleasi taste.
+pub const AJUTOR: &str = "\
+GMotion compara obiectele programabile (proceduri, functii, view-uri, \
+triggere) dintr-o baza de referinta cu una sau mai multe baze comparate, si \
+scrie scripturile de deploy. Citeste; nu scrie nimic pe server.\n\
+\n\
+CONECTARE\n\
+  Alege serverul si baza de referinta in stanga, serverul si bazele \
+comparate in dreapta. Bifeaza mai multe baze ca sa compari aceeasi \
+referinta cu toate deodata.\n\
+  Testeaza conexiunea  spune ce raspunde serverul (editie, sistem, cate baze).\n\
+  Comparare offline    doua bucati de cod lipite, fara server.\n\
+  Esc                  anuleaza compararea care ruleaza.\n\
+\n\
+LISTA\n\
+  j k / sageti   obiectul urmator, anterior\n\
+  Enter          deschide obiectul in editor\n\
+  r              revizuit\n\
+  i              pune sau scoate din planul de deploy\n\
+  Ctrl+F         cauta\n\
+  Clic pe capul unei coloane sorteaza; al doilea clic inverseaza.\n\
+\n\
+EDITOR\n\
+  Esc            inapoi la lista\n\
+  j k            obiectul urmator, anterior\n\
+  n p            diferenta urmatoare, anterioara\n\
+  u              alaturat / unificat\n\
+  e              editeaza textul final de mana\n\
+  g              modul ghidat (fiecare diferenta pe rand)\n\
+  o              omite obiectul\n\
+  Ctrl+Z         anuleaza ultima schimbare a textului final\n\
+\n\
+DEPLOY\n\
+  Planul se verifica inainte de scriere (ca bazele n-au mai fost atinse de \
+la comparare), iar revenirea se scrie inaintea scripturilor.\n\
+\n\
+F1 deschide si inchide fereastra asta. F11 trece pe tot ecranul.";
+
 /// Mediul bazei tinta: da culoarea benzii de sus si a etichetei.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mediu {
@@ -956,7 +995,11 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         servere_gasite: ModelRc::new(VecModel::from(
             p.servere_gasite
                 .iter()
-                .map(|s| SharedString::from(s.as_str()))
+                .map(|s| ServerGasitUi {
+                    nume: s.nume.as_str().into(),
+                    cluster: s.cluster,
+                    implicita: s.implicita,
+                })
                 .collect::<Vec<_>>(),
         )),
     };
@@ -1126,9 +1169,31 @@ mod teste {
         ui.invoke_schimba_scorul("40".into(), "90".into());
         ui.invoke_exporta_csv();
         ui.invoke_pune_vizibilele_in_plan(true);
+        let a = apeluri.clone();
+        ui.on_cere_deconectarea(move || a.borrow_mut().push("cere".into()));
+        let a = apeluri.clone();
+        ui.on_deconecteaza(move || a.borrow_mut().push("deconecteaza".into()));
+        let a = apeluri.clone();
+        ui.on_renunta_la_deconectare(move || a.borrow_mut().push("ramai".into()));
+        let a = apeluri.clone();
+        ui.on_alege_baza(move |i| a.borrow_mut().push(format!("baza{i}")));
+        ui.invoke_cere_deconectarea();
+        ui.invoke_deconecteaza();
+        ui.invoke_renunta_la_deconectare();
+        ui.invoke_alege_baza(1);
         assert_eq!(
             *apeluri.borrow(),
-            ["sort3", "stare2", "scor40-90", "csv", "plantrue"],
+            [
+                "sort3",
+                "stare2",
+                "scor40-90",
+                "csv",
+                "plantrue",
+                "cere",
+                "deconecteaza",
+                "ramai",
+                "baza1"
+            ],
             "fiecare element nou din bara de filtre are actiune"
         );
 
@@ -1694,6 +1759,104 @@ mod teste {
         assert_eq!(ui.get_jurnal().row_count(), 0);
     }
 
+    /// Butoanele noi din conectare cheama fiecare actiunea lui. Ce se
+    /// deseneaza fara sa fie legat arata perfect in captura (etapele 8-11).
+    #[test]
+    fn butoanele_conectarii_cheama_actiunile() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let ui = fereastra_conectare();
+        let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
+        let a = apeluri.clone();
+        ui.on_testeaza(move |sursa| a.borrow_mut().push(format!("testeaza{sursa}")));
+        let a = apeluri.clone();
+        ui.on_sterge_jurnalul(move || a.borrow_mut().push("sterge".into()));
+        let a = apeluri.clone();
+        ui.on_deschide_offline(move || a.borrow_mut().push("offline".into()));
+        let a = apeluri.clone();
+        ui.on_compara_offline(move |x, y| a.borrow_mut().push(format!("cmp{x}|{y}")));
+        let a = apeluri.clone();
+        ui.on_inchide_offline(move || a.borrow_mut().push("inchide".into()));
+        let a = apeluri.clone();
+        ui.on_anuleaza(move || a.borrow_mut().push("anuleaza".into()));
+        let a = apeluri.clone();
+        ui.on_ignora_recenta(move |i| a.borrow_mut().push(format!("ignora{i}")));
+        let a = apeluri.clone();
+        ui.on_ajutor(move || a.borrow_mut().push("ajutor".into()));
+
+        ui.invoke_testeaza(true);
+        ui.invoke_sterge_jurnalul();
+        ui.invoke_deschide_offline();
+        ui.invoke_compara_offline("A".into(), "B".into());
+        ui.invoke_inchide_offline();
+        ui.invoke_anuleaza();
+        ui.invoke_ignora_recenta(2);
+        ui.invoke_ajutor();
+        assert_eq!(
+            *apeluri.borrow(),
+            [
+                "testeazatrue",
+                "sterge",
+                "offline",
+                "cmpA|B",
+                "inchide",
+                "anuleaza",
+                "ignora2",
+                "ajutor"
+            ]
+        );
+    }
+
+    /// Progresul compararii si etichetele serverelor gasite ajung pe ecran.
+    #[test]
+    fn progresul_si_etichetele_serverelor_ajung_in_fereastra() {
+        use model_conectare::{Conectare, ServerGasit};
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        c.sursa.server = "SRV".into();
+        c.sursa.servere_gasite = vec![
+            ServerGasit {
+                nume: "SRV01".into(),
+                implicita: true,
+                cluster: false,
+            },
+            ServerGasit {
+                nume: "SRV02\\SQL2019".into(),
+                implicita: false,
+                cluster: true,
+            },
+        ];
+        c.baza.baze = vec!["C1".into(), "C2".into(), "C3".into()];
+        c.baza.comuta_baza("C1");
+        c.baza.comuta_baza("C3");
+        incarca_conectare(&ui, &c);
+
+        let g = ui.get_sursa().servere_gasite;
+        assert_eq!(g.row_count(), 2);
+        assert!(g.row_data(0).unwrap().implicita && !g.row_data(0).unwrap().cluster);
+        assert!(g.row_data(1).unwrap().cluster);
+        // bifele si eticheta bazelor
+        let b = ui.get_baza();
+        assert_eq!(b.eticheta_baze, "C1, C3");
+        let bifate: Vec<bool> = b.alese.iter().collect();
+        assert_eq!(bifate, [true, false, true]);
+    }
+
+    /// Eticheta bazelor se scurteaza cand sunt multe: un sir lung ar iesi
+    /// din camp.
+    #[test]
+    fn eticheta_bazelor_se_scurteaza_la_mai_mult_de_doua() {
+        use model_conectare::Parte;
+        let mut p = Parte::default();
+        assert_eq!(eticheta_baze(&p), "");
+        p.baza = "C1".into();
+        assert_eq!(eticheta_baze(&p), "C1");
+        p.alese = vec!["C1".into(), "C2".into()];
+        assert_eq!(eticheta_baze(&p), "C1, C2");
+        p.alese.push("C3".into());
+        assert_eq!(eticheta_baze(&p), "3 baze");
+    }
+
     fn fereastra_conectare() -> FereastraConectare {
         let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
@@ -1717,7 +1880,14 @@ mod teste {
             baze: vec!["CharismaDev".into(), "Altceva".into()],
             stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
             auth_windows: false,
-            servere_gasite: vec!["SRV-DEV\\SQL2019".into(), "SRV-PROD".into()],
+            servere_gasite: vec![
+                model_conectare::ServerGasit {
+                    nume: "SRV-DEV\\SQL2019".into(),
+                    implicita: false,
+                    cluster: true,
+                },
+                model_conectare::ServerGasit::nou("SRV-PROD"),
+            ],
             alese: Vec::new(),
         };
         c.baza = Parte {

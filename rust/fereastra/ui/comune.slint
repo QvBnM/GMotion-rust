@@ -514,3 +514,40 @@ export component Jumatate inherits Rectangle {
     }
 }
 
+
+// Fereastra de ajutor (F1). Textul vine din Rust (`gmotion_fereastra::AJUTOR`),
+// ca sa fie acelasi pe toate ecranele.
+export component Ajutor inherits Rectangle {
+    in property <string> text;
+    callback inchide();
+    background: Tema.intunecat ? #00000099 : #0f111566;
+    TouchArea { clicked => { root.inchide(); } }
+    Rectangle {
+        width: Math.min(root.width - 80px, 640px);
+        height: Math.min(root.height - 80px, 560px);
+        border-radius: 14px;
+        border-width: 1px;
+        border-color: Tema.linie;
+        background: Tema.suprafata;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            HorizontalLayout {
+                Text { text: "Ajutor"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                Buton { text: "Inchide  Esc"; apasat => { root.inchide(); } }
+            }
+            Flickable {
+                vertical-stretch: 1;
+                content-height: continut.preferred-height;
+                continut := Text {
+                    width: parent.width;
+                    text: root.text;
+                    font-family: Tema.font-ui;
+                    font-size: 13px;
+                    color: Tema.text-secundar;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
