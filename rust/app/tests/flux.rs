@@ -229,3 +229,99 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
     assert!(!script.contains("WHERE activ = 1"), "nu codul din sursa");
     std::fs::remove_dir_all(cale.parent().unwrap()).ok();
 }
+
+/// Modul de previzualizare: `gmotion-ui --previzualizare` trebuie sa intre
+/// direct in lista, pe instantaneul sintetic, fara server. Testul verifica
+/// instantaneul insusi: daca nu mai acopera toate categoriile si tipurile,
+/// previzualizarea nu-si mai face treaba, si asta se vede abia la Mihai pe
+/// ecran.
+#[test]
+fn instantaneul_de_previzualizare_acopera_tot_ce_trebuie_probat() {
+    use gmotion_fereastra::model_lista::Stare as StareLista;
+
+    let cale = std::path::Path::new("../../referinta/instantanee/previzualizare.json");
+    assert!(
+        cale.is_file(),
+        "lipseste {}; ruleaza unelte/genereaza-previzualizare.py",
+        cale.display()
+    );
+
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.display().to_string());
+    let (baze, stare) = pornire::citeste_bazele(&c, &c.sursa);
+    assert!(stare.e_conectat(), "{stare:?}");
+    assert!(baze.len() >= 3, "mai multe baze comparate: {baze:?}");
+
+    // ca in fereastra: prima baza e referinta, restul se bifeaza
+    let (prima, restul) = baze.split_first().expect("cel putin o baza");
+    c.sursa.baza = prima.clone();
+    for b in restul {
+        c.baza.comuta_baza(b);
+    }
+    assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
+
+    let r = pornire::compara(&c).expect("compararea merge pe instantaneu");
+    assert_eq!(r.tinte.len(), baze.len() - 1);
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+    app.asigura_detalii(0, 200);
+
+    // toate categoriile, ca sa se vada fiecare culoare si fiecare filtru
+    let stari: Vec<StareLista> = app
+        .lista()
+        .contoare_stari()
+        .into_iter()
+        .filter(|(_, n)| *n > 0)
+        .map(|(s, _)| s)
+        .collect();
+    for ceruta in [
+        StareLista::Modificat,
+        StareLista::DoarSursa,
+        StareLista::DoarBaza,
+        StareLista::Identic,
+        StareLista::Criptat,
+    ] {
+        assert!(stari.contains(&ceruta), "lipseste categoria {ceruta:?}");
+    }
+
+    // toate tipurile din machete
+    let tipuri: Vec<String> = app
+        .lista()
+        .obiecte()
+        .iter()
+        .map(|o| o.tip.clone())
+        .collect();
+    for t in ["P", "V", "FN", "IF", "TF", "TR"] {
+        assert!(tipuri.iter().any(|x| x == t), "lipseste tipul {t}");
+    }
+
+    // obiecte mari (de aia se vede daca lista se impiedica) si scoruri variate
+    let linii_max = app
+        .lista()
+        .obiecte()
+        .iter()
+        .filter_map(|o| o.detalii.as_ref())
+        .map(|d| d.linii_plus + d.linii_minus)
+        .max()
+        .unwrap_or(0);
+    assert!(
+        linii_max >= 10,
+        "niciun obiect mare: {linii_max} linii mutate"
+    );
+    let scoruri: Vec<f64> = app
+        .lista()
+        .obiecte()
+        .iter()
+        .filter_map(|o| o.scor)
+        .collect();
+    assert!(
+        scoruri.iter().any(|s| *s < 70.0) && scoruri.iter().any(|s| *s > 95.0),
+        "scorurile nu acopera si rescrieri, si retusuri: {scoruri:?}"
+    );
+
+    // codul dezordonat chiar e dezordonat (tab-uri, comentarii imbricate, GO)
+    let dezordonat = app
+        .sursa()
+        .values()
+        .any(|o| o.afisare.contains("/*") && o.afisare.contains("GO"));
+    assert!(dezordonat, "lipseste obiectul cu cod scris dezordonat");
+}

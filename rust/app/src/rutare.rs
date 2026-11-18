@@ -149,6 +149,35 @@ impl Aplicatie {
                 }
             })
             .collect();
+        // obiectele identice nu ajung in randurile compararii (nu e nimic de
+        // spus despre ele), dar lista le numara si le filtreaza: fara ele,
+        // categoria „Identice" ar arata mereu 0, iar cautarea n-ar gasi un
+        // obiect care exista si e la fel.
+        let mut obiecte = obiecte;
+        for (nume_baza, tinta) in &tinte {
+            for (id, o) in &sursa {
+                let are_rand = randuri
+                    .iter()
+                    .any(|r| &r.baza == nume_baza && &r.obiect == id);
+                if are_rand || !tinta.contains_key(id) {
+                    continue;
+                }
+                let (schema, nume) = id.split_once('.').unwrap_or(("dbo", id));
+                obiecte.push(Obiect {
+                    schema: schema.to_string(),
+                    nume: nume.to_string(),
+                    baza: nume_baza.clone(),
+                    tip: o.tip.clone(),
+                    stare: Stare::Identic,
+                    detalii: None,
+                    revizuit: false,
+                    in_plan: false,
+                    omis: false,
+                    scor: None,
+                    deploy: Deploy::Nu,
+                });
+            }
+        }
         let mut lista = Lista::noua(obiecte);
         if !lista.vizibile().is_empty() {
             lista.selecteaza(0);

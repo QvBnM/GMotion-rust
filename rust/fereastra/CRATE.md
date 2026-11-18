@@ -117,8 +117,9 @@ cargo run --release -p gmotion-fereastra --example captura -- \
 Cu `--font-mono UnNumeInexistent` iese alt PNG: asa se vede ca fonturile
 incorporate chiar se folosesc, nu rezerva de sistem.
 
-Ecranul listei: `--example captura_lista`; conectarea:
-`--example captura_conectare`.
+Conectarea: `--example captura_conectare`. Ecranul listei se fotografiaza din
+`app` (`-p gmotion-app --example captura_lista`): captura trece prin
+`Aplicatie`, ca sa nu existe o a doua constructie a listei.
 
 Pe obiecte uriase: `cargo run --release -p gmotion-fereastra --example masura`
 (implicit 200 / 2.000 / 20.000 de linii, pliat si nepliat); pe liste uriase:

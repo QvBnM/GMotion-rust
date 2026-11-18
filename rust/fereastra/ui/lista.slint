@@ -81,8 +81,8 @@ global Stari {
 // Latimile coloanelor tabelului, aceleasi in cap si pe randuri.
 global Coloane {
     out property <length> stare: 34px;
-    out property <length> baza: 128px;
-    out property <length> tip: 92px;
+    out property <length> baza: 152px;
+    out property <length> tip: 84px;
     out property <length> linii: 84px;
     out property <length> scor: 118px;
     out property <length> difera: 124px;
@@ -134,6 +134,9 @@ component CapColoana inherits Rectangle {
             color: Tema.accent-text;
             vertical-alignment: center;
         }
+        // coloana care se intinde isi tine titlul la stanga, nu lipit de
+        // capul urmator
+        Rectangle { horizontal-stretch: 1; }
     }
     TouchArea { clicked => { root.apasat(); } }
 }

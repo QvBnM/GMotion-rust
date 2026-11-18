@@ -76,6 +76,27 @@ fn argument(nume: &str) -> Option<String> {
         .cloned()
 }
 
+/// Modul de previzualizare: instantaneul sintetic cu obiecte de toate
+/// felurile, ca Mihai sa probeze functiile fara baza de date.
+///
+/// Se cauta langa binar si in radacina proiectului, in ordinea asta: o
+/// instalare are fisierul langa `gmotion-ui.exe`, iar in dezvoltare el sta in
+/// `referinta/instantanee/`.
+fn cale_previzualizare() -> Option<std::path::PathBuf> {
+    const NUME: &str = "previzualizare.json";
+    let mut locuri: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(d) = exe.parent() {
+            locuri.push(d.join(NUME));
+            locuri.push(d.join("instantanee").join(NUME));
+        }
+    }
+    for sus in ["", "../", "../../", "../../../"] {
+        locuri.push(std::path::PathBuf::from(format!("{sus}referinta/instantanee")).join(NUME));
+    }
+    locuri.into_iter().find(|c| c.is_file())
+}
+
 /// Unde se scrie deploy-ul: in directorul de date al aplicatiei, cu
 /// referinta si momentul in nume; langa binar, daca acela nu se poate afla.
 fn director_deploy(referinta: &str) -> std::path::PathBuf {
@@ -131,9 +152,21 @@ fn ruleaza() -> Result<(), String> {
     let sesiuni =
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
 
+    let previzualizare = std::env::args().any(|a| a == "--previzualizare");
     let mut conectare = Conectare::noua();
     conectare.recente = recente(&sesiuni);
     conectare.instantaneu = argument("--sursa");
+    if previzualizare && conectare.instantaneu.is_none() {
+        match cale_previzualizare() {
+            Some(c) => conectare.instantaneu = Some(c.display().to_string()),
+            None => {
+                return Err(
+                    "nu gasesc previzualizare.json; ruleaza unelte/genereaza-previzualizare.py"
+                        .to_string(),
+                )
+            }
+        }
+    }
     if conectare.instantaneu.is_some() {
         if let (Some(r), Some(b)) = (argument("--referinta"), argument("--baza")) {
             conectare.sursa.baza = r;
@@ -1131,6 +1164,32 @@ fn ruleaza() -> Result<(), String> {
     ecran_complet!(lista_ui);
     ecran_complet!(editor_ui);
     ecran_complet!(deploy_ui);
+
+    // previzualizarea: se intra direct in lista, cu toate bazele bifate
+    if previzualizare {
+        let c = stare.borrow().conectare.clone();
+        let (baze, stare_citire) = pornire::citeste_bazele(&c, &c.sursa);
+        let mut st = stare.borrow_mut();
+        st.conectare.sursa.baze.clone_from(&baze);
+        st.conectare.baza.baze.clone_from(&baze);
+        st.conectare.sursa.stare = stare_citire.clone();
+        st.conectare.baza.stare = stare_citire;
+        // referinta e prima baza; restul se compara cu ea
+        if let Some((prima, restul)) = baze.split_first() {
+            st.conectare.sursa.baza = prima.clone();
+            for b in restul {
+                st.conectare.baza.comuta_baza(b);
+            }
+        }
+        let c = st.conectare.clone();
+        drop(st);
+        if c.poate_compara() {
+            tracing::info!(target: "gmotion::app", "previzualizare: compar instantaneul sintetic");
+            stare.borrow_mut().rulare = Some(gmotion_app::fir::Rulare::porneste(c));
+        } else {
+            tracing::warn!(target: "gmotion::app", "previzualizarea nu poate porni: {:?}", c.ce_lipseste());
+        }
+    }
 
     conectare_ui.set_text_ajutor(gmotion_fereastra::AJUTOR.into());
     lista_ui.set_text_ajutor(gmotion_fereastra::AJUTOR.into());
