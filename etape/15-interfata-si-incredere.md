@@ -62,6 +62,22 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 - [ ] se marcheaza cand referinta si baza comparata sunt pe **aceeasi
       instanta** de SQL Server
 
+**G. Panoul de detalii din lista** (cerut de Mihai pe 2026-11-18, dupa o
+captura de referinta; inceput pe aceeasi baza ca etapa 14, intr-o sesiune
+paralela, si adus aici la unire)
+- [x] lista pe toata latimea pana la primul clic; clic pe rand = detaliile in
+      dreapta; al doilea clic pe acelasi rand, X sau Esc le inchid
+- [x] dublu clic pe rand deschide direct editorul
+- [x] panoul se redimensioneaza dintr-un maner tras cu mouse-ul
+- [x] in panou: stare, modificari, similaritate, impact estimat (cu motive),
+      deploy, Revizuit / In plan / Omite / Deschide, previzualizarea
+- [x] nota per obiect: se salveaza in sesiune, pe nume (nu cade cand obiectul
+      se schimba); din `cli`: `revizuire --nota X --text T`
+- [x] impactul estimat: logica in `diff-obiecte` (cine foloseste obiectul in
+      baza comparata, prin acelasi lexer ca ordinea de deploy), din `cli`:
+      `gmotion impact`
+- [x] test care apasa cu mouse-ul (clic, dublu clic, X, nota), vazut cazand
+
 **Comun**
 - [ ] capturi noi in ambele moduri
 - [ ] poarta verde: `unelte/verifica.sh`
@@ -121,6 +137,17 @@ lansare.
   redimensionare, zoom automat cand sunt prea multe obiecte. Capturi:
   `cercetare/capturi/harta-*.png` (`harta-zoom-*` pe 2980 de obiecte).
   Decizia in `JURNAL.md`.
+
+- **2026-11-18** G (panoul de detalii), lucrat intr-o sesiune paralela pe
+  baza etapei 14 si adus aici la unire. Criteriile au fost scrise dupa ce
+  codul era inceput (abatere de la CLAUDE.md §10, notata aici). La unire,
+  textele panoului au trecut prin `Texte` (romana si engleza). G gata. Testul de mouse cauta randurile si
+  X-ul prin clicuri, nu cu coordonate scrise de mana; vazut cazand fara
+  `double-clicked` si fara Esc. Dublu clicul in Slint vine dupa doua
+  `clicked` (deschis, inchis), deci `Deschide` redeschide panoul: la
+  intoarcerea din editor lista arata obiectul de unde ai plecat. Nota se
+  trimite cu obiectul ei (`nota-id`), nu pe selectie. Capturi:
+  `cercetare/capturi/lista-*.png` (cu panoul) si `lista-fara-detalii-*.png`.
 
 - **2026-11-18** Antetul listei: bazele pe primul rand, restul dedesubt, pe
   randuri care se rup dupa latimea ferestrei (probat la 1440, 1200, 960,

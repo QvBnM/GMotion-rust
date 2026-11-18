@@ -147,6 +147,32 @@ enum Comanda {
         /// Sterge tot progresul salvat pentru referinta asta.
         #[arg(long)]
         goleste: bool,
+
+        /// Obiectul caruia i se pune nota (pe toate bazele unde apare).
+        #[arg(long, value_name = "schema.obiect", requires = "text")]
+        nota: Option<String>,
+
+        /// Textul notei; gol o sterge.
+        #[arg(long, value_name = "TEXT", requires = "nota")]
+        text: Option<String>,
+    },
+
+    /// Impactul estimat al deploy-ului fiecarui obiect care difera: cine il
+    /// foloseste in baza comparata, cat de mare e schimbarea, si nivelul.
+    Impact {
+        #[command(flatten)]
+        sursa: ArgumenteSursa,
+
+        #[arg(long, value_name = "BAZA")]
+        referinta: String,
+
+        /// Bazele de comparat. Lipsa lor inseamna toate celelalte.
+        #[arg(long, value_name = "A,B,C")]
+        baze: Option<String>,
+
+        /// Doar obiectul asta, cu lista celor care il folosesc.
+        #[arg(long, value_name = "SCHEMA.NUME")]
+        obiect: Option<String>,
     },
 
     /// Textul final al unui obiect: aplica diferente din referinta, toate,
@@ -307,16 +333,27 @@ fn main() -> std::process::ExitCode {
             omite,
             scoate,
             goleste,
+            nota,
+            text,
         } => comenzi::revizuire(
             sursa,
             referinta,
             baze.as_deref(),
-            marcheaza.as_deref(),
-            omite.as_deref(),
-            scoate.as_deref(),
+            comenzi::SchimbariRevizuire {
+                marcheaza: marcheaza.as_deref(),
+                omite: omite.as_deref(),
+                scoate: scoate.as_deref(),
+                nota: nota.as_deref().zip(text.as_deref()),
+            },
             *goleste,
             format,
         ),
+        Comanda::Impact {
+            sursa,
+            referinta,
+            baze,
+            obiect,
+        } => comenzi::impact(sursa, referinta, baze.as_deref(), obiect.as_deref(), format),
         Comanda::Editare {
             sursa,
             referinta,

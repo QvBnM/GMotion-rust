@@ -337,7 +337,6 @@ fn detalii_randuri(r: &Rulare) -> afisare::Detalii {
 /// continutului: fara definitiile de acum nu se poate spune daca mai e
 /// valabila. Asa se vede si cate bife au cazut fiindca obiectul s-a schimbat
 /// pe server — informatia pentru care exista comanda.
-#[allow(clippy::too_many_arguments)]
 /// Sesiunea salvata a referintei, sau una noua. Aceeasi pentru `revizuire`
 /// si `editare`: progresul si textele finale stau impreuna, ca in fereastra.
 fn sesiune_sau_noua(
@@ -370,12 +369,16 @@ pub fn revizuire(
     args: &ArgumenteSursa,
     referinta: &str,
     baze_cerute: Option<&str>,
-    marcheaza: Option<&str>,
-    omite: Option<&str>,
-    scoate: Option<&str>,
+    schimbari: SchimbariRevizuire,
     goleste: bool,
     format: Format,
 ) -> Result<(), String> {
+    let SchimbariRevizuire {
+        marcheaza,
+        omite,
+        scoate,
+        nota,
+    } = schimbari;
     let sesiuni =
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
     if goleste {
@@ -450,6 +453,21 @@ pub fn revizuire(
             }
         }
     }
+    if let Some((obiect, text)) = nota {
+        let mut gasit = false;
+        for x in r
+            .comparare
+            .randuri
+            .iter()
+            .filter(|x| x.obiect.eq_ignore_ascii_case(obiect))
+        {
+            schimbat |= revizuire.pune_nota(&x.baza, &x.obiect, text);
+            gasit = true;
+        }
+        if !gasit {
+            necunoscute.push(obiect.to_string());
+        }
+    }
     if !necunoscute.is_empty() {
         return Err(format!(
             "obiecte care nu sunt in comparare (sau nu erau bifate): {}",
@@ -484,8 +502,14 @@ pub fn revizuire(
                 .filter(|x| revizuire.e_omis(x))
                 .map(|x| x.obiect.as_str())
                 .collect();
+            let note: Vec<serde_json::Value> = revizuire
+                .note()
+                .into_iter()
+                .map(|(b, o, t)| serde_json::json!({ "baza": b, "obiect": o, "text": t }))
+                .collect();
             afisare::scrie_json(&serde_json::json!({
                 "referinta": referinta,
+                "note": note,
                 "omise": omise,
                 "revizuite": valabile_acum,
                 "total": total,
@@ -524,7 +548,112 @@ pub fn revizuire(
                     println!("  {}  {}", x.baza, x.obiect);
                 }
             }
+            let note = revizuire.note();
+            if !note.is_empty() {
+                println!("\nNote: {}", note.len());
+                for (b, o, t) in note {
+                    println!(
+                        "  {}  {}  {}",
+                        b,
+                        o,
+                        afisare::fara_control(&t.replace('\n', " / "))
+                    );
+                }
+            }
             let _ = valabile;
+            Ok(())
+        }
+    }
+}
+
+/// Ce schimba `revizuire` in progresul salvat.
+pub struct SchimbariRevizuire<'a> {
+    pub marcheaza: Option<&'a str>,
+    pub omite: Option<&'a str>,
+    pub scoate: Option<&'a str>,
+    /// `(schema.obiect, text)`; textul gol sterge nota.
+    pub nota: Option<(&'a str, &'a str)>,
+}
+
+/// Impactul estimat al fiecarui obiect care difera (`modul::impact`), cel mai
+/// mare primul. Cu `obiect`, doar el, plus cine il foloseste.
+pub fn impact(
+    args: &ArgumenteSursa,
+    referinta: &str,
+    baze_cerute: Option<&str>,
+    obiect: Option<&str>,
+    format: Format,
+) -> Result<(), String> {
+    let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
+    let folosit: std::collections::BTreeMap<&str, _> = r
+        .altele
+        .iter()
+        .map(|(nume, baza)| (nume.as_str(), modul::impact::folosit_de(baza)))
+        .collect();
+    let mut randuri: Vec<(&modul::Rand, modul::Impact, Vec<String>)> = r
+        .comparare
+        .randuri
+        .iter()
+        .filter(|x| obiect.map_or(true, |o| x.obiect.eq_ignore_ascii_case(o)))
+        .map(|x| {
+            let cine = folosit
+                .get(x.baza.as_str())
+                .and_then(|m| m.get(&x.obiect))
+                .cloned()
+                .unwrap_or_default();
+            (x, modul::impact::estimeaza(x, cine.len()), cine)
+        })
+        .collect();
+    if let Some(o) = obiect {
+        if randuri.is_empty() {
+            return Err(format!("obiectul {o:?} nu difera in nicio baza comparata"));
+        }
+    }
+    randuri.sort_by(|a, b| {
+        b.1.nivel
+            .cmp(&a.1.nivel)
+            .then(b.1.folosit_de.cmp(&a.1.folosit_de))
+            .then(a.0.obiect.cmp(&b.0.obiect))
+    });
+    match format {
+        Format::Json => {
+            let v: Vec<serde_json::Value> = randuri
+                .iter()
+                .map(|(x, i, cine)| {
+                    let mut v = serde_json::json!({
+                        "baza": x.baza,
+                        "obiect": x.obiect,
+                        "nivel": i.nivel,
+                        "folosit_de": i.folosit_de,
+                        "motive": i.motive,
+                    });
+                    if obiect.is_some() {
+                        v["cine_il_foloseste"] = serde_json::json!(cine);
+                    }
+                    v
+                })
+                .collect();
+            afisare::scrie_json(&serde_json::json!({ "referinta": referinta, "obiecte": v }))
+                .map_err(|e| e.to_string())
+        }
+        Format::Text => {
+            for (x, i, cine) in &randuri {
+                println!(
+                    "{:<8} {}  {}  {}",
+                    i.nivel.eticheta(),
+                    afisare::fara_control(&x.baza),
+                    afisare::fara_control(&x.obiect),
+                    i.motive.join(", ")
+                );
+                if obiect.is_some() {
+                    for c in cine {
+                        println!("           folosit de {}", afisare::fara_control(c));
+                    }
+                }
+            }
+            if randuri.is_empty() {
+                println!("Niciun obiect nu difera.");
+            }
             Ok(())
         }
     }

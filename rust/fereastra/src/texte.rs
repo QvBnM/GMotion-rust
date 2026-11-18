@@ -203,6 +203,21 @@ pub struct Texte {
     pub opreste: &'static str,
     pub inapoi_la_lista: &'static str,
     pub lista_scurt: &'static str,
+    pub detalii_stare: &'static str,
+    pub detalii_modificari: &'static str,
+    pub detalii_similaritate: &'static str,
+    pub detalii_impact: &'static str,
+    pub impact_scazut: &'static str,
+    pub impact_mediu: &'static str,
+    pub impact_ridicat: &'static str,
+    pub nerevizuit: &'static str,
+    pub nota: &'static str,
+    pub nota_indiciu: &'static str,
+    pub tasta_clic: &'static str,
+    pub detalii_mic: &'static str,
+    pub tasta_dublu_clic: &'static str,
+    pub omite_mic: &'static str,
+    pub inchide_detaliile_mic: &'static str,
 }
 
 pub static RO: Texte = Texte {
@@ -353,6 +368,21 @@ pub static RO: Texte = Texte {
     opreste: "Anuleaza",
     inapoi_la_lista: "← Inapoi la lista",
     lista_scurt: "← Lista",
+    detalii_stare: "Stare",
+    detalii_modificari: "Modificari",
+    detalii_similaritate: "Similaritate",
+    detalii_impact: "Impact estimat",
+    impact_scazut: "Scazut",
+    impact_mediu: "Mediu",
+    impact_ridicat: "Ridicat",
+    nerevizuit: "Nerevizuit",
+    nota: "Nota",
+    nota_indiciu: "Scrie o nota (ex. a ramas aici)",
+    tasta_clic: "clic",
+    detalii_mic: "detalii",
+    tasta_dublu_clic: "dublu clic / enter",
+    omite_mic: "omite",
+    inchide_detaliile_mic: "inchide detaliile",
 };
 
 pub static EN: Texte = Texte {
@@ -501,6 +531,21 @@ pub static EN: Texte = Texte {
     opreste: "Cancel",
     inapoi_la_lista: "← Back to the list",
     lista_scurt: "← List",
+    detalii_stare: "Status",
+    detalii_modificari: "Changes",
+    detalii_similaritate: "Similarity",
+    detalii_impact: "Estimated impact",
+    impact_scazut: "Low",
+    impact_mediu: "Medium",
+    impact_ridicat: "High",
+    nerevizuit: "Not reviewed",
+    nota: "Note",
+    nota_indiciu: "Write a note (e.g. stopped here)",
+    tasta_clic: "click",
+    detalii_mic: "details",
+    tasta_dublu_clic: "double click / enter",
+    omite_mic: "skip",
+    inchide_detaliile_mic: "close details",
 };
 
 /// Lista campurilor: campul din `Texte` si setter-ul din Slint. O singura
@@ -654,7 +699,22 @@ macro_rules! cu_textele {
         anuleaza_ctrlz set_anuleaza_ctrlz,
         opreste set_opreste,
         inapoi_la_lista set_inapoi_la_lista,
-        lista_scurt set_lista_scurt
+        lista_scurt set_lista_scurt,
+        detalii_stare set_detalii_stare,
+        detalii_modificari set_detalii_modificari,
+        detalii_similaritate set_detalii_similaritate,
+        detalii_impact set_detalii_impact,
+        impact_scazut set_impact_scazut,
+        impact_mediu set_impact_mediu,
+        impact_ridicat set_impact_ridicat,
+        nerevizuit set_nerevizuit,
+        nota set_nota,
+        nota_indiciu set_nota_indiciu,
+        tasta_clic set_tasta_clic,
+        detalii_mic set_detalii_mic,
+        tasta_dublu_clic set_tasta_dublu_clic,
+        omite_mic set_omite_mic,
+        inchide_detaliile_mic set_inchide_detaliile_mic
 
         )
     };

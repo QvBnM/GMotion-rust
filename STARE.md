@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (449 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (461 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -56,6 +56,11 @@ toate blocurile pe el si verifica forma normalizata.
 **Facut din E:** textele interfetei au iesit din `.slint` intr-un tabel unic
 (`fereastra::texte`), in romana si engleza, cu comutator in antet si alegerea
 tinuta minte; „Sursa" / „Baza" sunt acum „Martor" / „Modificata".
+
+**Facut din G:** panoul de detalii din lista (cerut de Mihai): lista pe toata
+latimea pana la clic, detaliile in dreapta cu impact estimat si nota, maner
+de latime, X / Esc / al doilea clic inchid, dublu clic deschide editorul.
+Din `cli`: `gmotion impact`, `revizuire --nota`.
 
 **Facut din B:** lista ramane in stanga cand deschizi un obiect — coloana de
 300 px, clic pe rand = alt obiect pe loc, Esc o largeste la loc.
@@ -144,6 +149,16 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Dublu clicul pe rand trimite intai doua clicuri.** Slint cheama
+  `clicked` de doua ori, apoi `double-clicked`: panoul se deschide, se
+  inchide, apoi `Deschide` il redeschide. Un test care asteapta doar
+  „deschide" la dublu clic e gresit.
+- **Nota nu se rescrie din Rust cat scrii.** `incarca_detalii` pune `nota`
+  doar cand se schimba `nota-id`; altfel fiecare tasta ar muta cursorul si ar
+  taia spatiul de la capat. Nota se salveaza pe `nota-id`, nu pe selectie.
+- **Impactul lexeaza toata baza comparata la prima deschidere a panoului**
+  (`OnceCell` in `Aplicatie`). Pe baze mari, primul clic poate dura; nu
+  muta calculul in `deseneaza` fara panou deschis.
 - **Intre doua ecrane se arata intai fereastra noua, apoi se ascund
   celelalte.** `slint::run_event_loop()` se opreste cand nu mai e **nicio**
   fereastra vizibila, deci „ascunde tot, apoi arata" inchide aplicatia pe loc

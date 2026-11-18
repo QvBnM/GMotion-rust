@@ -953,3 +953,89 @@ fn cauta_sesiunea(date: &Path) -> String {
     assert_eq!(antet, "GMOTION-CLAR", "pe Linux sesiunea se scrie in clar");
     json.to_string()
 }
+
+/// `impact` pe binarul adevarat: cine foloseste obiectul vine din codul bazei
+/// comparate, iar JSON-ul are nivelul si motivele.
+#[test]
+fn impactul_arata_cine_foloseste_obiectul() {
+    let d = dir("impact");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let text = std::fs::read_to_string(&inst).unwrap();
+    std::fs::write(
+        &inst,
+        text.replace(
+            "dbo.pLocal AS\\nSELECT 1",
+            "dbo.pLocal AS\\nEXEC dbo.pClienti -- dbo.vFacturi",
+        ),
+    )
+    .unwrap();
+    let i = inst.to_str().unwrap();
+    let o = ruleaza(&[
+        "impact",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--obiect",
+        "dbo.pClienti",
+        "--json",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON valid");
+    let x = &v["obiecte"][0];
+    assert_eq!(x["obiect"], "dbo.pClienti");
+    assert_eq!(x["folosit_de"], 1);
+    assert_eq!(x["cine_il_foloseste"][0], "dbo.pLocal");
+    assert!(x["nivel"].is_string());
+
+    // vFacturi e doar in comentariu: nu e folosit
+    let o = ruleaza(&["impact", "--sursa", i, "--referinta", "Referinta"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let t = out(&o);
+    assert!(
+        t.contains("dbo.pClienti") && t.contains("folosit de 1 obiect"),
+        "{t}"
+    );
+
+    let o = ruleaza(&[
+        "impact",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--obiect",
+        "dbo.nuExista",
+    ]);
+    assert!(!o.status.success());
+}
+
+/// Nota pusa din `cli` se salveaza in sesiune, se arata, si se sterge cu
+/// text gol.
+#[test]
+fn nota_se_pune_si_se_sterge_din_cli() {
+    let d = dir("nota");
+    let date = d.join("date");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let rev = |extra: &[&str]| -> Output {
+        let mut v = vec!["revizuire", "--sursa", i, "--referinta", "Referinta"];
+        v.extend_from_slice(extra);
+        ruleaza_in(&v, Some(&date))
+    };
+    let o = rev(&["--nota", "dbo.pClienti", "--text", "a ramas aici"]);
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(out(&o).contains("a ramas aici"), "{}", out(&o));
+    let o = rev(&["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["note"][0]["obiect"], "dbo.pClienti");
+    assert_eq!(v["note"][0]["text"], "a ramas aici");
+    let o = rev(&["--nota", "dbo.pClienti", "--text", ""]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = rev(&["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["note"].as_array().map(Vec::len), Some(0));
+    // fara --text, clap refuza
+    assert!(!rev(&["--nota", "dbo.pClienti"]).status.success());
+}

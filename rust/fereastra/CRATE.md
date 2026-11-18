@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: a275b35efeafc8b9 -->
+<!-- api-hash: 0d3a307e11c50b62 -->
 
 ## Rol
 
@@ -44,6 +44,7 @@ si editorul de diferente (etapa 8).
 | `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra |
 | `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
+| `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, nota); nota se rescrie doar cand se schimba obiectul |
 | `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
 | `latime_autofit(lista, coloana)` | latimea ceruta de o coloana la dublu clic pe marginea capului |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente |
@@ -114,7 +115,7 @@ Vizual: exemplul `captura` randeaza editorul fara ecran intr-un PNG:
 ```
 cargo run --release -p gmotion-fereastra --example captura -- \
     referinta/instantanee/testsimilitudine.json CharismaERP_GetsBet CharismaERP_GetsBet_Copy \
-    dbo.TESTSIMILITUDINE_AnalizaVanzari iesire.png [--unificat] [--fara-pliere] [--mediu prod]
+    dbo.TESTSIMILITUDINE_AnalizaVanzari iesire.png [--unificat] [--fara-pliere]
 ```
 
 Cu `--font-mono UnNumeInexistent` iese alt PNG: asa se vede ca fonturile

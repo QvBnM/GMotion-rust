@@ -27,6 +27,15 @@ pub enum Ecran {
 pub enum Comanda {
     MutaSelectia(i32),
     Selecteaza(usize),
+    /// Clic pe un rand (sau pe patratul lui de pe harta): il selecteaza si
+    /// deschide panoul de detalii; pe randul deja deschis, inchide panoul.
+    ClicPeRand(usize),
+    /// Butonul X din panoul de detalii, sau Esc.
+    InchideDetalii,
+    /// Nota obiectului `(baza, schema.nume)` (text gol = sterge). Obiectul
+    /// vine explicit, nu din selectie: campul poate pierde focul dupa ce
+    /// selectia s-a mutat deja pe alt rand.
+    PuneNota(String, String, String),
     Deschide,
     InapoiLaLista,
     ObiectUrmator,
@@ -90,6 +99,35 @@ pub struct Ghidat {
     pub terminat: bool,
 }
 
+/// Pentru fiecare obiect al unei baze, cine il foloseste.
+type FolositDe = std::rc::Rc<std::collections::BTreeMap<String, Vec<String>>>;
+
+/// Ce arata panoul de detalii al listei (vezi `gmotion_fereastra::PanouDetalii`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PanouDetalii {
+    pub deschis: bool,
+    pub baza: String,
+    pub obiect: String,
+    /// 0 scazut, 1 mediu, 2 ridicat.
+    pub impact: Option<i32>,
+    pub motive: String,
+    pub nota: String,
+}
+
+impl PanouDetalii {
+    /// Forma pe care o primeste fereastra.
+    pub fn pentru_fereastra(&self) -> gmotion_fereastra::PanouDetalii<'_> {
+        gmotion_fereastra::PanouDetalii {
+            deschis: self.deschis,
+            baza: &self.baza,
+            obiect: &self.obiect,
+            impact: self.impact,
+            motive: &self.motive,
+            nota: &self.nota,
+        }
+    }
+}
+
 /// Starea aplicatiei: lista, ecranul activ si progresul revizuirii.
 pub struct Aplicatie {
     lista: Lista,
@@ -110,6 +148,11 @@ pub struct Aplicatie {
     /// diferenta aplicata dispare si urmatoarea ii ia locul.
     diferenta: usize,
     ghidat: Option<Ghidat>,
+    /// Panoul de detalii din dreapta listei e deschis.
+    detalii: bool,
+    /// Cine foloseste fiecare obiect, pe baza comparata; lexarea unei baze
+    /// intregi se face o data, la prima cerere pe ea (`impact_obiect`).
+    folosit_de: std::cell::RefCell<std::collections::BTreeMap<String, FolositDe>>,
     /// „Uneste ciclul cursor": schimba taierea blocurilor in editor.
     uneste_cursorul: bool,
 }
@@ -197,8 +240,65 @@ impl Aplicatie {
             istoric: Vec::new(),
             diferenta: 0,
             ghidat: None,
+            detalii: false,
+            folosit_de: std::cell::RefCell::default(),
             uneste_cursorul: false,
         }
+    }
+
+    /// Panoul de detalii e deschis (si are un obiect de aratat).
+    pub fn detalii_deschise(&self) -> bool {
+        self.detalii && self.obiect().is_some()
+    }
+
+    /// Impactul estimat al deploy-ului obiectului selectat, si cine il
+    /// foloseste in baza comparata.
+    pub fn impact_obiect(&self) -> Option<(modul::Impact, Vec<String>)> {
+        let (baza, id) = self.cheia_curenta()?;
+        let r = self.rand(&baza, &id)?;
+        let mut cache = self.folosit_de.borrow_mut();
+        if !cache.contains_key(&baza) {
+            let calculat = self
+                .tinta(&baza)
+                .map(modul::impact::folosit_de)
+                .unwrap_or_default();
+            cache.insert(baza.clone(), std::rc::Rc::new(calculat));
+        }
+        let cine = cache
+            .get(&baza)
+            .and_then(|m| m.get(&id))
+            .cloned()
+            .unwrap_or_default();
+        Some((modul::impact::estimeaza(r, cine.len()), cine))
+    }
+
+    /// Tot ce arata panoul de detalii, gata de pus in fereastra. Impactul se
+    /// calculeaza doar cu panoul deschis: prima data lexeaza toata baza.
+    pub fn panou_detalii(&self) -> PanouDetalii {
+        let deschis = self.detalii_deschise();
+        let impact = if deschis { self.impact_obiect() } else { None };
+        PanouDetalii {
+            deschis,
+            baza: self.obiect().map(|o| o.baza.clone()).unwrap_or_default(),
+            obiect: self.obiect().map(|o| o.id()).unwrap_or_default(),
+            impact: impact.as_ref().map(|(i, _)| match i.nivel {
+                modul::Nivel::Scazut => 0,
+                modul::Nivel::Mediu => 1,
+                modul::Nivel::Ridicat => 2,
+            }),
+            motive: impact
+                .as_ref()
+                .map(|(i, _)| i.motive.join(" · "))
+                .unwrap_or_default(),
+            nota: self.nota_obiect().to_string(),
+        }
+    }
+
+    /// Nota obiectului selectat (gol daca n-are).
+    pub fn nota_obiect(&self) -> &str {
+        self.cheia_curenta()
+            .and_then(|(b, id)| self.revizuire.nota(&b, &id))
+            .unwrap_or("")
     }
 
     /// Textele finale salvate (din sesiune). Cele care nu mai corespund
@@ -376,6 +476,21 @@ impl Aplicatie {
         match c {
             Comanda::MutaSelectia(pas) => self.lista.muta_selectia(pas),
             Comanda::Selecteaza(p) => self.lista.selecteaza(p),
+            Comanda::ClicPeRand(p) => {
+                if self.detalii && self.lista.selectat() == Some(p) {
+                    self.detalii = false;
+                } else {
+                    self.lista.selecteaza(p);
+                    self.detalii = self.lista.selectat() == Some(p);
+                }
+            }
+            Comanda::InchideDetalii => self.detalii = false,
+            Comanda::PuneNota(baza, id, text) => {
+                if self.rand(&baza, &id).is_none() {
+                    return false;
+                }
+                return self.revizuire.pune_nota(&baza, &id, &text);
+            }
             Comanda::Deschide => {
                 self.diferenta = 0;
                 self.ghidat = None;
@@ -383,6 +498,8 @@ impl Aplicatie {
                 // editor: ecranul ramane pe lista
                 if self.model_editor().is_some() {
                     self.ecran = Ecran::Editor;
+                    // la intoarcere, lista arata obiectul de unde ai plecat
+                    self.detalii = true;
                 }
             }
             Comanda::InapoiLaLista => self.ecran = Ecran::Lista,
@@ -763,6 +880,111 @@ mod teste {
             vec![("Client1".to_string(), tinta)],
             Revizuire::noua(),
         )
+    }
+
+    #[test]
+    fn panoul_de_detalii_se_deschide_la_clic_si_se_inchide_la_al_doilea() {
+        let mut app = aplicatie();
+        assert!(
+            !app.detalii_deschise(),
+            "la pornire lista e pe toata latimea"
+        );
+        app.comanda(Comanda::ClicPeRand(1));
+        assert!(app.detalii_deschise());
+        assert_eq!(app.lista().selectat(), Some(1));
+        // clic pe alt rand: panoul ramane, arata noul rand
+        app.comanda(Comanda::ClicPeRand(0));
+        assert!(app.detalii_deschise());
+        assert_eq!(app.lista().selectat(), Some(0));
+        // al doilea clic pe acelasi rand: se inchide, selectia ramane
+        app.comanda(Comanda::ClicPeRand(0));
+        assert!(!app.detalii_deschise());
+        assert_eq!(app.lista().selectat(), Some(0));
+        app.comanda(Comanda::ClicPeRand(0));
+        app.comanda(Comanda::InchideDetalii);
+        assert!(!app.detalii_deschise());
+        // j / k nu deschid panoul
+        app.comanda(Comanda::MutaSelectia(1));
+        assert!(!app.detalii_deschise());
+        // un rand care nu exista nu deschide nimic
+        app.comanda(Comanda::ClicPeRand(99));
+        assert!(!app.detalii_deschise());
+    }
+
+    #[test]
+    fn dublu_clicul_deschide_editorul_si_intoarcerea_arata_panoul() {
+        let mut app = aplicatie();
+        // dublu clic = doua clicuri (deschis, inchis) si apoi Deschide
+        app.comanda(Comanda::ClicPeRand(0));
+        app.comanda(Comanda::ClicPeRand(0));
+        app.comanda(Comanda::Deschide);
+        assert_eq!(app.ecran(), Ecran::Editor);
+        app.comanda(Comanda::InapoiLaLista);
+        assert!(app.detalii_deschise());
+    }
+
+    #[test]
+    fn nota_se_pune_pe_obiectul_dat_nu_pe_selectie() {
+        let mut app = aplicatie();
+        app.comanda(Comanda::Selecteaza(0));
+        let (ba, a) = app.obiect().unwrap().cheie();
+        app.comanda(Comanda::Selecteaza(1));
+        let b = app.obiect().unwrap().id();
+        let nota = |t: &str| Comanda::PuneNota(ba.clone(), a.clone(), t.into());
+        assert!(app.comanda(nota("de verificat")));
+        assert_eq!(app.nota_obiect(), "", "selectia e pe {b}, nota pe {a}");
+        app.comanda(Comanda::Selecteaza(0));
+        assert_eq!(app.nota_obiect(), "de verificat");
+        assert!(!app.comanda(nota("de verificat")));
+        assert!(!app.comanda(Comanda::PuneNota(
+            ba.clone(),
+            "dbo.nuExista".into(),
+            "x".into()
+        )));
+        assert!(!app.comanda(Comanda::PuneNota("altaBaza".into(), a.clone(), "x".into())));
+        assert!(app.comanda(nota("")));
+        assert_eq!(app.nota_obiect(), "");
+    }
+
+    #[test]
+    fn impactul_numara_cine_foloseste_obiectul_in_baza_comparata() {
+        let sursa = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nEXEC dbo.pA"),
+        ]);
+        let tinta = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 2"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nEXEC dbo.pA\nSELECT 5"),
+        ]);
+        let c = modul::compara("Ref", &sursa, &[("Client1".into(), tinta.clone())], |_| {});
+        let mut app = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".into(), tinta)],
+            Revizuire::noua(),
+        );
+        let mut vazute = Vec::new();
+        for p in 0..2 {
+            app.comanda(Comanda::Selecteaza(p));
+            let (i, cine) = app.impact_obiect().unwrap();
+            vazute.push((app.obiect().unwrap().id(), i.folosit_de, cine));
+        }
+        vazute.sort();
+        // panoul inchis nu calculeaza impactul; deschis, il arata
+        assert_eq!(app.panou_detalii().impact, None);
+        app.comanda(Comanda::ClicPeRand(0));
+        let p = app.panou_detalii();
+        assert!(
+            p.deschis && p.impact.is_some() && !p.motive.is_empty(),
+            "{p:?}"
+        );
+        assert_eq!(
+            vazute,
+            vec![
+                ("dbo.pA".to_string(), 1, vec!["dbo.pB".to_string()]),
+                ("dbo.pB".to_string(), 0, vec![]),
+            ]
+        );
     }
 
     #[test]
