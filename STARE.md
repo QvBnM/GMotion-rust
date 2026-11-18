@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (412 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (437 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -24,16 +24,15 @@ interfata grafica: binarul `gmotion`.
 | `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
 | `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
-| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **nu e la paritate cu v3.4** (`cercetare/lipsuri-portare.md`) |
+| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **la paritate cu v3.4**, in afara randurilor ramase in `cercetare/lipsuri-portare.md` |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/14-paritate-v34.md` — toate functiile din v3.4,
-fara schimbari de design, apoi modul de previzualizare. Etapa 13 (aspectul
-nou) s-a incheiat pe 2026-11-18; capturile: `cercetare/capturi/`.
+**Etapa activa:** niciuna. Etapa 14 (paritatea cu v3.4 si modul de
+previzualizare) s-a incheiat pe 2026-11-18; capturile: `cercetare/capturi/`.
 
 ```
 cd rust && cargo run --release -p gmotion-app            # implicit intunecat
@@ -47,32 +46,37 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B si C gata. Urmeaza D.**
+**Etapa 14 s-a incheiat.** `gmotion-ui` face acum tot ce facea v3.4, pe
+aspectul din etapa 13. Nu e deschisa nicio etapa noua — urmatoarea se alege
+impreuna cu Mihai. Candidatii, in ordinea in care i-as lua:
 
-D — conectarea, in ordinea asta:
-
-1. **o referinta comparata cu mai multe baze** (bife in ecranul de conectare);
-   schimba `rutare` (azi `Aplicatie` tine o singura tinta) si aduce filtrul pe
-   baza in lista. E cea mai mare dintre toate, deci prima;
-2. compararea pe alt fir: progres, timp, mesaj, **Anuleaza** (azi fereastra se
-   blocheaza ~12 s pe baza lui Mihai);
-3. Deconecteaza (cu confirmare), Testeaza conexiunea cu detaliile serverului,
-   etichetele CLUSTER / IMPLICITA, Sterge log;
-4. Sesiuni: lista, Reia, Ignora; compararea offline (doua bucati de cod
-   lipite); Ajutor (F1), Despre, ecran complet (F11).
-
-Apoi F (cele grele in Slint) si E (modul de previzualizare).
-
-**Nu schimba designul** (cererea lui Mihai): elementele noi vin din schita
-(`cercetare/schita-slint/README.md`).
+1. **Proba pe Windows, pe o baza adevarata.** Tot ce s-a facut la etapa 14 e
+   verificat pe Linux, pe instantanee. Compararea pe mai multe baze, progresul
+   cu Anuleaza si deploy-ul pe mai multe baze n-au fost vazute niciodata pe un
+   server real. Comanda de pornit, ca sa probeze functiile fara baza:
+   `gmotion-ui --previzualizare`.
+2. **Ce a ramas deschis ca decizie** (mai jos): `rfd`, „Despre", stergerea
+   obiectelor la deploy, „Ruleaza" pe server.
+3. **Performanta patratica pe obiecte uriase** — singura problema de motor
+   stiuta si nerezolvata.
+4. Trecerea textelor in engleza (ceruta de Mihai, fara data).
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
 
 **Rulare pe Windows, de cerut lui Mihai cand are timp** (ce n-am putut proba
-pe Linux): `gmotion-ui --tema intunecat` si `--tema luminos` pe un server
-real, prin RDP, si spus daca umbrele insulelor din editor se misca greu;
-daca da, se scot umbrele, nu insulele.
+pe Linux):
+
+```
+gmotion-ui --previzualizare
+gmotion-ui --tema luminos --previzualizare
+```
+
+si, pe un server real, o comparare cu **doua-trei baze bifate**. Ce vreau sa
+stiu: (1) daca umbrele insulelor din editor se misca greu prin RDP (daca da,
+se scot umbrele, nu insulele); (2) cat tine bara de progres pe bazele lui si
+daca „Anuleaza" raspunde pe loc; (3) daca tragerea unui bloc peste panoul din
+dreapta se simte natural sau e prea sensibila.
 
 Ramase deschise, documentate: performanta patratica pe obiecte uriase (se
 vede si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura data,
@@ -84,6 +88,15 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
+
+**Doua decizii noi, din etapa 14:**
+
+6. **Dialogul nativ de fisiere (`rfd`)?** Acum „Deschide un instantaneu" arata
+   `.json`-urile gasite pe disc si accepta o cale scrisa. Un dialog nativ ar fi
+   o dependinta noua pe care n-o pot proba fara ecran. Daca il vrei, intra cu
+   intrarea lui in `JURNAL.md`.
+7. **Ecranul „Despre"** (cerut de licenta Slint): textul il dai tu — ce scrie
+   acolo despre licenta si versiune.
 
 Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
 `JURNAL.md`): contrastul se repara intunecand minim doua jetoane; modul
@@ -118,6 +131,16 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Cheia unui rand e `(baza, schema.nume)`, nu `schema.nume`.** De cand o
+  referinta se compara cu mai multe baze, acelasi obiect apare o data pentru
+  fiecare baza. Orice cautare dupa nume singur loveste randul gresit:
+  `Lista::{pune_deploy, scoate_din_plan, in_plan}` si `Aplicatie::rand` cer
+  amandoua partile.
+- **Obiectele identice sunt puse in lista de `Aplicatie`, nu de comparare.**
+  Randurile lor nu exista in `Comparare::randuri`. Cine construieste o lista
+  pe langa `Aplicatie` pierde categoria „Identice" — si asta a fost exact
+  bug-ul din captura.
 
 - **Bifa nu re-aplica filtrul pe loc, si asta e deliberat** (ca in v3.4:
   `marcheazaRezolvat` nu cheama `renderLista`). Cu filtrul „Nerevizuite"
