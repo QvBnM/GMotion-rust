@@ -461,6 +461,12 @@ export component FereastraConectare inherits Window {
     callback inverseaza();
     callback schimba-certificatul();
     callback deschide-instantaneu();
+    // fereastra de alegere a instantaneului: fisierele gasite pe disc si o
+    // cale scrisa de mana
+    in-out property <bool> alege-fisierul;
+    in property <[string]> instantanee;
+    in-out property <string> cale-scrisa;
+    callback alege-instantaneul(string);
     callback compara();
     callback anuleaza();
     callback testeaza(bool);
@@ -492,6 +498,7 @@ export component FereastraConectare inherits Window {
             if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
             if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
             if (e.text == Key.Escape && root.offline) { root.inchide-offline(); return accept; }
+            if (e.text == Key.Escape && root.alege-fisierul) { root.alege-fisierul = false; return accept; }
             if (e.text == Key.Escape && root.ruleaza) { root.anuleaza(); return accept; }
             return reject;
         }
@@ -857,6 +864,88 @@ export component FereastraConectare inherits Window {
     if root.arata-ajutorul: Ajutor {
         text: root.text-ajutor;
         inchide => { root.arata-ajutorul = false; }
+    }
+
+    // ---- „Deschide un instantaneu": fisierele gasite, sau o cale scrisa
+    if root.alege-fisierul: Rectangle {
+        background: Tema.intunecat ? #00000099 : #0f111566;
+        TouchArea { clicked => { root.alege-fisierul = false; } }
+        Rectangle {
+            width: Math.min(root.width - 80px, 720px);
+            height: Math.min(root.height - 80px, 480px);
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            VerticalLayout {
+                padding: 18px;
+                spacing: 10px;
+                HorizontalLayout {
+                    Text { text: "Deschide un instantaneu"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                    Buton { text: "Inchide  Esc"; apasat => { root.alege-fisierul = false; } }
+                }
+                if root.instantanee.length == 0: Text {
+                    text: "Niciun .json gasit langa aplicatie sau in directorul de date. Scrie calea mai jos.";
+                    font-family: Tema.font-ui;
+                    font-size: 12.5px;
+                    color: Tema.text-tert;
+                    wrap: word-wrap;
+                }
+                ListView {
+                    vertical-stretch: 1;
+                    for f in root.instantanee: Rectangle {
+                        height: 30px;
+                        border-radius: 7px;
+                        background: zf.has-hover ? Tema.strat : transparent;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            Text {
+                                text: f;
+                                font-family: Tema.font-mono;
+                                font-size: 12.5px;
+                                color: Tema.text;
+                                vertical-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                        zf := TouchArea { clicked => { root.alege-instantaneul(f); } }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 10px;
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 34px;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Tema.linie;
+                        background: Tema.fundal;
+                        HorizontalLayout {
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            TextInput {
+                                text <=> root.cale-scrisa;
+                                font-family: Tema.font-mono;
+                                font-size: 12.5px;
+                                color: Tema.text;
+                                vertical-alignment: center;
+                                single-line: true;
+                                accepted => { root.alege-instantaneul(self.text); }
+                            }
+                        }
+                        if root.cale-scrisa == "": Text {
+                            x: 12px;
+                            text: "sau scrie calea catre un .json";
+                            font-family: Tema.font-ui;
+                            font-size: 12.5px;
+                            color: Tema.text-tert;
+                            vertical-alignment: center;
+                        }
+                    }
+                    ButonPrincipal { text: "Deschide"; apasat => { root.alege-instantaneul(root.cale-scrisa); } }
+                }
+            }
+        }
     }
 
     init => { taste.focus(); }

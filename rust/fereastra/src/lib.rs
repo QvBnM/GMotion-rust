@@ -1897,6 +1897,10 @@ mod teste {
         ui.on_ignora_recenta(move |i| a.borrow_mut().push(format!("ignora{i}")));
         let a = apeluri.clone();
         ui.on_ajutor(move || a.borrow_mut().push("ajutor".into()));
+        let a = apeluri.clone();
+        ui.on_deschide_instantaneu(move || a.borrow_mut().push("instantaneu".into()));
+        let a = apeluri.clone();
+        ui.on_alege_instantaneul(move |c| a.borrow_mut().push(format!("ales{c}")));
 
         ui.invoke_testeaza(true);
         ui.invoke_sterge_jurnalul();
@@ -1906,6 +1910,8 @@ mod teste {
         ui.invoke_anuleaza();
         ui.invoke_ignora_recenta(2);
         ui.invoke_ajutor();
+        ui.invoke_deschide_instantaneu();
+        ui.invoke_alege_instantaneul("/x/y.json".into());
         assert_eq!(
             *apeluri.borrow(),
             [
@@ -1916,7 +1922,9 @@ mod teste {
                 "inchide",
                 "anuleaza",
                 "ignora2",
-                "ajutor"
+                "ajutor",
+                "instantaneu",
+                "ales/x/y.json"
             ]
         );
     }

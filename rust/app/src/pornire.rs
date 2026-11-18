@@ -91,6 +91,58 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
     }
 }
 
+/// Instantaneele gasite pe disc, pentru „Deschide un instantaneu": in
+/// directorul de date al aplicatiei, langa binar, in directorul curent si in
+/// `referinta/instantanee` (in dezvoltare). Fara dialog nativ, deci fara o
+/// dependinta noua — vezi `JURNAL.md`.
+///
+/// Se intorc doar fisiere `.json` care chiar exista, fara duplicate, cele mai
+/// noi intai: cine tocmai a facut un instantaneu il gaseste primul.
+pub fn instantanee_gasite() -> Vec<std::path::PathBuf> {
+    let mut locuri: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(d) = gmotion_platforma::cai::director_date() {
+        locuri.push(d.join("instantanee"));
+        locuri.push(d);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(d) = exe.parent() {
+            locuri.push(d.to_path_buf());
+        }
+    }
+    if let Ok(d) = std::env::current_dir() {
+        locuri.push(d.clone());
+        // in dezvoltare, instantaneele stau in `referinta/instantanee`, iar
+        // comenzile se dau din radacina sau din `rust/<crate>`
+        for sus in ["", "../", "../../", "../../../"] {
+            locuri.push(d.join(format!("{sus}referinta/instantanee")));
+        }
+    }
+
+    let mut gasite: Vec<(std::time::SystemTime, std::path::PathBuf)> = Vec::new();
+    for loc in locuri {
+        let Ok(intrari) = std::fs::read_dir(&loc) else {
+            continue;
+        };
+        for e in intrari.flatten() {
+            let cale = e.path();
+            if !cale.is_file() || cale.extension().is_none_or(|x| x != "json") {
+                continue;
+            }
+            let cale = cale.canonicalize().unwrap_or(cale);
+            if gasite.iter().any(|(_, c)| *c == cale) {
+                continue;
+            }
+            let cand = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            gasite.push((cand, cale));
+        }
+    }
+    gasite.sort_by_key(|g| std::cmp::Reverse(g.0));
+    gasite.into_iter().map(|(_, c)| c).take(40).collect()
+}
+
 /// Verifica o conexiune si intoarce ce a raspuns serverul: editia, sistemul,
 /// de cat timp merge si cate baze are. Pe instantaneu nu exista server, deci
 /// se spune de unde s-au luat obiectele.
@@ -386,6 +438,33 @@ mod teste {
         assert_eq!(citite.get(), 2, "s-a oprit la a doua intrebare");
 
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn instantaneele_gasite_sunt_json_uri_reale_fara_duplicate() {
+        // directorul curent al testelor e crate-ul, deci `referinta/` se vede
+        // prin „..": exact una din caile cautate
+        let gasite = instantanee_gasite();
+        assert!(
+            gasite.iter().all(|c| c.is_file()),
+            "s-a propus ceva ce nu e fisier: {gasite:?}"
+        );
+        assert!(
+            gasite
+                .iter()
+                .all(|c| c.extension().is_some_and(|x| x == "json")),
+            "doar .json: {gasite:?}"
+        );
+        let mut unice = gasite.clone();
+        unice.sort();
+        unice.dedup();
+        assert_eq!(unice.len(), gasite.len(), "fara duplicate: {gasite:?}");
+        assert!(gasite.len() <= 40, "lista nu creste la nesfarsit");
+        // in repo exista cel putin instantaneul de previzualizare
+        assert!(
+            gasite.iter().any(|c| c.ends_with("previzualizare.json")),
+            "instantaneul de previzualizare ar trebui gasit: {gasite:?}"
+        );
     }
 
     #[test]

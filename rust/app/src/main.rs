@@ -647,18 +647,56 @@ fn ruleaza() -> Result<(), String> {
             drop(st);
             d();
         });
+        let d = deseneaza.clone();
+        let c_ui = conectare_ui.as_weak();
+        conectare_ui.on_deschide_instantaneu(move || {
+            // alegerea se face in aplicatie, nu cu un dialog nativ: acela ar
+            // fi o dependinta noua, si nu se poate proba pe Linux fara ecran.
+            // Vezi `JURNAL.md`.
+            let gasite = pornire::instantanee_gasite();
+            tracing::info!(target: "gmotion::app", gasite = gasite.len(), "caut instantanee");
+            if let Some(ui) = c_ui.upgrade() {
+                ui.set_instantanee(slint::ModelRc::new(slint::VecModel::from(
+                    gasite
+                        .iter()
+                        .map(|c| slint::SharedString::from(c.display().to_string()))
+                        .collect::<Vec<_>>(),
+                )));
+                ui.set_alege_fisierul(true);
+            }
+            d();
+        });
         let s = stare.clone();
         let d = deseneaza.clone();
-        conectare_ui.on_deschide_instantaneu(move || {
-            // fara selector de fisiere: ar fi o dependinta noua, si nu se
-            // poate proba pe Linux fara ecran. Vezi STARE.md.
+        let c_ui = conectare_ui.as_weak();
+        conectare_ui.on_alege_instantaneul(move |cale| {
+            let cale = cale.trim().to_string();
+            if cale.is_empty() {
+                return;
+            }
             let mut st = s.borrow_mut();
-            if st.conectare.instantaneu.is_none() {
-                st.conectare.sursa.stare = StareConexiune::Eroare(
-                    "porneste cu --sursa <instantaneu.json> ca sa deschizi un instantaneu".into(),
-                );
+            st.conectare.instantaneu = Some(cale.clone());
+            // bazele vin din fisier: daca nu se citeste, se spune pe loc
+            let c = st.conectare.clone();
+            let (baze, stare_noua) = pornire::citeste_bazele(&c, &c.sursa);
+            let reusit = stare_noua.e_conectat();
+            st.conectare.sursa.baze.clone_from(&baze);
+            st.conectare.baza.baze = baze;
+            st.conectare.sursa.stare = stare_noua.clone();
+            st.conectare.baza.stare = stare_noua;
+            if !reusit {
+                st.conectare.instantaneu = None;
+            } else {
+                st.conectare.sursa.baza = String::new();
+                st.conectare.baza.alese.clear();
+                st.conectare.baza.baza = String::new();
             }
             drop(st);
+            if let Some(ui) = c_ui.upgrade() {
+                if reusit {
+                    ui.set_alege_fisierul(false);
+                }
+            }
             d();
         });
         let s = stare.clone();
