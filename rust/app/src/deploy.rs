@@ -43,6 +43,9 @@ pub struct StareDeploy {
     /// Obiectele recitite la verificare (referinta, tinta): din ele se scrie,
     /// nu din cele de la comparare.
     recitite: Option<(Baza, Baza)>,
+    /// Textele finale din editor, pe `(baza, schema.nume)`: ce se scrie in
+    /// locul codului din sursa pentru obiectele editate.
+    pub texte_finale: std::collections::BTreeMap<(String, String), String>,
 }
 
 impl StareDeploy {
@@ -53,7 +56,17 @@ impl StareDeploy {
             impartire: ModImpartire::default(),
             rezultat: None,
             recitite: None,
+            texte_finale: Default::default(),
         }
+    }
+
+    /// Cu textele finale din editor (Aplica, scris de mana).
+    pub fn cu_texte_finale(
+        mut self,
+        texte: std::collections::BTreeMap<(String, String), String>,
+    ) -> Self {
+        self.texte_finale = texte;
+        self
     }
 
     /// Pasii, in ordinea in care ajung in script (dependentele intai), pe
@@ -130,7 +143,7 @@ impl StareDeploy {
         let altele = [(tinta_nume.to_string(), tinta.clone())];
         let r = self
             .plan
-            .de_deployat(referinta)
+            .de_deployat_cu(referinta, &self.texte_finale)
             .and_then(|pe_baza| {
                 let revenire = self.plan.revenire(referinta, &altele);
                 modul::deploy::scrie_cu_revenire(

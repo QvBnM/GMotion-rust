@@ -100,6 +100,22 @@ impl Editari {
         self.pune(r, text_sursa.to_string(), false, text_baza);
     }
 
+    /// Pune inapoi o stare luata inainte cu [`Editari::text_final`] (Ctrl+Z):
+    /// `None` inseamna ca nu exista text final.
+    pub fn restaureaza(&mut self, r: &Rand, inainte: Option<TextFinal>) {
+        match inainte {
+            Some(t) => {
+                self.baze
+                    .entry(r.baza.clone())
+                    .or_default()
+                    .insert(r.obiect.clone(), t);
+            }
+            None => {
+                self.reset(r);
+            }
+        }
+    }
+
     /// „Reset": inapoi la textul bazei. Intoarce `true` daca era ceva.
     pub fn reset(&mut self, r: &Rand) -> bool {
         let scos = self
@@ -215,6 +231,21 @@ mod teste {
         e.aplica_toate(&r, SURSA, BAZA);
         assert_eq!(e.curent(&r, BAZA), SURSA);
         assert!(e.reset(&r));
+        assert_eq!(e.curent(&r, BAZA), BAZA);
+        assert_eq!(e.numar(), 0);
+    }
+
+    #[test]
+    fn restaurarea_pune_inapoi_starea_de_dinainte() {
+        let r = rand("a", "b");
+        let mut e = Editari::noi();
+        let inainte = e.text_final(&r).cloned();
+        e.aplica_toate(&r, SURSA, BAZA);
+        let dupa_toate = e.text_final(&r).cloned();
+        e.reset(&r);
+        e.restaureaza(&r, dupa_toate);
+        assert_eq!(e.curent(&r, BAZA), SURSA);
+        e.restaureaza(&r, inainte);
         assert_eq!(e.curent(&r, BAZA), BAZA);
         assert_eq!(e.numar(), 0);
     }

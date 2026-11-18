@@ -57,6 +57,7 @@ fn main() {
                 detalii: None,
                 revizuit: false,
                 in_plan: false,
+                omis: false,
             }
         })
         .chain(
@@ -74,6 +75,7 @@ fn main() {
                         detalii: None,
                         revizuit: false,
                         in_plan: false,
+                        omis: false,
                     }
                 }),
         )

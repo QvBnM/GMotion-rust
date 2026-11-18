@@ -186,3 +186,46 @@ fn o_baza_lipsa_din_instantaneu_nu_duce_in_lista() {
     assert!(e.contains("BazaCareNuExista"), "{e}");
     std::fs::remove_dir_all(cale.parent().unwrap()).ok();
 }
+
+/// Editorul pana in deploy: „Editeaza" (scris de mana) pe pStoc, in plan,
+/// garda, scrierea — iar scriptul are textul final, nu codul din sursa.
+#[test]
+fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
+    use gmotion_app::deploy::StareDeploy;
+    let cale = instantaneu("text-final");
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.to_string_lossy().to_string());
+    c.sursa.baza = "CharismaDev".into();
+    c.baza.baza = "CharismaProd".into();
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let p = (0..app.lista().vizibile().len())
+        .find(|&p| app.lista().obiect(p).unwrap().nume == "pStoc")
+        .unwrap();
+    app.comanda(Comanda::Selecteaza(p));
+    app.comanda(Comanda::Deschide);
+    assert_eq!(app.ecran(), Ecran::Editor);
+    assert!(app.comanda(Comanda::SalveazaText(
+        "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
+    )));
+    app.comanda(Comanda::ComutaInPlan);
+    let mut st = StareDeploy::nou(app.plan("CharismaDev", "CharismaProd", "acum"))
+        .cu_texte_finale(app.texte_finale());
+    let recitit = pornire::compara(&c).expect("recitirea merge");
+    st.aplica_verificarea(recitit.sursa, "CharismaProd", recitit.tinta, "acum");
+    let dir = cale.parent().unwrap().join("deploy");
+    st.scrie(&dir, "CharismaProd", "acum");
+    let raport = st
+        .rezultat
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .expect("scrierea merge");
+    let script = std::fs::read_to_string(&raport.fisiere[0]).unwrap();
+    assert!(
+        script.contains("WHERE activ = 7"),
+        "textul final:\n{script}"
+    );
+    assert!(!script.contains("WHERE activ = 1"), "nu codul din sursa");
+    std::fs::remove_dir_all(cale.parent().unwrap()).ok();
+}

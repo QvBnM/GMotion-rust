@@ -389,6 +389,11 @@ export struct RandUi {
     stare: int,
     // a cata diferenta e randul, -1 pe context (bara e mai lata pe cea curenta)
     diferenta: int,
+    // linia din baza: 0 cum era, 1 adusa din sursa, 2 scrisa de tine
+    dr-marcaj: int,
+    // primul rand al unei diferente (sageata din canal) sau al unui sir de
+    // linii aduse (bifa)
+    inceput: bool,
 }
 
 export struct MarcajUi {
@@ -455,11 +460,16 @@ export component Jumatate inherits Rectangle {
     in property <image> tigla;
     // fondul liniilor identice: `cod-fundal` (baza) sau `panou-sursa` (sursa)
     in property <color> fond: Tema.cod-fundal;
+    // linia din baza: 0 cum era, 1 adusa din sursa (verde, ca „doar in
+    // sursa"), 2 scrisa de tine (violet, ca eticheta „editabil")
+    in property <int> marcaj: 0;
+    property <int> st: root.marcaj == 1 ? 2 : root.stare;
     clip: true;
     min-width: 0px;
     background: root.fara-linie ? transparent
-              : root.stare == 0 ? root.fond
-              : Tema.fundal-stare(root.stare);
+              : root.marcaj == 2 ? Tema.tine.transparentize(0.86)
+              : root.st == 0 ? root.fond
+              : Tema.fundal-stare(root.st);
     if root.fara-linie && root.stare != 0: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
     HorizontalLayout {
         spacing: 0px;
@@ -467,11 +477,13 @@ export component Jumatate inherits Rectangle {
         // jgheabul: bara de 3 px a blocului diferit, 5 px pe diferenta curenta
         Rectangle {
             width: 3px;
-            background: root.fara-linie || root.stare == 0 ? transparent : Tema.bara-stare(root.stare);
+            background: root.fara-linie || root.st == 0 ? transparent
+                      : root.marcaj == 2 ? Tema.tine
+                      : Tema.bara-stare(root.st);
             if root.curenta && !root.fara-linie: Rectangle {
                 x: 0px;
                 width: 5px;
-                background: Tema.bara-stare(root.stare);
+                background: Tema.bara-stare(root.st);
             }
         }
         Text {
@@ -479,7 +491,7 @@ export component Jumatate inherits Rectangle {
             text: root.nr;
             font-family: Tema.font-mono;
             font-size: 12.5px;
-            color: Tema.numar-stare(root.stare);
+            color: root.marcaj == 2 ? Tema.tine : Tema.numar-stare(root.st);
             horizontal-alignment: right;
             vertical-alignment: center;
         }
@@ -488,12 +500,12 @@ export component Jumatate inherits Rectangle {
             text: root.nr-baza;
             font-family: Tema.font-mono;
             font-size: 12.5px;
-            color: Tema.numar-stare(root.stare);
+            color: Tema.numar-stare(root.st);
             horizontal-alignment: right;
             vertical-alignment: center;
         }
         Rectangle { width: 10px; }
-        Bucati { bucati: root.bucati; stare: root.stare; }
+        Bucati { bucati: root.bucati; stare: root.st; }
     }
     if root.margine: Rectangle {
         x: parent.width - 1px;

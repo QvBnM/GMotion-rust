@@ -65,18 +65,16 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| **Tinta editabila**, cu evidentiere de sintaxa | `ui.py:1523,4531` | nu | amanat la etapa 8 |
-| **Aplica bloc, Aplica toate, Reset** | `ui.py:1464,3838,4817` | nu | depinde de tinta editabila |
 | Drag & drop de blocuri, „Plaseaza aici" | `ui.py:1495,3975` | nu | |
-| Ctrl+Z pe ultima plasare | `ui.py:1487,4032` | nu | |
-| **Mod ghidat** (Enter = aplica, Esc = sari; dialog de final) | `ui.py:1473,4105,1613` | nu | amanat la etapa 8 |
-| Fereastra de previzualizare: Din sursa / Din tinta / Editeaza / Aplica / Sari | `ui.py:1584,4220` | nu | |
 | Previzualizare la hover in modul inline | `ui.py:4385` | nu | |
-| **Omite** (analizat, nu intra in deploy) | `ui.py:1453,3358` | nu, nici in CLI | starea nu exista in model |
-| Re-compara un singur obiect | `ui.py:1481` | nu | |
-| Pornirea/oprirea suprapunerii diferentelor | `ui.py:1478` | nu | |
-| Copiaza sursa / Copiaza rezultatul | `ui.py:1504,1517` | nu; CLI scoate diff-ul pe stdout | |
 | Liniile de legatura dintre blocuri, in jgheab | `ui.py:3634` | nu (minimap si derulare sincronizata exista) | |
+
+Rezolvate in etapa 14: tinta editabila (panoul Baza, „Editeaza", `e`),
+Aplica bloc (sageata din canal), Aplica toate, Reset, Ctrl+Z, modul ghidat
+(Din sursa / Din tinta / Editeaza / Aplica / Sari, cu final), Omite (`o`),
+Copiaza sursa / rezultatul, Ascunde diferentele, Re-sincronizeaza, deploy-ul
+cu textul final. Evidentierea de sintaxa **in timp ce scrii** lipseste:
+editarea de mana e text simplu, culorile revin la salvare.
 
 Exista si merg: navigarea intre diferente (`n`/`p`), obiect anterior/urmator
 (`j`/`k`), Esc inapoi la lista, Revizuit (bifa legata de continut, mai buna
@@ -89,7 +87,6 @@ comuta (sectiunea 0).
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
 | „Include si ce a fost deja trimis la deploy" | `ui.py:1161` | nu: starea „deployat" nu exista | |
-| **Deploy cu textul editat** (`__FINAL__`), blocuri excluse | `app.py:540-560` | nu: doar codul din referinta | depinde de tinta editabila |
 | Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE`; GUI scrie in directorul de date, fara alegere | asteapta decizia pe `rfd` (selectorul de fisiere) |
 | Starea „deployat" tinuta minte | `ui.py:2533-2549` | nu: ce e „in plan" se pierde la inchidere | |
 

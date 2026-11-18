@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: a9effae9b7902e4e -->
+<!-- api-hash: e7753a841914406f -->
 
 ## Rol
 
@@ -30,7 +30,7 @@ biblioteca** — fara nicio interfata.
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `revizuire` | `Revizuire` — ce s-a revizuit **sau omis** (`omite`, `e_omis`), legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
-| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal` |
+| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal` |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |
 

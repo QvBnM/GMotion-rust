@@ -196,6 +196,15 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   in model. Incrucisarea e doar in `cod_stare` din `fereastra/src/lib.rs`.
   Daca o muti sau o dublezi, culorile se inverseaza fara ca vreun test de
   motor sa cada.
+- **Poarta verifica acum ca fiecare `callback` al unei ferestre are
+  `on_...` in Rust** („fiecare buton are actiune"). Un callback intern (al
+  unei componente, nu al ferestrei) nu e prins: acolo raspunde testul care
+  apasa tastele (`tastele_editorului_cheama_actiunile`).
+- **Editorul arata sursa fata de textul FINAL, nu fata de baza.** Dupa
+  „Aplica", diferenta dispare din editor; liniile schimbate fata de baza sunt
+  marcate (adus / scris de tine) de `marcheaza_textul_final`. Textul final e
+  legat de amprenta: daca obiectul se schimba pe server, editarea cade
+  singura (`modul::Editari`).
 - **O captura nu dovedeste ca un buton merge.** Uneltele de captura pornesc
   ecranul direct in starea ceruta; un comutator nelegat arata perfect in
   captura. Asa s-au declarat „gata" etapele 8-11 cu 7 butoane moarte. Un

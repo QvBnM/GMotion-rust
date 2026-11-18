@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: e85a86f0a466edfc -->
+<!-- api-hash: ef299612a7e00ced -->
 
 ## Rol
 
@@ -27,7 +27,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | Element | Ce face |
 |---|---|
 | `Aplicatie::noua(randuri, sursa, tinta, revizuire)` | starea initiala, din randurile unei comparari |
-| `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = starea de revizuire s-a schimbat (de salvat) |
+| `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
+| `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul |

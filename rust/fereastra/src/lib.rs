@@ -19,7 +19,7 @@ pub mod model_lista;
 slint::include_modules!();
 
 pub use jetoane::Mod;
-use model_editor::{Bucata, ModelEditor, RandAfisat, Sintaxa, Stare};
+use model_editor::{Bucata, Marcaj, ModelEditor, RandAfisat, Sintaxa, Stare};
 use slint::{Color, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 
 /// Mediul bazei tinta: da culoarea benzii de sus si a etichetei.
@@ -244,6 +244,8 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                 dr: gol(),
                 stare: 0,
                 diferenta: -1,
+                dr_marcaj: 0,
+                inceput: false,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -262,6 +264,16 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
                     dr: bucati_ui(&rand.dreapta.bucati),
                     stare: cod_stare(rand.stare),
                     diferenta: k.map_or(-1, |k| k as i32),
+                    dr_marcaj: match rand.marcaj {
+                        Marcaj::Niciunul => 0,
+                        Marcaj::Adus => 1,
+                        Marcaj::ScrisDeTine => 2,
+                    },
+                    // primul rand al unei diferente, sau al unui sir de linii
+                    // aduse: acolo sta sageata (sau bifa) din canal
+                    inceput: rand.inceput_bloc
+                        || (rand.marcaj != Marcaj::Niciunul
+                            && (i == 0 || model.randuri[i - 1].marcaj == Marcaj::Niciunul)),
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     randuri.push(baza);
@@ -387,6 +399,57 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_total_diferente(model.diferente.len() as i32);
     ui.set_start_diferente(ModelRc::new(VecModel::from(start)));
     ui.set_diferenta_curenta(0);
+}
+
+/// Starea editarii obiectului deschis: textul final, omis, modul ghidat.
+/// Separat de [`AntetEditor`], care descrie obiectul, nu ce faci cu el.
+pub struct StareEditare<'a> {
+    pub omis: bool,
+    /// Exista un text final (deci „Reset" are ce face).
+    pub editat: bool,
+    pub se_poate_anula: bool,
+    /// Diferenta curenta, care ramane pe loc dupa „Aplica".
+    pub diferenta: usize,
+    /// Modul ghidat: `(din_sursa, aplicate, sarite, terminat)`.
+    pub ghidat: Option<(bool, usize, usize, bool)>,
+    /// Ce copiaza „Copiaza" si ce se editeaza de mana.
+    pub text_sursa: &'a str,
+    pub text_final: &'a str,
+    /// „salvat la 14:52", sau gol.
+    pub salvat: &'a str,
+}
+
+/// Pune starea editarii in editor. Se cheama dupa [`incarca_editor`].
+pub fn incarca_editarea(ui: &EditorDiferente, e: &StareEditare) {
+    ui.set_omis(e.omis);
+    ui.set_editat(e.editat);
+    ui.set_se_poate_anula(e.se_poate_anula);
+    ui.set_text_sursa(e.text_sursa.into());
+    ui.set_text_final(e.text_final.into());
+    ui.set_salvat(e.salvat.into());
+    let total = ui.get_total_diferente().max(0) as usize;
+    match e.ghidat {
+        Some((din_sursa, aplicate, sarite, terminat)) => {
+            ui.set_ghidat(true);
+            ui.set_ghidat_din_sursa(din_sursa);
+            ui.set_ghidat_terminat(terminat);
+            ui.set_ghidat_titlu(
+                if terminat {
+                    format!("Mod ghidat incheiat: {aplicate} aplicate, {sarite} lasate cum erau")
+                } else {
+                    format!("Mod ghidat, diferenta {} din {total}", e.diferenta + 1)
+                }
+                .into(),
+            );
+        }
+        None => {
+            ui.set_ghidat(false);
+            ui.set_ghidat_terminat(false);
+        }
+    }
+    if total > 0 {
+        ui.invoke_mergi_la(e.diferenta.min(total - 1) as i32);
+    }
 }
 
 /// Datele din antetul listei.
@@ -852,6 +915,133 @@ mod teste {
         ui
     }
 
+    /// Apasa o tasta in fereastra, ca un utilizator (apasat si eliberat).
+    fn apasa(ui: &EditorDiferente, tasta: &str) {
+        use slint::platform::WindowEvent;
+        let t: SharedString = tasta.into();
+        ui.window()
+            .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+        ui.window()
+            .dispatch_event(WindowEvent::KeyReleased { text: t });
+    }
+
+    /// Tastele editorului ajung la callback-urile lor: aceleasi pe care le
+    /// cheama butoanele. Un buton sau o tasta fara efect e exact ce a trecut
+    /// neobservat prin etapele 8-11.
+    #[test]
+    fn tastele_editorului_cheama_actiunile() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let ui = fereastra();
+        ui.show().expect("fereastra se arata");
+        let apeluri: Rc<RefCell<Vec<&'static str>>> = Rc::default();
+        macro_rules! inregistreaza {
+            ($($on:ident => $nume:literal),* $(,)?) => {
+                $( let a = apeluri.clone(); ui.$on(move || a.borrow_mut().push($nume)); )*
+            };
+        }
+        inregistreaza!(
+            on_comuta_omis => "omite",
+            on_ghidat_porneste => "ghidat",
+            on_ghidat_opreste => "opreste",
+            on_ghidat_aplica => "aplica",
+            on_ghidat_sari => "sari",
+            on_anuleaza => "anuleaza",
+            on_editeaza_textul_final => "editeaza",
+            on_inapoi_lista => "lista",
+        );
+        apasa(&ui, "o");
+        apasa(&ui, "g");
+        apasa(&ui, "e");
+        assert!(ui.get_editeaza_mod(), "e deschide editarea de mana");
+        ui.set_editeaza_mod(false);
+        ui.invoke_focus_taste();
+        // Ctrl+Z: Control tinut apasat, apoi z
+        use slint::platform::{Key, WindowEvent};
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Control.into(),
+        });
+        apasa(&ui, "z");
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Control.into(),
+        });
+        // in modul ghidat, Enter aplica si Esc sare (nu te intoarce in lista)
+        ui.set_ghidat(true);
+        apasa(&ui, &SharedString::from(Key::Return));
+        apasa(&ui, &SharedString::from(Key::Escape));
+        // la final, Enter inchide
+        ui.set_ghidat_terminat(true);
+        apasa(&ui, &SharedString::from(Key::Return));
+        // in afara modului ghidat, Esc e lista
+        ui.set_ghidat(false);
+        apasa(&ui, &SharedString::from(Key::Escape));
+        assert_eq!(
+            *apeluri.borrow(),
+            ["omite", "ghidat", "editeaza", "anuleaza", "aplica", "sari", "opreste", "lista"]
+        );
+    }
+
+    #[test]
+    fn starea_editarii_ajunge_in_fereastra() {
+        let ui = fereastra();
+        let model = model_editor::construieste(
+            "SELECT 1\n\nUPDATE t SET a = 1",
+            "SELECT 1\n\nUPDATE t SET a = 2",
+        );
+        incarca_editor(
+            &ui,
+            &AntetEditor {
+                schema: "dbo",
+                nume: "p",
+                tip: "procedura",
+                sursa_baza: "A",
+                sursa_server: "",
+                tinta_baza: "B",
+                tinta_server: "",
+                mediu: Mediu::Dev,
+                stare_obiecte: "",
+                revizuit: false,
+                in_plan: false,
+            },
+            &model,
+        );
+        incarca_editarea(
+            &ui,
+            &StareEditare {
+                omis: true,
+                editat: true,
+                se_poate_anula: true,
+                diferenta: 0,
+                ghidat: Some((true, 0, 0, false)),
+                text_sursa: "sursa",
+                text_final: "final",
+                salvat: "salvat la 14:52",
+            },
+        );
+        assert!(ui.get_omis() && ui.get_editat() && ui.get_se_poate_anula() && ui.get_ghidat());
+        assert_eq!(ui.get_ghidat_titlu(), "Mod ghidat, diferenta 1 din 1");
+        assert_eq!(ui.get_text_final(), "final");
+        incarca_editarea(
+            &ui,
+            &StareEditare {
+                omis: false,
+                editat: false,
+                se_poate_anula: false,
+                diferenta: 0,
+                ghidat: Some((true, 1, 0, true)),
+                text_sursa: "",
+                text_final: "",
+                salvat: "",
+            },
+        );
+        assert!(ui.get_ghidat_terminat());
+        assert!(
+            ui.get_ghidat_titlu().contains("1 aplicate"),
+            "{}",
+            ui.get_ghidat_titlu()
+        );
+    }
+
     #[test]
     fn aplica_tema_pune_fiecare_jeton_in_slint_in_ambele_moduri() {
         let ui = fereastra();
@@ -1073,6 +1263,7 @@ mod teste {
             detalii: None,
             revizuit: false,
             in_plan: false,
+            omis: false,
         };
         model_lista::Lista::noua(vec![
             o("usp_Stoc", "P", Stare::Modificat),

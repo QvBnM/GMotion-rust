@@ -6,9 +6,9 @@
 //! sunt bug-uri de stare, nu de desen — de-aia starea sta aici, fara Slint, si
 //! se testeaza ca atare.
 
-use gmotion_fereastra::model_editor::{construieste, ModelEditor};
+use gmotion_fereastra::model_editor::{construieste, marcheaza_textul_final, ModelEditor};
 use gmotion_fereastra::model_lista::{Detalii, Lista, Obiect, Ordine, Stare};
-use gmotion_modul_diff_obiecte::{self as modul, Baza, Rand, Revizuire};
+use gmotion_modul_diff_obiecte::{self as modul, Baza, Editari, Rand, Revizuire, TextFinal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Ecran {
@@ -38,6 +38,41 @@ pub enum Comanda {
     ScoateDinPlan(String),
     /// Deschide planul de deploy; ramane pe loc daca planul e gol.
     DeschideDeploy,
+    // ---- editorul: textul final (vezi `modul::Editari`)
+    /// Aplica diferenta cu numarul asta (de la 0, ca in editor); `None` =
+    /// diferenta curenta.
+    AplicaDiferenta(Option<usize>),
+    AplicaToate,
+    Reset,
+    /// Ctrl+Z: ultima schimbare a textului final, pe orice obiect.
+    Anuleaza,
+    /// „Editeaza": textul final scris de mana.
+    SalveazaText(String),
+    /// „Omite" (`o`): analizat, lasat in afara deploy-ului.
+    ComutaOmis,
+    /// Diferenta curenta s-a mutat (n / p, clic pe harta).
+    MergiLaDiferenta(usize),
+    // ---- modul ghidat: ia diferentele pe rand
+    PornesteGhidat,
+    OpresteGhidat,
+    /// Ce se pune in baza pentru blocul curent: din sursa (`true`) sau
+    /// ramane cum e in tinta (`false`).
+    GhidatAlege(bool),
+    /// Aplica alegerea si treci la urmatoarea diferenta.
+    GhidatAplica,
+    /// Lasa diferenta asa si treci la urmatoarea.
+    GhidatSari,
+}
+
+/// Modul ghidat: diferentele, una cate una, cu o alegere pentru fiecare.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Ghidat {
+    /// Alegerea pentru diferenta curenta: din sursa (implicit) sau din tinta.
+    pub din_sursa: bool,
+    pub aplicate: usize,
+    pub sarite: usize,
+    /// S-au terminat diferentele: se arata dialogul de final.
+    pub terminat: bool,
 }
 
 /// Starea aplicatiei: lista, ecranul activ si progresul revizuirii.
@@ -49,6 +84,15 @@ pub struct Aplicatie {
     randuri: Vec<Rand>,
     sursa: Baza,
     tinta: Baza,
+    /// Textele finale (Aplica, Reset, scris de mana), salvate in sesiune.
+    editari: Editari,
+    /// Pentru Ctrl+Z: obiectul si textul lui final de dinainte de fiecare
+    /// schimbare. Nu se salveaza: anularea tine cat sesiunea de lucru.
+    istoric: Vec<(Rand, Option<TextFinal>)>,
+    /// Diferenta curenta din editor; ramane pe loc dupa „Aplica", cand
+    /// diferenta aplicata dispare si urmatoarea ii ia locul.
+    diferenta: usize,
+    ghidat: Option<Ghidat>,
 }
 
 impl Aplicatie {
@@ -72,6 +116,7 @@ impl Aplicatie {
                     detalii: None,
                     revizuit: revizuire.e_revizuit(r),
                     in_plan: false,
+                    omis: revizuire.e_omis(r),
                 }
             })
             .collect();
@@ -86,7 +131,65 @@ impl Aplicatie {
             randuri,
             sursa,
             tinta,
+            editari: Editari::noi(),
+            istoric: Vec::new(),
+            diferenta: 0,
+            ghidat: None,
         }
+    }
+
+    /// Textele finale salvate (din sesiune). Cele care nu mai corespund
+    /// obiectelor de acum se ignora singure (sunt legate de amprenta).
+    pub fn cu_editari(mut self, editari: Editari) -> Self {
+        self.editari = editari;
+        self
+    }
+
+    pub fn editari(&self) -> &Editari {
+        &self.editari
+    }
+
+    /// Textele finale gata de salvat, fara cele care nu mai corespund.
+    pub fn editari_de_salvat(&mut self) -> &Editari {
+        self.editari.curata(&self.randuri);
+        &self.editari
+    }
+
+    /// Textele finale valabile, pe `(baza, schema.nume)`: ce primeste
+    /// deploy-ul in locul codului din sursa.
+    pub fn texte_finale(&self) -> std::collections::BTreeMap<(String, String), String> {
+        self.editari.pentru_deploy(&self.randuri)
+    }
+
+    pub fn diferenta_curenta(&self) -> usize {
+        self.diferenta
+    }
+
+    pub fn ghidat(&self) -> Option<&Ghidat> {
+        self.ghidat.as_ref()
+    }
+
+    /// Obiectul curent are text final (deci „Reset" are ce face), si e scris
+    /// si de mana?
+    pub fn stare_text_final(&self) -> (bool, bool) {
+        self.obiect()
+            .and_then(|o| self.rand(&o.id()))
+            .and_then(|r| self.editari.text_final(r))
+            .map_or((false, false), |t| (true, t.manual))
+    }
+
+    /// Se poate anula ceva cu Ctrl+Z.
+    pub fn se_poate_anula(&self) -> bool {
+        !self.istoric.is_empty()
+    }
+
+    /// Textul curent al obiectului din dreapta (final sau al bazei) si cel al
+    /// sursei: ce arata „Copiaza" si ce se editeaza de mana.
+    pub fn texte_curente(&self) -> Option<(String, String)> {
+        let id = self.obiect()?.id();
+        let r = self.rand(&id)?;
+        let (a, b) = self.texte(&id)?;
+        Some((a.to_string(), self.editari.curent(r, b).to_string()))
     }
 
     pub fn ecran(&self) -> Ecran {
@@ -122,10 +225,21 @@ impl Aplicatie {
 
     /// Modelul editorului pentru obiectul curent. `None` pentru obiectele care
     /// exista doar intr-o parte: nu au cu ce fi comparate.
+    ///
+    /// In dreapta e **textul final** (daca exista), nu textul bazei: editorul
+    /// arata mereu sursa fata de ce va ajunge in baza, iar liniile schimbate
+    /// fata de baza sunt marcate (adus / scris de tine).
     pub fn model_editor(&self) -> Option<ModelEditor> {
         let id = self.obiect()?.id();
         let (a, b) = self.texte(&id)?;
-        Some(construieste(a, b))
+        let Some(r) = self.rand(&id) else {
+            return Some(construieste(a, b));
+        };
+        let curent = self.editari.curent(r, b);
+        let mut m = construieste(a, curent);
+        let manual = self.editari.text_final(r).is_some_and(|t| t.manual);
+        marcheaza_textul_final(&mut m, b, curent, manual);
+        Some(m)
     }
 
     /// Propozitia pentru previzualizare si detaliile randului curent.
@@ -170,6 +284,8 @@ impl Aplicatie {
             Comanda::MutaSelectia(pas) => self.lista.muta_selectia(pas),
             Comanda::Selecteaza(p) => self.lista.selecteaza(p),
             Comanda::Deschide => {
+                self.diferenta = 0;
+                self.ghidat = None;
                 // un obiect care exista doar intr-o parte n-are ce arata in
                 // editor: ecranul ramane pe lista
                 if self.model_editor().is_some() {
@@ -179,8 +295,16 @@ impl Aplicatie {
             Comanda::InapoiLaLista => self.ecran = Ecran::Lista,
             // din editor, obiectul urmator se deschide direct: altfel ar
             // trebui drum dus-intors prin lista pentru fiecare obiect
-            Comanda::ObiectUrmator => self.treci(1),
-            Comanda::ObiectAnterior => self.treci(-1),
+            Comanda::ObiectUrmator => {
+                self.treci(1);
+                self.diferenta = 0;
+                self.ghidat = None;
+            }
+            Comanda::ObiectAnterior => {
+                self.treci(-1);
+                self.diferenta = 0;
+                self.ghidat = None;
+            }
             Comanda::ComutaRevizuit => return self.comuta_revizuit(),
             Comanda::Filtreaza(s) => self.lista.filtreaza_stare(s),
             Comanda::FiltreazaTip(t) => self.lista.filtreaza_tip(t),
@@ -203,8 +327,151 @@ impl Aplicatie {
                     self.ecran = Ecran::Deploy;
                 }
             }
+            Comanda::AplicaDiferenta(k) => {
+                let k = k.unwrap_or(self.diferenta);
+                return self.aplica(k);
+            }
+            Comanda::AplicaToate => {
+                return self.schimba_textul(|e, r, sursa, baza| e.aplica_toate(r, sursa, baza));
+            }
+            Comanda::Reset => {
+                return self.schimba_textul(|e, r, _, _| {
+                    e.reset(r);
+                });
+            }
+            Comanda::SalveazaText(text) => {
+                let text = gmotion_core::pregateste_afisare(&text);
+                return self.schimba_textul(move |e, r, _, baza| e.pune(r, text, true, baza));
+            }
+            Comanda::Anuleaza => {
+                if let Some((r, inainte)) = self.istoric.pop() {
+                    self.editari.restaureaza(&r, inainte);
+                    return true;
+                }
+            }
+            Comanda::ComutaOmis => return self.comuta_omis(),
+            Comanda::MergiLaDiferenta(k) => self.diferenta = k,
+            Comanda::PornesteGhidat => {
+                self.ghidat = Some(Ghidat {
+                    din_sursa: true,
+                    aplicate: 0,
+                    sarite: 0,
+                    terminat: false,
+                });
+                self.diferenta = 0;
+                self.verifica_ghidat();
+            }
+            Comanda::OpresteGhidat => self.ghidat = None,
+            Comanda::GhidatAlege(din_sursa) => {
+                if let Some(g) = self.ghidat.as_mut() {
+                    g.din_sursa = din_sursa;
+                }
+            }
+            Comanda::GhidatAplica => {
+                let Some(g) = self.ghidat.clone() else {
+                    return false;
+                };
+                if g.terminat {
+                    return false;
+                }
+                if g.din_sursa {
+                    // diferenta aplicata dispare: urmatoarea ii ia locul, deci
+                    // indexul ramane pe loc
+                    let schimbat = self.aplica(self.diferenta);
+                    if let Some(g) = self.ghidat.as_mut() {
+                        g.aplicate += 1;
+                        g.din_sursa = true;
+                    }
+                    self.verifica_ghidat();
+                    return schimbat;
+                }
+                // „din tinta": blocul ramane cum e, ca o diferenta sarita
+                self.sari_ghidat();
+            }
+            Comanda::GhidatSari => self.sari_ghidat(),
         }
         false
+    }
+
+    /// Cate diferente are obiectul curent, asa cum le arata editorul.
+    fn numar_diferente(&self) -> usize {
+        self.model_editor().map_or(0, |m| m.diferente.len())
+    }
+
+    fn sari_ghidat(&mut self) {
+        if let Some(g) = self.ghidat.as_mut() {
+            if g.terminat {
+                return;
+            }
+            g.sarite += 1;
+            g.din_sursa = true;
+        }
+        self.diferenta += 1;
+        self.verifica_ghidat();
+    }
+
+    /// Modul ghidat se termina cand nu mai e nicio diferenta dupa cea curenta.
+    fn verifica_ghidat(&mut self) {
+        let n = self.numar_diferente();
+        if let Some(g) = self.ghidat.as_mut() {
+            if self.diferenta >= n {
+                g.terminat = true;
+                self.diferenta = n.saturating_sub(1);
+            }
+        }
+    }
+
+    /// Schimba textul final al obiectului curent, cu intrare in istoric.
+    /// Intoarce `true` (de salvat) daca s-a schimbat ceva.
+    fn schimba_textul(&mut self, f: impl FnOnce(&mut Editari, &Rand, &str, &str)) -> bool {
+        let Some(id) = self.obiect().map(|o| o.id()) else {
+            return false;
+        };
+        let (Some(r), Some((a, b))) = (self.rand(&id).cloned(), self.texte(&id)) else {
+            return false;
+        };
+        let (a, b) = (a.to_string(), b.to_string());
+        let inainte = self.editari.text_final(&r).cloned();
+        f(&mut self.editari, &r, &a, &b);
+        let dupa = self.editari.text_final(&r).cloned();
+        if dupa == inainte {
+            return false;
+        }
+        self.istoric.push((r, inainte));
+        // dupa o schimbare, diferenta curenta nu poate trece de ultima
+        let n = self.numar_diferente();
+        self.diferenta = self.diferenta.min(n.saturating_sub(1));
+        true
+    }
+
+    /// Aplica diferenta `k` (indexul din editor) a obiectului curent.
+    fn aplica(&mut self, k: usize) -> bool {
+        let Some(bloc) = self.model_editor().and_then(|m| m.blocuri.get(k).copied()) else {
+            return false;
+        };
+        self.schimba_textul(|e, r, a, b| {
+            e.aplica_blocuri(r, a, b, &[bloc]);
+        })
+    }
+
+    fn comuta_omis(&mut self) -> bool {
+        let Some(p) = self.lista.selectat() else {
+            return false;
+        };
+        let Some(o) = self.lista.obiect(p) else {
+            return false;
+        };
+        let (id, era) = (o.id(), o.omis);
+        let Some(rand) = self.rand(&id).cloned() else {
+            return false;
+        };
+        if era {
+            self.revizuire.scoate_omis(&rand.baza, &rand.obiect);
+        } else {
+            self.revizuire.omite(&rand);
+        }
+        self.lista.pune_revizuirea(p, false, !era);
+        true
     }
 
     /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii.
@@ -266,7 +533,8 @@ impl Aplicatie {
         } else {
             self.revizuire.marcheaza(&rand);
         }
-        self.lista.comuta_revizuit(p);
+        // revizuit scoate omis (se exclud)
+        self.lista.pune_revizuirea(p, !era, false);
         true
     }
 
@@ -467,6 +735,132 @@ mod teste {
             a.obiect().unwrap().nume,
             "pB",
             "obiectul deschis ramane selectat cand cautarea se goleste"
+        );
+    }
+
+    /// Un obiect cu trei diferente, pentru editare si modul ghidat.
+    fn aplicatie_editare() -> (Aplicatie, &'static str, &'static str) {
+        const SURSA: &str =
+            "CREATE PROC dbo.pE AS\nSELECT 1\n\nUPDATE t SET a = 1\n\nDELETE x WHERE id = 1";
+        const BAZA: &str =
+            "CREATE PROC dbo.pE AS\nSELECT 2\n\nUPDATE t SET a = 2\n\nDELETE x WHERE id = 2";
+        let sursa = modul::pregateste(&[obiect_db("pE", SURSA)]);
+        let tinta = modul::pregateste(&[obiect_db("pE", BAZA)]);
+        let c = modul::compara(
+            "Ref",
+            &sursa,
+            &[("Client1".to_string(), tinta.clone())],
+            |_| {},
+        );
+        let mut a = Aplicatie::noua(c.randuri, sursa, tinta, Revizuire::noua());
+        a.comanda(Comanda::Deschide);
+        (a, SURSA, BAZA)
+    }
+
+    #[test]
+    fn aplica_o_diferenta_apoi_ctrl_z_apoi_reset() {
+        let (mut a, sursa, baza) = aplicatie_editare();
+        let n = a.model_editor().unwrap().diferente.len();
+        assert_eq!(n, 3);
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(1))), "de salvat");
+        assert_eq!(a.model_editor().unwrap().diferente.len(), 2);
+        let (_, curent) = a.texte_curente().unwrap();
+        assert!(
+            curent.contains("SET a = 1") && curent.contains("SELECT 2"),
+            "{curent}"
+        );
+        assert_eq!(a.stare_text_final(), (true, false));
+        // liniile aduse sunt marcate
+        let m = a.model_editor().unwrap();
+        assert!(m
+            .randuri
+            .iter()
+            .any(|r| r.marcaj == gmotion_fereastra::model_editor::Marcaj::Adus));
+        // Ctrl+Z: inapoi la baza
+        assert!(a.se_poate_anula());
+        assert!(a.comanda(Comanda::Anuleaza));
+        assert_eq!(a.texte_curente().unwrap().1, baza);
+        assert!(!a.se_poate_anula());
+        // Aplica toate, apoi Reset
+        a.comanda(Comanda::AplicaToate);
+        assert_eq!(a.texte_curente().unwrap().1, sursa);
+        assert_eq!(a.model_editor().unwrap().diferente.len(), 0);
+        a.comanda(Comanda::Reset);
+        assert_eq!(a.texte_curente().unwrap().1, baza);
+        assert_eq!(a.stare_text_final(), (false, false));
+        // doua anulari: inapoi la „aplica toate", apoi la baza
+        a.comanda(Comanda::Anuleaza);
+        assert_eq!(a.texte_curente().unwrap().1, sursa);
+    }
+
+    #[test]
+    fn textul_scris_de_mana_e_marcat_si_ajunge_in_deploy() {
+        let (mut a, _, baza) = aplicatie_editare();
+        let text = format!("{baza}\n-- scris de mine");
+        assert!(a.comanda(Comanda::SalveazaText(text.clone())));
+        assert_eq!(a.stare_text_final(), (true, true));
+        let t = a.texte_finale();
+        assert_eq!(t[&("Client1".to_string(), "dbo.pE".to_string())], text);
+        // acelasi text inca o data nu e o schimbare
+        assert!(!a.comanda(Comanda::SalveazaText(text)));
+    }
+
+    #[test]
+    fn omis_si_revizuit_se_exclud_si_omis_scoate_din_plan() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::ComutaInPlan);
+        assert!(a.obiect().unwrap().in_plan);
+        assert!(a.comanda(Comanda::ComutaOmis));
+        let o = a.obiect().unwrap();
+        assert!(o.omis && !o.revizuit && !o.in_plan);
+        assert!(a.revizuire().e_omis(&a.randuri[0]));
+        a.comanda(Comanda::ComutaRevizuit);
+        let o = a.obiect().unwrap();
+        assert!(o.revizuit && !o.omis, "revizuit scoate omis");
+        a.comanda(Comanda::ComutaOmis);
+        a.comanda(Comanda::ComutaOmis);
+        let o = a.obiect().unwrap();
+        assert!(!o.omis && !o.revizuit);
+    }
+
+    #[test]
+    fn modul_ghidat_ia_diferentele_pe_rand_pana_la_final() {
+        let (mut a, _, _) = aplicatie_editare();
+        a.comanda(Comanda::PornesteGhidat);
+        assert_eq!(a.diferenta_curenta(), 0);
+        assert!(a.ghidat().is_some_and(|g| g.din_sursa && !g.terminat));
+        // prima: aplicata din sursa; diferenta dispare, urmatoarea vine in loc
+        a.comanda(Comanda::GhidatAplica);
+        assert_eq!(a.model_editor().unwrap().diferente.len(), 2);
+        assert_eq!(a.diferenta_curenta(), 0);
+        // a doua: „din tinta" = ramane cum e, se trece mai departe
+        a.comanda(Comanda::GhidatAlege(false));
+        a.comanda(Comanda::GhidatAplica);
+        assert_eq!(a.diferenta_curenta(), 1);
+        // a treia: sarita; nu mai e nimic, deci s-a terminat
+        a.comanda(Comanda::GhidatSari);
+        let g = a.ghidat().unwrap();
+        assert!(g.terminat);
+        assert_eq!((g.aplicate, g.sarite), (1, 2));
+        assert_eq!(a.model_editor().unwrap().diferente.len(), 2);
+        a.comanda(Comanda::OpresteGhidat);
+        assert!(a.ghidat().is_none());
+    }
+
+    #[test]
+    fn ghidat_cu_toate_aplicate_se_termina_fara_diferente() {
+        let (mut a, sursa, _) = aplicatie_editare();
+        a.comanda(Comanda::PornesteGhidat);
+        for _ in 0..3 {
+            a.comanda(Comanda::GhidatAplica);
+        }
+        assert!(a.ghidat().unwrap().terminat);
+        assert_eq!(a.ghidat().unwrap().aplicate, 3);
+        assert_eq!(a.model_editor().unwrap().diferente.len(), 0);
+        let (_, curent) = a.texte_curente().unwrap();
+        assert_eq!(
+            gmotion_core::normalizeaza(&curent),
+            gmotion_core::normalizeaza(sursa)
         );
     }
 }

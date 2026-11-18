@@ -91,6 +91,8 @@ pub struct Obiect {
     pub revizuit: bool,
     /// Pus in planul de deploy (butonul „In plan").
     pub in_plan: bool,
+    /// Omis („Omite"): analizat, dar lasat in afara deploy-ului.
+    pub omis: bool,
 }
 
 impl Obiect {
@@ -216,6 +218,19 @@ impl Lista {
     pub fn comuta_revizuit(&mut self, pozitie: usize) {
         if let Some(&i) = self.vizibile.get(pozitie) {
             self.obiecte[i].revizuit = !self.obiecte[i].revizuit;
+        }
+    }
+
+    /// Starea de revizuire a obiectului vizibil: revizuit, omis, sau niciuna.
+    /// Cele doua se exclud; un obiect omis iese si din plan.
+    pub fn pune_revizuirea(&mut self, pozitie: usize, revizuit: bool, omis: bool) {
+        if let Some(&i) = self.vizibile.get(pozitie) {
+            let o = &mut self.obiecte[i];
+            o.revizuit = revizuit && !omis;
+            o.omis = omis;
+            if omis {
+                o.in_plan = false;
+            }
         }
     }
 
@@ -372,6 +387,7 @@ mod teste {
             detalii: None,
             revizuit: false,
             in_plan: false,
+            omis: false,
         }
     }
 

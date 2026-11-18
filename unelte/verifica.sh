@@ -241,6 +241,35 @@ if gasite:
 PY_DIACRITICE
 if [ $? -eq 0 ]; then pas "fara diacritice"; else cade "fara diacritice"; fi
 
+# ---------------------------------------------------------------------------
+# Niciun buton fara actiune (etapa 14): fiecare `callback` declarat la nivelul
+# unei ferestre exportate din rust/fereastra/ui trebuie sa aiba un handler
+# `on_<nume>` in codul Rust care o foloseste. Asa au trecut neobservate 7
+# butoane moarte prin etapele 8-11: arata perfect in captura, nu fac nimic.
+titlu "fiecare buton are actiune"
+python3 - <<'PY_BUTOANE'
+import glob, re, sys
+cod = ""
+for f in glob.glob("rust/app/src/**/*.rs", recursive=True) + glob.glob("rust/fereastra/src/**/*.rs", recursive=True):
+    cod += open(f, encoding="utf-8").read()
+lipsa = []
+for f in sorted(glob.glob("rust/fereastra/ui/*.slint")):
+    text = open(f, encoding="utf-8").read()
+    for m in re.finditer(r"^export component (\w+) inherits Window \{", text, re.M):
+        corp = text[m.end():]
+        # pana la acolada care inchide componenta (prima linie "}" fara indentare)
+        sfarsit = re.search(r"^\}", corp, re.M)
+        corp = corp[: sfarsit.start() if sfarsit else len(corp)]
+        for c in re.finditer(r"^    callback ([a-z0-9-]+)", corp, re.M):
+            nume = "on_" + c.group(1).replace("-", "_")
+            if not re.search(r"\b" + nume + r"\(", cod):
+                lipsa.append(f"{f}: {m.group(1)}.{c.group(1)} n-are {nume}")
+if lipsa:
+    print("\n".join(lipsa))
+    sys.exit(1)
+PY_BUTOANE
+if [ $? -eq 0 ]; then pas "fiecare buton are actiune"; else cade "fiecare buton are actiune"; fi
+
 titlu "mostenire/ nemodificat"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:

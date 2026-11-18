@@ -27,19 +27,19 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 - [x] pe instantaneu, randul certificatului nu se arata
 
 **B. Editorul**
-- [ ] alinierea pe linii sta in `core`; editorul si compunerea textului final
+- [x] alinierea pe linii sta in `core`; editorul si compunerea textului final
       o folosesc pe aceeasi (un singur motor)
-- [ ] textul final per obiect: Aplica bloc, Aplica toate, Reset, Ctrl+Z
-- [ ] Editeaza textul final (panoul Baza devine editabil)
-- [ ] marcajul liniilor aduse din sursa si al celor scrise de tine
-- [ ] Omite (`o`), cu stare tinuta minte
-- [ ] Copiaza sursa / Copiaza rezultatul
-- [ ] Ascunde diferentele; Re-sincronizeaza (recitirea obiectului)
-- [ ] modul ghidat: Din sursa / Din tinta / Editeaza / Aplica / Sari, cu
+- [x] textul final per obiect: Aplica bloc, Aplica toate, Reset, Ctrl+Z
+- [x] Editeaza textul final (panoul Baza devine editabil)
+- [x] marcajul liniilor aduse din sursa si al celor scrise de tine
+- [x] Omite (`o`), cu stare tinuta minte
+- [x] Copiaza sursa / Copiaza rezultatul
+- [x] Ascunde diferentele; Re-sincronizeaza (recitirea obiectului)
+- [x] modul ghidat: Din sursa / Din tinta / Editeaza / Aplica / Sari, cu
       dialog de final
-- [ ] deploy-ul foloseste textul final cand exista
-- [ ] textul final si „omis" supravietuiesc inchiderii (sesiunea)
-- [ ] din `cli`: aplicarea blocurilor si deploy cu textul final
+- [x] deploy-ul foloseste textul final cand exista
+- [x] textul final si „omis" supravietuiesc inchiderii (sesiunea)
+- [x] din `cli`: aplicarea blocurilor si deploy cu textul final
 
 **C. Lista**
 - [ ] scorul de similaritate si filtrul min–max %
@@ -103,6 +103,16 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   „se verifica certificatul" din ecran **nu ajungea in conexiune**
   (`pornire::deschide` punea mereu `Nevalidat`). Acum `Conectare` tine
   `verifica_certificatul: bool`, iar textul se deriva din el.
+
+- **2026-11-18** B gata. Pe drum: fuzz-ul compunerii a gasit ca
+  `linii_start_blocuri` aseza blocuri **in interiorul comentariilor** (bug
+  vechi, se vedea si in editor), reparat prin lexer. Invarianta „Aplica
+  toate da zero diferente" s-a dovedit prea tare (un comentariu lipit de cod
+  muta granitele segmentarii); cea corecta e forma normalizata egala.
+  Poarta are acum verificarea „fiecare buton are actiune" (vazuta cazand),
+  iar `fereastra` un test care apasa tastele editorului.
+  „Re-sincronizeaza" din v3.4 doar recalcula diff-ul (nu recitea serverul),
+  deci aici redeseneaza. „Uneste cursorul" ramane la F.
 
 ## Ce a iesit altfel decat planul
 

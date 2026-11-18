@@ -62,7 +62,7 @@ fn main() {
 
     let mut app = Aplicatie::noua(comparare.randuri, sursa, tinta, modul::Revizuire::noua());
     app.asigura_detalii(0, 40);
-    if let Some(cerut) = a.get(6) {
+    if let Some(cerut) = a.get(6).filter(|x| !x.starts_with("--")) {
         if let Some(p) = (0..app.lista().vizibile().len())
             .find(|&p| app.lista().obiect(p).is_some_and(|o| o.id() == *cerut))
         {
@@ -104,6 +104,17 @@ fn main() {
 
     // acum chiar comanda de deschidere, ca din interfata
     app.comanda(Comanda::Deschide);
+    // optional, dupa obiect: ce s-a facut in editor inainte de poza
+    //   --aplica      prima diferenta adusa din sursa
+    //   --ghidat      modul ghidat pornit
+    //   --editeaza    panoul Baza in editarea de mana
+    let are = |f: &str| a.iter().any(|x| x == f);
+    if are("--aplica") {
+        app.comanda(Comanda::AplicaDiferenta(Some(0)));
+    }
+    if are("--ghidat") {
+        app.comanda(Comanda::PornesteGhidat);
+    }
     assert_eq!(
         app.ecran(),
         Ecran::Editor,
@@ -134,6 +145,28 @@ fn main() {
         },
         &model,
     );
+    let (editat, _) = app.stare_text_final();
+    let (text_sursa, text_final) = app.texte_curente().unwrap_or_default();
+    gmotion_fereastra::incarca_editarea(
+        &editor_ui,
+        &gmotion_fereastra::StareEditare {
+            omis: o.omis,
+            editat,
+            se_poate_anula: app.se_poate_anula(),
+            diferenta: app.diferenta_curenta(),
+            ghidat: app
+                .ghidat()
+                .map(|g| (g.din_sursa, g.aplicate, g.sarite, g.terminat)),
+            text_sursa: &text_sursa,
+            text_final: &text_final,
+            salvat: if editat {
+                "Modificarile se salveaza singure, ultima data la 14:52"
+            } else {
+                ""
+            },
+        },
+    );
+    editor_ui.set_editeaza_mod(are("--editeaza"));
     editor_ui.show().expect("se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     scrie(&fereastra, w, h, &a[5]);

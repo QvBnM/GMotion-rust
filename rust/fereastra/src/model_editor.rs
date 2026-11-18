@@ -64,6 +64,18 @@ impl Parte {
     }
 }
 
+/// De unde vine linia din baza, cand textul final nu mai e textul bazei.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Marcaj {
+    /// Linia e cum era in baza.
+    #[default]
+    Niciunul,
+    /// Adusa din sursa („Aplica").
+    Adus,
+    /// Scrisa de mana („Editeaza").
+    ScrisDeTine,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Rand {
     pub stanga: Parte,
@@ -74,6 +86,9 @@ pub struct Rand {
     /// Blocul motorului din care vine randul (indexul in diff), `None` pe
     /// liniile dintre blocuri. Prin el „Aplica" stie ce aplica.
     pub bloc: Option<usize>,
+    /// Pentru linia din dreapta (baza): adusa din sursa, scrisa de tine, sau
+    /// neatinsa. Se pune cu [`marcheaza_textul_final`].
+    pub marcaj: Marcaj,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -352,12 +367,49 @@ pub fn construieste(text_ref: &str, text_tinta: &str) -> ModelEditor {
             stare,
             inceput_bloc,
             bloc: r.bloc,
+            marcaj: Marcaj::Niciunul,
         });
     }
     ModelEditor {
         randuri,
         diferente,
         blocuri,
+    }
+}
+
+/// Marcheaza liniile din dreapta care nu mai sunt cum erau in baza: modelul e
+/// construit pe `(sursa, text_final)`, iar `text_baza` e baza neatinsa. O
+/// linie schimbata care e acum egala cu sursa a fost **adusa**; una diferita
+/// si de sursa a fost **scrisa de tine** (doar daca textul are si parti
+/// scrise de mana — altfel tot adusa e, dintr-un bloc aplicat partial).
+pub fn marcheaza_textul_final(
+    model: &mut ModelEditor,
+    text_baza: &str,
+    text_final: &str,
+    manual: bool,
+) {
+    if text_baza == text_final {
+        return;
+    }
+    let a = aliniaza(text_baza, text_final);
+    let schimbate: std::collections::BTreeSet<usize> = a
+        .randuri
+        .iter()
+        .filter(|r| r.tip != TipDiferenta::Egal)
+        .filter_map(|r| r.dreapta.as_ref().map(|l| l.nr))
+        .collect();
+    for r in &mut model.randuri {
+        let Some(nr) = r.dreapta.nr else {
+            continue;
+        };
+        if !schimbate.contains(&nr) {
+            continue;
+        }
+        r.marcaj = if r.stare == Stare::Egal || !manual {
+            Marcaj::Adus
+        } else {
+            Marcaj::ScrisDeTine
+        };
     }
 }
 
@@ -610,6 +662,30 @@ mod teste {
             "22 de linii identice, 24\u{2013}45"
         );
         assert_eq!(eticheta_pliere(4, None, None), "4 linii identice");
+    }
+
+    #[test]
+    fn liniile_aduse_si_cele_scrise_de_tine_se_marcheaza() {
+        let sursa = "SELECT 1\n\nUPDATE t SET a = 1";
+        let baza = "SELECT 2\n\nUPDATE t SET a = 2";
+        // adus: primul bloc ia textul sursei
+        let final_ = "SELECT 1\n\nUPDATE t SET a = 2";
+        let mut m = construieste(sursa, final_);
+        marcheaza_textul_final(&mut m, baza, final_, false);
+        let marcaj = |m: &ModelEditor, t: &str| {
+            m.randuri
+                .iter()
+                .find(|r| r.dreapta.text() == t)
+                .map(|r| r.marcaj)
+        };
+        assert_eq!(marcaj(&m, "SELECT 1"), Some(Marcaj::Adus));
+        assert_eq!(marcaj(&m, "UPDATE t SET a = 2"), Some(Marcaj::Niciunul));
+        // scris de mana: o linie care nu e nici in sursa, nici in baza
+        let manual = "SELECT 1\n\nUPDATE t SET a = 3";
+        let mut m = construieste(sursa, manual);
+        marcheaza_textul_final(&mut m, baza, manual, true);
+        assert_eq!(marcaj(&m, "UPDATE t SET a = 3"), Some(Marcaj::ScrisDeTine));
+        assert_eq!(marcaj(&m, "SELECT 1"), Some(Marcaj::Adus));
     }
 
     #[test]
