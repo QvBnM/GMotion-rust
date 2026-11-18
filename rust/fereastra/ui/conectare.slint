@@ -105,6 +105,22 @@ component Eticheta inherits Text {
 // Camp de text, adancit in card. Cu `cauta`, are lupa in dreapta.
 component Camp inherits Rectangle {
     in property <string> text;
+    // Legatura `text: root.text` de pe `intrare` se rupe la prima tasta: din
+    // momentul ala campul isi tine textul lui si nu mai urmeaza modelul. Deci
+    // cand modelul se schimba din Rust (Inverseaza, un server ales din
+    // cautare), textul se rescrie explicit (F-A2 din auditul QA).
+    changed text => {
+        // Campul de parola face exceptie: modelul nu-i da continutul, doar
+        // buline cat lungimea lui. Rescris cu ele, prima tasta de dupa ar
+        // trimite bulinele ca parola. Se goleste doar cand modelul spune ca
+        // nu exista nicio parola (Deconecteaza, Inverseaza spre o parte fara
+        // parola).
+        if (root.ascuns) {
+            if (root.text == "" && intrare.text != "") { intrare.text = ""; }
+        } else if (intrare.text != root.text) {
+            intrare.text = root.text;
+        }
+    }
     in property <bool> mono: false;
     in property <bool> ascuns: false;
     in property <string> gol;

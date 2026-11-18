@@ -2391,4 +2391,130 @@ mod teste {
         apasa(&ui, "\u{1b}");
         assert!(plecat.get());
     }
+
+    /// F-A2 din `cercetare/audit-qa-2026-11-18.md`: campurile din conectare nu
+    /// mai urmau modelul dupa prima tasta (legatura `text: root.text` se rupe
+    /// la editare). Deci dupa „Inverseaza" modelul se schimba, campurile arata
+    /// vechile valori, si comparai — si deployai — in directia opusa celei de
+    /// pe ecran.
+    ///
+    /// Testul scrie cu tastatura, apoi schimba modelul, apoi scrie din nou:
+    /// ce raporteaza `server-schimbat` arata ce era in camp.
+    #[test]
+    fn campurile_din_conectare_urmeaza_modelul_si_dupa_ce_s_a_scris_in_ele() {
+        use model_conectare::{Conectare, Parte};
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        c.sursa = Parte {
+            server: "SRV-DEV".into(),
+            ..Parte::default()
+        };
+        c.baza = Parte {
+            server: "SRV-PROD".into(),
+            ..Parte::default()
+        };
+        incarca_conectare(&ui, &c);
+        ui.show().expect("fereastra se arata");
+        // fereastra de test n-are dimensiune; fara una, aranjarea e degenerata
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+
+        // ce a ajuns in model, de la camp
+        let scris: Rc<RefCell<Vec<(bool, String)>>> = Rc::default();
+        let sc = scris.clone();
+        ui.on_server_schimbat(move |sursa, t| sc.borrow_mut().push((sursa, t.to_string())));
+
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        let tasteaza = |t: &str| {
+            let t: SharedString = t.into();
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: t });
+        };
+
+        // unde e campul serverului sursa nu se scrie de mana: se cauta, cu
+        // clicuri pe coloana din stanga si o tasta de proba
+        let gasit = (0..800)
+            .step_by(4)
+            .map(|y| y as f32)
+            .find(|&y| {
+                clic(200.0, y);
+                tasteaza("x");
+                let gasit = scris
+                    .borrow()
+                    .last()
+                    .is_some_and(|(sursa, t)| *sursa && t.contains('x'));
+                scris.borrow_mut().clear();
+                gasit
+            })
+            .is_some();
+        assert!(
+            gasit,
+            "campul serverului sursa trebuie sa primeasca tastele"
+        );
+
+        // „Inverseaza": modelul se schimba sub cursorul ramas in camp
+        std::mem::swap(&mut c.sursa, &mut c.baza);
+        incarca_conectare(&ui, &c);
+        tasteaza("1");
+        let raportat = scris.borrow().last().cloned().expect("campul a raportat");
+        assert!(
+            raportat.1.contains("SRV-PROD"),
+            "campul trebuie sa arate valoarea de acum din model, nu pe cea de dinainte: {:?}",
+            raportat.1
+        );
+
+        // Campul de parola nu se rescrie din model: acolo modelul da doar
+        // buline cat lungimea parolei, si rescris cu ele prima tasta de dupa
+        // ar trimite bulinele ca parola.
+        let parole: Rc<RefCell<Vec<(bool, String)>>> = Rc::default();
+        let pa = parole.clone();
+        ui.on_parola_schimbata(move |sursa, t| pa.borrow_mut().push((sursa, t.to_string())));
+        let mut gasit = false;
+        for x in [160.0f32, 360.0, 560.0, 760.0, 960.0] {
+            for y in (0..800).step_by(4).map(|y| y as f32) {
+                clic(x, y);
+                tasteaza("s");
+                gasit = parole.borrow().last().is_some_and(|(sursa, _)| *sursa);
+                parole.borrow_mut().clear();
+                if gasit {
+                    break;
+                }
+            }
+            if gasit {
+                break;
+            }
+        }
+        assert!(
+            gasit,
+            "campul parolei pentru martor trebuie sa primeasca tastele"
+        );
+        // modelul raspunde cu buline (parola exista acum)
+        c.sursa.acreditari = model_conectare::Acreditari::noi("u", "s");
+        incarca_conectare(&ui, &c);
+        tasteaza("e");
+        let ultima = parole.borrow().last().cloned().expect("campul a raportat");
+        assert!(
+            !ultima.1.contains('\u{2022}'),
+            "bulinele din model nu au voie sa ajunga parola: {:?}",
+            ultima.1
+        );
+    }
 }
