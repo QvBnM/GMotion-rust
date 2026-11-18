@@ -6,7 +6,7 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
 
-**Actualizat:** 2026-11-17 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
 **Poarta:** verde (316 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
@@ -63,6 +63,15 @@ JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
+
+**Propunerea de redesign „Banda"** (2026-11-18, ceruta de Mihai):
+`cercetare/redesign/propunere.md` si prototipul `cercetare/redesign/Banda.html`.
+Lista, editorul si planul ajung pe un singur ecran, cu planul ca placa
+inchisa la culoare, semnatura diferentei in coada si filtru scris. **Intrebarea:**
+o adoptam (inlocuieste `design-aprobat.md` si schimba criteriul de ecran al
+etapei 12), o adoptam partial, sau ramane designul aprobat? Pana la raspuns nu
+se atinge `rust/fereastra`; garda si scriptul de revenire (pasii 1-3 ai etapei
+12) nu depind de raspuns.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.

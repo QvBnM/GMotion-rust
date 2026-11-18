@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GMotion Banda</title>
+<!--
+  Prototipul propunerii de redesign „Banda" (cercetare/redesign/propunere.md).
+  Specificatie vizuala si de interactiune, nu cod de aplicatie: aplicatia e in
+  Slint. Datele sunt inventate, pe numele din machetele aprobate.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  /* hartia: rece, mineral — nu crem */
+  --hartie:#e6e9e5; --suprafata:#f3f5f2; --cod:#ffffff;
+  --linie:#cbd1ca; --linie-slaba:#e0e4de;
+  --text:#161b1f; --text-sec:#4f575c; --text-tert:#656d73;
+  /* cerneala: tot ce urmeaza sa se execute */
+  --cerneala:#1c2640; --cerneala-2:#26324f; --cerneala-linie:#36436a;
+  --pe-cerneala:#e4e8f1; --pe-cerneala-sec:#a9b3c7;
+  --ok-cerneala:#93cf93; --atentie-cerneala:#e9bb5f; --sters-cerneala:#f29d8b;
+  /* starea */
+  --mod-text:#835500; --mod-fundal:#f7eed8; --mod-bara:#c48a1a; --mod-tare:#ebd296;
+  --add-text:#2f6633; --add-fundal:#e5efe0; --add-bara:#57894b; --add-tare:#c6deb3;
+  --del-text:#a1372a; --del-fundal:#f8e5e0; --del-bara:#b8543f; --del-tare:#eec1b6;
+  --prod:#b3261e;
+  --sx-cuvant:#2a4d8f; --sx-sir:#7a3e0f; --sx-var:#6a3d8f; --sx-com:#62665c;
+  --mono:'IBM Plex Mono',Consolas,monospace;
+  --sans:'IBM Plex Sans','Segoe UI',sans-serif;
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--hartie);color:var(--text);font:13px/1.45 var(--sans);overflow:hidden}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--cerneala);outline-offset:1px}
+.mono{font-family:var(--mono)}
+
+/* ---------- cadrul ---------- */
+.app{display:grid;height:100vh;grid-template-rows:3px 46px minmax(0,1fr) 28px;grid-template-columns:372px minmax(0,1fr) 352px;
+  grid-template-areas:"banda banda banda" "antet antet antet" "coada obiect plan" "jos jos plan"}
+.banda{grid-area:banda;background:var(--prod)}
+.antet{grid-area:antet;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--suprafata);border-bottom:1px solid var(--linie)}
+.marca{font-weight:600;letter-spacing:-.2px}
+.tinta{display:flex;align-items:baseline;gap:7px;white-space:nowrap}
+.tinta .sageata{color:var(--text-tert)}
+.mediu{font:600 11.5px var(--mono);color:var(--prod);letter-spacing:.3px}
+.cand{color:var(--text-sec);font-size:12px;white-space:nowrap}
+.interogare{flex:1;display:flex;align-items:center;gap:8px;height:30px;max-width:620px;margin-left:auto;padding:0 10px;
+  background:var(--cod);border:1px solid var(--linie);border-radius:var(--r)}
+.interogare:focus-within{border-color:var(--cerneala)}
+.interogare .prompt{font:600 12px var(--mono);color:var(--text-tert)}
+.interogare input{flex:1;min-width:0;border:0;outline:0;background:none;font:12.5px var(--mono)}
+.tasta{font:11px var(--mono);color:var(--text-sec);border:1px solid var(--linie);border-bottom-width:2px;border-radius:var(--r);padding:0 4px;background:var(--suprafata);white-space:nowrap}
+.btn{height:30px;padding:0 12px;border:1px solid var(--linie);border-radius:var(--r);background:var(--cod);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--text-sec)}
+
+/* ---------- coada ---------- */
+.coada{grid-area:coada;display:flex;flex-direction:column;min-height:0;background:var(--suprafata);border-right:1px solid var(--linie)}
+.fatete{display:flex;flex-wrap:wrap;gap:4px 12px;padding:9px 14px 8px;border-bottom:1px solid var(--linie)}
+.fateta{border:0;background:none;padding:0;cursor:pointer;font-size:12px;color:var(--text-sec);white-space:nowrap}
+.fateta b{font:600 12px var(--mono)}
+.fateta .nr{font-family:var(--mono)}
+.fateta[aria-pressed=true]{color:var(--text);text-decoration:underline;text-underline-offset:3px}
+.fateta:hover{color:var(--text)}
+.rezultat{padding:6px 14px;font-size:12px;color:var(--text-sec);border-bottom:1px solid var(--linie-slaba)}
+.lista{flex:1;overflow:auto;list-style:none;margin:0;padding:0}
+.rand{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr) 72px;grid-template-rows:auto auto;column-gap:8px;
+  padding:6px 14px 6px 12px;border-bottom:1px solid var(--linie-slaba);cursor:pointer}
+.rand:hover{background:#ebeee9}
+.rand .lit{font:600 12px var(--mono);grid-row:1/3;padding-top:1px}
+.rand .nume{font:12.5px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rand .schema{color:var(--text-tert)}
+.rand .meta{grid-column:2;font-size:11.5px;color:var(--text-sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rand .semn{grid-column:3;grid-row:1/3;align-self:center}
+.rand.revizuit .nume,.rand.revizuit .meta{color:var(--text-tert)}
+.rand.revizuit .nume::after{content:" ✓";color:var(--add-text);font-family:var(--sans)}
+.rand.selectat{background:var(--cerneala);color:var(--pe-cerneala)}
+.rand.selectat .schema,.rand.selectat .meta{color:var(--pe-cerneala-sec)}
+.rand.selectat .nume{color:#fff}
+.rand.selectat .lit{color:#fff!important}
+/* crestatura: obiectul e deja in plan — puntea spre placa din dreapta */
+.rand.inplan::before{content:"";position:absolute;right:0;top:6px;bottom:6px;width:4px;background:var(--cerneala)}
+.rand.selectat.inplan::before{background:var(--pe-cerneala-sec)}
+.gol{padding:24px 14px;color:var(--text-sec)}
+.gol code{font-family:var(--mono);color:var(--text)}
+
+/* semnatura: forma diferentei, pe lungimea obiectului */
+.semn svg{display:block}
+
+/* ---------- obiectul ---------- */
+.obiect{grid-area:obiect;display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--cod)}
+.ob-antet{display:flex;align-items:flex-end;gap:16px;padding:14px 18px 12px;border-bottom:1px solid var(--linie);background:var(--suprafata)}
+.ob-titlu{min-width:0;flex:1}
+.ob-nume{font:500 19px/1.2 var(--mono);letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ob-nume .schema{color:var(--text-tert)}
+.ob-fraza{margin-top:4px;color:var(--text-sec)}
+.ob-fraza strong{color:var(--text);font-weight:500}
+.ob-act{display:flex;gap:6px;align-items:center}
+.comuta{height:30px;padding:0 10px;border:1px solid var(--linie);border-radius:var(--r);background:var(--cod);cursor:pointer;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.comuta[aria-pressed=true]{background:var(--cerneala);color:#fff;border-color:var(--cerneala)}
+.comuta[aria-pressed=true] .tasta{background:var(--cerneala-2);color:var(--pe-cerneala-sec);border-color:var(--cerneala-linie)}
+.ob-bara{display:flex;align-items:center;gap:14px;height:32px;padding:0 18px;border-bottom:1px solid var(--linie-slaba);font-size:12px;color:var(--text-sec)}
+.ob-bara .parti{flex:1;display:grid;grid-template-columns:1fr 1fr;font-family:var(--mono);font-size:11.5px}
+.ob-corp{flex:1;display:flex;min-height:0}
+.diff{flex:1;overflow:auto;font:12px/20px var(--mono)}
+.l{display:grid;grid-template-columns:44px 3px minmax(0,1fr) 44px 3px minmax(0,1fr)}
+.l>span{white-space:pre;overflow:hidden;text-overflow:clip}
+.l .n{text-align:right;padding-right:8px;color:var(--text-tert);user-select:none}
+.l .t{padding:0 10px}
+.l .t:nth-of-type(3){border-right:1px solid var(--linie-slaba)}
+.l.m .t{background:var(--mod-fundal)} .l.m .b{background:var(--mod-bara)}
+.l.a .t.dr{background:var(--add-fundal)} .l.a .b.dr{background:var(--add-bara)}
+.l.d .t.st{background:var(--del-fundal)} .l.d .b.st{background:var(--del-bara)}
+.l.curent .b{box-shadow:0 0 0 1px currentColor}
+.l.curent.m .b{background:var(--mod-text)} .l.curent.a .b.dr{background:var(--add-text)} .l.curent.d .b.st{background:var(--del-text)}
+.hasura{background:repeating-linear-gradient(135deg,var(--cod) 0 4px,var(--linie-slaba) 4px 5px)}
+.l .x{border-radius:2px}
+.l.m .x{background:var(--mod-tare)} .l.a .x{background:var(--add-tare)} .l.d .x{background:var(--del-tare)}
+.pliat{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--linie-slaba);border-bottom:1px solid var(--linie-slaba);
+  background:var(--suprafata);color:var(--text-sec);font:11.5px/22px var(--sans);padding-left:58px;cursor:pointer}
+.btn-plan{display:none}
+.pliat:hover{color:var(--text)}
+.k{color:var(--sx-cuvant)} .s{color:var(--sx-sir)} .v{color:var(--sx-var)} .c{color:var(--sx-com);font-style:italic}
+.harta{width:16px;border-left:1px solid var(--linie-slaba);background:var(--suprafata);position:relative;flex-shrink:0}
+.harta i{position:absolute;left:3px;right:3px;min-height:2px}
+.harta .fereastra{position:absolute;left:0;right:0;border:1px solid var(--text-tert);pointer-events:none}
+
+/* ---------- placa de cerneala: planul ---------- */
+.plan{grid-area:plan;display:flex;flex-direction:column;min-height:0;background:var(--cerneala);color:var(--pe-cerneala);border-left:3px solid var(--prod)}
+.plan-antet{padding:14px 16px 10px;border-bottom:1px solid var(--cerneala-linie)}
+.plan-titlu{font-size:15px;font-weight:500}
+.plan-rezumat{margin-top:3px;color:var(--pe-cerneala-sec);font-size:12px}
+.plan-taburi{display:flex;gap:16px;margin-top:10px}
+.plan-taburi button{border:0;background:none;padding:0 0 3px;color:var(--pe-cerneala-sec);cursor:pointer;border-bottom:2px solid transparent}
+.plan-taburi button[aria-selected=true]{color:#fff;border-bottom-color:var(--pe-cerneala)}
+.pasi{flex:1;overflow:auto;list-style:none;margin:0;padding:4px 0}
+.pas{display:grid;grid-template-columns:22px 52px minmax(0,1fr) 16px;align-items:baseline;column-gap:6px;padding:6px 16px;cursor:pointer}
+.pas:hover{background:var(--cerneala-2)}
+.pas .nr{font:11.5px var(--mono);color:var(--pe-cerneala-sec);text-align:right}
+.pas .op{font:600 11px var(--mono);letter-spacing:.3px}
+.pas .op.ALTER{color:var(--atentie-cerneala)} .pas .op.CREATE{color:var(--ok-cerneala)} .pas .op.DROP{color:var(--sters-cerneala)}
+.pas .obj{font:12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pas .obj .schema{color:var(--pe-cerneala-sec)}
+.pas .nota{grid-column:3/5;font-size:11.5px;color:var(--atentie-cerneala)}
+.pas .nota.del{color:var(--sters-cerneala)}
+.pas .scoate{border:0;background:none;color:var(--pe-cerneala-sec);cursor:pointer;padding:0;opacity:0}
+.pas:hover .scoate,.pas:focus-within .scoate{opacity:1}
+.pas.rulat .nr{color:var(--ok-cerneala)}
+.pas.ruleaza{background:var(--cerneala-2)}
+.pas.nou{animation:aterizare .5s ease-out}
+@keyframes aterizare{from{background:var(--cerneala-linie)}to{background:transparent}}
+.plan-gol{padding:22px 16px;color:var(--pe-cerneala-sec)}
+.plan-gol .tasta{background:var(--cerneala-2);border-color:var(--cerneala-linie);color:var(--pe-cerneala)}
+.script{flex:1;overflow:auto;margin:0;padding:12px 16px;font:11.5px/18px var(--mono);color:var(--pe-cerneala);white-space:pre}
+.script .c{color:var(--pe-cerneala-sec)}
+.garzi{border-top:1px solid var(--cerneala-linie);padding:10px 16px 14px}
+.garda{display:grid;grid-template-columns:16px 1fr;column-gap:8px;padding:5px 0}
+.garda .ic{font:600 12px var(--mono)}
+.garda.ok .ic{color:var(--ok-cerneala)} .garda.atentie .ic{color:var(--atentie-cerneala)} .garda.asteapta .ic{color:var(--pe-cerneala-sec)}
+.garda .det{grid-column:2;font-size:11.5px;color:var(--pe-cerneala-sec)}
+.garda .act{grid-column:2;margin-top:5px;display:flex;gap:6px;align-items:center}
+.btn-c{height:26px;padding:0 10px;border:1px solid var(--cerneala-linie);border-radius:var(--r);background:var(--cerneala-2);color:var(--pe-cerneala);cursor:pointer;font-size:12px}
+.btn-c:hover{border-color:var(--pe-cerneala-sec)}
+.confirma{width:100%;height:28px;padding:0 8px;border:1px solid var(--cerneala-linie);border-radius:var(--r);background:var(--cerneala-2);color:#fff;font:12px var(--mono);outline:0}
+.confirma:focus{border-color:var(--pe-cerneala)}
+.ruleaza-btn{display:flex;justify-content:space-between;align-items:center;width:100%;height:38px;margin-top:10px;padding:0 12px;border:0;border-radius:var(--r);
+  background:var(--prod);color:#fff;font-weight:600;cursor:pointer}
+.ruleaza-btn:disabled{background:var(--cerneala-2);color:var(--pe-cerneala-sec);cursor:not-allowed;font-weight:400}
+.ruleaza-btn .tasta{background:transparent;border-color:rgba(255,255,255,.4);color:inherit}
+
+/* ---------- jos ---------- */
+.jos{grid-area:jos;display:flex;align-items:center;gap:16px;padding:0 14px;background:var(--suprafata);border-top:1px solid var(--linie);font-size:12px;color:var(--text-sec);white-space:nowrap;overflow:hidden}
+.jos .grup{display:flex;gap:6px;align-items:center}
+.progres{margin-left:auto;display:flex;align-items:center;gap:8px}
+.progres .bara{width:120px;height:2px;background:var(--linie)}
+.progres .bara i{display:block;height:100%;background:var(--cerneala)}
+
+/* ---------- paleta ---------- */
+.paleta-fundal{position:fixed;inset:0;background:rgba(22,27,31,.28);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:10}
+.paleta-fundal.deschis{display:flex}
+.paleta{width:min(560px,calc(100vw - 32px));background:var(--cod);border:1px solid var(--text-sec);border-radius:var(--r)}
+.paleta input{width:100%;height:42px;border:0;border-bottom:1px solid var(--linie);padding:0 14px;outline:0;font-size:14px}
+.paleta ul{list-style:none;margin:0;padding:4px 0;max-height:320px;overflow:auto}
+.paleta li{display:flex;justify-content:space-between;gap:12px;padding:6px 14px;cursor:pointer}
+.paleta li.activ{background:var(--cerneala);color:#fff}
+.paleta li.activ .tasta{background:var(--cerneala-2);color:var(--pe-cerneala-sec);border-color:var(--cerneala-linie)}
+.paleta .fel{color:var(--text-tert);font-size:12px}
+.paleta li.activ .fel{color:var(--pe-cerneala-sec)}
+.paleta u{text-decoration-thickness:2px;text-underline-offset:2px}
+
+/* obiectul care zboara spre plan: singura miscare, si doar ca raspuns la „p" */
+.zbor{position:fixed;z-index:20;pointer-events:none;background:var(--cerneala);color:#fff;font:12px var(--mono);padding:6px 10px;border-radius:var(--r);
+  transition:transform .26s cubic-bezier(.3,.7,.3,1),opacity .26s}
+@media (prefers-reduced-motion:reduce){.zbor{display:none}.pas.nou{animation:none}}
+
+/* ---------- ecrane inguste: planul devine sertar ---------- */
+@media (max-width:1180px){
+  .app{grid-template-columns:320px minmax(0,1fr);grid-template-areas:"banda banda" "antet antet" "coada obiect" "jos jos"}
+  .plan{position:fixed;top:49px;right:0;bottom:28px;width:min(352px,100vw);transform:translateX(100%);transition:transform .2s;z-index:5}
+  .app.sertar .plan{transform:none}
+  .cand{display:none}
+  .btn-plan{display:inline-block}
+}
+@media (max-width:760px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100vh;grid-template-columns:minmax(0,1fr);grid-template-rows:3px auto 40vh minmax(60vh,auto) auto;grid-template-areas:"banda" "antet" "coada" "obiect" "jos"}
+  .antet{flex-wrap:wrap;padding:8px 16px;gap:8px}
+  .interogare{order:3;flex-basis:100%;max-width:none;margin:0}
+  .ob-antet{flex-direction:column;align-items:stretch;padding:12px 16px}
+  .jos .grup.opt{display:none}
+  .l,.pliat{min-width:720px}
+  .plan{top:0;bottom:0}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="banda" aria-hidden="true"></div>
+
+  <header class="antet">
+    <span class="marca">gmotion</span>
+    <span class="tinta"><span class="mono">CharismaDev</span><span class="sageata">→</span><span class="mono">CharismaProd</span><span class="mediu">PROD</span></span>
+    <span class="cand">comparat la 14:32, 21.183 obiecte</span>
+    <label class="interogare" title="Filtrul e text: ce scrii e exact ce vezi">
+      <span class="prompt">/</span>
+      <input id="q" spellcheck="false" autocomplete="off" aria-label="Filtru">
+      <span class="tasta">Ctrl K</span>
+    </label>
+    <button class="btn" id="recompara">Recompară</button>
+    <button class="btn btn-plan" id="btn-plan" aria-controls="plan">Planul</button>
+  </header>
+
+  <section class="coada" aria-label="Coada de diferențe">
+    <div class="fatete" id="fatete"></div>
+    <div class="rezultat" id="rezultat"></div>
+    <ul class="lista" id="lista" role="listbox" aria-label="Obiecte care diferă"></ul>
+  </section>
+
+  <main class="obiect" id="obiect"></main>
+
+  <aside class="plan" id="plan" aria-label="Planul de deploy"></aside>
+
+  <footer class="jos">
+    <span class="grup"><span class="tasta">j</span><span class="tasta">k</span> obiect</span>
+    <span class="grup"><span class="tasta">n</span> următorul nerevizuit</span>
+    <span class="grup opt"><span class="tasta">F7</span> diferență</span>
+    <span class="grup"><span class="tasta">r</span> revizuit</span>
+    <span class="grup"><span class="tasta">p</span> în plan</span>
+    <span class="grup opt"><span class="tasta">/</span> filtru</span>
+    <span class="progres"><span id="progres-text"></span><span class="bara"><i id="progres-bara"></i></span></span>
+  </footer>
+</div>
+
+<div class="paleta-fundal" id="paleta-fundal">
+  <div class="paleta" role="dialog" aria-label="Comenzi și obiecte">
+    <input id="paleta-q" placeholder="Comandă sau obiect" spellcheck="false" autocomplete="off">
+    <ul id="paleta-lista"></ul>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= date ================= */
+// k: m modificat, a doar in sursa (se adauga), d doar in baza (se sterge)
+// ord: rangul in ordinea dependentelor (mic = ruleaza intai)
+const OBIECTE = [
+  {id:1, lit:'M', schema:'dbo', nume:'GenerateOrderByRecommendedOrder', tip:'proc', plus:1, minus:1, difera:['sir'], len:67, ord:30,
+   fraza:'Un singur caracter, într-un șir: <strong>N → n</strong>.', blocuri:[[43,1,'m']]},
+  {id:2, lit:'M', schema:'dbo', nume:'usp_RaportVanzariLunar', tip:'proc', plus:48, minus:31, difera:['cod','sir'], len:412, ord:34,
+   fraza:'Rescrisă în trei locuri: filtrul pe perioadă, gruparea pe agent și <strong>textul raportului</strong>.', blocuri:[[58,12,'m'],[140,30,'m'],[301,6,'a']]},
+  {id:3, lit:'S', schema:'dbo', nume:'usp_ImportClienti', tip:'proc', plus:96, minus:0, difera:['cod'], len:96, ord:20,
+   fraza:'Nu există în <strong>CharismaProd</strong>. Se creează.', blocuri:[[1,96,'a']]},
+  {id:4, lit:'B', schema:'dbo', nume:'fn_CursVechi', tip:'fn', plus:0, minus:22, difera:['cod'], len:22, ord:90,
+   fraza:'Nu mai e în sursă. Din plan, <strong>se șterge</strong>; nimic din bază n-o mai folosește.', blocuri:[[1,22,'d']]},
+  {id:5, lit:'M', schema:'dbo', nume:'usp_CalculeazaStoc', tip:'proc', plus:14, minus:6, difera:['cod','comentariu'], len:188, ord:31,
+   fraza:'Un JOIN nou pe <strong>dbo.Rezervari</strong> și un comentariu actualizat.', blocuri:[[22,2,'m'],[96,12,'a']]},
+  {id:6, lit:'M', schema:'dbo', nume:'usp_InchideLuna', tip:'proc', plus:7, minus:2, difera:['cod'], len:140, ord:36, nota:'rămâne cu QUOTED_IDENTIFIER OFF',
+   fraza:'Se verifică acum și <strong>luna deja închisă</strong>.', blocuri:[[18,5,'a'],[71,2,'m']]},
+  {id:7, lit:'M', schema:'dbo', nume:'fn_PretCuTva', tip:'fn', plus:3, minus:3, difera:['cod'], len:31, ord:10,
+   fraza:'Cota de TVA nu mai e scrisă în cod: <strong>19 → @CotaTva</strong>.', blocuri:[[2,1,'m'],[14,2,'m']]},
+  {id:8, lit:'M', schema:'dbo', nume:'vw_FacturiNeincasate', tip:'view', plus:2, minus:1, difera:['cod'], len:44, ord:12,
+   fraza:'Exclude facturile <strong>stornate</strong>.', blocuri:[[29,2,'m']]},
+  {id:9, lit:'M', schema:'rpt', nume:'usp_SoldParteneri', tip:'proc', plus:1, minus:1, difera:['comentariu'], len:77, ord:33,
+   fraza:'Diferă doar un comentariu. Codul care rulează e identic.', blocuri:[[5,1,'m']]},
+  {id:10, lit:'M', schema:'dbo', nume:'trg_Comenzi_Audit', tip:'trg', plus:0, minus:0, difera:['set'], len:38, ord:40,
+   fraza:'Textul e identic. Diferă setarea <strong>QUOTED_IDENTIFIER</strong>: ON în sursă, OFF în bază.', blocuri:[]},
+  {id:11, lit:'M', schema:'dbo', nume:'usp_Facturare', tip:'proc', plus:22, minus:19, difera:['cod'], len:530, ord:35, nota:'rămâne cu QUOTED_IDENTIFIER OFF', atinsa:true,
+   fraza:'Calculul discountului pe linie, mutat în <strong>dbo.fn_PretCuTva</strong>.', blocuri:[[88,9,'m'],[204,14,'m'],[470,4,'d']]},
+  {id:12, lit:'M', schema:'dbo', nume:'usp_ExportAnaf', tip:'proc', plus:5, minus:5, difera:['cod','sir'], len:260, ord:37,
+   fraza:'Schimbă <strong>versiunea schemei XML</strong> și un nume de câmp.', blocuri:[[12,1,'m'],[150,4,'m']]},
+  {id:13, lit:'S', schema:'dbo', nume:'vw_StocPeGestiuni', tip:'view', plus:40, minus:0, difera:['cod'], len:40, ord:11,
+   fraza:'Nu există în <strong>CharismaProd</strong>. Se creează; o folosește usp_CalculeazaStoc.', blocuri:[[1,40,'a']]},
+  {id:14, lit:'M', schema:'dbo', nume:'fn_ZileLucratoare', tip:'fn', plus:4, minus:2, difera:['cod'], len:52, ord:9,
+   fraza:'Ține cont de <strong>sărbătorile legale</strong> din tabelă, nu din listă fixă.', blocuri:[[20,6,'m']]},
+  {id:15, lit:'M', schema:'rpt', nume:'usp_TopClienti', tip:'proc', plus:9, minus:9, difera:['cod'], len:120, ord:38,
+   fraza:'TOP 10 devine <strong>TOP (@Numar)</strong>.', blocuri:[[3,2,'m'],[40,7,'m']]},
+  {id:16, lit:'S', schema:'dbo', nume:'usp_ArhiveazaComenzi', tip:'proc', plus:61, minus:0, difera:['cod'], len:61, ord:39,
+   fraza:'Nu există în <strong>CharismaProd</strong>. Se creează.', blocuri:[[1,61,'a']]},
+];
+const TIP = {proc:'procedură', fn:'funcție', view:'view', trg:'trigger'};
+const DIFERA = {cod:'cod', sir:'șiruri', comentariu:'comentariu', set:'QUOTED_IDENTIFIER'};
+const OP = {M:'ALTER', S:'CREATE', B:'DROP'};
+const LITCOL = {M:'var(--mod-text)', S:'var(--add-text)', B:'var(--del-text)'};
+const TINTA = 'CharismaProd';
+
+/* ================= starea ================= */
+const S = {
+  q: '', vizibile: [], sel: 1, bloc: 0,
+  revizuite: new Set([9, 14]),
+  plan: new Set(),
+  tab: 'ordinea',
+  garda: {atinsa:'nimic', versiune:null, confirmare:'', recomparat:false},
+  rulare: null, // null | {pas, gata}
+  desfacute: new Set(),
+};
+
+/* ================= utilitare ================= */
+const $ = (s) => document.querySelector(s);
+const esc = (t) => t.replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ob = (id) => OBIECTE.find((o) => o.id === id);
+
+/* ================= filtrul scris ================= */
+// gramatica: stare:M|S|B  tip:proc|fn|view|trg  difera:cod|sir|comentariu|set
+//            schema:x  nerevizuit  revizuit  plan  orice-alt-cuvant = in nume
+function filtreaza(q) {
+  const termeni = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return OBIECTE.filter((o) => termeni.every((t) => {
+    const [cheie, val] = t.includes(':') ? t.split(':') : [null, t];
+    if (cheie === 'stare') return val.toUpperCase().split(',').includes(o.lit);
+    if (cheie === 'tip') return val.split(',').includes(o.tip);
+    if (cheie === 'difera') return o.difera.some((d) => val.split(',').includes(d));
+    if (cheie === 'schema') return o.schema === val;
+    if (t === 'nerevizuit') return !S.revizuite.has(o.id);
+    if (t === 'revizuit') return S.revizuite.has(o.id);
+    if (t === 'plan') return S.plan.has(o.id);
+    return (o.schema + '.' + o.nume).toLowerCase().includes(t);
+  }));
+}
+function comutaTermen(t) {
+  const [cheie] = t.split(':');
+  let termeni = S.q.trim().split(/\s+/).filter(Boolean);
+  if (termeni.includes(t)) termeni = termeni.filter((x) => x !== t);
+  else termeni = termeni.filter((x) => !(t.includes(':') && x.startsWith(cheie + ':'))).concat(t);
+  S.q = termeni.join(' ');
+  $('#q').value = S.q;
+  randeaza();
+}
+
+/* ================= semnatura ================= */
+// Forma diferentei pe lungimea obiectului: vezi din coada daca e un bloc mic
+// la final sau o rescriere peste tot. Aceeasi geometrie ca harta din editor.
+function semnatura(o, w = 72, h = 14) {
+  const cul = {m:'var(--mod-bara)', a:'var(--add-bara)', d:'var(--del-bara)'};
+  let s = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">`;
+  s += `<rect x="0" y="${h/2 - .5}" width="${w}" height="1" fill="currentColor" opacity=".28"/>`;
+  if (!o.blocuri.length) { // doar o setare SET: marcaj gol la inceput
+    s += `<rect x=".5" y="2.5" width="5" height="${h-5}" fill="none" stroke="var(--mod-bara)" stroke-width="1"/>`;
+  }
+  for (const [la, n, k] of o.blocuri) {
+    const x = ((la - 1) / o.len) * w, lat = Math.max(2, (n / o.len) * w);
+    if (o.difera.length === 1 && o.difera[0] === 'comentariu')
+      s += `<rect x="${x+.5}" y="2.5" width="${lat-1}" height="${h-5}" fill="none" stroke="${cul[k]}" stroke-width="1"/>`;
+    else s += `<rect x="${x}" y="2" width="${lat}" height="${h-4}" fill="${cul[k]}"/>`;
+  }
+  return s + '</svg>';
+}
+
+/* ================= coada ================= */
+function randeazaFatete() {
+  const nr = (f) => OBIECTE.filter(f).length;
+  const termeni = S.q.split(/\s+/);
+  const f = [
+    ['stare:M', `<b style="color:var(--mod-text)">M</b> modificate <span class="nr">${nr((o)=>o.lit==='M')}</span>`],
+    ['stare:S', `<b style="color:var(--add-text)">S</b> doar în sursă <span class="nr">${nr((o)=>o.lit==='S')}</span>`],
+    ['stare:B', `<b style="color:var(--del-text)">B</b> doar în bază <span class="nr">${nr((o)=>o.lit==='B')}</span>`],
+    ['nerevizuit', `nerevizuite <span class="nr">${nr((o)=>!S.revizuite.has(o.id))}</span>`],
+    ['difera:cod', `diferă în cod <span class="nr">${nr((o)=>o.difera.includes('cod'))}</span>`],
+  ];
+  $('#fatete').innerHTML = f.map(([t, h]) =>
+    `<button class="fateta" data-t="${t}" aria-pressed="${termeni.includes(t)}">${h}</button>`).join('');
+}
+function randeazaLista() {
+  S.vizibile = filtreaza(S.q);
+  const ul = $('#lista');
+  $('#rezultat').textContent = S.q.trim()
+    ? `${S.vizibile.length} din ${OBIECTE.length} se potrivesc cu filtrul`
+    : `${OBIECTE.length} obiecte diferă; 20.843 identice nu se arată`;
+  if (!S.vizibile.length) {
+    ul.innerHTML = `<li class="gol">Nimic nu se potrivește cu <code>${esc(S.q)}</code>. Șterge un termen sau apasă <span class="tasta">Esc</span>.</li>`;
+    return;
+  }
+  if (!S.vizibile.some((o) => o.id === S.sel)) S.sel = S.vizibile[0].id;
+  ul.innerHTML = S.vizibile.map((o) => {
+    const cls = ['rand', S.sel === o.id && 'selectat', S.revizuite.has(o.id) && 'revizuit', S.plan.has(o.id) && 'inplan'].filter(Boolean).join(' ');
+    const linii = [o.plus && `+${o.plus}`, o.minus && `−${o.minus}`].filter(Boolean).join(' ') || 'aceleași linii';
+    return `<li class="${cls}" role="option" aria-selected="${S.sel === o.id}" data-id="${o.id}" id="r${o.id}">
+      <span class="lit" style="color:${LITCOL[o.lit]}">${o.lit}</span>
+      <span class="nume"><span class="schema">${o.schema}.</span>${o.nume}</span>
+      <span class="meta">${TIP[o.tip]}, ${linii}, în ${o.difera.map((d)=>DIFERA[d]).join(', ')}</span>
+      <span class="semn">${semnatura(o)}</span></li>`;
+  }).join('');
+  $('#r' + S.sel)?.scrollIntoView({block:'nearest'});
+}
+
+/* ================= diferenta ================= */
+const CUVINTE = /\b(CREATE|OR|ALTER|PROCEDURE|FUNCTION|VIEW|TRIGGER|AS|BEGIN|END|SET|NOCOUNT|ON|OFF|SELECT|FROM|WHERE|AND|INSERT|INTO|UPDATE|DELETE|IF|NOT|EXISTS|RETURN|RETURNS|INT|DATE|DECIMAL|NVARCHAR|NULL|JOIN|LEFT|INNER|GROUP|BY|ORDER|TOP|SUM|ISNULL|GETDATE|RAISERROR|WITH|CASE|WHEN|THEN|ELSE|DECLARE|VALUES|IS|FOR|AFTER)\b/g;
+function coloreaza(t) {
+  // ⟦…⟧ marcheaza caracterele schimbate; restul e colorare simpla de sintaxa
+  return t.split(/(⟦[^⟧]*⟧)/).map((bucata) => {
+    if (bucata.startsWith('⟦')) return `<span class="x">${coloreazaSimplu(bucata.slice(1, -1))}</span>`;
+    return coloreazaSimplu(bucata);
+  }).join('');
+}
+function coloreazaSimplu(t) {
+  if (/^\s*--/.test(t)) return `<span class="c">${esc(t)}</span>`;
+  return t.split(/('[^']*'?)/).map((p) => p.startsWith("'") ? `<span class="s">${esc(p)}</span>`
+    : esc(p).replace(CUVINTE, '<span class="k">$1</span>').replace(/(@\w+)/g, '<span class="v">$1</span>')
+            .replace(/\b(\d+)\b/g, '<span class="s">$1</span>')).join('');
+}
+
+const CORP = [
+  '    SET NOCOUNT ON;', '', '    DECLARE @Azi DATE = GETDATE();', '    SELECT c.IdComanda, c.IdPartener, c.Total',
+  '    FROM dbo.Comenzi c', '    INNER JOIN dbo.Parteneri p ON p.IdPartener = c.IdPartener', '    WHERE c.Stare = 1',
+  '      AND c.DataComanda <= @Azi', '    -- liniile anulate nu intra in total', '    UPDATE dbo.Comenzi SET Stare = 2',
+  '    WHERE IdComanda = @IdComanda;', '    IF @@ROWCOUNT = 0', '        RETURN 1;', '    GROUP BY c.IdPartener',
+  "    SELECT 'Total general', SUM(c.Total)", '    ORDER BY c.DataComanda;', '    INSERT INTO dbo.Jurnal (Mesaj) VALUES (@Mesaj);',
+];
+const SCHIMB = [
+  ["    WHERE c.Stare = ⟦1⟧", "    WHERE c.Stare ⟦IN (1, 3)⟧"],
+  ["    SELECT ⟦TOP 10⟧ c.IdPartener, SUM(c.Total)", "    SELECT ⟦TOP (@Numar)⟧ c.IdPartener, SUM(c.Total)"],
+  ["    INNER JOIN dbo.Parteneri p ON p.IdPartener = c.IdPartener", "    ⟦LEFT⟧ JOIN dbo.Parteneri p ON p.IdPartener = c.IdPartener"],
+  ["    SET @Mesaj = '⟦Raport lunar⟧';", "    SET @Mesaj = '⟦Raport lunar pe agenti⟧';"],
+];
+const ANTET = {proc:'PROCEDURE', fn:'FUNCTION', view:'VIEW', trg:'TRIGGER'};
+
+// Linii aliniate: {nL, nR, L, R, k} ; k: '' identic, m, a, d ; plus indicele blocului
+function liniiPentru(o) {
+  if (o.id === 1) return liniiManuale(o, [
+    ['', 'CREATE OR ALTER PROCEDURE dbo.GenerateOrderByRecommendedOrder'], ['', '    @IdPartener INT,'], ['', '    @DataComanda DATE = NULL'],
+    ['', 'AS'], ['', 'BEGIN'], ['', '    SET NOCOUNT ON;'], ...Array.from({length:34}, (_, i) => ['', CORP[i % CORP.length]]),
+    ['', '    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari WHERE IdPartener = @IdPartener)'], ['', '    BEGIN'],
+    ['m', "        RAISERROR('⟦N⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);", "        RAISERROR('⟦n⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);"],
+    ['', '        RETURN;'], ['', '    END'], ['', ''], ['', '    INSERT INTO dbo.Comenzi (IdPartener, DataComanda, Stare)'],
+    ['', '    SELECT @IdPartener, ISNULL(@DataComanda, GETDATE()), 0;'], ...Array.from({length:18}, (_, i) => ['', CORP[(i + 5) % CORP.length]]), ['', 'END'],
+  ]);
+  if (o.id === 7) return liniiManuale(o, [
+    ['', 'CREATE OR ALTER FUNCTION dbo.fn_PretCuTva'],
+    ['m', '(@Pret DECIMAL(18, 4))', '(@Pret DECIMAL(18, 4)⟦, @CotaTva DECIMAL(5, 2)⟧)'],
+    ['', 'RETURNS DECIMAL(18, 4)'], ['', 'AS'], ['', 'BEGIN'], ['', '    -- pretul final, rotunjit la doua zecimale'],
+    ...Array.from({length:7}, (_, i) => ['', CORP[(i + 2) % CORP.length]]),
+    ['m', '    RETURN ROUND(@Pret * (1 + ⟦19⟧ / 100.0), 2);', '    RETURN ROUND(@Pret * (1 + ⟦@CotaTva⟧ / 100.0), 2);'],
+    ['m', '    -- ⟦cota fixa⟧', '    -- ⟦cota vine de la apelant⟧'],
+    ...Array.from({length:15}, (_, i) => ['', CORP[(i + 9) % CORP.length]]), ['', 'END'],
+  ]);
+  // restul: generat din blocuri, ca sa se vada forma reala a diferentei
+  const rows = [];
+  let nL = 0, nR = 0, b = 0;
+  const harta = new Map();
+  o.blocuri.forEach(([la, n, k], i) => { for (let j = 0; j < n; j++) harta.set(la + j, [k, i]); });
+  for (let i = 1; i <= o.len; i++) {
+    const text = i === 1 ? `CREATE OR ALTER ${ANTET[o.tip]} ${o.schema}.${o.nume}` : i === o.len ? 'END' : i === 2 ? 'AS' : i === 3 ? 'BEGIN' : CORP[(i * 7 + o.id) % CORP.length];
+    const h = harta.get(i);
+    if (!h) { rows.push({nL:++nL, nR:++nR, L:text, R:text, k:''}); continue; }
+    const [k, bi] = h;
+    if (k === 'm') { const [a, c] = SCHIMB[(i + o.id) % SCHIMB.length]; rows.push({nL:++nL, nR:++nR, L:a, R:c, k, b:bi}); }
+    if (k === 'a') rows.push({nL:null, nR:++nR, L:'', R:text.replace(/⟦|⟧/g, ''), k, b:bi});
+    if (k === 'd') rows.push({nL:++nL, nR:null, L:text, R:'', k, b:bi});
+  }
+  return rows;
+}
+function liniiManuale(o, def) {
+  let nL = 0, nR = 0, b = -1, inBloc = false;
+  return def.map(([k, L, R]) => {
+    if (k && !inBloc) b++;
+    inBloc = !!k;
+    return {nL:++nL, nR:++nR, L, R: R ?? L, k, b: k ? b : undefined};
+  });
+}
+
+function randeazaObiect() {
+  const o = ob(S.sel), el = $('#obiect');
+  if (!o) { el.innerHTML = ''; return; }
+  const rows = liniiPentru(o);
+  const nBlocuri = new Set(rows.filter((r) => r.k).map((r) => r.b)).size;
+  S.bloc = Math.min(S.bloc, Math.max(0, nBlocuri - 1));
+  const rev = S.revizuite.has(o.id), inPlan = S.plan.has(o.id);
+
+  // plierea identicului: pastreaza 3 linii de context in jurul fiecarui bloc
+  const pastreaza = rows.map((r, i) => rows.slice(Math.max(0, i - 3), i + 4).some((x) => x.k));
+  let html = '', i = 0;
+  while (i < rows.length) {
+    if (!pastreaza[i] && !S.desfacute.has(o.id)) {
+      let j = i; while (j < rows.length && !pastreaza[j]) j++;
+      if (j - i > 4) { html += `<button class="pliat" data-desface="${o.id}">${j - i} linii identice</button>`; i = j; continue; }
+    }
+    const r = rows[i];
+    const cur = r.k && r.b === S.bloc ? ' curent' : '';
+    const st = r.k === 'a' ? 'hasura' : '', dr = r.k === 'd' ? 'hasura' : '';
+    html += `<div class="l ${r.k}${cur}" ${r.k && r.b !== undefined ? `data-b="${r.b}"` : ''}>
+      <span class="n">${r.nL ?? ''}</span><span class="b st"></span><span class="t st ${st}">${r.k === 'a' ? '' : coloreaza(r.L)}</span>
+      <span class="n">${r.nR ?? ''}</span><span class="b dr"></span><span class="t dr ${dr}">${r.k === 'd' ? '' : coloreaza(r.R)}</span></div>`;
+    i++;
+  }
+  const harta = o.blocuri.map(([la, n, k]) => `<i style="top:${(la - 1) / o.len * 100}%;height:${n / o.len * 100}%;background:var(--${{m:'mod',a:'add',d:'del'}[k]}-bara)"></i>`).join('');
+  const nav = nBlocuri ? `diferența <span class="mono">${S.bloc + 1}/${nBlocuri}</span>` : 'nicio linie diferită';
+  el.innerHTML = `
+    <div class="ob-antet">
+      <div class="ob-titlu">
+        <div class="ob-nume"><span class="schema">${o.schema}.</span>${o.nume}</div>
+        <div class="ob-fraza">${o.fraza}</div>
+      </div>
+      <div class="ob-act">
+        <button class="comuta" id="b-rev" aria-pressed="${rev}">${rev ? 'Revizuit' : 'Marchează revizuit'} <span class="tasta">r</span></button>
+        <button class="comuta" id="b-plan" aria-pressed="${inPlan}">${inPlan ? 'În plan' : 'Pune în plan'} <span class="tasta">p</span></button>
+      </div>
+    </div>
+    <div class="ob-bara">
+      <span class="parti"><span>${o.lit === 'S' ? 'CharismaProd: lipsește' : 'CharismaProd, acum'}</span><span>${o.lit === 'B' ? 'CharismaDev: lipsește' : 'CharismaDev, după deploy'}</span></span>
+      <span>${nav}</span>
+    </div>
+    <div class="ob-corp"><div class="diff" id="diff">${html}</div><div class="harta" id="harta" aria-hidden="true">${harta}<span class="fereastra" id="harta-f"></span></div></div>`;
+  $('#diff').addEventListener('scroll', actualizeazaHarta);
+  requestAnimationFrame(() => { aratBloc(false); actualizeazaHarta(); });
+}
+function aratBloc(lin = true) {
+  const l = $(`#diff .l[data-b="${S.bloc}"]`);
+  if (!l) return;
+  document.querySelectorAll('#diff .l.curent').forEach((x) => x.classList.remove('curent'));
+  document.querySelectorAll(`#diff .l[data-b="${S.bloc}"]`).forEach((x) => x.classList.add('curent'));
+  const d = $('#diff');
+  d.scrollTo({top: Math.max(0, l.offsetTop - d.clientHeight / 3), behavior: lin && !reducere() ? 'smooth' : 'auto'});
+}
+function actualizeazaHarta() {
+  const d = $('#diff'), f = $('#harta-f');
+  if (!d || !f) return;
+  f.style.top = (d.scrollTop / d.scrollHeight * 100) + '%';
+  f.style.height = Math.max(4, d.clientHeight / d.scrollHeight * 100) + '%';
+}
+const reducere = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= planul ================= */
+function pasiPlan() { return [...S.plan].map(ob).sort((a, b) => a.ord - b.ord); }
+function rezumat(p) {
+  const c = (l) => p.filter((o) => o.lit === l).length;
+  const parti = [[c('M'), 'modificat', 'modificate'], [c('S'), 'nou', 'noi'], [c('B'), 'șters', 'șterse']]
+    .filter(([n]) => n).map(([n, s, pl]) => `${n} ${n === 1 ? s : pl}`);
+  return `${p.length} ${p.length === 1 ? 'obiect' : 'obiecte'}: ${parti.join(', ')}. În ordinea în care se folosesc unul pe altul.`;
+}
+function randeazaPlan(nouId) {
+  const p = pasiPlan(), el = $('#plan');
+  const areDrop = p.some((o) => o.lit === 'B');
+  const g = S.garda;
+  let corp;
+  if (!p.length) {
+    corp = `<div class="plan-gol">Planul e gol. Pe obiectul deschis apasă <span class="tasta">p</span> și intră aici, la locul lui în ordinea dependențelor.</div>`;
+  } else if (S.tab === 'script') {
+    corp = `<pre class="script">${p.map((o, i) => `<span class="c">-- ${i + 1}. ${OP[o.lit]} ${o.schema}.${o.nume}</span>\n` +
+      (o.lit === 'B' ? `DROP ${ANTET[o.tip]} ${o.schema}.${o.nume};` : `CREATE OR ALTER ${ANTET[o.tip]} ${o.schema}.${o.nume}\n  …`) + '\nGO\n').join('\n')}</pre>`;
+  } else {
+    corp = `<ol class="pasi">${p.map((o, i) => {
+      const r = S.rulare, cls = ['pas', o.id === nouId && 'nou', r && i < r.pas && 'rulat', r && i === r.pas && !r.gata && 'ruleaza'].filter(Boolean).join(' ');
+      const nota = o.lit === 'B' ? `<span class="nota del">nu mai e în sursă</span>` : o.nota ? `<span class="nota">${o.nota}</span>` : '';
+      return `<li class="${cls}" data-id="${o.id}"><span class="nr">${r && i < r.pas ? '✓' : i + 1}</span><span class="op ${OP[o.lit]}">${OP[o.lit]}</span>
+        <span class="obj"><span class="schema">${o.schema}.</span>${o.nume}</span>
+        <button class="scoate" data-scoate="${o.id}" title="Scoate din plan" aria-label="Scoate ${o.nume} din plan">×</button>${nota}</li>`;
+    }).join('')}</ol>`;
+  }
+
+  // gărzile: chiar sunt o secventa, fiecare o deschide pe urmatoarea
+  let garzi = '';
+  if (p.length && !S.rulare?.gata) {
+    const atins = p.find((o) => o.atinsa);
+    const g1 = g.atinsa === 'verifica' ? ['asteapta', '…', 'Se recitesc obiectele din plan.', `${p.length} obiecte, din CharismaProd.`, '']
+      : atins && !g.recomparat ? ['atentie', '!', `${atins.schema}.${atins.nume} s-a schimbat în bază.`, 'Modificat la 14:52 de altcineva, după compararea ta.', `<button class="btn-c" data-act="recompara-unu">Recompară-l</button>`]
+      : ['ok', '✓', 'Baza n-a mai fost atinsă.', `Recitită acum; cele ${p.length} obiecte sunt exact cum le-ai comparat.`, ''];
+    const g2 = g.versiune ? ['ok', '✓', 'Versiunea actuală e salvată.', g.versiune, '']
+      : ['asteapta', '○', 'Salvează întâi versiunea actuală.', 'Ca să poți reveni dacă deploy-ul strică ceva.', `<button class="btn-c" data-act="salveaza">Salvează revenirea <span class="tasta" style="background:none;color:inherit;border-color:var(--cerneala-linie)">v</span></button>`];
+    const okConf = g.confirmare === TINTA;
+    const g3 = areDrop ? [okConf ? 'ok' : 'asteapta', okConf ? '✓' : '○', 'E producție și se șterge un obiect.', `Scrie <span class="mono" style="color:#fff">${TINTA}</span> ca să pornești.`,
+      `<input class="confirma" id="confirma" value="${esc(g.confirmare)}" spellcheck="false" autocomplete="off" aria-label="Numele bazei, pentru confirmare">`] : null;
+    const gata = g1[0] === 'ok' && g2[0] === 'ok' && (!g3 || okConf);
+    garzi = `<div class="garzi">${[g1, g2, g3].filter(Boolean).map(([c, ic, t, d, a]) =>
+      `<div class="garda ${c}"><span class="ic">${ic}</span><span>${t}</span><span class="det">${d}</span>${a ? `<span class="act">${a}</span>` : ''}</div>`).join('')}
+      <button class="ruleaza-btn" id="ruleaza" ${gata && !S.rulare ? '' : 'disabled'}>
+        <span>${S.rulare ? `Rulează pasul ${S.rulare.pas + 1} din ${p.length}…` : gata ? `Rulează ${p.length} pași pe ${TINTA}` : 'Rulează, după verificări'}</span>
+        ${gata && !S.rulare ? '<span class="tasta">Ctrl ↵</span>' : ''}</button></div>`;
+  } else if (S.rulare?.gata) {
+    garzi = `<div class="garzi"><div class="garda ok"><span class="ic">✓</span><span>Rulat pe ${TINTA}.</span><span class="det">${p.length} obiecte în 2,1 s. Revenirea e în ${g.versiune.replace('Salvată: ', '')}.</span>
+      <span class="act"><button class="btn-c" data-act="plan-nou">Plan nou</button></span></div></div>`;
+  }
+
+  el.innerHTML = `<div class="plan-antet">
+      <div class="plan-titlu">Deploy pe ${TINTA}</div>
+      <div class="plan-rezumat">${p.length ? rezumat(p) : 'din CharismaDev'}</div>
+      ${p.length ? `<div class="plan-taburi" role="tablist">
+        <button role="tab" data-tab="ordinea" aria-selected="${S.tab === 'ordinea'}">Ordinea</button>
+        <button role="tab" data-tab="script" aria-selected="${S.tab === 'script'}">Script</button></div>` : ''}
+    </div>${corp}${garzi}`;
+}
+function verificaBaza() {
+  S.garda.atinsa = 'verifica';
+  randeazaPlan();
+  clearTimeout(verificaBaza.t);
+  verificaBaza.t = setTimeout(() => { if (S.garda.atinsa === 'verifica') S.garda.atinsa = 'gata'; randeazaPlan(); }, 700);
+}
+
+/* ================= actiuni ================= */
+function comutaRevizuit() {
+  S.revizuite.has(S.sel) ? S.revizuite.delete(S.sel) : S.revizuite.add(S.sel);
+  randeaza();
+}
+function comutaPlan() {
+  if (S.rulare) return;
+  const id = S.sel;
+  if (S.plan.has(id)) { S.plan.delete(id); S.garda.versiune = null; randeaza(); verificaBaza(); return; }
+  const sursa = $('#r' + id) || $('#b-plan');
+  S.plan.add(id);
+  S.revizuite.add(id);
+  S.garda.versiune = null;
+  zboara(sursa, id);
+}
+// singura miscare din interfata: obiectul se muta in placa, la locul lui
+function zboara(sursa, id) {
+  randeazaLista(); randeazaObiect(); randeazaProgres(); randeazaFatete();
+  S.tab = 'ordinea';
+  randeazaPlan(id);
+  const tinta = document.querySelector(`.pas[data-id="${id}"]`);
+  if (!sursa || !tinta || reducere() || getComputedStyle($('#plan')).transform !== 'none') { verificaBaza(); return; }
+  const a = sursa.getBoundingClientRect(), b = tinta.getBoundingClientRect(), o = ob(id);
+  const z = document.createElement('div');
+  z.className = 'zbor'; z.textContent = `${OP[o.lit]} ${o.schema}.${o.nume}`;
+  z.style.left = a.left + 'px'; z.style.top = a.top + 'px'; z.style.maxWidth = '320px';
+  document.body.appendChild(z);
+  requestAnimationFrame(() => { z.style.transform = `translate(${b.left - a.left}px, ${b.top - a.top}px)`; z.style.opacity = '.2'; });
+  setTimeout(() => { z.remove(); verificaBaza(); }, 280);
+}
+function muta(d) {
+  const i = S.vizibile.findIndex((o) => o.id === S.sel);
+  const n = S.vizibile[Math.min(S.vizibile.length - 1, Math.max(0, i + d))];
+  if (n) { S.sel = n.id; S.bloc = 0; randeazaLista(); randeazaObiect(); }
+}
+function urmatorulNerevizuit() {
+  const i = S.vizibile.findIndex((o) => o.id === S.sel);
+  const rest = [...S.vizibile.slice(i + 1), ...S.vizibile.slice(0, i + 1)];
+  const n = rest.find((o) => !S.revizuite.has(o.id));
+  if (n) { S.sel = n.id; S.bloc = 0; randeazaLista(); randeazaObiect(); }
+}
+function blocUrmator(d) {
+  const n = new Set([...document.querySelectorAll('#diff .l[data-b]')].map((x) => +x.dataset.b)).size;
+  if (!n) return;
+  S.bloc = (S.bloc + d + n) % n;
+  randeazaObiect();
+  requestAnimationFrame(() => aratBloc(true));
+}
+function salveazaVersiunea() {
+  if (!pasiPlan().length) return;
+  S.garda.versiune = 'Salvată: revenire-CharismaProd-1453.sql';
+  randeazaPlan();
+}
+function ruleaza() {
+  const btn = $('#ruleaza');
+  if (!btn || btn.disabled) return;
+  const p = pasiPlan();
+  S.rulare = {pas:0, gata:false};
+  randeazaPlan();
+  const pas = () => {
+    S.rulare.pas++;
+    if (S.rulare.pas >= p.length) S.rulare.gata = true;
+    randeazaPlan();
+    if (!S.rulare.gata) setTimeout(pas, reducere() ? 60 : 320);
+  };
+  setTimeout(pas, 320);
+}
+function randeazaProgres() {
+  const n = S.revizuite.size;
+  $('#progres-text').textContent = `revizuite ${n} din ${OBIECTE.length}, ${S.plan.size} în plan`;
+  $('#btn-plan').textContent = `Planul (${S.plan.size})`;
+  $('#progres-bara').style.width = (n / OBIECTE.length * 100) + '%';
+}
+function randeaza() { randeazaFatete(); randeazaLista(); randeazaObiect(); randeazaPlan(); randeazaProgres(); }
+
+/* ================= paleta ================= */
+const COMENZI = [
+  ['Pune obiectul în plan', 'p', comutaPlan], ['Marchează revizuit', 'r', comutaRevizuit],
+  ['Următorul nerevizuit', 'n', urmatorulNerevizuit], ['Salvează versiunea actuală', 'v', salveazaVersiunea],
+  ['Arată doar ce diferă în cod', '', () => comutaTermen('difera:cod')], ['Arată doar nerevizuitele', '', () => comutaTermen('nerevizuit')],
+  ['Arată scriptul planului', '', () => { S.tab = 'script'; randeazaPlan(); }], ['Recompară', 'Ctrl R', () => recompara()],
+];
+let paletaActiv = 0, paletaElem = [];
+function potrivire(text, q) {
+  if (!q) return {ok:true, h:esc(text)};
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  return i < 0 ? {ok:false} : {ok:true, h:esc(text.slice(0, i)) + '<u>' + esc(text.slice(i, i + q.length)) + '</u>' + esc(text.slice(i + q.length))};
+}
+function randeazaPaleta() {
+  const q = $('#paleta-q').value.trim();
+  paletaElem = [
+    ...COMENZI.map(([t, k, f]) => ({t, k, f, fel:'comandă'})),
+    ...OBIECTE.map((o) => ({t:`${o.schema}.${o.nume}`, k:'', f:() => { S.q = ''; $('#q').value = ''; S.sel = o.id; S.bloc = 0; randeaza(); }, fel:TIP[o.tip]})),
+  ].map((e) => ({...e, m:potrivire(e.t, q)})).filter((e) => e.m.ok).slice(0, 12);
+  paletaActiv = Math.min(paletaActiv, Math.max(0, paletaElem.length - 1));
+  $('#paleta-lista').innerHTML = paletaElem.length ? paletaElem.map((e, i) =>
+    `<li class="${i === paletaActiv ? 'activ' : ''}" data-i="${i}"><span>${e.m.h}</span><span>${e.k ? `<span class="tasta">${e.k}</span>` : `<span class="fel">${e.fel}</span>`}</span></li>`).join('')
+    : `<li><span class="fel">Nicio comandă și niciun obiect cu „${esc(q)}".</span></li>`;
+}
+function deschidePaleta() { $('#paleta-fundal').classList.add('deschis'); $('#paleta-q').value = ''; paletaActiv = 0; randeazaPaleta(); $('#paleta-q').focus(); }
+function inchidePaleta() { $('#paleta-fundal').classList.remove('deschis'); }
+function executaPaleta(i) { const e = paletaElem[i]; inchidePaleta(); e?.f(); }
+
+function recompara() {
+  S.garda.recomparat = true;
+  verificaBaza();
+}
+
+/* ================= evenimente ================= */
+$('#q').addEventListener('input', (e) => { S.q = e.target.value; randeazaFatete(); randeazaLista(); randeazaObiect(); });
+$('#fatete').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (b) comutaTermen(b.dataset.t); });
+$('#lista').addEventListener('click', (e) => { const r = e.target.closest('[data-id]'); if (r) { S.sel = +r.dataset.id; S.bloc = 0; randeazaLista(); randeazaObiect(); } });
+$('#obiect').addEventListener('click', (e) => {
+  if (e.target.closest('#b-rev')) comutaRevizuit();
+  if (e.target.closest('#b-plan')) comutaPlan();
+  const p = e.target.closest('[data-desface]'); if (p) { S.desfacute.add(+p.dataset.desface); randeazaObiect(); }
+  const l = e.target.closest('.l[data-b]'); if (l) { S.bloc = +l.dataset.b; aratBloc(false); }
+});
+$('#plan').addEventListener('click', (e) => {
+  const s = e.target.closest('[data-scoate]');
+  if (s) { S.plan.delete(+s.dataset.scoate); S.garda.versiune = null; randeaza(); verificaBaza(); return; }
+  const t = e.target.closest('[data-tab]'); if (t) { S.tab = t.dataset.tab; randeazaPlan(); return; }
+  const a = e.target.closest('[data-act]')?.dataset.act;
+  if (a === 'salveaza') salveazaVersiunea();
+  if (a === 'recompara-unu') recompara();
+  if (a === 'plan-nou') { S.plan.clear(); S.rulare = null; S.garda = {atinsa:'nimic', versiune:null, confirmare:'', recomparat:false}; randeaza(); }
+  if (e.target.closest('#ruleaza')) ruleaza();
+  const pas = e.target.closest('.pas[data-id]'); if (pas && !s) { S.sel = +pas.dataset.id; S.q = ''; $('#q').value = ''; randeaza(); }
+});
+$('#plan').addEventListener('input', (e) => {
+  if (e.target.id !== 'confirma') return;
+  S.garda.confirmare = e.target.value;
+  const poz = e.target.selectionStart;
+  randeazaPlan();
+  const c = $('#confirma'); c.focus(); c.setSelectionRange(poz, poz);
+});
+$('#recompara').addEventListener('click', recompara);
+$('#btn-plan').addEventListener('click', () => $('#app').classList.toggle('sertar'));
+$('#paleta-q').addEventListener('input', () => { paletaActiv = 0; randeazaPaleta(); });
+$('#paleta-lista').addEventListener('click', (e) => { const li = e.target.closest('[data-i]'); if (li) executaPaleta(+li.dataset.i); });
+$('#paleta-fundal').addEventListener('click', (e) => { if (e.target.id === 'paleta-fundal') inchidePaleta(); });
+
+document.addEventListener('keydown', (e) => {
+  const inPaleta = $('#paleta-fundal').classList.contains('deschis');
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); inPaleta ? inchidePaleta() : deschidePaleta(); return; }
+  if (inPaleta) {
+    if (e.key === 'Escape') inchidePaleta();
+    if (e.key === 'ArrowDown') { e.preventDefault(); paletaActiv = Math.min(paletaElem.length - 1, paletaActiv + 1); randeazaPaleta(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); paletaActiv = Math.max(0, paletaActiv - 1); randeazaPaleta(); }
+    if (e.key === 'Enter') executaPaleta(paletaActiv);
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); ruleaza(); return; }
+  const tinta = e.target;
+  if (tinta.id === 'q') {
+    if (e.key === 'Escape') { if (S.q) { S.q = ''; tinta.value = ''; randeaza(); } else tinta.blur(); }
+    if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); tinta.blur(); }
+    return;
+  }
+  if (tinta.tagName === 'INPUT') { if (e.key === 'Escape') tinta.blur(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === 'j' || k === 'ArrowDown') { e.preventDefault(); muta(1); }
+  else if (k === 'k' || k === 'ArrowUp') { e.preventDefault(); muta(-1); }
+  else if (k === 'n') urmatorulNerevizuit();
+  else if (k === 'F7') { e.preventDefault(); blocUrmator(e.shiftKey ? -1 : 1); }
+  else if (k === 'r') comutaRevizuit();
+  else if (k === 'p') comutaPlan();
+  else if (k === 'v') salveazaVersiunea();
+  else if (k === 'd') $('#app').classList.toggle('sertar');
+  else if (k === '/') { e.preventDefault(); $('#q').focus(); $('#q').select(); }
+  else if (k === 'Escape' && S.q) { S.q = ''; $('#q').value = ''; randeaza(); }
+});
+
+/* starea de pornire: o coada deja inceputa, ca prototipul sa arate un moment real */
+S.q = 'nerevizuit';
+$('#q').value = S.q;
+S.plan = new Set([7, 14, 8]);
+S.plan.forEach((id) => S.revizuite.add(id));
+S.garda.atinsa = 'gata';
+randeaza();
+</script>
+</body>
+</html>
