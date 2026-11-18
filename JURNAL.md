@@ -613,6 +613,43 @@ progres cat dureaza compararea pe server real (acum fereastra sta).
 
 ---
 
+## 2026-11-18 — Garda de deploy pe amprenta exacta, revenirea langa deploy
+
+**Context.** Etapa 12: inainte de deploy trebuie stiut ca baza n-a mai fost
+atinsa de la comparare, si trebuie salvat un script de revenire. Compararea
+are deja hash-uri (`Rand::hash_referinta` / `hash_curent`), dar sunt pe forma
+**normalizata**: nu vad spatiile si nici `ANSI_NULLS` / `QUOTED_IDENTIFIER`.
+
+**Alternative.** (a) garda pe hash-ul compararii: gratis, dar o schimbare de
+setari facuta intre timp pe tinta ar fi suprascrisa fara avertisment; (b)
+amprenta exacta: SHA-256 peste tip, setari si definitia neatinsa
+(`plan::amprenta_exacta`), calculata la cerere, doar pentru obiectele din plan.
+
+**Decizie.** (b). Deploy-ul inlocuieste textul exact, deci garda se uita la
+textul exact. Se verifica **ambele** parti: tinta (cineva a lucrat pe baza) si
+referinta (codul deployat nu mai e cel revizuit). Obiect aparut sau disparut
+opreste la fel ca unul modificat. Oprirea e `GM-MOD-012`, cu fiecare obiect pe
+nume.
+
+**Forma in `cli`.** `gmotion plan -o plan.json` scrie planul (pasii, cu
+amprentele); `gmotion deploy --plan plan.json` recitește, verifica, si abia
+apoi scrie. Fara `--plan`, deploy-ul face planul pe loc din ce tocmai a citit.
+Planul e JSON fiindca e si forma in care fereastra il va tine intre ecrane.
+
+**Revenirea.** Se scrie **inainte** de deploy, in `<director>/revenire/`, nu
+langa scripturile de deploy: cine ruleaza `*.sql` din director nu trebuie sa
+ruleze si revenirea. Totul (deploy si revenire) se verifica inainte de primul
+fisier: daca revenirea nu se poate scrie (o definitie actuala cu `GO`), nu se
+scrie nici deploy-ul. Ordinea: intai se refac obiectele vechi (dupa
+dependentele codului vechi), apoi se sterg cele create de deploy, in ordinea
+**inversa** dependentelor codului nou — un view nou `WITH SCHEMABINDING` ar
+bloca altfel stergerea functiei noi.
+
+**Limita cunoscuta.** `DROP` taie `schema.nume` la primul punct (`Baza` nu
+tine partile separat); o schema cu punct in nume ar iesi gresit.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
@@ -623,7 +660,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | `GM-CORE-*` | motorul de comparare |
 | `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-011**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
-| `GM-MOD-*` | module — **diff-obiecte: 001-011**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-MOD-*` | module — **diff-obiecte: 001-012**, vezi `rust/module/diff-obiecte/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
 `core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide

@@ -42,11 +42,26 @@ pub struct DeDeployat {
     pub setari: Option<gmotion_db::Setari>,
 }
 
+/// Un pas din scriptul de revenire.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PasRevenire {
+    /// Obiectul exista in tinta: se reface exact cum e acum (codul si
+    /// setarile **din tinta**).
+    Reface(DeDeployat),
+    /// Obiectul nu exista in tinta, deci deploy-ul il creeaza: revenirea il
+    /// sterge. `cod` e codul care se deployeaza — din el se afla ordinea in
+    /// care se pot sterge.
+    Sterge(DeDeployat),
+}
+
 /// Ce s-a scris.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Raport {
     pub director: PathBuf,
     pub fisiere: Vec<PathBuf>,
+    /// Scripturile de revenire, in `<director>/revenire/`. Goala daca s-a
+    /// scris fara revenire.
+    pub revenire: Vec<PathBuf>,
     pub obiecte: usize,
     /// Obiecte marcate dar nedeployabile: cele `extra`.
     pub sarite: usize,
@@ -506,6 +521,155 @@ pub fn scrie(
     }
     verifica_inainte(referinta, pe_baza)?;
     pregateste_director(director)?;
+    scrie_deploy(director, referinta, pe_baza, mod_impartire, sarite, acum)
+}
+
+/// Ca [`scrie`], dar **intai** scriptul de revenire, in
+/// `<director>/revenire/<baza>.sql`, apoi deploy-ul.
+///
+/// Totul se verifica inainte de primul fisier: daca revenirea nu se poate
+/// scrie (o definitie actuala cu `GO`, un nume nesigur), nu se scrie nici
+/// deploy-ul — un deploy fara cale de intoarcere e exact ce trebuie evitat.
+/// Revenirea sta intr-un subdirector ca sa nu fie rulata din greseala odata
+/// cu `*.sql` din director.
+#[allow(clippy::too_many_arguments)]
+pub fn scrie_cu_revenire(
+    director: &Path,
+    referinta: &str,
+    pe_baza: &BTreeMap<String, Vec<DeDeployat>>,
+    revenire: &BTreeMap<String, Vec<PasRevenire>>,
+    mod_impartire: ModImpartire,
+    sarite: usize,
+    acum: &str,
+) -> Rezultat<Raport> {
+    if pe_baza.is_empty() {
+        return Err(Eroare::NimicDeDeployat);
+    }
+    verifica_inainte(referinta, pe_baza)?;
+    let de_refacut: BTreeMap<String, Vec<DeDeployat>> = revenire
+        .iter()
+        .map(|(baza, pasi)| {
+            let v = pasi
+                .iter()
+                .filter_map(|p| match p {
+                    PasRevenire::Reface(o) => Some(o.clone()),
+                    PasRevenire::Sterge(_) => None,
+                })
+                .collect();
+            (baza.clone(), v)
+        })
+        .collect();
+    verifica_inainte(referinta, &de_refacut)?;
+    for pasi in revenire.values() {
+        for p in pasi {
+            if let PasRevenire::Sterge(o) = p {
+                verifica_nume(&o.obiect)?;
+            }
+        }
+    }
+    pregateste_director(director)?;
+
+    let dir_revenire = director.join("revenire");
+    std::fs::create_dir_all(&dir_revenire).map_err(|e| Eroare::ScriereDeploy {
+        cale: dir_revenire.display().to_string(),
+        detaliu: e.to_string(),
+    })?;
+    let mut nume_fisiere = NumeFisiere::default();
+    let mut scrise = Vec::new();
+    for (baza, pasi) in revenire {
+        let cale = dir_revenire.join(nume_fisiere.unic(&slug(baza), "sql"));
+        std::fs::write(&cale, text_revenire(baza, referinta, pasi, acum)).map_err(|e| {
+            Eroare::ScriereDeploy {
+                cale: cale.display().to_string(),
+                detaliu: e.to_string(),
+            }
+        })?;
+        scrise.push(cale);
+    }
+    tracing::info!(
+        target: "gmotion::modul",
+        director = %dir_revenire.display(), fisiere = scrise.len(),
+        "scripturi de revenire scrise"
+    );
+
+    let mut raport = scrie_deploy(director, referinta, pe_baza, mod_impartire, sarite, acum)?;
+    raport.revenire = scrise;
+    Ok(raport)
+}
+
+/// `[schema].[nume]` din `schema.nume`. Se taie la primul punct: o schema cu
+/// punct in nume ar iesi gresit, dar `Baza` nu pastreaza partile separat.
+fn nume_calificat(obiect: &str) -> String {
+    match obiect.split_once('.') {
+        Some((schema, nume)) => format!("{}.{}", paranteze(schema), paranteze(nume)),
+        None => paranteze(obiect),
+    }
+}
+
+/// `DROP ... IF EXISTS` pentru un obiect creat de deploy.
+fn sterge(o: &DeDeployat) -> String {
+    let fel = match o.tip.trim() {
+        "P" => "PROCEDURE",
+        "V" => "VIEW",
+        "FN" | "TF" | "IF" => "FUNCTION",
+        "TR" => "TRIGGER",
+        alt => {
+            // Nu se ghiceste: scriptul se opreste vizibil la rulare.
+            return format!(
+                "-- ═══ {} ═══\nRAISERROR(N'GMotion: nu stiu sa sterg un obiect de tip {}; sterge-l de mana.', 16, 1);\nGO\n\n",
+                o.obiect,
+                alt.replace('\'', "''")
+            );
+        }
+    };
+    format!(
+        "-- ═══ {} ═══ (creat de deploy)\nDROP {fel} IF EXISTS {};\nGO\n\n",
+        o.obiect,
+        nume_calificat(&o.obiect)
+    )
+}
+
+/// Textul scriptului de revenire pentru o baza.
+///
+/// Intai se refac obiectele care existau (in ordinea dependentelor codului
+/// vechi), abia apoi se sterg cele noi, in ordinea **inversa** dependentelor
+/// codului nou: un view nou `WITH SCHEMABINDING` pe o functie noua ar bloca
+/// stergerea functiei pana cand view-ul nu e intai refacut sau sters.
+fn text_revenire(baza: &str, referinta: &str, pasi: &[PasRevenire], acum: &str) -> String {
+    let mut reface = Vec::new();
+    let mut sterse = Vec::new();
+    for p in pasi {
+        match p {
+            PasRevenire::Reface(o) => reface.push(o.clone()),
+            PasRevenire::Sterge(o) => sterse.push(o.clone()),
+        }
+    }
+    let mut text = format!(
+        "-- REVENIRE {baza} | anuleaza deploy-ul din {referinta} | salvat {acum}\n\
+         -- Ruleaza-l doar ca sa anulezi deploy-ul: reface obiectele cum erau\n\
+         -- inainte si sterge ce a creat deploy-ul.\n\
+         {GARDA_VERSIUNE}USE {};\nGO\n\n",
+        paranteze(baza)
+    );
+    for i in ordine_dupa_dependente(&reface) {
+        text.push_str(&bloc(&reface[i]));
+    }
+    for i in ordine_dupa_dependente(&sterse).into_iter().rev() {
+        text.push_str(&sterge(&sterse[i]));
+    }
+    text.push_str(SFARSIT_SCRIPT);
+    text
+}
+
+/// Scrierea propriu-zisa a scripturilor de deploy, dupa verificari.
+fn scrie_deploy(
+    director: &Path,
+    referinta: &str,
+    pe_baza: &BTreeMap<String, Vec<DeDeployat>>,
+    mod_impartire: ModImpartire,
+    sarite: usize,
+    acum: &str,
+) -> Rezultat<Raport> {
     let ordonat: BTreeMap<String, Vec<DeDeployat>> = pe_baza
         .iter()
         .map(|(baza, obiecte)| {
@@ -598,6 +762,7 @@ pub fn scrie(
     Ok(Raport {
         director: director.to_path_buf(),
         fisiere,
+        revenire: Vec::new(),
         obiecte,
         sarite,
     })
@@ -1173,5 +1338,130 @@ mod teste {
         assert_eq!(r.fisiere.len(), 1);
         assert_eq!(r.fisiere[0].parent().unwrap(), d.as_path());
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    fn dd(obiect: &str, tip: &str, cod: &str, qi: bool) -> DeDeployat {
+        DeDeployat {
+            obiect: obiect.into(),
+            tip: tip.into(),
+            cod: cod.into(),
+            setari: Some(gmotion_db::Setari {
+                ansi_nulls: true,
+                quoted_identifier: qi,
+            }),
+        }
+    }
+
+    /// Deploy pe Client1: pA modificat (exista), fNou + vNou noi; vNou
+    /// foloseste fNou cu SCHEMABINDING.
+    fn cu_revenire() -> (
+        BTreeMap<String, Vec<DeDeployat>>,
+        BTreeMap<String, Vec<PasRevenire>>,
+    ) {
+        let f = "CREATE OR ALTER FUNCTION dbo.fNou() RETURNS INT AS BEGIN RETURN 1 END";
+        let v = "CREATE OR ALTER VIEW dbo.vNou WITH SCHEMABINDING AS SELECT dbo.fNou() AS x";
+        let mut deploy = BTreeMap::new();
+        deploy.insert(
+            "Client1".to_string(),
+            vec![
+                dd(
+                    "dbo.pA",
+                    "P",
+                    "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1",
+                    true,
+                ),
+                dd("dbo.vNou", "V", v, true),
+                dd("dbo.fNou", "FN", f, true),
+            ],
+        );
+        let mut rev = BTreeMap::new();
+        rev.insert(
+            "Client1".to_string(),
+            vec![
+                PasRevenire::Reface(dd(
+                    "dbo.pA",
+                    "P",
+                    "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT \"vechi\"",
+                    false,
+                )),
+                PasRevenire::Sterge(dd("dbo.vNou", "V", v, true)),
+                PasRevenire::Sterge(dd("dbo.fNou", "FN", f, true)),
+            ],
+        );
+        (deploy, rev)
+    }
+
+    #[test]
+    fn revenirea_se_scrie_separat_cu_codul_si_setarile_tintei() {
+        let d = dir("rev");
+        let (deploy, rev) = cu_revenire();
+        let r = scrie_cu_revenire(&d, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t").unwrap();
+        assert_eq!(r.revenire, vec![d.join("revenire").join("Client1.sql")]);
+        assert_eq!(
+            r.fisiere,
+            vec![d.join("Client1.sql")],
+            "revenirea nu sta langa deploy"
+        );
+        let sql = std::fs::read_to_string(&r.revenire[0]).unwrap();
+        assert!(sql.contains("USE [Client1];"));
+        assert!(sql.contains("SELECT \"vechi\""), "codul din tinta:\n{sql}");
+        assert!(
+            sql.contains("SET QUOTED_IDENTIFIER OFF;"),
+            "setarile tintei, nu ale referintei:\n{sql}"
+        );
+        assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"));
+        assert!(sql.contains("DROP FUNCTION IF EXISTS [dbo].[fNou];"));
+        assert!(sql.trim_end().ends_with("SET NOEXEC OFF;\nGO"));
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn revenirea_reface_intai_apoi_sterge_dependentii_inainte() {
+        let (_, rev) = cu_revenire();
+        let sql = text_revenire("Client1", "Ref", &rev["Client1"], "t");
+        let poz = |s: &str| {
+            sql.find(s)
+                .unwrap_or_else(|| panic!("lipseste {s}:\n{sql}"))
+        };
+        assert!(
+            poz("SELECT \"vechi\"") < poz("DROP VIEW"),
+            "refacerea inainte de stergeri"
+        );
+        assert!(
+            poz("DROP VIEW") < poz("DROP FUNCTION"),
+            "view-ul cu SCHEMABINDING blocheaza stergerea functiei:\n{sql}"
+        );
+    }
+
+    #[test]
+    fn revenire_imposibila_nu_scrie_nici_deploy_ul() {
+        let d = dir("rev-go");
+        let (deploy, mut rev) = cu_revenire();
+        rev.get_mut("Client1").unwrap()[0] = PasRevenire::Reface(dd(
+            "dbo.pA",
+            "P",
+            "CREATE PROCEDURE dbo.pA AS\nGO\nSELECT 1",
+            true,
+        ));
+        let e =
+            scrie_cu_revenire(&d, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t").unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-009");
+        assert!(!d.exists(), "nu trebuia scris nimic");
+    }
+
+    #[test]
+    fn stergerea_pune_numele_intre_paranteze() {
+        let s = sterge(&dd("dbo.p]; DROP DATABASE x; --", "P", "", true));
+        assert!(
+            s.contains("DROP PROCEDURE IF EXISTS [dbo].[p]]; DROP DATABASE x; --];"),
+            "{s}"
+        );
+        let s = sterge(&dd("dbo.t", "TR", "", true));
+        assert!(s.contains("DROP TRIGGER IF EXISTS [dbo].[t];"));
+        let s = sterge(&dd("dbo.x", "U", "", true));
+        assert!(
+            s.contains("RAISERROR") && !s.contains("DROP"),
+            "tip necunoscut: {s}"
+        );
     }
 }

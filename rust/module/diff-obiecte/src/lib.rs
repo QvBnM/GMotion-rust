@@ -12,6 +12,9 @@
 //! - [`diferente`] — diff-ul unui obiect, la cerere;
 //! - [`deploy`] — generatorul de scripturi. Cea mai scumpa greseala posibila,
 //!   fiindca se vede dupa ce a rulat pe o baza;
+//! - [`plan`] — ce intra in deploy, cu amprentele de la comparare, si garda
+//!   „baza n-a mai fost atinsa". Se strica spunand „neatins" despre un obiect
+//!   schimbat intre timp;
 //! - [`export`] — CSV pentru Excel;
 //! - [`eroare`] — coduri `GM-MOD-*`.
 //!
@@ -23,16 +26,18 @@ pub mod diferente;
 pub mod eroare;
 pub mod export;
 mod modul;
+pub mod plan;
 pub mod revizuire;
 
 pub use comparare::{
     compara, pregateste, setari_diferite, Baza, Categorie, Comparare, Numaratoare, Progres, Rand,
 };
-pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, Raport};
+pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, PasRevenire, Raport};
 pub use diferente::{detalii_obiect, diferente_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj};
 pub use eroare::{Eroare, Rezultat};
 pub use export::{scrie_csv, Stare};
 pub use modul::ModulDiffObiecte;
+pub use plan::{amprenta_exacta, FelSchimbare, Parte, Pas, Plan, Schimbare};
 pub use revizuire::{Amprenta, Revizuire};
 
 /// Identificatorul modulului. Devine prefix de ruta si nume de director pentru

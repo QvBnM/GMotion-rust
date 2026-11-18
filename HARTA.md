@@ -44,6 +44,8 @@ lipsea.
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
 | Scriptul de deploy e refuzat cu `GM-MOD-008/009/010/011` | nume cu caractere de control / `GO` in definitie / director ne-gol / obiect criptat | `rust/module/diff-obiecte/src/deploy.rs` |
+| Deploy-ul cu `--plan` se opreste cu `GM-MOD-012` | baza (sau referinta) s-a schimbat de la plan; daca nu s-a schimbat, amprenta e gresita | `rust/module/diff-obiecte/src/plan.rs` |
+| Scriptul de revenire reface/sterge greșit sau in ordine greșita | `PasRevenire`, `text_revenire` | `rust/module/diff-obiecte/src/deploy.rs` |
 | `GM-DB-001` „No such host is known” pe `SRV\INSTANTA` | instanta numita nerezolvata prin SQL Browser | `rust/db/src/sqlserver.rs`, `interpreteaza_server` |
 | `GM-DB-001` „SQL browser timeout” | SQL Browser oprit / UDP 1434 blocat; ocolire cu `--port` | `rust/db/src/sqlserver.rs`, `deschide_tcp` |
 

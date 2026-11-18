@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 7157612d0e6aa0d7 -->
+<!-- api-hash: 0fa3cb5bdcba32dc -->
 
 ## Rol
 
@@ -26,7 +26,8 @@ biblioteca** — fara nicio interfata.
 |---|---|
 | `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `setari_diferite(a, b)`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
 | `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `Fel`, `Bucata`, `Marcaj` |
-| `deploy` | `aplica_create_or_alter`, `scrie(...)`, `DeDeployat`, `ModImpartire`, `Raport` |
+| `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
+| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `revizuire` | `Revizuire` — ce s-a revizuit, legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
@@ -79,6 +80,17 @@ biblioteca** — fara nicio interfata.
    rulari (fara a deosebi majusculele), numele rezervate Windows (`CON`,
    `NUL`, ...) primesc `_` in fata, iar directorul de iesire trebuie sa nu
    existe sau sa fie gol (`GM-MOD-010`).
+8b. **Garda „baza n-a mai fost atinsa" e pe amprenta exacta** (tip, setari,
+   definitia neatinsa), nu pe hash-ul normalizat al compararii: o schimbare
+   doar de spatii sau de `QUOTED_IDENTIFIER` tot opreste deploy-ul. Se
+   verifica si tinta, si referinta; aparut / disparut / modificat opresc la
+   fel (`GM-MOD-012`), cu fiecare obiect pe nume. Garda primeste obiecte
+   **recitite** — cu cele de la comparare ar compara un lucru cu el insusi.
+8c. **Revenirea se scrie inainte de deploy, in `<director>/revenire/`**, din
+   definitiile actuale ale tintei (cod si setari ale tintei): ce exista se
+   reface, ce deploy-ul creeaza se sterge (`DROP ... IF EXISTS`). Intai
+   refacerile, apoi stergerile in ordinea inversa dependentelor. Daca
+   revenirea nu se poate scrie, nu se scrie nici deploy-ul.
 9. **CSV-ul are BOM UTF-8, separator `;`, CRLF si virgula zecimala** — altfel
    Excel romanesc strica diacriticele sau pune totul pe o coloana.
 
@@ -96,6 +108,7 @@ biblioteca** — fara nicio interfata.
 | `GM-MOD-009` | linie `GO` in definitie: obiectul se deployeaza de mana | `src/deploy.rs` |
 | `GM-MOD-010` | directorul de deploy nu e gol | `src/deploy.rs` |
 | `GM-MOD-011` | obiect criptat sau fara cod: nu se compara, nu se deployeaza | `src/deploy.rs`, `src/comparare.rs` |
+| `GM-MOD-012` | baza sau referinta s-a schimbat intre plan si deploy; mesajul spune ce obiect | `src/plan.rs` |
 
 **Un obiect raportat ca „modificat" care se deschide identic** era bug-ul tipic
 din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
@@ -104,7 +117,7 @@ din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-modul-diff-obiecte      # 42 teste
+cd rust && cargo test -p gmotion-modul-diff-obiecte      # 87 teste
 ```
 
 `tests/flux_complet.rs` ruleaza tot lanțul pe un instantaneu: citire prin

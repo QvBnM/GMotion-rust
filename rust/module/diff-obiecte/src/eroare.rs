@@ -39,6 +39,9 @@ pub enum Eroare {
 
     #[error("[GM-MOD-011] {obiect} e criptat (WITH ENCRYPTION) intr-una din baze; codul nu se poate citi, deci nu se compara si nu se deployeaza")]
     ObiectCriptat { obiect: String },
+
+    #[error("[GM-MOD-012] baza s-a schimbat de la comparare, deci deploy-ul nu se scrie: {schimbari}. Compara din nou si revizuieste ce s-a schimbat")]
+    BazaAtinsa { schimbari: String },
 }
 
 impl Eroare {
@@ -55,6 +58,7 @@ impl Eroare {
             Eroare::GoInDefinitie { .. } => "GM-MOD-009",
             Eroare::DirectorNegol { .. } => "GM-MOD-010",
             Eroare::ObiectCriptat { .. } => "GM-MOD-011",
+            Eroare::BazaAtinsa { .. } => "GM-MOD-012",
         }
     }
 }
@@ -100,6 +104,9 @@ mod teste {
             },
             Eroare::DirectorNegol { cale: "c".into() },
             Eroare::ObiectCriptat { obiect: "o".into() },
+            Eroare::BazaAtinsa {
+                schimbari: "s".into(),
+            },
         ];
         let mut c: Vec<&str> = toate.iter().map(|e| e.cod()).collect();
         c.sort_unstable();
