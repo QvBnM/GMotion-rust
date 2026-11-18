@@ -117,6 +117,27 @@ fn baza_tinta<'a>(altele: &'a [(String, Baza)], nume: &str) -> Option<&'a Baza> 
     altele.iter().find(|(b, _)| b == nume).map(|(_, o)| o)
 }
 
+/// Obiectul din baza, cautat intai exact, apoi **fara sa conteze
+/// majusculele** — daca varianta e singura.
+///
+/// Colatia implicita la SQL Server e case-insensitive, deci un
+/// `CREATE OR ALTER PROCEDURE dbo.GetX` scris peste un `dbo.getx` existent il
+/// **modifica**. Cautarea exacta facea ca planul sa-l creada inexistent:
+/// revenirea il stergea, iar codul lui vechi nu ajungea in niciun script
+/// (C8 din auditul QA). Cu mai multe variante nu se ghiceste: se cade pe
+/// cautarea exacta.
+fn gaseste<'a>(b: &'a Baza, nume: &str) -> Option<&'a ObiectPregatit> {
+    if let Some(o) = b.get(nume) {
+        return Some(o);
+    }
+    let mut potriviri = b
+        .iter()
+        .filter(|(n, _)| n.eq_ignore_ascii_case(nume))
+        .map(|(_, o)| o);
+    let una = potriviri.next()?;
+    potriviri.next().map_or(Some(una), |_| None)
+}
+
 impl Plan {
     /// Planul din randurile alese ale unei comparari.
     ///
@@ -147,7 +168,7 @@ impl Plan {
                 continue;
             }
             let tinta = baza_tinta(altele, &r.baza)
-                .and_then(|b| b.get(&r.obiect))
+                .and_then(|b| gaseste(b, &r.obiect))
                 .map(amprenta_exacta);
             pasi.push(Pas {
                 baza: r.baza.clone(),
@@ -186,7 +207,7 @@ impl Plan {
                 });
             }
             let tinta = baza_tinta(altele, &p.baza).unwrap_or(&gol);
-            let acum_tinta = tinta.get(&p.obiect).map(amprenta_exacta);
+            let acum_tinta = gaseste(tinta, &p.obiect).map(amprenta_exacta);
             if let Some(fel) = fel_schimbare(p.tinta.as_ref(), acum_tinta.as_ref()) {
                 schimbari.push(Schimbare {
                     baza: p.baza.clone(),
@@ -282,7 +303,7 @@ impl Plan {
         let mut pe_baza: BTreeMap<String, Vec<PasRevenire>> = BTreeMap::new();
         for p in &self.pasi {
             let tinta = baza_tinta(altele, &p.baza).unwrap_or(&gol);
-            let pas = match tinta.get(&p.obiect) {
+            let pas = match gaseste(tinta, &p.obiect) {
                 Some(o) => PasRevenire::Reface(DeDeployat {
                     obiect: p.obiect.clone(),
                     tip: o.tip.clone(),
@@ -373,6 +394,55 @@ mod teste {
             crate::deploy::aplica_create_or_alter(def),
             "definitia referintei, octet cu octet"
         );
+    }
+
+    /// C8 din `cercetare/audit-qa-2026-11-18.md`: referinta are `dbo.GetX`,
+    /// tinta `dbo.getx`. Compararea le vede ca lipsa + extra, deploy-ul scrie
+    /// `CREATE OR ALTER PROCEDURE dbo.GetX` — iar pe o colatie
+    /// case-insensitive (implicita la SQL Server) asta **modifica** `getx`.
+    /// Revenirea facea `DROP PROCEDURE [dbo].[GetX]`, deci stergea obiectul
+    /// care exista inainte, si codul lui vechi nu era in niciun script.
+    #[test]
+    fn revenirea_reface_obiectul_care_difera_doar_prin_majuscule() {
+        let r = pregateste(&[ob("GetX", "CREATE PROCEDURE dbo.GetX AS SELECT 1")]);
+        let t = pregateste(&[ob(
+            "getx",
+            "CREATE PROCEDURE dbo.getx AS SELECT 999 -- important",
+        )]);
+        let a = vec![("Tinta".to_string(), t)];
+        let c = compara("Ref", &r, &a, |_| {});
+        let p = Plan::din_comparare(&c, &r, &a, |x| x.obiect == "dbo.GetX", "t");
+        assert_eq!(p.pasi.len(), 1);
+        assert!(
+            p.pasi[0].tinta.is_some(),
+            "obiectul exista in tinta, scris cu alte majuscule"
+        );
+        // si randul din lista o spune, nu doar „lipseste complet"
+        let rand = c
+            .randuri
+            .iter()
+            .find(|x| x.obiect == "dbo.GetX")
+            .expect("randul exista");
+        assert!(
+            rand.rezumat.contains("dbo.getx") && rand.rezumat.contains("majuscule"),
+            "{}",
+            rand.rezumat
+        );
+        let rev = p.revenire(&r, &a);
+        match &rev["Tinta"][0] {
+            PasRevenire::Reface(d) => assert!(
+                d.cod.contains("SELECT 999 -- important"),
+                "revenirea pune codul care era acolo: {}",
+                d.cod
+            ),
+            PasRevenire::Sterge(_) => {
+                panic!("revenirea ar sterge un obiect care exista dinainte")
+            }
+        }
+        // si garda vede acum obiectul: o schimbare pe el opreste scrierea
+        let atinsa = pregateste(&[ob("getx", "CREATE PROCEDURE dbo.getx AS SELECT 0")]);
+        let schimbari = p.verifica(&r, &[("Tinta".to_string(), atinsa)]);
+        assert_eq!(schimbari.len(), 1, "{schimbari:?}");
     }
 
     fn plan(r: &Baza, a: &[(String, Baza)]) -> Plan {

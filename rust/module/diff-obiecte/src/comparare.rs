@@ -214,12 +214,23 @@ pub fn compara(
         for (baza, obiecte) in altele {
             let Some(c) = obiecte.get(nume) else {
                 n.lipsa += 1;
+                // o varianta care difera doar prin majuscule exista in baza:
+                // pe o colatie case-insensitive (implicita la SQL Server)
+                // deploy-ul o va **modifica**, nu va crea un obiect nou, deci
+                // randul trebuie s-o spuna (C8 din auditul QA)
+                let varianta = obiecte
+                    .keys()
+                    .find(|n| n.eq_ignore_ascii_case(nume))
+                    .cloned();
                 randuri.push(Rand {
                     id,
                     obiect: nume.clone(),
                     baza: baza.clone(),
                     scor: None,
-                    rezumat: "lipseste complet".into(),
+                    rezumat: match &varianta {
+                        Some(v) => format!("lipseste; in baza exista {v} (difera majusculele)"),
+                        None => "lipseste complet".to_string(),
+                    },
                     tip: r.tip.clone(),
                     categorie: Categorie::Lipsa,
                     hash_referinta: Some(r.hash.clone()),
