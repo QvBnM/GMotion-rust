@@ -206,6 +206,55 @@ component MeniuFiltru inherits Rectangle {
     }
 }
 
+// „Toate in plan", cu alegerea din v3.4: se includ si obiectele deja trimise
+// la deploy, sau se sar.
+component MeniuPlan inherits Rectangle {
+    callback alege(bool /* cu deployate */);
+    height: 30px;
+    width: et.preferred-width + 22px;
+    border-radius: 15px;
+    border-width: 1px;
+    border-color: Tema.linie;
+    background: zona.has-hover ? Tema.strat : transparent;
+    et := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        Text { text: "Toate in plan"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+        VerticalLayout { alignment: center; Chevron { drum: "M 3 6 L 8 11 L 13 6"; culoare: Tema.text-tert; } }
+    }
+    zona := TouchArea { clicked => { meniu.show(); } }
+    meniu := PopupWindow {
+        y: root.height + 6px;
+        width: 260px;
+        Rectangle {
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111526;
+            VerticalLayout {
+                padding: 6px;
+                for o in [
+                    { t: "Fara cele deja trimise la deploy", cu: false },
+                    { t: "Include si ce a fost deja trimis", cu: true },
+                ]: Rectangle {
+                    height: 32px;
+                    border-radius: 7px;
+                    background: z.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        Text { text: o.t; font-family: Tema.font-ui; font-size: 13px; color: Tema.text; vertical-alignment: center; }
+                    }
+                    z := TouchArea { clicked => { root.alege(o.cu); } }
+                }
+            }
+        }
+    }
+}
+
 // Un capat al intervalului de similaritate.
 component CampProcent inherits Rectangle {
     in-out property <string> valoare;
@@ -408,6 +457,7 @@ export component FereastraLista inherits Window {
     callback alege-starea(int);
     callback schimba-scorul(string, string);
     callback exporta-csv();
+    callback pune-vizibilele-in-plan(bool);
     callback alege-tema(bool);
 
     // bula de pe harta: numele patratului de sub mouse, pusa din Rust
@@ -583,6 +633,10 @@ export component FereastraLista inherits Window {
                             Text { text: "%"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
                         }
                     }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    MeniuPlan { alege(cu) => { root.pune-vizibilele-in-plan(cu); } }
                 }
                 VerticalLayout { alignment: center; Buton { text: "Export CSV"; apasat => { root.exporta-csv(); } } }
                 if root.mesaj-csv != "": VerticalLayout {

@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (360 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (412 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -23,7 +23,7 @@ interfata grafica: binarul `gmotion`.
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
 | `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
 | `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
-| `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema |
+| `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
 | `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **nu e la paritate cu v3.4** (`cercetare/lipsuri-portare.md`) |
 
 ```
@@ -47,28 +47,24 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A si B gata, C la jumatate.**
-Sesiunea s-a oprit in mijlocul pachetului C (lista), la cererea lui Mihai.
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B si C gata. Urmeaza D.**
 
-Facut in C: **doar modelul** — `model_lista` (scor, `Deploy`,
-`FiltruRevizuire`, `filtreaza_scor`, sortare pe orice coloana cu sens,
-`pune_vizibilele_in_plan`, `progres_deploy`) si `Revizuire::marcheaza_deployat`
-/ `e_deployat` / `a_fost_deployat`. `rutare` pune deja `scor` si `deploy` pe
-obiecte. **Urmatorii pasi concreti, in ordine:**
+D — conectarea, in ordinea asta:
 
-1. teste pentru ce e nou in `model_lista` (filtre, sortare + inversare,
-   `pune_vizibilele_in_plan` fara omise / deployate) si in `Revizuire`;
-2. in `rutare`: `Comanda::FiltreazaRevizuire`, `FiltreazaScor`,
-   `PuneVizibileleInPlan(bool)`, marcarea ca deployat dupa `StareDeploy::scrie`
-   reusit (si in `cli deploy`), exportul CSV al listei filtrate
-   (`modul::scrie_csv` pe randurile vizibile, in directorul de date);
-3. ecranul listei, dupa schita (`cercetare/schita-slint/README.md`, „Lista"):
-   coloanele Similar si Deploy, capete de coloana sortabile cu sageata,
-   filtrul pe stare (meniu), min-max %, Export CSV, „% deploy" in antet,
-   Ctrl+F; poarta „fiecare buton are actiune" prinde un callback uitat;
-4. apoi D (conectarea: mai multe baze, progres + Anuleaza...), F, E.
+1. **o referinta comparata cu mai multe baze** (bife in ecranul de conectare);
+   schimba `rutare` (azi `Aplicatie` tine o singura tinta) si aduce filtrul pe
+   baza in lista. E cea mai mare dintre toate, deci prima;
+2. compararea pe alt fir: progres, timp, mesaj, **Anuleaza** (azi fereastra se
+   blocheaza ~12 s pe baza lui Mihai);
+3. Deconecteaza (cu confirmare), Testeaza conexiunea cu detaliile serverului,
+   etichetele CLUSTER / IMPLICITA, Sterge log;
+4. Sesiuni: lista, Reia, Ignora; compararea offline (doua bucati de cod
+   lipite); Ajutor (F1), Despre, ecran complet (F11).
 
-**Nu schimba designul** (cererea lui Mihai): elementele noi vin din schita.
+Apoi F (cele grele in Slint) si E (modul de previzualizare).
+
+**Nu schimba designul** (cererea lui Mihai): elementele noi vin din schita
+(`cercetare/schita-slint/README.md`).
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
@@ -122,6 +118,19 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Bifa nu re-aplica filtrul pe loc, si asta e deliberat** (ca in v3.4:
+  `marcheazaRezolvat` nu cheama `renderLista`). Cu filtrul „Nerevizuite"
+  activ, randul bifat ramane pe ecran pana se atinge filtrul din nou. Un test
+  care asteapta sa dispara pe loc e gresit, nu codul.
+- **Codurile coloanelor sortabile stau in doua locuri:** `global Sortare` din
+  `lista.slint` si `model_lista::Ordine` (prin `cod_ordine` /
+  `ordine_din_cod`). Daca una se muta si cealalta nu, clicul pe „Tip" ar
+  sorta dupa linii fara ca nimic sa cada; de-aia exista
+  `codurile_de_sortare_se_potrivesc`.
+- **Un cap de coloana care se intinde primeste `min-width`, nu `width`.**
+  Cu `width: 0px` coloana „Obiect" se strivea la zero si titlul disparea,
+  desi `horizontal-stretch` era pus.
 
 - **Un buton din schita nu se deseneaza pana nu are logica.** Schita
   (`cercetare/schita-slint/`) are butoane pe care aplicatia inca nu le are

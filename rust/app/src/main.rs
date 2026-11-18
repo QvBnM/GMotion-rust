@@ -725,6 +725,8 @@ fn ruleaza() -> Result<(), String> {
             let n = |t: &str, implicit: f64| t.trim().parse::<f64>().unwrap_or(implicit);
             c(Comanda::FiltreazaScor(n(&min, 0.0), n(&max, 100.0)));
         });
+        let c = comanda.clone();
+        lista_ui.on_pune_vizibilele_in_plan(move |cu| c(Comanda::PuneVizibileleInPlan(cu)));
         let s = stare.clone();
         let d = deseneaza.clone();
         let l = lista_ui.as_weak();

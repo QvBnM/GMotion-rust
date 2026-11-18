@@ -49,17 +49,15 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Ctrl+F in cautare | `ui.py:5002` | nu (vezi „Ctrl K" mai sus) | |
 | Filtru pe baza | `ui.py` `fBaza` | nu (o singura baza) | depinde de „mai multe baze" |
-| Filtru pe stare: nerezolvate / rezolvate / omise / deployate / nedeployate | `ui.py` `fStare` | nu | |
-| Interval de similaritate min-max % | `ui.py:1116` | nu; **scorul nu apare deloc in GUI** | CLI il arata in `compara` |
-| Sortare pe 8 coloane | `ui.py:2393` | partial: doar Nume / Linii ↓ (`model_lista::Ordine`) | |
 | Coloane redimensionabile, autofit la dublu clic | `ui.py:2396-2440` | nu | |
 | Coloana „Ultima modificare" | `ui.py:2529` | nu, nici in CLI | trebuie citita si din `sys.objects.modify_date` |
-| Coloana Deploy (pregatit / deployat / versiune noua / omis / extra) | `ui.py:2533-2549` | nu | |
-| Contoare „rezolvate %" si „deploy %" | `ui.py:1054-1059` | partial: doar revizuirea | |
-| **Export CSV** al listei filtrate | `app.py:494`, `ui.py:4936` | GUI nu; CLI da (`gmotion export`) | |
 | Legenda / Ajutor | `ui.py:1071,2047` | nu | |
+
+Rezolvate in etapa 14: Ctrl+F in cautare, filtrul pe stare (sase cazuri),
+intervalul de similaritate si coloana Similar, sortarea pe fiecare coloana in
+ambele sensuri, coloana Deploy, contorul „% deploy", Export CSV al listei
+filtrate, „Toate in plan" cu optiunea pentru cele deja trimise.
 
 ## 4. Editorul de diferente
 
@@ -86,7 +84,7 @@ comuta (sectiunea 0).
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| „Include si ce a fost deja trimis la deploy" | `ui.py:1161` | nu: starea „deployat" nu exista | |
+| „Include si ce a fost deja trimis la deploy" | `ui.py:1161` | da: „Toate in plan" din lista; starea „deployat" se tine pe amprenta | |
 | Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE`; GUI scrie in directorul de date, fara alegere | asteapta decizia pe `rfd` (selectorul de fisiere) |
 | Starea „deployat" tinuta minte | `ui.py:2533-2549` | nu: ce e „in plan" se pierde la inchidere | |
 

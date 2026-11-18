@@ -42,13 +42,13 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 - [x] din `cli`: aplicarea blocurilor si deploy cu textul final
 
 **C. Lista**
-- [ ] scorul de similaritate si filtrul min–max %
-- [ ] filtrul pe stare: nerezolvate / rezolvate / omise / in plan / deployate
-- [ ] sortare pe fiecare coloana, ambele sensuri
-- [ ] Export CSV al listei filtrate
-- [ ] Ctrl+F in cautare
-- [ ] contoarele „% revizuite" si „% deploy"
-- [ ] starea „deployat" tinuta minte; „include si ce a fost deja deployat"
+- [x] scorul de similaritate si filtrul min–max %
+- [x] filtrul pe stare: nerezolvate / rezolvate / omise / in plan / deployate
+- [x] sortare pe fiecare coloana, ambele sensuri
+- [x] Export CSV al listei filtrate
+- [x] Ctrl+F in cautare
+- [x] contoarele „% revizuite" si „% deploy"
+- [x] starea „deployat" tinuta minte; „include si ce a fost deja deployat"
 
 **D. Conectarea**
 - [ ] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
@@ -113,6 +113,19 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   iar `fereastra` un test care apasa tastele editorului.
   „Re-sincronizeaza" din v3.4 doar recalcula diff-ul (nu recitea serverul),
   deci aici redeseneaza. „Uneste cursorul" ramane la F.
+
+- **2026-11-18** C gata. Ce s-a adaugat peste model: comenzile din `rutare`,
+  marcarea „deployat" dupa o scriere reusita (si in `gmotion deploy`, ca sa nu
+  tina cele doua jumatati evidente separate), exportul CSV al listei filtrate,
+  si ecranul: coloanele Similar si Deploy, capete de coloana sortabile,
+  filtrul pe stare ca meniu, intervalul min-max, „Toate in plan" cu optiunea
+  pentru cele deja trimise, „% deploy" in antet, Ctrl+F.
+  Decis pe drum: bifa **nu** re-aplica filtrul pe loc, ca in v3.4
+  (`marcheazaRezolvat` nu cheama `renderLista`) — randul nu dispare de sub
+  cursor. Doua asteptari din teste au fost gresite, nu codul: ordinea din
+  `in_plan()` (lista completa, nu cea afisata) si „inversarea exacta" la
+  sortare (numele departajeaza mereu crescator, deci coloanele cu valori
+  egale nu se intorc oglinda).
 
 - **2026-11-18** C inceput, **doar modelul** (testat prin testele existente,
   fara teste noi inca): `model_lista` are scorul, starea de deploy

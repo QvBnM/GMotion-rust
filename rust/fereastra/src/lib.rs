@@ -1075,14 +1075,17 @@ mod teste {
         ui.on_exporta_csv(move || a.borrow_mut().push("csv".into()));
         let a = apeluri.clone();
         ui.on_cauta(move |t| a.borrow_mut().push(format!("cauta{t}")));
+        let a = apeluri.clone();
+        ui.on_pune_vizibilele_in_plan(move |cu| a.borrow_mut().push(format!("plan{cu}")));
 
         ui.invoke_sorteaza_coloana(cod_ordine(model_lista::Ordine::Scor));
         ui.invoke_alege_starea(2);
         ui.invoke_schimba_scorul("40".into(), "90".into());
         ui.invoke_exporta_csv();
+        ui.invoke_pune_vizibilele_in_plan(true);
         assert_eq!(
             *apeluri.borrow(),
-            ["sort3", "stare2", "scor40-90", "csv"],
+            ["sort3", "stare2", "scor40-90", "csv", "plantrue"],
             "fiecare element nou din bara de filtre are actiune"
         );
 
