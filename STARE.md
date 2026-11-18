@@ -35,11 +35,10 @@ cd rust && cargo build --release -p gmotion-cli
 previzualizare) s-a incheiat pe 2026-11-18; capturile: `cercetare/capturi/`.
 
 ```
-cd rust && cargo run --release -p gmotion-app            # implicit intunecat
-cargo run --release -p gmotion-app -- --tema luminos
-# sau direct pe un instantaneu:
-cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimilitudine.json \
-    --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy
+unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare
+unelte/porneste.sh                   # Linux / WSL (cere ecran)
+unelte\porneste.bat --tema luminos
+unelte\porneste.bat --server         # ecranul de conectare, gol
 ```
 
 ---
