@@ -77,11 +77,12 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
 
-**Directia vizuala** (2026-11-18): „Banda" a fost respinsa („pare vechi si
-anost"). Acum sunt trei directii pe acelasi ecran: `cercetare/redesign/Directii.html`
-(Harta / Teancul / Panza), descrise in `cercetare/redesign/directii.md`.
-**Intrebarea:** care dintre ele, sau ce combinatie? Nu schimba ordinea „intai
-paritatea, apoi aspectul". Pana la raspuns nu se atinge `rust/fereastra`.
+**Directia vizuala e aleasa** (2026-11-18, `JURNAL.md`): Harta pentru lista,
+Panza pentru editor. Fezabilitatea e dovedita in Slint, in
+`cercetare/schita-slint/` (capturi si ce ramane de dovedit in `README.md`). Nu se
+porteaza in `rust/fereastra` pana nu termina paritatea cu v3.4, decat daca
+Mihai cere altfel. **Inca de stiut:** si ecranul de conectare si deploy-ul vor
+urma una dintre cele doua, sau ii trebuie fiecaruia o schita proprie?
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
@@ -119,6 +120,11 @@ Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
+
+- **`cercetare/schita-slint/` nu e in workspace si nu trece prin poarta.**
+  E schita de fezabilitate a noii directii vizuale. Se construieste cu
+  `CARGO_TARGET_DIR=../../rust/target`, ca sa refoloseasca Slint deja compilat.
+  Culorile din `ui/schita.slint` se muta in `jetoane.rs` la portare.
 
 - **Paritatea cu v3.4 nu mai e totala, deliberat.** Normalizarea nu mai atinge
   string-urile, „identic" nu mai foloseste scorul, criptatele au categorie

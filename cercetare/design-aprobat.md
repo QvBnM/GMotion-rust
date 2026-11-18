@@ -1,5 +1,9 @@
 # Designul aprobat al interfetei native
 
+> **Inlocuit pe 2026-11-18** de directia Harta (lista) + Panza (editor): vezi
+> `JURNAL.md` si `cercetare/schita-slint/`. Ramane contractul codului de acum
+> pana la portare; principiile despre culoare, litere de stare si zgomot raman.
+
 **Aprobat de Mihai:** 2026-11-17, pe simularea din `cercetare/machete/`.
 Asta e contractul vizual pentru `rust/fereastra`. Cercetarea din care vine e
 in `cercetare/design-interfata.md`; aici sta doar ce s-a decis.

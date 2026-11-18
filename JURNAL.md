@@ -671,6 +671,34 @@ se porteaza, sau se scrie aici de ce nu.
 
 ---
 
+## 2026-11-18 — Noua directie vizuala: Harta pentru lista, Panza pentru editor
+
+**Context.** Designul aprobat pe 2026-11-17 (fond cald, linii subtiri) si
+propunerea „Banda" au fost respinse de Mihai („pare vechi si anost"). Din trei
+directii prototipate in HTML (`cercetare/redesign/Directii.html`), Mihai a ales
+doua, cu conditia sa se poata face in Rust.
+
+**Decizie (Mihai).** Lista obiectelor = **Harta**: intunecat, fiecare obiect
+diferit e un patrat colorat, grupat pe schema si tip, cu panoul obiectului in
+dreapta. Interiorul editorului = **Panza**: alb, codul pe tot ecranul, titlu
+mare, comenzile in insule care plutesc, lista de obiecte in `Ctrl K`.
+Inlocuieste `cercetare/design-aprobat.md`, dar **nu schimba ordinea**: intai
+paritatea cu v3.4, apoi aspectul.
+
+**Fezabilitate, dovedita.** `cercetare/schita-slint/` deseneaza ambele ecrane
+cu Slint 1.19 si randare software, pe diferenta reala din motor: primul cadru
+12–24 ms la 1440×900. Patratele hartii se picteaza in Rust intr-o imagine
+(0,4 ms), nu ca sute de elemente Slint. Ce s-a adaptat ca sa se poata face si
+ce ramane de dovedit (HiDPI, tastatura si cititorul de ecran pe harta, umbrele
+prin RDP): `cercetare/schita-slint/README.md`.
+
+**Consecinte.** O singura familie de litere, Geist + Geist Mono (OFL), in loc
+de IBM Plex. Sora a cazut: ii lipsesc sagetile. Identicele nu se deseneaza ca
+patrate, doar ca proportie sub fiecare grup. Contrastul jetoanelor noi trece
+4,5:1 dupa intunecari minime, verificate la portare de testul din `jetoane.rs`.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
