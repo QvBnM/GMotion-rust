@@ -780,6 +780,29 @@ deploy. Ramas in `lipsuri-portare.md`.
 **Modul implicit** devine intunecat (stilul hartii, ales primul), acum ca
 toate ecranele sunt rescrise; butonul de tema il schimba si il tine minte.
 
+## 2026-11-18 — Panoul de detalii in lista; impactul estimat si notele
+
+Cerut de Mihai, dupa o captura de referinta: lista pe toata latimea, la clic
+detaliile in dreapta (redimensionabile, inchise cu X sau al doilea clic),
+dublu clic direct in editor. Schimbare de design venita de la el, deci in
+afara regulii „fara schimbari de design" a etapei 14; intrata ca punctul G,
+inaintea conectarii.
+
+**Impactul estimat** e o estimare grosiera si o spune: fiecare nivel vine cu
+motivele lui. Puncte: folosit de 1-4 obiecte din baza comparata +1, de 5+
++2; similar 70-95% +1, sub 70% +2; trigger +1. 0 Scazut, 1-2 Mediu, 3+
+Ridicat. Obiect nou: schimbarea nu conteaza (nu inlocuieste nimic); doar in
+baza sau criptat: Scazut (nu se deployeaza). Cine foloseste obiectul se ia
+din cod, prin lexer, cu **aceeasi** legare nume -> obiect ca ordinea de deploy
+(`deploy::referinte`, extrasa din `ordine_dupa_dependente`), nu din
+`sys.sql_expression_dependencies`: merge si din instantanee, si nu e a doua
+implementare. Respins: dependentele de tabele (nu le citim) si SQL dinamic
+(nu se vede in cod) — limita stiuta, aceeasi ca la ordinea de deploy.
+
+**Notele** se tin pe nume, nu pe amprenta: o nota e despre obiect („a ramas
+aici"), nu despre versiunea lui; bifele raman pe amprenta. Stau in aceeasi
+stare `Revizuire` din sesiune, deci `cli` si fereastra le vad la fel.
+
 ---
 
 ## Coduri de eroare — registru

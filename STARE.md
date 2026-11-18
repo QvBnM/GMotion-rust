@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (412 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (424 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,7 +47,8 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B si C gata. Urmeaza D.**
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C si G (panoul de detalii
+din lista, cerut de Mihai) gata. Urmeaza D.**
 
 D — conectarea, in ordinea asta:
 
@@ -63,8 +64,9 @@ D — conectarea, in ordinea asta:
 
 Apoi F (cele grele in Slint) si E (modul de previzualizare).
 
-**Nu schimba designul** (cererea lui Mihai): elementele noi vin din schita
-(`cercetare/schita-slint/README.md`).
+**Nu schimba designul din proprie initiativa** (cererea lui Mihai): elementele
+noi vin din schita (`cercetare/schita-slint/README.md`); schimbarile de design
+cerute de Mihai intra ca punct propriu in etapa, cu criterii.
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
@@ -118,6 +120,17 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Dublu clicul pe rand trimite intai doua clicuri.** Slint cheama
+  `clicked` de doua ori, apoi `double-clicked`: panoul se deschide, se
+  inchide, apoi `Deschide` il redeschide. Un test care asteapta doar
+  „deschide" la dublu clic e gresit.
+- **Nota nu se rescrie din Rust cat scrii.** `incarca_detalii` pune `nota`
+  doar cand se schimba `nota-id`; altfel fiecare tasta ar muta cursorul si ar
+  taia spatiul de la capat. Nota se salveaza pe `nota-id`, nu pe selectie.
+- **Impactul lexeaza toata baza comparata la prima deschidere a panoului**
+  (`OnceCell` in `Aplicatie`). Pe baze mari, primul clic poate dura; nu
+  muta calculul in `deseneaza` fara panou deschis.
 
 - **Bifa nu re-aplica filtrul pe loc, si asta e deliberat** (ca in v3.4:
   `marcheazaRezolvat` nu cheama `renderLista`). Cu filtrul „Nerevizuite"

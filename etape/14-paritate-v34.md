@@ -50,6 +50,22 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 - [x] contoarele „% revizuite" si „% deploy"
 - [x] starea „deployat" tinuta minte; „include si ce a fost deja deployat"
 
+**G. Panoul de detalii din lista** (cerut de Mihai pe 2026-11-18, dupa o
+captura de referinta; schimbare de design venita de la el, deci in afara
+regulii „fara schimbari de design")
+- [x] lista pe toata latimea pana la primul clic; clic pe rand = detaliile in
+      dreapta; al doilea clic pe acelasi rand, X sau Esc le inchid
+- [x] dublu clic pe rand deschide direct editorul
+- [x] panoul se redimensioneaza dintr-un maner tras cu mouse-ul
+- [x] in panou: stare, modificari, similaritate, impact estimat (cu motive),
+      deploy, Revizuit / In plan / Omite / Deschide, previzualizarea
+- [x] nota per obiect: se salveaza in sesiune, pe nume (nu cade cand obiectul
+      se schimba); din `cli`: `revizuire --nota X --text T`
+- [x] impactul estimat: logica in `diff-obiecte` (cine foloseste obiectul in
+      baza comparata, prin acelasi lexer ca ordinea de deploy), din `cli`:
+      `gmotion impact`
+- [x] test care apasa cu mouse-ul (clic, dublu clic, X, nota), vazut cazand
+
 **D. Conectarea**
 - [ ] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
 - [ ] compararea pe alt fir: progres, timp, mesaj, Anuleaza
@@ -133,6 +149,16 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   similaritate, sortarea pe orice coloana in ambele sensuri,
   `pune_vizibilele_in_plan(cu_deployate)`; `Revizuire` tine deployatele cu
   amprenta. Sesiunea s-a oprit aici, la cererea lui Mihai.
+
+- **2026-11-18** G (panoul de detalii) intercalat inainte de D, la cererea
+  lui Mihai. Criteriile au fost scrise dupa ce codul era inceput (abatere de
+  la CLAUDE.md §10, notata aici). G gata. Testul de mouse cauta randurile si
+  X-ul prin clicuri, nu cu coordonate scrise de mana; vazut cazand fara
+  `double-clicked` si fara Esc. Dublu clicul in Slint vine dupa doua
+  `clicked` (deschis, inchis), deci `Deschide` redeschide panoul: la
+  intoarcerea din editor lista arata obiectul de unde ai plecat. Nota se
+  trimite cu obiectul ei (`nota-id`), nu pe selectie. Capturi:
+  `cercetare/capturi/lista-*.png` (cu panoul) si `lista-fara-detalii-*.png`.
 
 ## Ce a iesit altfel decat planul
 
