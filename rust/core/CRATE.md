@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 1614c2dc6084d47e -->
+<!-- api-hash: 2336c20aeaad4f09 -->
 
 ## Rol
 
@@ -59,6 +59,7 @@ proiectul.
 ### `aliniere`
 | Functie / tip | Ce face |
 |---|---|
+| `aliniaza_cu(a, b, uneste_cursor)`, `diff_aliniat_cu`, `are_cursor(cod)` | varianta cu unirea ciclului de cursor (v3.4): blocul de cursor se ia intreg, de la DECLARE pana la DEALLOCATE |
 | `aliniaza(stanga, dreapta) -> Aliniere` | diff-ul asezat pe linii, cu umplutura si cu liniile dintre blocuri; ce deseneaza editorul |
 | `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: „Aplica bloc" |
 | `Aliniere` (`randuri`, `diff`, `diferente()`), `RandAliniat`, `Linie` | tipurile rezultatului |

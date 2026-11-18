@@ -1,26 +1,83 @@
-//! Harta de deasupra listei: fiecare obiect afisat e un patrat, grupat pe tip,
-//! colorat dupa stare. Patratele se picteaza aici, in pixeli, intr-o imagine
-//! pe grup — nu sute de elemente Slint.
+//! Harta de deasupra listei: cate o coloana pe tip de obiect, despartite prin
+//! linii, care umplu impreuna latimea cartusului. In fiecare coloana: titlul
+//! cu numarul, bara cu proportia starilor si cate un patrat pe obiect, in
+//! ordinea din tabel, pe blocuri de cate `BLOC` randuri. Patratele si bara se
+//! picteaza aici, in pixeli — nu sute de elemente Slint.
 //!
 //! **Se strica astfel:** un patrat arata (sau selecteaza la clic) alt obiect
-//! decat randul lui din tabel, conturul selectiei sta pe alt patrat, sau
-//! grupurile ies din ecran. Toate trei se decid aici, cu teste fara fereastra:
-//! `celula_la` (clic → rand) e inversa lui `pozitie_randului` (rand → patrat).
+//! decat randul lui din tabel, conturul selectiei sta pe alt patrat, coloanele
+//! ies din cartus sau lasa o parte din el goala. Toate se decid aici, cu teste
+//! fara fereastra: `celula_la` (clic → rand) e inversa lui `pozitie_randului`.
 
 use crate::jetoane::{Culoare, Paleta};
 
-/// Latura unui patrat si pasul dintre doua, in pixeli logici.
-pub const LATURA: u32 = 12;
-pub const PAS: u32 = 15;
-/// Cate patrate pe coloana, in fiecare grup.
-pub const RANDURI: u32 = 4;
-/// Inaltimea titlului unui grup, deasupra patratelor.
-pub const TITLU: f32 = 20.0;
-/// Spatiul dintre grupuri, pe orizontala si intre doua randuri de grupuri.
-pub const SPATIU_X: f32 = 24.0;
-pub const SPATIU_Y: f32 = 12.0;
-/// Cat de lat e cel mai ingust grup (sa incapa titlul).
-pub const LATIME_MINIMA: f32 = 96.0;
+/// Marimea patratelor, in pixeli logici: latura, pasul dintre doua si
+/// spatiul in plus dintre doua blocuri de randuri.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Scara {
+    pub latura: u32,
+    pub pas: u32,
+    pub spatiu_bloc: u32,
+}
+
+/// Treptele de zoom, de la cea mai mare la cea mai mica. Cand obiectele nu
+/// incap in `INALTIME_MAXIMA`, harta coboara o treapta; abia la ultima
+/// apare derularea.
+pub const SCARI: [Scara; 5] = [
+    Scara {
+        latura: 14,
+        pas: 18,
+        spatiu_bloc: 6,
+    },
+    Scara {
+        latura: 11,
+        pas: 14,
+        spatiu_bloc: 5,
+    },
+    Scara {
+        latura: 8,
+        pas: 10,
+        spatiu_bloc: 4,
+    },
+    Scara {
+        latura: 6,
+        pas: 8,
+        spatiu_bloc: 3,
+    },
+    Scara {
+        latura: 4,
+        pas: 5,
+        spatiu_bloc: 2,
+    },
+];
+
+impl Scara {
+    /// Treapta cu latura data (fereastra tine doar latura).
+    pub fn cu_latura(latura: u32) -> Option<Scara> {
+        SCARI.iter().copied().find(|s| s.latura == latura)
+    }
+}
+
+/// Cate randuri de patrate intr-un bloc.
+pub const BLOC: u32 = 5;
+/// Cat de inalta poate fi harta inainte sa se micsoreze patratele.
+pub const INALTIME_MAXIMA: f32 = 260.0;
+/// Capul unei coloane, deasupra patratelor: titlul (20), bara la `Y_BARA`,
+/// groasa de `GROSIME_BARA`, apoi un spatiu.
+pub const CAP: f32 = 44.0;
+pub const Y_BARA: f32 = 28.0;
+pub const GROSIME_BARA: u32 = 4;
+/// Spatiul dintre doua coloane (linia despartitoare sta la mijloc) si dintre
+/// doua randuri de coloane.
+pub const SPATIU_X: f32 = 40.0;
+pub const SPATIU_Y: f32 = 20.0;
+/// Latimea estimata a unui caracter din titlu (14 px) si a unei cifre din
+/// numar (mono 12,5 px), plus spatiul minim dintre ele.
+const LITERA: f32 = 8.0;
+const CIFRA: f32 = 8.0;
+const INTRE: f32 = 16.0;
+/// Cat de ingusta poate fi o coloana, oricat de scurt i-ar fi titlul.
+pub const LATIME_MINIMA: f32 = 120.0;
 
 /// Un obiect de pe harta: randul lui din lista afisata, starea (codul din
 /// `RandListaUi.stare`: 0 modificat, 1 doar in sursa, 2 doar in baza,
@@ -32,134 +89,298 @@ pub struct Celula {
     pub revizuit: bool,
 }
 
-/// Un grup asezat: titlul, pozitia si celulele, in ordinea de pe harta
-/// (pe coloane: primele `RANDURI` celule sunt prima coloana).
+/// O coloana asezata: titlul, pozitia, latimea si inaltimea randului ei de
+/// coloane (pentru linia despartitoare), cate patrate pe rand si celulele,
+/// in ordinea din tabel (pe randuri).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Grup {
     pub titlu: String,
     pub x: f32,
     pub y: f32,
     pub latime: f32,
+    pub inaltime: f32,
+    pub coloane: u32,
+    pub scara: Scara,
     pub celule: Vec<Celula>,
 }
 
 impl Grup {
-    pub fn coloane(&self) -> u32 {
-        (self.celule.len() as u32).div_ceil(RANDURI).max(1)
+    /// Cate randuri de patrate are coloana.
+    pub fn randuri(&self) -> u32 {
+        (self.celule.len() as u32).div_ceil(self.coloane.max(1))
     }
 }
 
-/// Inaltimea unui rand de grupuri: titlul si patratele.
-pub fn inaltime_grup() -> f32 {
-    TITLU + (RANDURI * PAS - (PAS - LATURA)) as f32
+/// Cat ocupa `n` patrate alaturate pe orizontala.
+fn intindere(s: Scara, n: u32) -> f32 {
+    (n.max(1) * s.pas - (s.pas - s.latura)) as f32
 }
 
-/// Aseaza grupurile de la stanga la dreapta si trece pe randul urmator cand
-/// nu mai incap in `latime`. In fiecare grup, celulele se ordoneaza dupa
-/// stare, iar cele revizuite stau la coada starii lor. Intoarce si
-/// inaltimea totala.
-pub fn aseaza(grupuri: Vec<(String, Vec<Celula>)>, latime: f32) -> (Vec<Grup>, f32) {
-    let mut out = Vec::new();
-    let (mut x, mut y) = (0.0f32, 0.0f32);
-    for (titlu, mut celule) in grupuri {
-        if celule.is_empty() {
-            continue;
+/// Unde incepe randul `r` de patrate, fata de coltul grilei.
+fn y_rand(s: Scara, r: u32) -> u32 {
+    r * s.pas + (r / BLOC) * s.spatiu_bloc
+}
+
+/// Cat ocupa `r` randuri de patrate pe verticala, cu spatiile dintre blocuri.
+fn inaltime_grila(s: Scara, r: u32) -> f32 {
+    (y_rand(s, r.max(1) - 1) + s.latura) as f32
+}
+
+/// Latimea capului unei coloane cu `n` obiecte: titlul si numarul alaturi.
+pub fn latime_titlu(titlu: &str, n: usize) -> f32 {
+    (titlu.chars().count() as f32 * LITERA + INTRE + n.to_string().len() as f32 * CIFRA)
+        .max(LATIME_MINIMA)
+}
+
+/// O coloana cu `n` celule, pe cel mult `r` randuri: cate patrate pe rand
+/// si cat e de lata. Sub cap incap oricum cateva patrate; nu scad sub ele.
+fn forma(s: Scara, n: u32, cap_w: f32, r: u32) -> (u32, f32) {
+    let coloane = n.div_ceil(r).max(incap(s, cap_w)).min(n).max(1);
+    (coloane, intindere(s, coloane).max(cap_w))
+}
+
+/// Cate patrate incap alaturi in latimea `w`.
+fn incap(s: Scara, w: f32) -> u32 {
+    ((w + (s.pas - s.latura) as f32) / s.pas as f32).floor() as u32
+}
+
+/// Aseaza coloanele in `latime`. Coloanele stau alaturi; toate de pe acelasi
+/// rand primesc cel mai mic numar de randuri de patrate care le face sa
+/// incapa, iar latimea ramasa se imparte intre ele pe masura latimii lor, ca
+/// impreuna sa umple cartusul; grila se lateste cat coloana ei. Doar cand
+/// nici capetele nu incap alaturi, coloanele trec pe randul urmator.
+///
+/// Patratele iau cea mai mare treapta din `SCARI` la care harta intra in
+/// `inaltime_maxima` (zoom automat); daca nici cea mai mica nu intra, ramane
+/// cea mai mica, cu derulare. Intoarce si inaltimea totala.
+pub fn aseaza(
+    grupuri: Vec<(String, Vec<Celula>)>,
+    latime: f32,
+    inaltime_maxima: f32,
+) -> (Vec<Grup>, f32) {
+    let mut asezare = (Vec::new(), 0.0);
+    for s in SCARI {
+        asezare = aseaza_la(grupuri.clone(), latime, s);
+        if asezare.1 <= inaltime_maxima {
+            break;
         }
-        celule.sort_by_key(|c| (c.stare, c.revizuit, c.rand));
-        let coloane = (celule.len() as u32).div_ceil(RANDURI);
-        let w = ((coloane * PAS - (PAS - LATURA)) as f32).max(LATIME_MINIMA);
-        if x > 0.0 && x + w > latime {
-            x = 0.0;
-            y += inaltime_grup() + SPATIU_Y;
-        }
-        out.push(Grup {
-            titlu,
-            x,
-            y,
-            latime: w,
-            celule,
+    }
+    asezare
+}
+
+/// `aseaza`, la o treapta data.
+pub fn aseaza_la(grupuri: Vec<(String, Vec<Celula>)>, latime: f32, s: Scara) -> (Vec<Grup>, f32) {
+    let grupuri = grupuri
+        .into_iter()
+        .filter(|(_, c)| !c.is_empty())
+        .map(|(t, c)| {
+            let w = latime_titlu(&t, c.len());
+            (t, c, w)
         });
-        x += w + SPATIU_X;
+
+    // randurile de coloane: cate capete incap alaturi
+    let mut linii: Vec<Vec<(String, Vec<Celula>, f32)>> = Vec::new();
+    let mut ocupat = 0.0f32;
+    for g in grupuri {
+        let w = g.2;
+        match linii.last_mut() {
+            Some(l) if ocupat + SPATIU_X + w <= latime => {
+                ocupat += SPATIU_X + w;
+                l.push(g);
+            }
+            _ => {
+                ocupat = w;
+                linii.push(vec![g]);
+            }
+        }
     }
-    let inaltime = if out.is_empty() {
-        0.0
-    } else {
-        y + inaltime_grup()
-    };
-    (out, inaltime)
+
+    let mut out = Vec::new();
+    let mut y = 0.0f32;
+    for (i, linie) in linii.into_iter().enumerate() {
+        if i > 0 {
+            y += SPATIU_Y;
+        }
+        let gol = SPATIU_X * (linie.len() - 1) as f32;
+        let latime_la = |r: u32| -> f32 {
+            gol + linie
+                .iter()
+                .map(|g| forma(s, g.1.len() as u32, g.2, r).1)
+                .sum::<f32>()
+        };
+        // la `maxim` randuri fiecare coloana are latimea capului, care incape
+        // prin constructia liniilor
+        let maxim = linie.iter().map(|g| g.1.len() as u32).max().unwrap_or(1);
+        let r = (1..=maxim)
+            .find(|&r| latime_la(r) <= latime)
+            .unwrap_or(maxim);
+        // latimea ramasa se imparte pe masura latimii fiecarei coloane, iar
+        // grila se lateste cat coloana ei (randurile doar scad, nu cresc)
+        let baza = latime_la(r) - gol;
+        let rest = (latime - latime_la(r)).max(0.0);
+        let inceput = out.len();
+        let mut x = 0.0f32;
+        let mut randuri = 1;
+        for (titlu, celule, cap_w) in linie {
+            let (coloane, w) = forma(s, celule.len() as u32, cap_w, r);
+            let w = w + (rest * w / baza).floor();
+            let coloane = coloane.max(incap(s, w)).min(celule.len() as u32).max(1);
+            let g = Grup {
+                titlu,
+                x,
+                y,
+                latime: w,
+                inaltime: 0.0,
+                coloane,
+                scara: s,
+                celule,
+            };
+            randuri = randuri.max(g.randuri());
+            x += g.latime + SPATIU_X;
+            out.push(g);
+        }
+        let inalt = CAP + inaltime_grila(s, randuri);
+        for g in &mut out[inceput..] {
+            g.inaltime = inalt;
+        }
+        y += inalt;
+    }
+    (out, y)
 }
 
-/// Al catelea patrat din grup e sub punctul (x, y), in coordonatele imaginii
-/// grupului (patratele merg pe coloane). Singurul loc unde se face calculul:
-/// fereastra trimite coordonatele, nu il repeta.
-pub fn indice_la(x: f32, y: f32) -> Option<usize> {
+/// Al catelea patrat al unei coloane cu `coloane` patrate pe rand, la
+/// treapta `s`, e sub punctul (x, y), in coordonatele grilei. Singurul loc
+/// unde se face calculul: fereastra trimite coordonatele, nu il repeta.
+pub fn indice_la(s: Scara, coloane: u32, x: f32, y: f32) -> Option<usize> {
     if x < 0.0 || y < 0.0 {
         return None;
     }
-    let (col, rand) = (x as u32 / PAS, y as u32 / PAS);
-    if rand >= RANDURI {
+    let (x, y) = (x as u32, y as u32);
+    let inalt_bloc = BLOC * s.pas + s.spatiu_bloc;
+    let bloc = y / inalt_bloc;
+    let in_bloc = (y - bloc * inalt_bloc) / s.pas;
+    let col = x / s.pas;
+    if col >= coloane || in_bloc >= BLOC {
         return None;
     }
-    Some((col * RANDURI + rand) as usize)
+    Some(((bloc * BLOC + in_bloc) * coloane + col) as usize)
 }
 
-/// Celula de sub punctul (x, y), in coordonatele imaginii grupului.
+/// Celula de sub punctul (x, y), in coordonatele grilei.
 pub fn celula_la(g: &Grup, x: f32, y: f32) -> Option<Celula> {
-    indice_la(x, y).and_then(|k| g.celule.get(k).copied())
+    indice_la(g.scara, g.coloane, x, y).and_then(|k| g.celule.get(k).copied())
+}
+
+/// Unde e patratul `k` al unei grile cu `coloane` patrate pe rand, fata de
+/// coltul ei. Inversa lui `indice_la`.
+pub fn coltul_in_grila(s: Scara, coloane: u32, k: usize) -> (u32, u32) {
+    let (k, c) = (k as u32, coloane.max(1));
+    ((k % c) * s.pas, y_rand(s, k / c))
+}
+
+fn coltul(g: &Grup, k: usize) -> (u32, u32) {
+    coltul_in_grila(g.scara, g.coloane, k)
 }
 
 /// Unde e patratul unui rand din lista: coltul lui, in coordonatele hartii.
 pub fn pozitie_randului(grupuri: &[Grup], rand: usize) -> Option<(f32, f32)> {
     grupuri.iter().find_map(|g| {
         g.celule.iter().position(|c| c.rand == rand).map(|k| {
-            let k = k as u32;
-            (
-                g.x + ((k / RANDURI) * PAS) as f32,
-                g.y + TITLU + ((k % RANDURI) * PAS) as f32,
-            )
+            let (cx, cy) = coltul(g, k);
+            (g.x + cx as f32, g.y + CAP + cy as f32)
         })
     })
 }
 
 fn culoare_starii(p: &Paleta, stare: i32) -> Culoare {
     match stare {
-        0 => p.mod_bara,
-        1 => p.add_bara,
-        2 => p.del_bara,
-        3 => p.ident,
+        0 => p.harta_mod,
+        1 => p.harta_add,
+        2 => p.harta_del,
+        3 => p.harta_gol,
         _ => p.text_tert,
     }
 }
 
-fn amesteca(a: Culoare, b: Culoare, f: f32) -> [u8; 3] {
-    let c = |s: u32| -> f32 { ((a >> s) & 0xff) as f32 * f + ((b >> s) & 0xff) as f32 * (1.0 - f) };
-    [c(16) as u8, c(8) as u8, c(0) as u8]
+fn amesteca(a: Culoare, b: Culoare, f: f32) -> [u8; 4] {
+    let c = |s: u32| -> u8 {
+        (((a >> s) & 0xff) as f32 * f + ((b >> s) & 0xff) as f32 * (1.0 - f)) as u8
+    };
+    [c(16), c(8), c(0), 255]
 }
 
-/// Pixelii unui grup (RGBA, rand cu rand) si dimensiunea imaginii. Fondul e
-/// transparent; un patrat revizuit e estompat spre `suprafata`.
+/// Pixelii grilei unei coloane (RGBA, rand cu rand) si dimensiunea imaginii.
+/// Fondul e transparent; un patrat revizuit e estompat spre `suprafata`.
 pub fn picteaza(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
-    let coloane = g.coloane();
     let (w, h) = (
-        coloane * PAS - (PAS - LATURA),
-        RANDURI * PAS - (PAS - LATURA),
+        intindere(g.scara, g.coloane) as u32,
+        inaltime_grila(g.scara, g.randuri()) as u32,
     );
     let mut px = vec![[0u8; 4]; (w * h) as usize];
     for (k, c) in g.celule.iter().enumerate() {
-        let k = k as u32;
-        let (cx, cy) = ((k / RANDURI) * PAS, (k % RANDURI) * PAS);
-        let f = if c.revizuit { 0.35 } else { 1.0 };
-        let [r, gr, b] = amesteca(culoare_starii(p, c.stare), p.suprafata, f);
-        for y in 0..LATURA {
-            for x in 0..LATURA {
-                let (dx, dy) = (x.min(LATURA - 1 - x), y.min(LATURA - 1 - y));
-                // colturi rotunjite, aproximate
-                if dx + dy < 2 {
+        let (cx, cy) = coltul(g, k);
+        let f = if c.revizuit { 0.4 } else { 1.0 };
+        let culoare = amesteca(culoare_starii(p, c.stare), p.suprafata, f);
+        let l = g.scara.latura;
+        // colturi rotunjite, aproximate; patratele mici raman drepte
+        let colt = if l >= 8 { 2 } else { 0 };
+        for y in 0..l {
+            for x in 0..l {
+                let (dx, dy) = (x.min(l - 1 - x), y.min(l - 1 - y));
+                if dx + dy < colt {
                     continue;
                 }
-                px[((cy + y) * w + cx + x) as usize] = [r, gr, b, 255];
+                px[((cy + y) * w + cx + x) as usize] = culoare;
             }
         }
+    }
+    (w, h, px)
+}
+
+/// Bucatile barei de proportie: modificate, doar in sursa, doar in baza,
+/// restul (identice si criptate), fiecare cu numarul ei de obiecte.
+pub fn proportii(g: &Grup) -> [usize; 4] {
+    let mut n = [0; 4];
+    for c in &g.celule {
+        n[c.stare.clamp(0, 3) as usize] += 1;
+    }
+    n
+}
+
+/// Spatiul dintre doua bucati ale barei.
+const GOL_BARA: u32 = 3;
+
+/// Pixelii barei de proportie, lata cat coloana: fiecare stare ia o bucata
+/// pe masura numarului ei de obiecte; o stare fara obiecte nu apare.
+pub fn picteaza_bara(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
+    let (w, h) = ((g.latime as u32).max(1), GROSIME_BARA);
+    let mut px = vec![[0u8; 4]; (w * h) as usize];
+    let n = proportii(g);
+    let culori = [p.harta_mod, p.harta_add, p.harta_del, p.harta_gol];
+    let bucati = n.iter().filter(|&&k| k > 0).count() as u32;
+    let total = n.iter().sum::<usize>().max(1) as f32;
+    let util = w.saturating_sub(GOL_BARA * bucati.saturating_sub(1)) as f32;
+    let mut x0 = 0u32;
+    let mut cumul = 0usize;
+    for (k, &cate) in n.iter().enumerate() {
+        if cate == 0 {
+            continue;
+        }
+        cumul += cate;
+        // capatul se ia din suma cumulata: bucatile umplu exact bara
+        let gol_pana_aici = GOL_BARA * (n[..k].iter().filter(|&&c| c > 0).count() as u32);
+        let x1 = ((cumul as f32 / total * util).round() as u32 + gol_pana_aici).min(w);
+        let culoare = amesteca(culori[k], culori[k], 1.0);
+        for y in 0..h {
+            for x in x0..x1 {
+                // capetele bucatii, rotunjite
+                let colt = (y == 0 || y == h - 1) && (x == x0 || x + 1 == x1);
+                if !colt {
+                    px[(y * w + x) as usize] = culoare;
+                }
+            }
+        }
+        x0 = x1 + GOL_BARA;
     }
     (w, h, px)
 }
@@ -168,6 +389,8 @@ pub fn picteaza(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
 mod teste {
     use super::*;
     use crate::jetoane::{INTUNECAT, LUMINOS};
+
+    const S: Scara = SCARI[0];
 
     fn celule(n: usize, de_la: usize) -> Vec<Celula> {
         (0..n)
@@ -179,69 +402,177 @@ mod teste {
             .collect()
     }
 
-    #[test]
-    fn clic_pe_patrat_da_randul_lui_si_inapoi() {
-        let (g, _) = aseaza(
+    /// Cazul din captura: 34 / 9 / 3 / 3 obiecte, pe latimea ferestrei.
+    fn captura(latime: f32) -> (Vec<Grup>, f32) {
+        aseaza_la(
             vec![
-                ("procedura".into(), celule(10, 0)),
-                ("functie".into(), celule(3, 10)),
+                ("procedura".into(), celule(34, 0)),
+                ("functie".into(), celule(9, 34)),
+                ("trigger".into(), celule(3, 43)),
+                ("view".into(), celule(3, 46)),
             ],
-            1000.0,
-        );
-        for gr in &g {
+            latime,
+            S,
+        )
+    }
+
+    fn verifica_inversa(g: &[Grup]) {
+        for gr in g {
             for c in &gr.celule {
-                let (x, y) = pozitie_randului(&g, c.rand).expect("fiecare rand are patrat");
+                let (x, y) = pozitie_randului(g, c.rand).expect("fiecare rand are patrat");
                 // un punct din mijlocul patratului, in coordonatele imaginii
-                let gasit = celula_la(gr, x - gr.x + 6.0, y - gr.y - TITLU + 6.0);
+                let m = gr.scara.latura as f32 / 2.0;
+                let gasit = celula_la(gr, x - gr.x + m, y - gr.y - CAP + m);
                 assert_eq!(gasit.map(|c| c.rand), Some(c.rand), "randul {}", c.rand);
             }
         }
-        assert_eq!(pozitie_randului(&g, 99), None);
+    }
+
+    fn verifica_incadrarea(g: &[Grup], latime: f32) {
+        for (i, a) in g.iter().enumerate() {
+            assert!(
+                a.latime >= intindere(S, a.coloane),
+                "{}: patratele ies din grup",
+                a.titlu
+            );
+            assert!(
+                a.latime >= latime_titlu(&a.titlu, a.celule.len()),
+                "{}: titlul nu incape",
+                a.titlu
+            );
+            let singur = g.iter().filter(|b| b.y == a.y).count() == 1;
+            assert!(
+                singur || a.x + a.latime <= latime,
+                "{}: iese din cartus",
+                a.titlu
+            );
+            for b in &g[i + 1..] {
+                let alaturi = a.x + a.latime <= b.x || b.x + b.latime <= a.x;
+                assert!(
+                    a.y != b.y || alaturi,
+                    "{} si {} se suprapun",
+                    a.titlu,
+                    b.titlu
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn clic_pe_patrat_da_randul_lui_si_inapoi() {
+        for latime in [1372.0, 600.0, 300.0, 120.0] {
+            let (g, _) = captura(latime);
+            verifica_inversa(&g);
+        }
+        assert_eq!(pozitie_randului(&captura(1372.0).0, 99), None);
+    }
+
+    #[test]
+    fn pe_ecran_lat_putine_obiecte_stau_pe_un_singur_rand_de_patrate() {
+        // 34 + 9 + 3 + 3 patrate incap alaturi pe 1372 px: o banda joasa,
+        // nu patru randuri inghesuite la stanga
+        let (g, h) = captura(1372.0);
+        assert!(g.iter().all(|g| g.y == 0.0 && g.randuri() == 1));
+        assert_eq!(h, CAP + inaltime_grila(S, 1));
+        verifica_incadrarea(&g, 1372.0);
+    }
+
+    #[test]
+    fn pe_ecran_ingust_grupurile_cresc_in_inaltime_si_raman_in_cartus() {
+        for latime in [600.0, 400.0, 300.0, 200.0, 120.0] {
+            let (g, h) = captura(latime);
+            verifica_incadrarea(&g, latime);
+            assert!(h >= captura(1372.0).1);
+            // grupul cel mai mare (primul) da inaltimea randului lui
+            let r = g[0].randuri();
+            assert!(g.iter().filter(|x| x.y == g[0].y).all(|x| x.randuri() <= r));
+        }
+        let (g, _) = captura(600.0);
+        assert!(g[0].randuri() > 1, "procedura nu mai incape pe un rand");
+        assert!(g.iter().all(|x| x.y == 0.0), "titlurile inca incap alaturi");
+    }
+
+    #[test]
+    fn grupurile_trec_pe_randul_urmator_doar_cand_nu_incap_titlurile() {
+        let (g, h) = captura(200.0);
+        assert!(g.iter().any(|x| x.y > 0.0));
+        let ultimul = g.iter().map(|x| x.y).fold(0.0, f32::max);
+        assert!(h > ultimul);
+        verifica_incadrarea(&g, 200.0);
+    }
+
+    #[test]
+    fn grupul_mic_umple_latimea_titlului_inainte_de_a_creste() {
+        // 9 functii pe 3 randuri ar avea 3 coloane, dar sub „functie 9" incap mai multe
+        let (g, _) = aseaza_la(vec![("functie".into(), celule(9, 0))], 1000.0, S);
+        assert_eq!((g[0].coloane, g[0].randuri()), (9, 1));
+        let (c, w) = forma(S, 9, latime_titlu("functie", 9), 3);
+        assert!(c > 3 && w >= intindere(S, c));
+    }
+
+    #[test]
+    fn coloanele_umplu_cartusul_pe_fiecare_rand() {
+        for latime in [1372.0, 900.0, 600.0, 300.0] {
+            let (g, _) = captura(latime);
+            for y in g.iter().map(|x| x.y) {
+                let rand: Vec<&Grup> = g.iter().filter(|x| x.y == y).collect();
+                let ultimul = rand[rand.len() - 1];
+                let dreapta = ultimul.x + ultimul.latime;
+                // restul se imparte rotunjit in jos: ramane sub un pixel pe coloana
+                assert!(
+                    dreapta <= latime && latime - dreapta < rand.len() as f32,
+                    "la {latime}: randul se termina la {dreapta}"
+                );
+                assert!(rand.iter().all(|x| x.inaltime == rand[0].inaltime));
+            }
+        }
+    }
+
+    #[test]
+    fn grupurile_goale_dispar() {
+        let (g, h) = aseaza_la(
+            vec![("gol".into(), vec![]), ("unul".into(), celule(1, 0))],
+            500.0,
+            S,
+        );
+        assert_eq!(g.len(), 1);
+        assert_eq!(g[0].latime, 500.0, "singura coloana umple cartusul");
+        assert!(h > 0.0);
+        assert_eq!(aseaza_la(vec![], 500.0, S).1, 0.0);
     }
 
     #[test]
     fn clic_in_afara_patratelor_nu_alege_nimic() {
-        let (g, _) = aseaza(vec![("procedura".into(), celule(5, 0))], 1000.0);
-        // a doua coloana are un singur patrat (5 = 4 + 1)
-        assert_eq!(celula_la(&g[0], PAS as f32 + 1.0, PAS as f32 + 1.0), None);
-        assert_eq!(celula_la(&g[0], 1.0, (RANDURI * PAS) as f32 + 1.0), None);
-        assert_eq!(celula_la(&g[0], -1.0, 1.0), None);
+        let g = Grup {
+            titlu: "p".into(),
+            x: 0.0,
+            y: 0.0,
+            latime: 120.0,
+            inaltime: 0.0,
+            coloane: 3,
+            scara: S,
+            celule: celule(5, 0),
+        };
+        // 3 coloane: al doilea rand are doua patrate
+        let p = S.pas as f32;
+        assert_eq!(celula_la(&g, 2.0 * p + 1.0, p + 1.0), None);
+        assert_eq!(celula_la(&g, 3.0 * p + 1.0, 1.0), None);
+        assert_eq!(celula_la(&g, 1.0, 2.0 * p + 1.0), None);
+        assert_eq!(celula_la(&g, -1.0, 1.0), None);
     }
 
     #[test]
-    fn grupurile_trec_pe_randul_urmator_cand_nu_incap() {
-        // 40 de celule = 10 coloane = 147 px; trei grupuri pe 400 px: doua pe primul rand
-        let (g, h) = aseaza(
-            vec![
-                ("a".into(), celule(40, 0)),
-                ("b".into(), celule(40, 40)),
-                ("c".into(), celule(40, 80)),
-            ],
-            400.0,
+    fn spatiul_dintre_blocuri_nu_alege_nimic_si_blocul_urmator_continua() {
+        let bloc = (BLOC * S.pas) as f32;
+        assert_eq!(indice_la(S, 4, 1.0, bloc + 1.0), None);
+        assert_eq!(
+            indice_la(S, 4, 1.0, bloc + S.spatiu_bloc as f32 + 1.0),
+            Some((BLOC * 4) as usize)
         );
-        assert_eq!((g[0].y, g[1].y), (0.0, 0.0));
-        assert!(
-            g[2].y > 0.0 && g[2].x == 0.0,
-            "al treilea grup trece dedesubt"
-        );
-        assert_eq!(h, g[2].y + inaltime_grup());
-        assert!(g[1].x >= g[0].x + g[0].latime, "nu se suprapun");
     }
 
     #[test]
-    fn grupurile_goale_dispar_si_cele_mici_au_loc_de_titlu() {
-        let (g, h) = aseaza(
-            vec![("gol".into(), vec![]), ("unul".into(), celule(1, 0))],
-            500.0,
-        );
-        assert_eq!(g.len(), 1);
-        assert_eq!(g[0].latime, LATIME_MINIMA);
-        assert!(h > 0.0);
-        assert_eq!(aseaza(vec![], 500.0).1, 0.0);
-    }
-
-    #[test]
-    fn in_grup_starea_vine_intai_si_revizuitele_la_coada() {
+    fn in_coloana_ordinea_e_cea_din_tabel() {
         let c = vec![
             Celula {
                 rand: 0,
@@ -259,9 +590,9 @@ mod teste {
                 revizuit: false,
             },
         ];
-        let (g, _) = aseaza(vec![("t".into(), c)], 500.0);
+        let (g, _) = aseaza_la(vec![("t".into(), c)], 500.0, S);
         let ordine: Vec<usize> = g[0].celule.iter().map(|c| c.rand).collect();
-        assert_eq!(ordine, vec![2, 1, 0]);
+        assert_eq!(ordine, vec![0, 1, 2]);
     }
 
     #[test]
@@ -271,10 +602,10 @@ mod teste {
             stare: 1,
             revizuit: false,
         }];
-        let (g, _) = aseaza(vec![("t".into(), c)], 500.0);
+        let (g, _) = aseaza_la(vec![("t".into(), c)], 500.0, S);
         let centru = |p: &Paleta| {
             let (w, _, px) = picteaza(&g[0], p);
-            px[(6 * w + 6) as usize]
+            px[(7 * w + 7) as usize]
         };
         let rgb = |c: Culoare| {
             [
@@ -284,10 +615,136 @@ mod teste {
                 255,
             ]
         };
-        assert_eq!(centru(&LUMINOS), rgb(LUMINOS.add_bara));
-        assert_eq!(centru(&INTUNECAT), rgb(INTUNECAT.add_bara));
+        assert_eq!(centru(&LUMINOS), rgb(LUMINOS.harta_add));
+        assert_eq!(centru(&INTUNECAT), rgb(INTUNECAT.harta_add));
         // coltul e transparent: fondul hartii se vede
         let (_, _, px) = picteaza(&g[0], &LUMINOS);
         assert_eq!(px[0][3], 0);
+    }
+
+    #[test]
+    fn pictura_are_exact_marimea_grilei() {
+        let (g, _) = captura(300.0);
+        for gr in &g {
+            let (w, h, px) = picteaza(gr, &LUMINOS);
+            assert_eq!(w as f32, intindere(S, gr.coloane));
+            assert_eq!(h as f32, inaltime_grila(S, gr.randuri()));
+            assert_eq!(px.len(), (w * h) as usize);
+        }
+    }
+
+    #[test]
+    fn bara_imparte_latimea_pe_stari_in_ordine_si_sare_starile_lipsa() {
+        let mut c = celule(6, 0); // 6 modificate
+        c.extend((6..9).map(|rand| Celula {
+            rand,
+            stare: 2,
+            revizuit: false,
+        })); // 3 doar in baza, niciuna doar in sursa
+        let (g, _) = aseaza_la(vec![("procedura".into(), c)], 300.0, S);
+        assert_eq!(proportii(&g[0]), [6, 0, 3, 0]);
+        let (w, h, px) = picteaza_bara(&g[0], &INTUNECAT);
+        assert_eq!((w, h), (300, GROSIME_BARA));
+        let rand: Vec<[u8; 4]> = px[w as usize..2 * w as usize].to_vec();
+        let culoare = |c: Culoare| amesteca(c, c, 1.0);
+        let mod_ = rand
+            .iter()
+            .filter(|p| **p == culoare(INTUNECAT.harta_mod))
+            .count();
+        let del = rand
+            .iter()
+            .filter(|p| **p == culoare(INTUNECAT.harta_del))
+            .count();
+        assert_eq!(
+            rand.iter()
+                .filter(|p| **p == culoare(INTUNECAT.harta_add))
+                .count(),
+            0
+        );
+        // 6:3, pe 300 - un gol
+        assert!(
+            (mod_ as i32 - 198).abs() <= 1 && (del as i32 - 99).abs() <= 1,
+            "{mod_} {del}"
+        );
+        let primul_del = rand.iter().position(|p| *p == culoare(INTUNECAT.harta_del));
+        assert!(
+            primul_del
+                > rand
+                    .iter()
+                    .rposition(|p| *p == culoare(INTUNECAT.harta_mod))
+        );
+        assert_eq!(
+            rand[w as usize - 1],
+            culoare(INTUNECAT.harta_del),
+            "bara se umple pana la capat"
+        );
+    }
+
+    /// `n` obiecte in patru tipuri, ca intr-o baza mare.
+    fn multe(n: usize) -> Vec<(String, Vec<Celula>)> {
+        let parti = [
+            ("procedura", 6),
+            ("functie", 2),
+            ("view", 1),
+            ("trigger", 1),
+        ];
+        let mut de_la = 0;
+        parti
+            .iter()
+            .map(|(t, p)| {
+                let k = n * p / 10;
+                let v = celule(k, de_la);
+                de_la += k;
+                (t.to_string(), v)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn prea_multe_obiecte_micsoreaza_patratele_ca_sa_intre() {
+        let (putine, _) = aseaza(multe(50), 1372.0, INALTIME_MAXIMA);
+        assert_eq!(putine[0].scara, SCARI[0], "cat incap, patratele raman mari");
+        let mut anterioara = 0;
+        for n in [50, 500, 1500, 3000, 6000] {
+            let (g, h) = aseaza(multe(n), 1372.0, INALTIME_MAXIMA);
+            let treapta = SCARI
+                .iter()
+                .position(|s| *s == g[0].scara)
+                .expect("treapta cunoscuta");
+            assert!(
+                treapta >= anterioara,
+                "la {n}: mai multe obiecte, patrate mai mari"
+            );
+            anterioara = treapta;
+            assert!(
+                g.iter().all(|x| x.scara == g[0].scara),
+                "o singura marime pe harta"
+            );
+            // cat exista o treapta la care intra, intra
+            let ultima = SCARI[SCARI.len() - 1];
+            if aseaza_la(multe(n), 1372.0, ultima).1 <= INALTIME_MAXIMA {
+                assert!(h <= INALTIME_MAXIMA, "la {n}: {h} peste {INALTIME_MAXIMA}");
+            }
+            // si nu e mai mica decat trebuie
+            if treapta > 0 {
+                assert!(aseaza_la(multe(n), 1372.0, SCARI[treapta - 1]).1 > INALTIME_MAXIMA);
+            }
+            verifica_inversa(&g);
+        }
+        assert!(anterioara > 0, "la 6000 de obiecte s-a micsorat");
+    }
+
+    #[test]
+    fn la_fiecare_treapta_clicul_nimereste_patratul() {
+        for s in SCARI {
+            assert_eq!(Scara::cu_latura(s.latura), Some(s));
+            let (g, _) = aseaza_la(multe(400), 700.0, s);
+            verifica_inversa(&g);
+            for gr in &g {
+                let (w, h, _) = picteaza(gr, &LUMINOS);
+                assert_eq!(w as f32, intindere(s, gr.coloane));
+                assert_eq!(h as f32, inaltime_grila(s, gr.randuri()));
+            }
+        }
     }
 }

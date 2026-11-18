@@ -6,6 +6,7 @@
 //! binarul doar deseneaza si trimite comenzi.
 
 pub mod deploy;
+pub mod fir;
 pub mod pornire;
 pub mod rutare;
 

@@ -116,6 +116,13 @@ pub struct Paleta {
     pub set_bara: Culoare,
     /// patrat / bara pentru „identic"
     pub ident: Culoare,
+    /// harta din lista: patratele si bara de proportie (modificat, doar in
+    /// sursa, doar in baza, identic). Mai stinse decat `*_bara` din editor,
+    /// ca sute de patrate alaturi sa nu orbeasca.
+    pub harta_mod: Culoare,
+    pub harta_add: Culoare,
+    pub harta_del: Culoare,
+    pub harta_gol: Culoare,
     /// hasura de pe partea fara linii, dunga 1
     pub hasura_a: Culoare,
     /// hasura, dunga 2
@@ -167,6 +174,10 @@ pub const INTUNECAT: Paleta = Paleta {
     del_inlinie: 0x49293a,
     set_bara: 0x8f9bff,
     ident: 0x232a45,
+    harta_mod: 0xe9a23b,
+    harta_add: 0x1fa971,
+    harta_del: 0xe4485d,
+    harta_gol: 0x2a3146,
     hasura_a: 0x0f1424,
     hasura_b: 0x1a2038,
     s_cuvant: 0x8fb4ff,
@@ -216,6 +227,10 @@ pub const LUMINOS: Paleta = Paleta {
     del_inlinie: 0xfdd0df,
     set_bara: 0x5b5fd6,
     ident: 0xe3e6ec,
+    harta_mod: 0xeb9a1f,
+    harta_add: 0x17a56b,
+    harta_del: 0xe23d55,
+    harta_gol: 0xe1e5ec,
     hasura_a: 0xffffff,
     hasura_b: 0xeef0f3,
     s_cuvant: 0x7828c8,

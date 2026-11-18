@@ -91,41 +91,235 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
     }
 }
 
+/// Instantaneele gasite pe disc, pentru „Deschide un instantaneu": in
+/// directorul de date al aplicatiei, langa binar, in directorul curent si in
+/// `referinta/instantanee` (in dezvoltare). Fara dialog nativ, deci fara o
+/// dependinta noua — vezi `JURNAL.md`.
+///
+/// Se intorc doar fisiere `.json` care chiar exista, fara duplicate, cele mai
+/// noi intai: cine tocmai a facut un instantaneu il gaseste primul.
+pub fn instantanee_gasite() -> Vec<std::path::PathBuf> {
+    let mut locuri: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(d) = gmotion_platforma::cai::director_date() {
+        locuri.push(d.join("instantanee"));
+        locuri.push(d);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(d) = exe.parent() {
+            locuri.push(d.to_path_buf());
+        }
+    }
+    if let Ok(d) = std::env::current_dir() {
+        locuri.push(d.clone());
+        // in dezvoltare, instantaneele stau in `referinta/instantanee`, iar
+        // comenzile se dau din radacina sau din `rust/<crate>`
+        for sus in ["", "../", "../../", "../../../"] {
+            locuri.push(d.join(format!("{sus}referinta/instantanee")));
+        }
+    }
+
+    let mut gasite: Vec<(std::time::SystemTime, std::path::PathBuf)> = Vec::new();
+    for loc in locuri {
+        let Ok(intrari) = std::fs::read_dir(&loc) else {
+            continue;
+        };
+        for e in intrari.flatten() {
+            let cale = e.path();
+            if !cale.is_file() || cale.extension().is_none_or(|x| x != "json") {
+                continue;
+            }
+            let cale = cale.canonicalize().unwrap_or(cale);
+            if gasite.iter().any(|(_, c)| *c == cale) {
+                continue;
+            }
+            let cand = e
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            gasite.push((cand, cale));
+        }
+    }
+    gasite.sort_by_key(|g| std::cmp::Reverse(g.0));
+    gasite.into_iter().map(|(_, c)| c).take(40).collect()
+}
+
+/// Verifica o conexiune si intoarce ce a raspuns serverul: editia, sistemul,
+/// de cat timp merge si cate baze are. Pe instantaneu nu exista server, deci
+/// se spune de unde s-au luat obiectele.
+///
+/// Nu arunca parola in mesaj, ca peste tot aici.
+pub fn testeaza(c: &Conectare, p: &Parte) -> Result<String, String> {
+    if let Some(cale) = &c.instantaneu {
+        let mut s = SursaFixture::din_fisier(cale).map_err(|e| e.to_string())?;
+        let baze = s.baze().map_err(|e| e.to_string())?;
+        return Ok(format!(
+            "instantaneu · {} · {} baze",
+            s.descriere(),
+            baze.len()
+        ));
+    }
+    if let Some(ce) = p.ce_lipseste() {
+        return Err(format!("completeaza {ce}"));
+    }
+    let (server, port) = imparte_portul(&p.server);
+    let auth = if p.auth_windows {
+        Autentificare::Integrata
+    } else {
+        Autentificare::Sql {
+            utilizator: p.acreditari.utilizator.clone(),
+            parola: p.acreditari.parola().to_string(),
+        }
+    };
+    let mut s = SursaSqlServer::nou(
+        Tinta {
+            server,
+            port,
+            certificat: certificat(c),
+        },
+        auth,
+    )
+    .map_err(|e| e.to_string())?;
+    // `master` exista pe orice server si nu cere drepturi pe bazele
+    // utilizatorului: altfel „Testeaza" ar cadea acolo unde conectarea merge
+    let info = s.verifica("master").map_err(|e| e.to_string())?;
+    Ok(descrie_serverul(&info))
+}
+
+/// Propozitia din ecran, din ce a raspuns serverul.
+fn descrie_serverul(i: &gmotion_db::InfoServer) -> String {
+    let mut parti = vec![i.editie.clone(), i.sistem.clone()];
+    if let Some(s) = i.pornit_de_secunde {
+        parti.push(format!("pornit de {}", durata_scurta(s)));
+    }
+    if let Some(n) = i.nr_baze {
+        parti.push(format!("{n} baze"));
+    }
+    parti.retain(|p| !p.trim().is_empty());
+    parti.join(" · ")
+}
+
+/// „3 zile", „5 ore", „12 minute": destul pentru ecran, fara dependinte.
+/// Singularul si pluralul se scriu amandoua — „1 zile" se vede.
+fn durata_scurta(secunde: i64) -> String {
+    let s = secunde.max(0);
+    let (n, unu, multe) = match s {
+        0..=119 => (s, "secunda", "secunde"),
+        120..=7199 => (s / 60, "minut", "minute"),
+        7200..=86_399 => (s / 3600, "ora", "ore"),
+        _ => (s / 86_400, "zi", "zile"),
+    };
+    format!("{n} {}", if n == 1 { unu } else { multe })
+}
+
+/// Compararea offline din v3.4: doua bucati de cod lipite in ecran, fara
+/// server si fara instantaneu. Obiectul se numeste ca in machete.
+pub fn compara_offline(sursa: &str, tinta: &str) -> Result<Comparata, String> {
+    if sursa.trim().is_empty() || tinta.trim().is_empty() {
+        return Err("lipeste cod in ambele panouri".to_string());
+    }
+    let obiect = |text: &str| gmotion_db::Obiect {
+        schema: "dbo".into(),
+        nume: "cod_lipit".into(),
+        tip: "P".into(),
+        definitie: text.to_string(),
+        setari: None,
+    };
+    let s = modul::pregateste(&[obiect(sursa)]);
+    let t = modul::pregateste(&[obiect(tinta)]);
+    let tinte = vec![("Lipit".to_string(), t)];
+    let comparare = modul::compara("Lipit", &s, &tinte, |_| {});
+    Ok(Comparata {
+        randuri: comparare.randuri,
+        sursa: s,
+        tinte,
+        server: "comparare offline".to_string(),
+    })
+}
+
 /// Rezultatul unei comparari pornite din ecranul de conectare.
 pub struct Comparata {
     pub randuri: Vec<modul::Rand>,
     pub sursa: modul::Baza,
-    pub tinta: modul::Baza,
+    /// Bazele comparate, in ordinea bifata. Una singura e cazul obisnuit.
+    pub tinte: Vec<(String, modul::Baza)>,
     pub server: String,
 }
 
-/// Citeste ambele baze si compara. Sincron: ecranul de conectare nu are
-/// progres in machete, iar pe instantaneu dureaza oricum sub o secunda.
-/// (Pe server real, progresul e lucru de etapa viitoare.)
-pub fn compara(c: &Conectare) -> Result<Comparata, String> {
+impl Comparata {
+    /// Prima tinta: ecranele care arata o singura baza (antetul, deploy-ul
+    /// pe o baza) au nevoie de un nume de aratat.
+    pub fn prima_tinta(&self) -> &str {
+        self.tinte.first().map_or("", |(n, _)| n.as_str())
+    }
+}
+
+/// Citeste sursa si fiecare baza bifata, si compara. `progres` primeste
+/// pasii pe rand (ce baza se citeste, a cata din cate) si intoarce `false`
+/// daca utilizatorul a apasat „Anuleaza".
+pub fn compara_cu(
+    c: &Conectare,
+    mut progres: impl FnMut(Pas) -> bool,
+) -> Result<Comparata, String> {
+    let baze = c.baza.baze_alese();
+    if baze.is_empty() {
+        return Err("nicio baza de comparat".to_string());
+    }
     let mut sursa_db = deschide(c, &c.sursa)?;
     let server = sursa_db.descriere();
+    if !progres(Pas {
+        baza: c.sursa.baza.clone(),
+        facut: 0,
+        din: baze.len() + 1,
+    }) {
+        return Err(ANULAT.to_string());
+    }
     let obiecte_sursa = sursa_db.obiecte(&c.sursa.baza).map_err(|e| e.to_string())?;
-    let obiecte_tinta = if c.instantaneu.is_some() {
-        sursa_db.obiecte(&c.baza.baza).map_err(|e| e.to_string())?
-    } else {
-        let mut tinta_db = deschide(c, &c.baza)?;
-        tinta_db.obiecte(&c.baza.baza).map_err(|e| e.to_string())?
-    };
     let sursa = modul::pregateste(&obiecte_sursa);
-    let tinta = modul::pregateste(&obiecte_tinta);
-    let comparare = modul::compara(
-        &c.sursa.baza,
-        &sursa,
-        &[(c.baza.baza.clone(), tinta.clone())],
-        |_| {},
-    );
+
+    let mut tinte: Vec<(String, modul::Baza)> = Vec::new();
+    for (i, nume) in baze.iter().enumerate() {
+        if !progres(Pas {
+            baza: nume.clone(),
+            facut: i + 1,
+            din: baze.len() + 1,
+        }) {
+            return Err(ANULAT.to_string());
+        }
+        // pe instantaneu toate bazele vin din acelasi fisier, deci nu se
+        // deschide o a doua conexiune pentru fiecare
+        let obiecte = if c.instantaneu.is_some() {
+            sursa_db.obiecte(nume).map_err(|e| e.to_string())?
+        } else {
+            let mut db = deschide(c, &c.baza)?;
+            db.obiecte(nume).map_err(|e| e.to_string())?
+        };
+        tinte.push((nume.clone(), modul::pregateste(&obiecte)));
+    }
+
+    let comparare = modul::compara(&c.sursa.baza, &sursa, &tinte, |_| {});
     Ok(Comparata {
         randuri: comparare.randuri,
         sursa,
-        tinta,
+        tinte,
         server,
     })
+}
+
+/// Unde a ajuns compararea: ce baza se citeste acum, a cata din cate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pas {
+    pub baza: String,
+    pub facut: usize,
+    pub din: usize,
+}
+
+/// Mesajul cu care se incheie o comparare oprita de utilizator. Se recunoaste
+/// dupa text in fereastra, ca sa nu se arate ca eroare.
+pub const ANULAT: &str = "comparare anulata";
+
+/// Compararea fara progres si fara anulare.
+pub fn compara(c: &Conectare) -> Result<Comparata, String> {
+    compara_cu(c, |_| true)
 }
 
 #[cfg(test)]
@@ -191,7 +385,174 @@ mod teste {
         let r = compara(&c).expect("compararea merge");
         assert_eq!(r.randuri.len(), 1);
         assert_eq!(r.randuri[0].obiect, "dbo.p");
+        assert_eq!(r.prima_tinta(), "B");
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn o_referinta_se_compara_cu_mai_multe_baze_deodata() {
+        let d = std::env::temp_dir().join(format!("gmotion-multi-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        std::fs::write(
+            &cale,
+            r#"{"versiune":1,"server":"SRV","creat":"2026-11-17T10:00:00Z","nota":"","baze":{
+                "Ref":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 1"}],
+                "C1":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 2"}],
+                "C2":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 3"}],
+                "C3":[]}}"#,
+        )
+        .unwrap();
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        c.sursa.baza = "Ref".into();
+        c.baza.comuta_baza("C1");
+        c.baza.comuta_baza("C2");
+
+        let pasi = std::cell::RefCell::new(Vec::new());
+        let r = compara_cu(&c, |p| {
+            pasi.borrow_mut().push(p.baza.clone());
+            true
+        })
+        .expect("compararea merge");
+        assert_eq!(
+            *pasi.borrow(),
+            ["Ref", "C1", "C2"],
+            "progresul spune ce baza se citeste, referinta intai"
+        );
+        assert_eq!(r.tinte.len(), 2);
+        assert_eq!(r.prima_tinta(), "C1");
+        // acelasi obiect apare o data pentru fiecare baza
+        let baze: Vec<&str> = r.randuri.iter().map(|x| x.baza.as_str()).collect();
+        assert_eq!(baze, ["C1", "C2"]);
+
+        // „Anuleaza" opreste fara sa citeasca restul
+        let citite = std::cell::Cell::new(0);
+        let e = compara_cu(&c, |_| {
+            citite.set(citite.get() + 1);
+            citite.get() < 2
+        })
+        .map(|_| ())
+        .expect_err("anulata");
+        assert_eq!(e, ANULAT);
+        assert_eq!(citite.get(), 2, "s-a oprit la a doua intrebare");
+
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn instantaneele_gasite_sunt_json_uri_reale_fara_duplicate() {
+        // directorul curent al testelor e crate-ul, deci `referinta/` se vede
+        // prin „..": exact una din caile cautate
+        let gasite = instantanee_gasite();
+        assert!(
+            gasite.iter().all(|c| c.is_file()),
+            "s-a propus ceva ce nu e fisier: {gasite:?}"
+        );
+        assert!(
+            gasite
+                .iter()
+                .all(|c| c.extension().is_some_and(|x| x == "json")),
+            "doar .json: {gasite:?}"
+        );
+        let mut unice = gasite.clone();
+        unice.sort();
+        unice.dedup();
+        assert_eq!(unice.len(), gasite.len(), "fara duplicate: {gasite:?}");
+        assert!(gasite.len() <= 40, "lista nu creste la nesfarsit");
+        // in repo exista cel putin instantaneul de previzualizare
+        assert!(
+            gasite.iter().any(|c| c.ends_with("previzualizare.json")),
+            "instantaneul de previzualizare ar trebui gasit: {gasite:?}"
+        );
+    }
+
+    #[test]
+    fn compararea_offline_lucreaza_pe_doua_bucati_de_cod() {
+        let e = compara_offline("", "SELECT 1")
+            .map(|_| ())
+            .expect_err("gol");
+        assert_eq!(e, "lipeste cod in ambele panouri");
+        let r = compara_offline(
+            "CREATE PROC dbo.p AS\nSELECT 1",
+            "CREATE PROC dbo.p AS\nSELECT 2",
+        )
+        .expect("merge");
+        assert_eq!(r.randuri.len(), 1);
+        assert_eq!(r.randuri[0].obiect, "dbo.cod_lipit");
+        assert_eq!(r.prima_tinta(), "Lipit");
+        // cod identic: nu apare niciun rand, ca la comparare normala
+        let r = compara_offline("SELECT 1", "SELECT 1").expect("merge");
+        assert!(r.randuri.is_empty());
+    }
+
+    #[test]
+    fn durata_se_scrie_in_unitatea_potrivita() {
+        assert_eq!(durata_scurta(-5), "0 secunde");
+        assert_eq!(durata_scurta(1), "1 secunda");
+        assert_eq!(durata_scurta(119), "119 secunde");
+        assert_eq!(durata_scurta(120), "2 minute");
+        assert_eq!(durata_scurta(3600), "60 minute");
+        assert_eq!(durata_scurta(7200), "2 ore");
+        assert_eq!(durata_scurta(86_399), "23 ore");
+        assert_eq!(durata_scurta(86_400), "1 zi");
+        assert_eq!(durata_scurta(172_800), "2 zile");
+    }
+
+    #[test]
+    fn descrierea_serverului_sare_campurile_lipsa() {
+        use gmotion_db::InfoServer;
+        let i = InfoServer {
+            editie: "SQL Server 2019 Standard".into(),
+            sistem: "Windows Server 2019".into(),
+            pornit_de_secunde: Some(90_000),
+            nr_baze: Some(42),
+        };
+        assert_eq!(
+            descrie_serverul(&i),
+            "SQL Server 2019 Standard · Windows Server 2019 · pornit de 1 zi · 42 baze"
+        );
+        let gol = InfoServer {
+            editie: "SQL Server".into(),
+            sistem: String::new(),
+            pornit_de_secunde: None,
+            nr_baze: None,
+        };
+        assert_eq!(descrie_serverul(&gol), "SQL Server");
+    }
+
+    #[test]
+    fn testarea_pe_instantaneu_spune_de_unde_vin_obiectele() {
+        let d = std::env::temp_dir().join(format!("gmotion-test-con-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        instantaneu(&cale);
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        let t = testeaza(&c, &c.sursa).expect("instantaneul se citeste");
+        assert!(t.starts_with("instantaneu · "), "{t}");
+        assert!(t.ends_with("2 baze"), "{t}");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn testarea_fara_server_spune_ce_lipseste_nu_incearca_sa_se_conecteze() {
+        let c = Conectare::noua();
+        assert_eq!(
+            testeaza(&c, &c.sursa).expect_err("lipseste serverul"),
+            "completeaza serverul"
+        );
+    }
+
+    #[test]
+    fn fara_nicio_baza_bifata_nu_e_nimic_de_comparat() {
+        let mut c = Conectare::noua();
+        c.instantaneu = Some("/nu/conteaza.json".into());
+        c.sursa.baza = "Ref".into();
+        assert_eq!(
+            compara(&c).map(|_| ()).expect_err("nimic de comparat"),
+            "nicio baza de comparat"
+        );
     }
 
     #[test]

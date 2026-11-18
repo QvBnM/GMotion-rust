@@ -11,6 +11,8 @@
 pub struct PasDeploy {
     /// `true` = obiectul nu exista in baza; deploy-ul il creeaza.
     pub creeaza: bool,
+    /// Baza in care se scrie.
+    pub baza: String,
     /// `schema.nume`.
     pub obiect: String,
     /// Numele tipului pentru utilizator („procedura").
@@ -42,7 +44,10 @@ pub enum RezultatDeploy {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EcranDeploy {
     pub referinta: String,
+    /// Bazele tinta, scrise pentru om: „Client1" sau „3 baze".
     pub tinta: String,
+    /// Numele fiecarei baze tinta; randurile le arata cand sunt mai multe.
+    pub baze: Vec<String>,
     pub pasi: Vec<PasDeploy>,
     /// Alese dar nedeployabile (exista doar in baza sau sunt criptate).
     pub sarite: usize,
@@ -140,6 +145,7 @@ mod teste {
     fn pas(creeaza: bool, obiect: &str) -> PasDeploy {
         PasDeploy {
             creeaza,
+            baza: "Client1".into(),
             obiect: obiect.into(),
             tip: "procedura".into(),
         }

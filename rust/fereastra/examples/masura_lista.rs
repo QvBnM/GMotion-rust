@@ -42,6 +42,7 @@ fn obiecte(n: usize) -> Vec<model_lista::Obiect> {
                 _ => Stare::Identic,
             };
             model_lista::Obiect {
+                baza: "Client1".into(),
                 schema: if i % 7 == 0 { "rpt" } else { "dbo" }.into(),
                 nume: format!("usp_Obiect_{i:06}"),
                 tip: ["P", "P", "P", "V", "FN", "TR"][i % 6].into(),
@@ -79,6 +80,7 @@ fn main() {
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra nu se creeaza");
     aplica_tema(&ui, gmotion_fereastra::Mod::default());
+    gmotion_fereastra::aplica_limba(&ui, Default::default());
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

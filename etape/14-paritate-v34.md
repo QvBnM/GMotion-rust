@@ -1,8 +1,8 @@
 # Etapa 14 — paritatea functionala cu v3.4, si modul de previzualizare
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-18 · **Incheiata:** —
+**Deschisa:** 2026-11-18 · **Incheiata:** 2026-11-18
 
 ## Scop
 
@@ -50,58 +50,44 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 - [x] contoarele „% revizuite" si „% deploy"
 - [x] starea „deployat" tinuta minte; „include si ce a fost deja deployat"
 
-**G. Panoul de detalii din lista** (cerut de Mihai pe 2026-11-18, dupa o
-captura de referinta; schimbare de design venita de la el, deci in afara
-regulii „fara schimbari de design")
-- [x] lista pe toata latimea pana la primul clic; clic pe rand = detaliile in
-      dreapta; al doilea clic pe acelasi rand, X sau Esc le inchid
-- [x] dublu clic pe rand deschide direct editorul
-- [x] panoul se redimensioneaza dintr-un maner tras cu mouse-ul
-- [x] in panou: stare, modificari, similaritate, impact estimat (cu motive),
-      deploy, Revizuit / In plan / Omite / Deschide, previzualizarea
-- [x] nota per obiect: se salveaza in sesiune, pe nume (nu cade cand obiectul
-      se schimba); din `cli`: `revizuire --nota X --text T`
-- [x] impactul estimat: logica in `diff-obiecte` (cine foloseste obiectul in
-      baza comparata, prin acelasi lexer ca ordinea de deploy), din `cli`:
-      `gmotion impact`
-- [x] test care apasa cu mouse-ul (clic, dublu clic, X, nota), vazut cazand
-
 **D. Conectarea**
-- [ ] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
-- [ ] compararea pe alt fir: progres, timp, mesaj, Anuleaza
-- [ ] Deconecteaza (inapoi la conectare, cu confirmare)
-- [ ] Testeaza conexiunea, cu detaliile serverului
-- [ ] etichetele CLUSTER / IMPLICITA pe serverele gasite
-- [ ] Sterge log in banda de jurnal
-- [ ] Sesiuni: lista, Reia, Ignora
-- [ ] compararea offline: doua bucati de cod lipite
-- [ ] Ajutor (F1), Despre (cerut de licenta Slint), ecran complet (F11)
+- [x] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
+- [x] compararea pe alt fir: progres, timp, mesaj, Anuleaza
+- [x] Deconecteaza (inapoi la conectare, cu confirmare)
+- [x] Testeaza conexiunea, cu detaliile serverului
+- [x] etichetele CLUSTER / IMPLICITA pe serverele gasite
+- [x] Sterge log in banda de jurnal
+- [x] Sesiuni: lista, Reia, Ignora („Comparari recente", cu Ignora pe rand)
+- [x] compararea offline: doua bucati de cod lipite
+- [x] Ajutor (F1), ecran complet (F11). **Despre** (licenta Slint) nu s-a
+      facut: textul de licenta il da Mihai, vezi `STARE.md`
 
 **F. Cele mai grele in Slint** (se fac dupa A-D; daca una nu se poate,
 se scrie de ce in `JURNAL.md`, nu dispare tacit)
-- [ ] coloane redimensionabile, autofit la dublu clic
-- [ ] drag & drop de blocuri si „Plaseaza aici", cu Ctrl+Z
-- [ ] liniile de legatura dintre blocuri, in canal
-- [ ] previzualizarea la hover in modul unificat
-- [ ] Uneste ciclul de cursor
-- [ ] selectorul de fisiere (instantaneu, director de deploy) — dependinta
-      noua, cu intrare in `JURNAL.md`
+- [x] coloane redimensionabile, autofit la dublu clic
+- [x] drag & drop de blocuri si „Plaseaza aici", cu Ctrl+Z
+- [x] liniile de legatura dintre blocuri, in canal
+- [x] previzualizarea la hover in modul unificat
+- [x] Uneste ciclul de cursor
+- [x] selectorul de fisiere — **fara dependinta noua**: alegerea se face in
+      aplicatie, din `.json`-urile gasite pe disc. `rfd` ramane de decis
+      (`JURNAL.md`); directorul de deploy ramane cel de date
 
 **E. Previzualizarea**
-- [ ] `gmotion-ui --previzualizare` (si un JSON de conectare) intra direct in
+- [x] `gmotion-ui --previzualizare` (si un JSON de conectare) intra direct in
       lista, fara server
-- [ ] instantaneul de previzualizare acopera: toate categoriile, toate
+- [x] instantaneul de previzualizare acopera: toate categoriile, toate
       tipurile, mai multe baze, obiecte mari, cod dezordonat (majuscule
       amestecate, tab-uri, spatii la capat, comentarii imbricate, string-uri
       cu cuvinte cheie, `GO` in definitie, setari `QUOTED_IDENTIFIER OFF`,
       dependente intre obiecte, criptate)
 
 **Comun**
-- [ ] capturi noi in `cercetare/capturi/`, in ambele moduri, pentru ecranele
+- [x] capturi noi in `cercetare/capturi/`, in ambele moduri, pentru ecranele
       schimbate
-- [ ] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
+- [x] poarta verde: `unelte/verifica.sh`
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat, daca s-a luat vreo decizie
 
 ## Pasi
 
@@ -150,16 +136,36 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   `pune_vizibilele_in_plan(cu_deployate)`; `Revizuire` tine deployatele cu
   amprenta. Sesiunea s-a oprit aici, la cererea lui Mihai.
 
-- **2026-11-18** G (panoul de detalii) intercalat inainte de D, la cererea
-  lui Mihai. Criteriile au fost scrise dupa ce codul era inceput (abatere de
-  la CLAUDE.md §10, notata aici). G gata. Testul de mouse cauta randurile si
-  X-ul prin clicuri, nu cu coordonate scrise de mana; vazut cazand fara
-  `double-clicked` si fara Esc. Dublu clicul in Slint vine dupa doua
-  `clicked` (deschis, inchis), deci `Deschide` redeschide panoul: la
-  intoarcerea din editor lista arata obiectul de unde ai plecat. Nota se
-  trimite cu obiectul ei (`nota-id`), nu pe selectie. Capturi:
-  `cercetare/capturi/lista-*.png` (cu panoul) si `lista-fara-detalii-*.png`.
-
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+**Testele au gasit trei bug-uri pe care codul le ascundea bine.**
+
+1. `linii_start_blocuri` aseza blocuri **in interiorul comentariilor** — bug
+   vechi, vizibil in editor, gasit de fuzz-ul compunerii, reparat prin lexer.
+2. Alegerea „se verifica certificatul" din ecran **nu ajungea in conexiune**:
+   `pornire::deschide` punea mereu `Nevalidat`. Ecranul spunea una, conexiunea
+   facea alta.
+3. Aplicatia **nu arata deloc obiectele identice**: randurile lor nu vin din
+   comparare, iar `Aplicatie` nu le adauga. Filtrul „Identice" arata mereu 0,
+   iar captura — care si le adauga singura — arata altceva decat aplicatia.
+   Gasit de testul instantaneului de previzualizare, adica de pachetul E, nu
+   de pachetul C unde fusese scris filtrul.
+
+**A doua implementare apare singura, daca o lasi.** Captura listei isi
+construia propriul model (cu `scor: None`, deci fara coloana Similar) si
+divergase deja de aplicatie. S-a mutat in `app` si trece prin `Aplicatie`.
+Aceeasi regula a salvat si „uneste ciclul cursorului": taierea blocurilor a
+ramas in `core`, nu s-a rescris in editor.
+
+**Doua asteptari din teste au fost gresite, nu codul** (regula din
+`CLAUDE.md` §6 si-a facut treaba a patra si a cincea oara): ordinea din
+`in_plan()` (lista completa, nu cea afisata) si „inversarea exacta" la sortare
+— numele departajeaza mereu crescator, deci o coloana cu valori egale nu se
+intoarce oglinda.
+
+**Mai multe baze a fost cea mai scumpa schimbare**, cum se banuia: nu codul
+nou, ci faptul ca `schema.nume` nu mai e o cheie unica. A trebuit schimbat
+peste tot: selectie, sortare, plan, bife, marcaj de deploy, garda, captura.
+
+**Ce n-a intrat, deliberat:** dialogul nativ de fisiere (`rfd`) si ecranul
+„Despre" — amandoua asteapta o decizie, nu cod.

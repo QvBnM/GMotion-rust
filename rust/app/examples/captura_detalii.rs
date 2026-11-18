@@ -66,7 +66,12 @@ fn main() {
     let sursa = modul::pregateste(&fisier.obiecte(&a[2]).expect("baza sursa"));
     let tinta = modul::pregateste(&fisier.obiecte(&a[3]).expect("baza tinta"));
     let comparare = modul::compara(&a[2], &sursa, &[(a[3].clone(), tinta.clone())], |_| {});
-    let mut app = Aplicatie::noua(comparare.randuri, sursa, tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(
+        comparare.randuri,
+        sursa,
+        vec![(a[3].clone(), tinta)],
+        modul::Revizuire::noua(),
+    );
     app.asigura_detalii(0, 40);
 
     let (w, h) = (1440u32, 900u32);
@@ -74,6 +79,7 @@ fn main() {
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra listei");
     aplica_tema(&ui, tema);
+    gmotion_fereastra::aplica_limba(&ui, Default::default());
     let incarca = |ui: &FereastraLista, app: &Aplicatie| {
         incarca_lista(
             ui,
@@ -106,8 +112,9 @@ fn main() {
         })
         .unwrap_or(2);
     app.comanda(Comanda::ClicPeRand(p));
-    let id = app.obiect().map(|o| o.id()).unwrap_or_default();
+    let (baza, id) = app.obiect().map(|o| o.cheie()).unwrap_or_default();
     app.comanda(Comanda::PuneNota(
+        baza,
         id,
         "Am ramas aici: de verificat cu echipa de facturare.".into(),
     ));

@@ -784,9 +784,8 @@ toate ecranele sunt rescrise; butonul de tema il schimba si il tine minte.
 
 Cerut de Mihai, dupa o captura de referinta: lista pe toata latimea, la clic
 detaliile in dreapta (redimensionabile, inchise cu X sau al doilea clic),
-dublu clic direct in editor. Schimbare de design venita de la el, deci in
-afara regulii „fara schimbari de design" a etapei 14; intrata ca punctul G,
-inaintea conectarii.
+dublu clic direct in editor. Lucrat intr-o sesiune paralela, pe baza etapei
+14; la unire a intrat ca punctul G al etapei 15.
 
 **Impactul estimat** e o estimare grosiera si o spune: fiecare nivel vine cu
 motivele lui. Puncte: folosit de 1-4 obiecte din baza comparata +1, de 5+
@@ -802,6 +801,85 @@ implementare. Respins: dependentele de tabele (nu le citim) si SQL dinamic
 **Notele** se tin pe nume, nu pe amprenta: o nota e despre obiect („a ramas
 aici"), nu despre versiunea lui; bifele raman pe amprenta. Stau in aceeasi
 stare `Revizuire` din sesiune, deci `cli` si fereastra le vad la fel.
+
+---
+
+## 2026-11-18 — Harta din lista, refacuta dupa modelul lui Mihai
+
+Harta veche avea grupuri fixe de 4 randuri, asezate pe o latime constanta
+(1372 px): pe putine obiecte statea ingramadita la stanga, cu restul
+cartusului gol. Mihai a dat modelul corect (o imagine): cate o coloana pe tip,
+despartite prin linii, care umplu impreuna cartusul; titlul cu numarul la
+dreapta; o bara cu proportia starilor; patrate pe blocuri de cate 5 randuri;
+bula langa patrat, cu punctul starii.
+
+Decis pe drum: (1) patratele stau **in ordinea din tabel**, nu sortate dupa
+stare — bara de proportie da rezumatul, iar harta urmeaza sortarea listei.
+(2) Toate coloanele de pe un rand primesc cel mai mic numar de randuri care
+incape, apoi latimea ramasa se imparte pe masura lor si grila se lateste
+cat coloana: banda ramane cat mai joasa deasupra tabelului. (3) Latimea e a
+ferestrei, nu o constanta; la redimensionare harta se reaseaza. (4) Culori
+proprii pentru harta (`harta_mod/add/del/gol`), mai stinse decat barele din
+editor, ca sute de patrate alaturi sa nu orbeasca; patratele din tabel le
+folosesc pe aceleasi, ca sa se potriveasca cu harta. (5) Zoom automat,
+cerut de Mihai: cand obiectele nu intra in 260 px, patratele coboara pe
+trepte fixe (14, 11, 8, 6, 4 px); o singura marime pe toata harta. Abia la
+ultima treapta apare derularea. Treptele sunt fixe, nu continue, ca
+patratele sa ramana pe pixeli intregi si clicul sa nimereasca exact.
+
+---
+
+## 2026-11-18 — Etapa 14: ce s-a decis pe drum
+
+**Bifa nu re-aplica filtrul pe loc.** Cu filtrul „Nerevizuite" pornit, randul
+bifat ramane pe ecran pana se atinge filtrul din nou. Asa face si v3.4
+(`marcheazaRezolvat` nu cheama `renderLista`), si e si mai bine: altfel randul
+dispare de sub cursor exact cand lucrezi pe el.
+
+**Mai multe baze deodata.** Cheia unui rand devine `(baza, schema.nume)`:
+acelasi obiect din doua baze sunt doua randuri, cu bife, plan si marcaj de
+deploy separate. Banda de sus arata mediul cel mai riscant dintre tinte — cu o
+baza PROD printre ele, ecranul n-are voie sa para DEV.
+
+**Compararea pe alt fir.** Firul trimite **mereu** o veste finala (gata, esuata
+sau anulata), ca ecranul sa nu ramana agatat pe „se compara" daca firul moare.
+Anularea e un steag citit intre baze, nu o oprire fortata.
+
+**Obiectele identice intra in lista.** Nu vin din comparare (n-au ce spune),
+dar fara ele categoria „Identice" arata mereu 0, iar cautarea nu gaseste un
+obiect care exista si e la fel. Le adauga `Aplicatie`, nu captura: captura
+listei s-a mutat in `app` si trece prin `Aplicatie`, ca sa nu existe o a doua
+constructie a listei (era deja divergenta — captura punea `scor: None`).
+
+**Selectorul de fisiere: fara dependinta noua, deocamdata.** „Deschide un
+instantaneu" arata `.json`-urile gasite langa aplicatie, in directorul de date
+si in `referinta/instantanee`, plus o cale scrisa de mana. Alternativa era
+`rfd` (dialogul nativ): o dependinta noua, care aduce GTK sau portalul XDG pe
+Linux si **pe care n-o pot proba fara ecran** — adica exact un buton livrat
+nedovedit. Ramane de decis de Mihai; daca raspunsul e „da", intra ca dependinta
+proprie, cu intrarea ei aici.
+
+**Unirea ciclului de cursor sta in `core`.** `aliniaza_cu` / `diff_aliniat_cu`
+duc optiunea pana la `split_statements`, care o avea deja. Un al doilea loc
+care decide granite de blocuri ar fi fost bug-ul reparat la etapa 7.
+
+---
+
+## 2026-11-18 — Fixture-ul de referinta, regenerat cu cazul lui Mihai
+
+**Motiv.** Mihai a raportat „inconsistenta motorului" pe o comparare offline
+(`WHile 1=1 / BEgin ...` fata de `IF 1=1 / While 1=1 / BEGIN ...`). Cazul a
+intrat in `referinta/cazuri.json` ca `mihai_offline_while_begin`, deci
+fixture-ul s-a regenerat explicit cu `unelte/regenereaza-fixture.sh`.
+Diff-ul adauga **doar** cazul nou.
+
+**Ce a aratat.** Rust da exact ce da motorul JS din v3.4: aceleasi patru
+blocuri de fiecare parte, acelasi sir de diferente. Singura divergenta e cea
+deja deliberata — continutul string-urilor nu se mai trece in litere mici
+(`'Start END'` ramane asa), deci cazul a intrat si in
+`DIVERGENTE_DELIBERATE`. Ce deranjeaza la privit tine de **afisare**, nu de
+motor: doua blocuri complet diferite se arata ca sters + adaugat, nu
+imperecheate.
 
 ---
 

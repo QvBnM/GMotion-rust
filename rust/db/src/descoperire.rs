@@ -60,6 +60,7 @@ pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
         };
         let nume = valoare("ServerName");
         let instanta = valoare("InstanceName");
+        let clusterizat = valoare("IsClustered").is_some_and(|v| v.eq_ignore_ascii_case("Yes"));
         let tcp = valoare("tcp");
         let versiune = valoare("Version");
 
@@ -79,9 +80,11 @@ pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
         // Instanta implicita se numeste MSSQLSERVER si NU se scrie in nume:
         // `SRV01`, nu `SRV01\MSSQLSERVER`. Altfel conexiunea ar cauta o
         // instanta numita care nu exista.
-        let server = match instanta {
-            Some(i) if !i.is_empty() && i != "MSSQLSERVER" => format!("{server}\\{i}"),
-            _ => server.to_string(),
+        let numita = instanta.is_some_and(|i| !i.is_empty() && i != "MSSQLSERVER");
+        let server = if numita {
+            format!("{server}\\{}", instanta.unwrap_or(""))
+        } else {
+            server.to_string()
         };
 
         out.push(Instanta {
@@ -89,6 +92,8 @@ pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
             ip: ip.to_string(),
             port: tcp.and_then(|p| p.parse().ok()).filter(|p: &u16| *p != 0),
             versiune: versiune.filter(|v| !v.is_empty()).map(str::to_string),
+            implicita: !numita,
+            cluster: clusterizat,
         });
     }
     out
@@ -224,6 +229,21 @@ mod teste {
         assert_eq!(i[0].server, "SRV01");
         assert_eq!(i[0].port, Some(1433));
         assert_eq!(i[0].versiune.as_deref(), Some("15.0.2000.5"));
+        assert!(i[0].implicita, "MSSQLSERVER inseamna instanta implicita");
+        assert!(!i[0].cluster, "IsClustered;No");
+    }
+
+    /// Etichetele CLUSTER / IMPLICITA din ecranul de conectare vin de aici,
+    /// nu din ghicitul numelui.
+    #[test]
+    fn eticheta_de_cluster_vine_din_raspuns() {
+        let d = raspuns(
+            "ServerName;SRV03;InstanceName;SQL2019;IsClustered;Yes;Version;15.0;tcp;1433;;",
+        );
+        let i = parseaza_raspuns(&d, "10.0.0.7");
+        assert_eq!(i[0].server, "SRV03\\SQL2019");
+        assert!(i[0].cluster);
+        assert!(!i[0].implicita);
     }
 
     #[test]
@@ -232,6 +252,7 @@ mod teste {
         let i = parseaza_raspuns(&d, "10.0.0.5");
         assert_eq!(i[0].server, "SRV01\\SQLEXPRESS");
         assert_eq!(i[0].port, Some(49170));
+        assert!(!i[0].implicita);
     }
 
     #[test]

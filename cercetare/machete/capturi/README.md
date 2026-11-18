@@ -24,7 +24,7 @@ cargo run --release -p gmotion-fereastra --example captura -- \
 Lista (din `rust/`):
 
 ```
-cargo run --release -p gmotion-fereastra --example captura_lista -- \
+cargo run --release -p gmotion-app --example captura_lista -- \
     ../referinta/instantanee/testsimilitudine.json \
     CharismaERP_GetsBet CharismaERP_GetsBet_Copy \
     ../cercetare/machete/capturi/Main-nativ.png dbo.TESTSIMILITUDINE_CaseG_StringCuKeywords

@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (424 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (462 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -24,57 +24,77 @@ interfata grafica: binarul `gmotion`.
 | `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
 | `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
-| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **nu e la paritate cu v3.4** (`cercetare/lipsuri-portare.md`) |
+| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **la paritate cu v3.4**, in afara randurilor ramase in `cercetare/lipsuri-portare.md` |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/14-paritate-v34.md` — toate functiile din v3.4,
-fara schimbari de design, apoi modul de previzualizare. Etapa 13 (aspectul
-nou) s-a incheiat pe 2026-11-18; capturile: `cercetare/capturi/`.
+**Etapa activa:** `etape/15-interfata-si-incredere.md` — interfata care nu te
+incurca (lista ramane in stanga cand deschizi, incadrare la orice rezolutie,
+harta curata, denumiri „Martor" / „Modificata", comutator de limba) si
+incredere in motor pe cod scris urat. Etapa 14 s-a incheiat pe 2026-11-18.
 
 ```
-cd rust && cargo run --release -p gmotion-app            # implicit intunecat
-cargo run --release -p gmotion-app -- --tema luminos
-# sau direct pe un instantaneu:
-cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimilitudine.json \
-    --referinta CharismaERP_GetsBet --baza CharismaERP_GetsBet_Copy
+unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare
+unelte/porneste.sh                   # Linux / WSL (cere ecran)
+unelte\porneste.bat --tema luminos
+unelte\porneste.bat --server         # ecranul de conectare, gol
 ```
 
 ---
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C si G (panoul de detalii
-din lista, cerut de Mihai) gata. Urmeaza D.**
+**Etapa 15, pachetul A (motorul si testele), e in lucru.** Facut: cazul
+raportat de Mihai a intrat in harness si s-a dovedit ca motorul da exact ce da
+v3.4; instantaneul de previzualizare are acum un ciclu de cursor intreg, cu
+`WHILE` imbricat si `IF/ELSE`, scris urat; exista un test cap-coada care aplica
+toate blocurile pe el si verifica forma normalizata.
 
-D — conectarea, in ordinea asta:
+**Facut din E:** textele interfetei au iesit din `.slint` intr-un tabel unic
+(`fereastra::texte`), in romana si engleza, cu comutator in antet si alegerea
+tinuta minte; „Sursa" / „Baza" sunt acum „Martor" / „Modificata".
 
-1. **o referinta comparata cu mai multe baze** (bife in ecranul de conectare);
-   schimba `rutare` (azi `Aplicatie` tine o singura tinta) si aduce filtrul pe
-   baza in lista. E cea mai mare dintre toate, deci prima;
-2. compararea pe alt fir: progres, timp, mesaj, **Anuleaza** (azi fereastra se
-   blocheaza ~12 s pe baza lui Mihai);
-3. Deconecteaza (cu confirmare), Testeaza conexiunea cu detaliile serverului,
-   etichetele CLUSTER / IMPLICITA, Sterge log;
-4. Sesiuni: lista, Reia, Ignora; compararea offline (doua bucati de cod
-   lipite); Ajutor (F1), Despre, ecran complet (F11).
+**Facut din G:** panoul de detalii din lista (cerut de Mihai): lista pe toata
+latimea pana la clic, detaliile in dreapta cu impact estimat si nota, maner
+de latime, X / Esc / al doilea clic inchid, dublu clic deschide editorul.
+Din `cli`: `gmotion impact`, `revizuire --nota`.
 
-Apoi F (cele grele in Slint) si E (modul de previzualizare).
+**Facut din B:** lista ramane in stanga cand deschizi un obiect — coloana de
+300 px, clic pe rand = alt obiect pe loc, Esc o largeste la loc.
 
-**Nu schimba designul din proprie initiativa** (cererea lui Mihai): elementele
-noi vin din schita (`cercetare/schita-slint/README.md`); schimbarile de design
-cerute de Mihai intra ca punct propriu in etapa, cu criterii.
+**Urmatorul pas: ce a ramas din E, apoi C (incadrarea).** Inaintea rearanjarii ecranelor,
+fiindca atinge fiecare text:
+
+1. redenumirea „Martor" / „Modificata" si in `cli` si in documente;
+2. textele facute in Rust in afara ferestrei sunt inca doar in romana: numele
+   tipurilor (`core::nume_tip`), propozitia „difera in cod, siruri"
+   (`core::clasificare`), rezumatele de deploy, erorile si jurnalul.
+
+Apoi B (lista ramane in stanga la „Deschide"), C (incadrarea), D (harta),
+F (conectarea). Ordinea si criteriile: `etape/15-interfata-si-incredere.md`.
+
+**Inainte de orice lansare: `cercetare/audit-qa-2026-11-18.md`** — constatari
+blocante, nereproduse inca pe implementarea asta.
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
 
 **Rulare pe Windows, de cerut lui Mihai cand are timp** (ce n-am putut proba
-pe Linux): `gmotion-ui --tema intunecat` si `--tema luminos` pe un server
-real, prin RDP, si spus daca umbrele insulelor din editor se misca greu;
-daca da, se scot umbrele, nu insulele.
+pe Linux):
+
+```
+gmotion-ui --previzualizare
+gmotion-ui --tema luminos --previzualizare
+```
+
+si, pe un server real, o comparare cu **doua-trei baze bifate**. Ce vreau sa
+stiu: (1) daca umbrele insulelor din editor se misca greu prin RDP (daca da,
+se scot umbrele, nu insulele); (2) cat tine bara de progres pe bazele lui si
+daca „Anuleaza" raspunde pe loc; (3) daca tragerea unui bloc peste panoul din
+dreapta se simte natural sau e prea sensibila.
 
 Ramase deschise, documentate: performanta patratica pe obiecte uriase (se
 vede si in editor: ~3,1 s pentru un obiect de 20.000 de linii, o singura data,
@@ -86,6 +106,15 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
+
+**Doua decizii noi, din etapa 14:**
+
+6. **Dialogul nativ de fisiere (`rfd`)?** Acum „Deschide un instantaneu" arata
+   `.json`-urile gasite pe disc si accepta o cale scrisa. Un dialog nativ ar fi
+   o dependinta noua pe care n-o pot proba fara ecran. Daca il vrei, intra cu
+   intrarea lui in `JURNAL.md`.
+7. **Ecranul „Despre"** (cerut de licenta Slint): textul il dai tu — ce scrie
+   acolo despre licenta si versiune.
 
 Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
 `JURNAL.md`): contrastul se repara intunecand minim doua jetoane; modul
@@ -131,6 +160,25 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 - **Impactul lexeaza toata baza comparata la prima deschidere a panoului**
   (`OnceCell` in `Aplicatie`). Pe baze mari, primul clic poate dura; nu
   muta calculul in `deseneaza` fara panou deschis.
+- **Intre doua ecrane se arata intai fereastra noua, apoi se ascund
+  celelalte.** `slint::run_event_loop()` se opreste cand nu mai e **nicio**
+  fereastra vizibila, deci „ascunde tot, apoi arata" inchide aplicatia pe loc
+  — exact la trecerea de pe conectare pe lista. Gasit de Mihai pe Windows,
+  2026-11-18; trecerea sta acum intr-un singur loc, `main::arata`.
+- **Nicio fereastra nu se probeaza pe Linux-ul meu.** Capturile randeaza
+  ecranul direct, fara bucla de evenimente, deci nu spun nimic despre
+  pornire, inchidere sau trecerea intre ecrane. Un bug de ciclu de viata se
+  vede doar rulat pe Windows.
+
+- **Cheia unui rand e `(baza, schema.nume)`, nu `schema.nume`.** De cand o
+  referinta se compara cu mai multe baze, acelasi obiect apare o data pentru
+  fiecare baza. Orice cautare dupa nume singur loveste randul gresit:
+  `Lista::{pune_deploy, scoate_din_plan, in_plan}` si `Aplicatie::rand` cer
+  amandoua partile.
+- **Obiectele identice sunt puse in lista de `Aplicatie`, nu de comparare.**
+  Randurile lor nu exista in `Comparare::randuri`. Cine construieste o lista
+  pe langa `Aplicatie` pierde categoria „Identice" — si asta a fost exact
+  bug-ul din captura.
 
 - **Bifa nu re-aplica filtrul pe loc, si asta e deliberat** (ca in v3.4:
   `marcheazaRezolvat` nu cheama `renderLista`). Cu filtrul „Nerevizuite"
@@ -151,6 +199,13 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   in acelasi pas, cu test.
 - **Ce patrat de pe harta e sub mouse se decide doar in `harta::indice_la`.**
   Slint trimite coordonatele. Nu repeta calculul in `.slint`.
+- **Cateva masuri ale hartii sunt scrise de doua ori:** `harta::CAP` (44),
+  `Y_BARA` (28) si `SPATIU_X / 2` (linia la -20 px) apar si in `lista.slint`.
+  Treapta de zoom ajunge in fereastra doar ca latura (`patrat`); clicul o
+  reface prin `Scara::cu_latura`, deci doua trepte cu aceeasi latura ar
+  strica clicul.
+  Daca muti una doar intr-o parte, clicul nimereste patratul de sub cel
+  aratat. Testele din `harta.rs` nu vad `.slint`.
 - **Fara diacritice nicaieri** (poarta cade). Datele de test care verifica
   nume cu diacritice raman, marcate cu `diacritice-permise` pe aceeasi linie;
   `cargo fmt` poate muta comentariul pe randul urmator, si atunci poarta cade.

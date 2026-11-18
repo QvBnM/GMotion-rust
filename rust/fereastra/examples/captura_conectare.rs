@@ -4,7 +4,9 @@
 //!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png [--tema intunecat|luminos]
 use std::rc::Rc;
 
-use gmotion_fereastra::model_conectare::{Acreditari, Conectare, Parte, Recenta, StareConexiune};
+use gmotion_fereastra::model_conectare::{
+    Acreditari, Conectare, Parte, Recenta, ServerGasit, StareConexiune,
+};
 use gmotion_fereastra::{aplica_tema, incarca_conectare, incarca_jurnal, FereastraConectare, Mod};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
@@ -41,10 +43,19 @@ fn main() {
         stare: StareConexiune::Conectat("conectat · SQL Server 2016 SP2 · 21.183 obiecte".into()),
         auth_windows: false,
         servere_gasite: vec![
-            "srv-prod.firma.local,1433".into(),
-            "SRV-PROD\\SQL2019".into(),
-            "SRV-TEST".into(),
+            ServerGasit {
+                nume: "srv-prod.firma.local,1433".into(),
+                implicita: true,
+                cluster: false,
+            },
+            ServerGasit {
+                nume: "SRV-PROD\\SQL2019".into(),
+                implicita: false,
+                cluster: true,
+            },
+            ServerGasit::nou("SRV-TEST"),
         ],
+        alese: Vec::new(),
     };
     c.recente = vec![
         Recenta {
@@ -81,6 +92,7 @@ fn main() {
         .and_then(|n| Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
+    gmotion_fereastra::aplica_limba(&ui, Default::default());
     incarca_conectare(&ui, &c);
     incarca_jurnal(
         &ui,

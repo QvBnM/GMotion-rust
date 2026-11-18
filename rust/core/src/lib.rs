@@ -33,14 +33,15 @@ pub mod normalizare;
 pub mod segmentare;
 pub mod seqmatch;
 
-pub use aliniere::{aliniaza, compune, Aliniere, Linie, RandAliniat};
+pub use aliniere::{aliniaza, aliniaza_cu, compune, Aliniere, Linie, RandAliniat};
 pub use diff::{
-    diff_aliniat, rezumat_diff, rezumat_rapid, FelSchimbare, RandDiff, Segment, TipDiferenta,
+    diff_aliniat, diff_aliniat_cu, rezumat_diff, rezumat_rapid, FelSchimbare, RandDiff, Segment,
+    TipDiferenta,
 };
 pub use normalizare::{
     calc_hash, norm, normalizeaza, pregateste_afisare, round_py, scor_similaritate,
 };
-pub use segmentare::{cheie_bloc, linii_start_blocuri, split_statements};
+pub use segmentare::{are_cursor, cheie_bloc, linii_start_blocuri, split_statements};
 
 /// Tipurile de obiecte SQL comparate, asa cum apar in `sys.objects.type`.
 /// `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.

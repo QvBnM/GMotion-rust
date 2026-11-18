@@ -98,6 +98,16 @@ cd rust && cargo build --release -p gmotion-cli
 ./target/release/gmotion diagnostic
 ```
 
+**Fereastra** — intra direct in lista, pe un instantaneu sintetic, fara
+server:
+
+```
+unelte\porneste.bat             # Windows
+unelte/porneste.sh              # Linux / WSL (cere ecran)
+unelte\porneste.bat --tema luminos
+unelte\porneste.bat --server    # ecranul de conectare, gol
+```
+
 **Poarta** — se ruleaza inainte de fiecare commit:
 
 ```

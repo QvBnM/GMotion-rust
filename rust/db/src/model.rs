@@ -138,6 +138,10 @@ pub struct Instanta {
     /// `None` cand instanta ascunde portul sau raspunde doar pe named pipes.
     pub port: Option<u16>,
     pub versiune: Option<String>,
+    /// Instanta implicita (`MSSQLSERVER`): numele n-are `\instanta`.
+    pub implicita: bool,
+    /// `IsClustered` din raspunsul SSRP: serverul e intr-un cluster.
+    pub cluster: bool,
 }
 
 /// Ce raspunde serverul la o verificare de conexiune. Pentru ecranul de
