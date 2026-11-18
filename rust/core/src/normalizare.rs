@@ -142,17 +142,97 @@ pub fn unifica_linii(cod: &str) -> String {
 
 /// Textul pregatit pentru afisare: terminatoare unificate, spatii de la capatul
 /// liniilor sterse, linii goale de la inceput si de la sfarsit eliminate.
-/// Nu modifica nimic in interior - ce se afiseaza ramane codul utilizatorului.
+///
+/// **Nimic nu se atinge in interiorul unui sir, al unui `[...]` sau al unui
+/// `"..."`.** Textul asta nu e doar ce se vede: „Aplica toate" il trimite ca
+/// text final in baza. Un `\r\n` sau un spatiu de la capat de linie din
+/// interiorul unui sir face parte din datele produse de procedura (SQL
+/// dinamic, iesiri cu latime fixa, comparatii cu `CHAR(13)`), deci se
+/// pastreaza octet cu octet. Granitele vin din `lexer::segmente`, ca orice
+/// regula pe text.
 pub fn pregateste_afisare(cod: &str) -> String {
-    let cod = unifica_linii(cod);
-    let mut linii: Vec<&str> = cod.split('\n').map(|l| l.trim_end()).collect();
-    while linii.first().is_some_and(|l| l.trim().is_empty()) {
+    if cod.is_empty() {
+        return String::new();
+    }
+    // pentru fiecare octet, daca e in interiorul unui sir / identificator
+    let mut protejat = vec![false; cod.len()];
+    for s in crate::lexer::segmente(cod) {
+        if matches!(
+            s.fel,
+            crate::lexer::Fel::Sir
+                | crate::lexer::Fel::IdentificatorParanteze
+                | crate::lexer::Fel::IdentificatorGhilimele
+        ) {
+            protejat[s.start..s.sfarsit]
+                .iter_mut()
+                .for_each(|p| *p = true);
+        }
+    }
+
+    // 1. terminatoare unificate, doar in afara sirurilor. Delimitatorii si
+    //    spatiile sunt ASCII, deci lucrul pe octeti e sigur: un octet de
+    //    continuare UTF-8 e >= 0x80.
+    let b = cod.as_bytes();
+    let mut text: Vec<(u8, bool)> = Vec::with_capacity(b.len());
+    let mut i = 0usize;
+    while i < b.len() {
+        if b[i] == b'\r' && !protejat[i] {
+            if i + 1 < b.len() && b[i + 1] == b'\n' {
+                i += 1; // \r\n -> \n: \n-ul se adauga la pasul urmator
+                continue;
+            }
+            text.push((b'\n', false));
+            i += 1;
+            continue;
+        }
+        text.push((b[i], protejat[i]));
+        i += 1;
+    }
+
+    // 2. liniile se taie doar la `\n`-urile din afara sirurilor: un `\n` din
+    //    interiorul unui sir ramane in continutul liniei
+    let mut linii: Vec<&[(u8, bool)]> = Vec::new();
+    let mut inceput = 0usize;
+    for (poz, (c, prot)) in text.iter().enumerate() {
+        if *c == b'\n' && !prot {
+            linii.push(&text[inceput..poz]);
+            inceput = poz + 1;
+        }
+    }
+    linii.push(&text[inceput..]);
+
+    // 3. spatiile de la capatul liniei, tot doar in afara sirurilor
+    for l in linii.iter_mut() {
+        let mut sfarsit = l.len();
+        while sfarsit > 0 {
+            let (c, prot) = l[sfarsit - 1];
+            if prot || !(c == b' ' || c == b'\t') {
+                break;
+            }
+            sfarsit -= 1;
+        }
+        *l = &l[..sfarsit];
+    }
+
+    // 4. linii goale de la inceput si de la sfarsit; o linie care contine un
+    //    sir nu e goala, deci nu se poate pierde nimic din el
+    let goala = |l: &&[(u8, bool)]| l.iter().all(|(c, _)| c.is_ascii_whitespace());
+    while linii.first().is_some_and(goala) {
         linii.remove(0);
     }
-    while linii.last().is_some_and(|l| l.trim().is_empty()) {
+    while linii.last().is_some_and(goala) {
         linii.pop();
     }
-    linii.join("\n")
+
+    let mut octeti: Vec<u8> = Vec::with_capacity(text.len());
+    for (poz, l) in linii.iter().enumerate() {
+        if poz > 0 {
+            octeti.push(b'\n');
+        }
+        octeti.extend(l.iter().map(|(c, _)| *c));
+    }
+    // taierea e pe granite ASCII, deci textul ramane UTF-8 valid
+    String::from_utf8(octeti).unwrap_or_else(|_| cod.to_string())
 }
 
 /// SHA-256 hex al textului normalizat. Folosit pentru respingerea rapida a
@@ -218,6 +298,32 @@ pub fn scor_similaritate(referinta: &str, curent: &str) -> f64 {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    /// C5 din `cercetare/audit-qa-2026-11-18.md`: textul pregatit pentru
+    /// afisare e si textul pe care „Aplica toate" trimite in baza. Daca
+    /// taierea spatiilor de la capatul liniei intra intr-un sir, deploy-ul
+    /// schimba datele pe care le produce procedura — SQL dinamic, iesiri cu
+    /// latime fixa, comparatii cu CHAR(13).
+    #[test]
+    fn afisarea_nu_atinge_interiorul_unui_sir() {
+        // spatii la capat de linie **in interiorul** sirului, si \r\n in sir
+        let cod = "SELECT 'a   \r\nb'   \r\nFROM t";
+        assert_eq!(pregateste_afisare(cod), "SELECT 'a   \r\nb'\nFROM t");
+        // acelasi lucru pentru [..] si ".."
+        assert_eq!(
+            pregateste_afisare("SELECT [a   \r\nb]  \n1"),
+            "SELECT [a   \r\nb]\n1"
+        );
+        assert_eq!(
+            pregateste_afisare("SELECT \"a   \r\nb\"  \n1"),
+            "SELECT \"a   \r\nb\"\n1"
+        );
+        // in cod si in comentarii se taie, ca pana acum
+        assert_eq!(
+            pregateste_afisare("SELECT 1   \r\n-- gata   \r\n"),
+            "SELECT 1\n-- gata"
+        );
+    }
 
     #[test]
     fn sterge_hinturi_si_dbo() {

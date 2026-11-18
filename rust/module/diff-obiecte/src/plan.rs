@@ -252,6 +252,13 @@ impl Plan {
                 cod: aplica_create_or_alter(
                     texte_finale
                         .get(&(p.baza.clone(), p.obiect.clone()))
+                        // un text final egal cu **afisarea** referintei nu e
+                        // o editare: „Aplica toate" pune exact textul vazut in
+                        // editor, iar afisarea nu are spatiile de la capat de
+                        // linie si liniile goale de la capete. Scris asa,
+                        // obiectul ar pleca in baza altfel decat referinta cu
+                        // care l-am declarat identic (C5 din auditul QA).
+                        .filter(|t| t.as_str() != gmotion_core::pregateste_afisare(&o.definitie))
                         .map_or(o.definitie.as_str(), String::as_str),
                 ),
                 setari: o.setari,
@@ -340,6 +347,32 @@ mod teste {
             ob("pX", "CREATE PROCEDURE dbo.pX AS SELECT 9"),
         ]);
         (r, vec![("Tinta".to_string(), t)])
+    }
+
+    /// C5 din auditul QA, partea a doua: „Aplica toate" pune ca text final
+    /// exact textul **de afisare** al referintei. Daca deploy-ul il scrie ca
+    /// text final, obiectul pleaca in baza fara spatiile de la capat de linie
+    /// si fara liniile goale de la capete — adica altfel decat referinta cu
+    /// care a fost declarat identic. Textul final egal cu afisarea referintei
+    /// nu e o editare: se deployeaza definitia neatinsa.
+    #[test]
+    fn textul_final_egal_cu_afisarea_referintei_deployeaza_definitia_neatinsa() {
+        let def = "CREATE PROCEDURE dbo.pA AS\r\nSELECT 'a   \r\nb'   \r\n\r\n";
+        let r = pregateste(&[ob("pA", def)]);
+        let t = pregateste(&[ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 0")]);
+        let a = vec![("Tinta".to_string(), t)];
+        let p = plan(&r, &a);
+        let mut texte = BTreeMap::new();
+        texte.insert(
+            ("Tinta".to_string(), "dbo.pA".to_string()),
+            gmotion_core::pregateste_afisare(def),
+        );
+        let pe_baza = p.de_deployat_cu(&r, &texte).expect("se poate deploia");
+        assert_eq!(
+            pe_baza["Tinta"][0].cod,
+            crate::deploy::aplica_create_or_alter(def),
+            "definitia referintei, octet cu octet"
+        );
     }
 
     fn plan(r: &Baza, a: &[(String, Baza)]) -> Plan {

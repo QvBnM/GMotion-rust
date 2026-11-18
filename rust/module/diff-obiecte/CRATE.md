@@ -54,8 +54,11 @@ biblioteca** — fara nicio interfata.
    nu exista cod in referinta de adus. Se numara ca `sarite`, si daca **tot** ce
    e marcat e extra, se intoarce `GM-MOD-002`, nu un director gol.
 5. **Codul deployat vine din referinta, exact cum e in baza** (`definitie`),
-   nu textul de afisare: acela schimba spatiile de la capat de linie si `\r\n`
-   si in interiorul string-urilor.
+   nu textul de afisare: acela taie spatiile de la capatul liniilor de cod si
+   liniile goale de la capete. Un text final **egal cu afisarea referintei**
+   (ce pune „Aplica toate") nu e o editare: se deployeaza `definitie`.
+   Afisarea nu mai atinge interiorul string-urilor (C5, auditul QA
+   2026-11-18), dar nici asa nu e textul din baza.
 6. **Primul `CREATE`/`ALTER <tip>` din cod devine `CREATE OR ALTER`.** Se
    cauta doar in cod (prin `gmotion_core::lexer`), nu in comentarii sau
    string-uri; pozitiile sunt in textul original. `CREATE TABLE` nu se atinge.

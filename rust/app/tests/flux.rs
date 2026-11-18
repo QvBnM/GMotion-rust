@@ -510,3 +510,70 @@ fn recompararea_pierde_planul_si_garda_de_dinainte() {
     );
     std::fs::remove_dir_all(cale.parent().unwrap()).ok();
 }
+
+/// C5 din auditul QA, cap-coada: un sir pe mai multe linii, cu spatii la
+/// capatul liniei si `\r\n` in interior, trebuie sa ajunga in scriptul de
+/// deploy **octet cu octet**, si dupa „Aplica toate", si dupa „Aplica" pe un
+/// bloc. Altfel GMotion schimba singur datele produse de procedura.
+#[test]
+fn un_sir_pe_mai_multe_linii_supravietuieste_aplicarii_si_deploy_ului() {
+    use gmotion_app::deploy::StareDeploy;
+    let d = std::env::temp_dir().join(format!("gmotion-sir-{}", std::process::id()));
+    std::fs::remove_dir_all(&d).ok();
+    std::fs::create_dir_all(&d).unwrap();
+    let cale = d.join("inst.json");
+    // definitia martorului: sirul are spatii la capat de linie si CRLF
+    let def_martor = "CREATE PROC dbo.pRaport AS\r\nSET @s = 'linia 1   \r\nlinia 2'\r\nSELECT 1";
+    let def_baza = "CREATE PROC dbo.pRaport AS\r\nSET @s = 'altceva'\r\nSELECT 0";
+    // scris de mana: `\r` si `\n` ca secvente JSON, ca sa ajunga in definitie
+    // exact octetii de mai sus
+    let in_json = |t: &str| t.replace('\r', "\\r").replace('\n', "\\n");
+    std::fs::write(
+        &cale,
+        format!(
+            r#"{{"versiune":1,"server":"SRV","creat":"2026-11-18T10:00:00Z","nota":"","baze":{{
+              "Dev":[{{"schema":"dbo","nume":"pRaport","tip":"P","definitie":"{}"}}],
+              "Prod":[{{"schema":"dbo","nume":"pRaport","tip":"P","definitie":"{}"}}]}}}}"#,
+            in_json(def_martor),
+            in_json(def_baza)
+        ),
+    )
+    .unwrap();
+
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.to_string_lossy().to_string());
+    c.sursa.baza = "Dev".into();
+    c.baza.baza = "Prod".into();
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+    app.comanda(Comanda::Selecteaza(0));
+    app.comanda(Comanda::Deschide);
+    assert_eq!(app.ecran(), Ecran::Editor);
+
+    // 1. editorul arata sirul neatins
+    let (martor, _) = app.texte_curente().expect("texte");
+    assert!(
+        martor.contains("'linia 1   \r\nlinia 2'"),
+        "editorul arata sirul neatins:\n{martor:?}"
+    );
+
+    // 2. Aplica toate, apoi deploy
+    app.comanda(Comanda::AplicaToate);
+    app.comanda(Comanda::ComutaInPlan);
+    let mut st = StareDeploy::nou(app.plan("Dev", "14:00"));
+    let recitit = pornire::compara(&c).expect("recitirea merge");
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:05");
+    st.scrie(&d.join("deploy"), "14:05", &app.texte_finale());
+    let raport = st
+        .rezultat
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .expect("scrierea merge");
+    let script = std::fs::read_to_string(&raport.fisiere[0]).unwrap();
+    assert!(
+        script.contains("'linia 1   \r\nlinia 2'"),
+        "sirul pleaca in baza octet cu octet:\n{script:?}"
+    );
+    std::fs::remove_dir_all(&d).ok();
+}
