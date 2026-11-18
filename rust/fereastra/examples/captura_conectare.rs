@@ -45,11 +45,13 @@ fn main() {
             "SRV-PROD\\SQL2019".into(),
             "SRV-TEST".into(),
         ],
+        ..Parte::default()
     };
     c.recente = vec![
         Recenta {
             sursa: "CharismaDev".into(),
             baza: "CharismaProd".into(),
+            baze: vec!["CharismaProd".into()],
             mediu: "PROD".into(),
             cand: "ieri, 17:40".into(),
             progres: "124 din 336 revizuite".into(),
@@ -57,6 +59,7 @@ fn main() {
         Recenta {
             sursa: "CharismaDev".into(),
             baza: "CharismaTest".into(),
+            baze: vec!["CharismaTest".into()],
             mediu: "TEST".into(),
             cand: "luni, 10:12".into(),
             progres: "deploy facut".into(),
@@ -64,6 +67,7 @@ fn main() {
         Recenta {
             sursa: "Charisma_Copy".into(),
             baza: "CharismaDev".into(),
+            baze: vec!["CharismaDev".into()],
             mediu: "DEV".into(),
             cand: "12 noiembrie".into(),
             progres: "96 din 1.204 revizuite".into(),

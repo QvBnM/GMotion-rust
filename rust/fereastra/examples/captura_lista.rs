@@ -3,6 +3,8 @@
 //!
 //!   cargo run --release -p gmotion-fereastra --example captura_lista -- \
 //!       instantaneu.json SURSA BAZA iesire.png [schema.obiect-selectat] [--tema intunecat|luminos]
+//!
+//! `BAZA` poate fi si o lista, `A,B`: referinta se compara cu fiecare.
 use std::rc::Rc;
 
 use gmotion_db::SursaObiecte;
@@ -35,8 +37,14 @@ fn main() {
         gmotion_db::SursaFixture::din_fisier(&a[1]).expect("instantaneul nu se citeste");
     let server = fisier.descriere();
     let sursa = modul::pregateste(&fisier.obiecte(&a[2]).expect("baza sursa"));
-    let tinta = modul::pregateste(&fisier.obiecte(&a[3]).expect("baza tinta"));
-    let comparare = modul::compara(&a[2], &sursa, &[(a[3].clone(), tinta.clone())], |_| {});
+    let tinte: Vec<(String, modul::Baza)> = a[3]
+        .split(',')
+        .map(|b| {
+            let o = fisier.obiecte(b).expect("baza tinta");
+            (b.to_string(), modul::pregateste(&o))
+        })
+        .collect();
+    let comparare = modul::compara(&a[2], &sursa, &tinte, |_| {});
 
     // randurile comparate -> modelul listei
     let obiecte: Vec<model_lista::Obiect> = comparare
@@ -45,6 +53,7 @@ fn main() {
         .map(|r| {
             let (schema, nume) = r.obiect.split_once('.').unwrap_or(("dbo", &r.obiect));
             model_lista::Obiect {
+                baza: r.baza.clone(),
                 schema: schema.to_string(),
                 nume: nume.to_string(),
                 tip: r.tip.clone(),
@@ -70,6 +79,7 @@ fn main() {
                 .map(|(id, o)| {
                     let (schema, nume) = id.split_once('.').unwrap_or(("dbo", id));
                     model_lista::Obiect {
+                        baza: comparare.baze.first().cloned().unwrap_or_default(),
                         schema: schema.to_string(),
                         nume: nume.to_string(),
                         tip: o.tip.clone(),
@@ -93,7 +103,8 @@ fn main() {
     for p in lista.fara_detalii(0, 12) {
         let Some(o) = lista.obiect(p) else { continue };
         let id = o.id();
-        let (Some(s), Some(t)) = (sursa.get(&id), tinta.get(&id)) else {
+        let tinta = tinte.iter().find(|(b, _)| *b == o.baza).map(|(_, t)| t);
+        let (Some(s), Some(t)) = (sursa.get(&id), tinta.and_then(|t| t.get(&id))) else {
             continue;
         };
         let setari = modul::setari_diferite(s.setari, t.setari);
@@ -146,7 +157,8 @@ fn main() {
     );
     if let Some(o) = lista.obiect_selectat() {
         let id = o.id();
-        if let (Some(s), Some(t)) = (sursa.get(&id), tinta.get(&id)) {
+        let tinta = tinte.iter().find(|(b, _)| *b == o.baza).map(|(_, t)| t);
+        if let (Some(s), Some(t)) = (sursa.get(&id), tinta.and_then(|t| t.get(&id))) {
             let setari = modul::setari_diferite(s.setari, t.setari);
             incarca_previzualizare(&ui, &s.afisare, &t.afisare, &setari);
         }

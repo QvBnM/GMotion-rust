@@ -38,31 +38,31 @@ fn main() {
     c.sursa.baza = a[2].clone();
     c.baza.baza = a[3].clone();
     let r = pornire::compara(&c).expect("compararea");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
     // primele sase obiecte, in plan, prin aceleasi comenzi ca fereastra
     for p in 0..6.min(app.lista().vizibile().len()) {
         app.comanda(Comanda::Selecteaza(p));
         app.comanda(Comanda::ComutaInPlan);
     }
     app.comanda(Comanda::DeschideDeploy);
-    let mut st = StareDeploy::nou(app.plan(&a[2], &a[3], "2026-11-18 14:41"));
+    let mut st = StareDeploy::nou(app.plan(&a[2], "2026-11-18 14:41"));
     let recitit = pornire::compara(&c).expect("recitirea");
     if are("--atinsa") {
         // cineva a schimbat in baza primul obiect din plan intre timp
-        let mut tinta = recitit.tinta.clone();
+        let mut tinte = recitit.tinte.clone();
         if let Some(p) = st.plan.pasi.first() {
-            if let Some(o) = tinta.get_mut(&p.obiect) {
+            if let Some(o) = tinte[0].1.get_mut(&p.obiect) {
                 o.definitie.push_str("\n-- schimbat de altcineva");
             }
         }
-        st.aplica_verificarea(recitit.sursa, &a[3], tinta, "14:52");
+        st.aplica_verificarea(recitit.sursa, tinte, "14:52");
     } else {
-        st.aplica_verificarea(recitit.sursa, &a[3], recitit.tinta, "14:52");
+        st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:52");
     }
     let director = std::env::temp_dir().join("gmotion-captura-deploy");
     if are("--scris") {
         std::fs::remove_dir_all(&director).ok();
-        st.scrie(&director, &a[3], "2026-11-18 14:53");
+        st.scrie(&director, "2026-11-18 14:53");
     }
 
     let (w, h) = (1440u32, 900u32);

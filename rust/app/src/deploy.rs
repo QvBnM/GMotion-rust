@@ -14,6 +14,8 @@ use gmotion_modul_diff_obiecte::{self as modul, Baza, ModImpartire, Plan, Raport
 /// Un pas, cum se arata: operatia, obiectul, tipul, in ordinea din script.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PasAfisat {
+    /// Baza in care se scrie pasul.
+    pub baza: String,
     /// `false` = obiectul nu exista in baza: deploy-ul il creeaza.
     pub exista_in_baza: bool,
     pub obiect: String,
@@ -40,9 +42,9 @@ pub struct StareDeploy {
     pub impartire: ModImpartire,
     /// Rezultatul scrierii: raportul, sau de ce n-a mers.
     pub rezultat: Option<Result<Raport, String>>,
-    /// Obiectele recitite la verificare (referinta, tinta): din ele se scrie,
-    /// nu din cele de la comparare.
-    recitite: Option<(Baza, Baza)>,
+    /// Obiectele recitite la verificare (referinta, bazele comparate): din
+    /// ele se scrie, nu din cele de la comparare.
+    recitite: Option<(Baza, Vec<(String, Baza)>)>,
     /// Textele finale din editor, pe `(baza, schema.nume)`: ce se scrie in
     /// locul codului din sursa pentru obiectele editate.
     pub texte_finale: std::collections::BTreeMap<(String, String), String>,
@@ -79,6 +81,7 @@ impl StareDeploy {
                 .pasi
                 .iter()
                 .map(|p| PasAfisat {
+                    baza: p.baza.clone(),
                     exista_in_baza: p.tinta.is_some(),
                     obiect: p.obiect.clone(),
                     tip: p.tip.clone(),
@@ -86,16 +89,17 @@ impl StareDeploy {
                 .collect();
         };
         let mut out = Vec::new();
-        for obiecte in pe_baza.values() {
+        for (baza, obiecte) in &pe_baza {
             for i in modul::deploy::ordine_dupa_dependente(obiecte) {
                 let o = &obiecte[i];
                 let exista = self
                     .plan
                     .pasi
                     .iter()
-                    .find(|p| p.obiect == o.obiect)
+                    .find(|p| &p.baza == baza && p.obiect == o.obiect)
                     .is_some_and(|p| p.tinta.is_some());
                 out.push(PasAfisat {
+                    baza: baza.clone(),
                     exista_in_baza: exista,
                     obiect: o.obiect.clone(),
                     tip: o.tip.clone(),
@@ -105,15 +109,14 @@ impl StareDeploy {
         out
     }
 
-    /// Garda, pe obiectele recitite acum. Le tine minte: din ele se scrie.
-    pub fn aplica_verificarea(&mut self, referinta: Baza, tinta_nume: &str, tinta: Baza, la: &str) {
-        let altele = [(tinta_nume.to_string(), tinta)];
-        let schimbari = self.plan.verifica(&referinta, &altele);
+    /// Garda, pe obiectele recitite acum (referinta si fiecare baza
+    /// comparata). Le tine minte: din ele se scrie.
+    pub fn aplica_verificarea(&mut self, referinta: Baza, tinte: Vec<(String, Baza)>, la: &str) {
+        let schimbari = self.plan.verifica(&referinta, &tinte);
         self.rezultat = None;
         if schimbari.is_empty() {
             self.garda = Garda::Ok { la: la.to_string() };
-            let [(_, tinta)] = altele;
-            self.recitite = Some((referinta, tinta));
+            self.recitite = Some((referinta, tinte));
         } else {
             self.garda = Garda::Schimbata(schimbari.iter().map(ToString::to_string).collect());
             self.recitite = None;
@@ -135,17 +138,16 @@ impl StareDeploy {
     }
 
     /// Scrie scripturile si, inainte, revenirea, din obiectele recitite.
-    pub fn scrie(&mut self, director: &Path, tinta_nume: &str, acum: &str) {
-        let Some((referinta, tinta)) = self.recitite.as_ref().filter(|_| self.poate_scrie()) else {
+    pub fn scrie(&mut self, director: &Path, acum: &str) {
+        let Some((referinta, tinte)) = self.recitite.as_ref().filter(|_| self.poate_scrie()) else {
             self.rezultat = Some(Err("verifica intai ca baza n-a mai fost atinsa".to_string()));
             return;
         };
-        let altele = [(tinta_nume.to_string(), tinta.clone())];
         let r = self
             .plan
             .de_deployat_cu(referinta, &self.texte_finale)
             .and_then(|pe_baza| {
-                let revenire = self.plan.revenire(referinta, &altele);
+                let revenire = self.plan.revenire(referinta, tinte);
                 modul::deploy::scrie_cu_revenire(
                     director,
                     &self.plan.referinta,
@@ -210,6 +212,7 @@ pub fn ecran(
             .pasi_in_ordine(sursa)
             .into_iter()
             .map(|p| PasDeploy {
+                baza: p.baza,
                 creeaza: !p.exista_in_baza,
                 obiect: p.obiect,
                 tip: gmotion_core::nume_tip(&p.tip).to_string(),
@@ -310,7 +313,7 @@ mod teste {
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi"]));
         assert!(!st.poate_scrie());
         let d = dir("fara-garda");
-        st.scrie(&d, "Prod", "2026-11-18 14:05");
+        st.scrie(&d, "2026-11-18 14:05");
         assert!(matches!(st.rezultat, Some(Err(_))));
         assert!(!d.exists(), "nimic scris inainte de garda");
     }
@@ -321,7 +324,7 @@ mod teste {
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi"]));
         // intre comparare si deploy, cineva a schimbat pVechi in Prod
         let atinsa = baza(&[("pVechi", "CREATE PROC dbo.pVechi AS SELECT 99")]);
-        st.aplica_verificarea(s.clone(), "Prod", atinsa, "14:05");
+        st.aplica_verificarea(s.clone(), vec![("Prod".into(), atinsa)], "14:05");
         match &st.garda {
             Garda::Schimbata(v) => assert!(v[0].contains("dbo.pVechi"), "{v:?}"),
             g => panic!("garda trebuia sa opreasca: {g:?}"),
@@ -333,11 +336,11 @@ mod teste {
     fn dupa_garda_se_scriu_scripturile_si_revenirea() {
         let (s, t) = date();
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi", "dbo.vwStoc"]));
-        st.aplica_verificarea(s.clone(), "Prod", t.clone(), "14:05");
+        st.aplica_verificarea(s.clone(), vec![("Prod".into(), t.clone())], "14:05");
         assert_eq!(st.garda, Garda::Ok { la: "14:05".into() });
         assert!(st.poate_scrie());
         let d = dir("scrie");
-        st.scrie(&d, "Prod", "2026-11-18 14:05");
+        st.scrie(&d, "2026-11-18 14:05");
         let r = st
             .rezultat
             .as_ref()
@@ -362,9 +365,9 @@ mod teste {
     fn alta_impartire_permite_o_noua_scriere() {
         let (s, t) = date();
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi"]));
-        st.aplica_verificarea(s.clone(), "Prod", t.clone(), "14:05");
+        st.aplica_verificarea(s.clone(), vec![("Prod".into(), t.clone())], "14:05");
         let d = dir("impartire");
-        st.scrie(&d, "Prod", "2026-11-18 14:05");
+        st.scrie(&d, "2026-11-18 14:05");
         assert!(!st.poate_scrie());
         st.alege_impartirea(ModImpartire::Unul);
         assert!(st.poate_scrie(), "alt mod de impartire = alta scriere");
@@ -388,7 +391,7 @@ mod teste {
         );
         assert!(!e.poate_scrie);
         assert_eq!(e.impartire, 0);
-        st.aplica_verificarea(s.clone(), "Prod", t.clone(), "14:05");
+        st.aplica_verificarea(s.clone(), vec![("Prod".into(), t.clone())], "14:05");
         let e = ecran(&st, &s, "Prod", "C:\\deploy", 10);
         assert!(e.poate_scrie);
         for i in 0..4 {
@@ -400,9 +403,58 @@ mod teste {
     fn o_recitire_esuata_blocheaza_scrierea() {
         let (s, t) = date();
         let mut st = StareDeploy::nou(plan_din(&s, &t, &["dbo.pVechi"]));
-        st.aplica_verificarea(s.clone(), "Prod", t.clone(), "14:05");
+        st.aplica_verificarea(s.clone(), vec![("Prod".into(), t.clone())], "14:05");
         st.verificare_esuata("serverul nu raspunde".into());
         assert!(!st.poate_scrie());
         assert_eq!(st.garda, Garda::Eroare("serverul nu raspunde".into()));
+    }
+
+    #[test]
+    fn cu_doua_baze_garda_si_scrierea_le_cuprind_pe_amandoua() {
+        let (s, t) = date();
+        let t2 = baza(&[("pVechi", "CREATE PROC dbo.pVechi AS SELECT 7")]);
+        let tinte = vec![
+            ("Prod".to_string(), t.clone()),
+            ("Test".to_string(), t2.clone()),
+        ];
+        let c = modul::compara("Dev", &s, &tinte, |_| {});
+        let plan = Plan::din_comparare(&c, &s, &tinte, |r| r.obiect == "dbo.pVechi", "acum");
+        let mut st = StareDeploy::nou(plan);
+        let pasi = st.pasi_in_ordine(&s);
+        let mut baze: Vec<&str> = pasi.iter().map(|p| p.baza.as_str()).collect();
+        baze.sort();
+        assert_eq!(baze, ["Prod", "Test"], "un pas pentru fiecare baza");
+        // atinsa doar Test: garda opreste tot
+        let atinsa = baza(&[("pVechi", "CREATE PROC dbo.pVechi AS SELECT 99")]);
+        st.aplica_verificarea(
+            s.clone(),
+            vec![("Prod".into(), t.clone()), ("Test".into(), atinsa)],
+            "14:05",
+        );
+        match &st.garda {
+            Garda::Schimbata(v) => assert!(v.iter().any(|x| x.contains("Test")), "{v:?}"),
+            g => panic!("garda trebuia sa opreasca: {g:?}"),
+        }
+        st.aplica_verificarea(s.clone(), tinte, "14:06");
+        assert!(st.poate_scrie());
+        let d = dir("doua-baze");
+        st.scrie(&d, "2026-11-18 14:06");
+        let r = st
+            .rezultat
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .expect("scrierea merge");
+        assert_eq!(r.obiecte, 2);
+        let script: String = r
+            .fisiere
+            .iter()
+            .map(|f| std::fs::read_to_string(f).unwrap())
+            .collect();
+        assert!(
+            script.contains("[Prod]") && script.contains("[Test]"),
+            "{script}"
+        );
+        std::fs::remove_dir_all(&d).ok();
     }
 }

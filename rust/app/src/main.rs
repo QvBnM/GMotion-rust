@@ -11,6 +11,9 @@
 //!
 //!   gmotion-ui --sursa instantaneu.json --referinta Referinta --baza Client1
 //!
+//! `--baza` primeste si mai multe baze, separate prin virgula
+//! (`--baza Client1,Client2`): toate se compara cu referinta.
+//!
 //! Modul ferestrei (acelasi pe toate ecranele): `--tema intunecat|luminos`.
 
 use std::cell::RefCell;
@@ -39,7 +42,7 @@ struct Stare {
     server: String,
     /// Planul de deploy deschis si obiectele din care s-a facut: cand se
     /// schimba ce e „in plan", planul se reface (si garda se pierde).
-    deploy: Option<(Vec<String>, gmotion_app::deploy::StareDeploy)>,
+    deploy: Option<(Vec<(String, String)>, gmotion_app::deploy::StareDeploy)>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
@@ -111,6 +114,7 @@ fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
             let revizuite = modul::Revizuire::din_sesiune(&s).numar();
             Recenta {
                 mediu: mediu_dupa_nume(&baza).eticheta().to_string(),
+                baze: s.baze.clone(),
                 progres: if revizuite == 0 {
                     String::new()
                 } else {
@@ -118,7 +122,7 @@ fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
                 },
                 cand: s.salvata.clone(),
                 sursa: s.referinta.clone(),
-                baza,
+                baza: gmotion_fereastra::model_conectare::eticheta_baze(&s.baze),
             }
         })
         .collect()
@@ -135,7 +139,12 @@ fn ruleaza() -> Result<(), String> {
     if conectare.instantaneu.is_some() {
         if let (Some(r), Some(b)) = (argument("--referinta"), argument("--baza")) {
             conectare.sursa.baza = r;
-            conectare.baza.baza = b;
+            conectare.pune_baze_tinta(
+                b.split(',')
+                    .map(|x| x.trim().to_string())
+                    .filter(|x| !x.is_empty())
+                    .collect(),
+            );
         }
     }
 
@@ -262,13 +271,10 @@ fn ruleaza() -> Result<(), String> {
             if s.app.as_ref().is_some_and(|a| a.ecran() == Ecran::Deploy)
                 && facut.as_ref() != Some(&alese)
             {
-                let (r, t) = (
-                    s.conectare.sursa.baza.clone(),
-                    s.conectare.baza.baza.clone(),
-                );
+                let r = s.conectare.sursa.baza.clone();
                 let plan = s.app.as_ref().map(|a| {
                     (
-                        a.plan(&r, &t, &gmotion_platforma::timp::acum()),
+                        a.plan(&r, &gmotion_platforma::timp::acum()),
                         a.texte_finale(),
                     )
                 });
@@ -280,11 +286,9 @@ fn ruleaza() -> Result<(), String> {
                 });
             }
             let _ = c_ui.hide();
-            let (referinta, baza) = (
-                s.conectare.sursa.baza.clone(),
-                s.conectare.baza.baza.clone(),
-            );
-            let mediu = mediu_dupa_nume(&baza);
+            // in antet, toate bazele comparate; mediul, dupa prima
+            let (referinta, baza) = (s.conectare.sursa.baza.clone(), s.conectare.eticheta_tinta());
+            let mediu = mediu_dupa_nume(&s.conectare.baza.baza);
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
             app.asigura_detalii(0, 60);
@@ -318,7 +322,8 @@ fn ruleaza() -> Result<(), String> {
                             tip: gmotion_core::nume_tip(&o.tip),
                             sursa_baza: &referinta,
                             sursa_server: &server,
-                            tinta_baza: &baza,
+                            // editorul arata un singur obiect: baza lui
+                            tinta_baza: &o.baza,
                             tinta_server: &server,
                             mediu,
                             stare_obiecte: &pozitie,
@@ -381,7 +386,7 @@ fn ruleaza() -> Result<(), String> {
         move || {
             let mut s = stare.borrow_mut();
             let referinta = s.conectare.sursa.baza.clone();
-            let baze = vec![s.conectare.baza.baza.clone()];
+            let baze = s.conectare.baze_tinta();
             let server = s.server.clone();
             let auth = if s.conectare.instantaneu.is_some() {
                 "instantaneu"
@@ -453,6 +458,7 @@ fn ruleaza() -> Result<(), String> {
             // serverul s-a schimbat: ce stiam despre el nu mai e valabil
             p.baze.clear();
             p.baza.clear();
+            p.alese.clear();
             p.stare = StareConexiune::Neincercat;
             drop(st);
             d();
@@ -485,8 +491,15 @@ fn ruleaza() -> Result<(), String> {
         });
         let s = stare.clone();
         let d = deseneaza.clone();
+        // referinta e una singura; bazele comparate se bifeaza
         conectare_ui.on_baza_schimbata(move |sursa, text| {
-            s.borrow_mut().parte(sursa).baza = text.to_string();
+            let mut st = s.borrow_mut();
+            if sursa {
+                st.conectare.sursa.baza = text.to_string();
+            } else {
+                st.conectare.comuta_baza(&text);
+            }
+            drop(st);
             d();
         });
         let s = stare.clone();
@@ -545,6 +558,7 @@ fn ruleaza() -> Result<(), String> {
             p.servere_gasite.clear();
             p.baze.clear();
             p.baza.clear();
+            p.alese.clear();
             p.stare = StareConexiune::Neincercat;
             drop(st);
             d();
@@ -603,7 +617,7 @@ fn ruleaza() -> Result<(), String> {
                         .unwrap_or_default();
                     st.server = r.server;
                     st.app = Some(
-                        Aplicatie::noua(r.randuri, r.sursa, r.tinta, revizuire).cu_editari(editari),
+                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
                     );
                 }
                 Err(e) => {
@@ -623,7 +637,7 @@ fn ruleaza() -> Result<(), String> {
                 .cloned()
             {
                 st.conectare.sursa.baza = r.sursa;
-                st.conectare.baza.baza = r.baza;
+                st.conectare.pune_baze_tinta(r.baze);
             }
             drop(st);
             d();
@@ -658,7 +672,7 @@ fn ruleaza() -> Result<(), String> {
                         .unwrap_or_default();
                     st.server = r.server;
                     st.app = Some(
-                        Aplicatie::noua(r.randuri, r.sursa, r.tinta, revizuire).cu_editari(editari),
+                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
                     );
                 }
                 Err(e) => {
@@ -706,6 +720,17 @@ fn ruleaza() -> Result<(), String> {
                     .and_then(|a| a.lista().contoare_tipuri().get(i).map(|(t, _)| t.clone()))
             });
             c(Comanda::FiltreazaTip(tip))
+        });
+        let c = comanda.clone();
+        let s = stare.clone();
+        lista_ui.on_alege_baza(move |i| {
+            let baza = usize::try_from(i).ok().and_then(|i| {
+                s.borrow()
+                    .app
+                    .as_ref()
+                    .and_then(|a| a.lista().baze().get(i).cloned())
+            });
+            c(Comanda::FiltreazaBaza(baza))
         });
         let c = comanda.clone();
         // clic pe un cap de coloana: sorteaza dupa ea; al doilea clic inverseaza
@@ -765,7 +790,9 @@ fn ruleaza() -> Result<(), String> {
         let c = comanda.clone();
         deploy_ui.on_inapoi_lista(move || c(Comanda::InapoiLaLista));
         let c = comanda.clone();
-        deploy_ui.on_scoate_din_plan(move |id| c(Comanda::ScoateDinPlan(id.to_string())));
+        deploy_ui.on_scoate_din_plan(move |baza, id| {
+            c(Comanda::ScoateDinPlan(baza.to_string(), id.to_string()))
+        });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
         deploy_ui.on_alege_tema(move |intunecat| {
@@ -782,12 +809,9 @@ fn ruleaza() -> Result<(), String> {
             let mut st = s.borrow_mut();
             if let Some((_, dep)) = st.deploy.as_mut() {
                 match recitit {
-                    Ok(r) => dep.aplica_verificarea(
-                        r.sursa,
-                        &c.baza.baza,
-                        r.tinta,
-                        &gmotion_platforma::timp::acum(),
-                    ),
+                    Ok(r) => {
+                        dep.aplica_verificarea(r.sursa, r.tinte, &gmotion_platforma::timp::acum())
+                    }
                     Err(e) => dep.verificare_esuata(e),
                 }
             }
@@ -799,11 +823,11 @@ fn ruleaza() -> Result<(), String> {
         let sv = salveaza.clone();
         deploy_ui.on_scrie_scripturile(move || {
             let mut st = s.borrow_mut();
-            let (referinta, tinta) = (st.conectare.sursa.baza.clone(), st.conectare.baza.baza.clone());
+            let referinta = st.conectare.sursa.baza.clone();
             let mut scris = None;
             if let Some((_, dep)) = st.deploy.as_mut() {
                 let dir = director_deploy(&referinta);
-                dep.scrie(&dir, &tinta, &gmotion_platforma::timp::acum());
+                dep.scrie(&dir, &gmotion_platforma::timp::acum());
                 if let Some(Ok(r)) = &dep.rezultat {
                     tracing::info!(target: "gmotion::app", director = %r.director.display(), fisiere = r.fisiere.len(), "deploy scris");
                     scris = Some(dep.plan.clone());

@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (412 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (425 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,13 +47,12 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 14 (`etape/14-paritate-v34.md`): A, B si C gata. Urmeaza D.**
+**Etapa 14 (`etape/14-paritate-v34.md`): A, B, C si D1 (mai multe baze) gata.
+Urmeaza restul lui D.**
 
 D — conectarea, in ordinea asta:
 
-1. **o referinta comparata cu mai multe baze** (bife in ecranul de conectare);
-   schimba `rutare` (azi `Aplicatie` tine o singura tinta) si aduce filtrul pe
-   baza in lista. E cea mai mare dintre toate, deci prima;
+1. ~~o referinta comparata cu mai multe baze~~ (gata);
 2. compararea pe alt fir: progres, timp, mesaj, **Anuleaza** (azi fereastra se
    blocheaza ~12 s pe baza lui Mihai);
 3. Deconecteaza (cu confirmare), Testeaza conexiunea cu detaliile serverului,
@@ -119,6 +118,15 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Un rand din lista e `(baza, schema.nume)`, nu numele.** Cu mai multe
+  baze comparate, acelasi obiect apare de mai multe ori. Orice cautare noua
+  dupa `o.id()` singur (in `rutare`, `model_lista`, deploy) leaga randul din
+  Client1 de cel din Client2 fara ca testele cu o singura baza sa cada; se
+  cauta dupa `Obiect::cheie()`. Testele cu doua baze: `aplicatie_doua_baze`
+  in `rutare.rs`, `lista_doua_baze` in `model_lista.rs`.
+- **`conectare.baza.baza` e doar prima baza bifata.** Toate sunt in
+  `Conectare::baze_tinta()`; se schimba prin `comuta_baza` /
+  `pune_baze_tinta`, nu scriind direct in `baza.alese`.
 - **Bifa nu re-aplica filtrul pe loc, si asta e deliberat** (ca in v3.4:
   `marcheazaRezolvat` nu cheama `renderLista`). Cu filtrul „Nerevizuite"
   activ, randul bifat ramane pe ecran pana se atinge filtrul din nou. Un test

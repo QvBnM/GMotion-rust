@@ -90,6 +90,10 @@ pub struct Parte {
     pub server: String,
     pub acreditari: Acreditari,
     pub baza: String,
+    /// Doar pentru partea comparata: toate bazele bifate, in ordinea bifarii.
+    /// Goala = doar `baza`. Se schimba prin `Conectare::comuta_baza`, care
+    /// tine `baza` egala cu prima bifata.
+    pub alese: Vec<String>,
     /// Bazele citite de pe server, pentru lista de alegere.
     pub baze: Vec<String>,
     pub stare: StareConexiune,
@@ -129,13 +133,25 @@ impl Parte {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recenta {
     pub sursa: String,
+    /// Bazele comparate, cum se arata („Client1, Client2").
     pub baza: String,
+    /// Bazele comparate, pentru reluare.
+    pub baze: Vec<String>,
     /// `PROD` / `TEST` / `DEV`, sau gol.
     pub mediu: String,
     /// „ieri, 17:40" sau data exacta.
     pub cand: String,
     /// „124 din 336 revizuite", sau gol daca nu s-a revizuit nimic.
     pub progres: String,
+}
+
+/// „A", „A, B, C", „A, B + 2": numele bazelor comparate, scurt.
+pub fn eticheta_baze(baze: &[String]) -> String {
+    if baze.len() <= 3 {
+        baze.join(", ")
+    } else {
+        format!("{}, {} + {}", baze[0], baze[1], baze.len() - 2)
+    }
 }
 
 /// Starea ecranului.
@@ -195,8 +211,51 @@ impl Conectare {
 
     /// Inverseaza cele doua parti, cu tot cu acreditari si baze citite: altfel
     /// ar trebui tastate din nou, exact cand omul a observat ca a pus invers.
+    ///
+    /// Referinta e una singura: din mai multe baze bifate, in sursa trece
+    /// prima.
     pub fn inverseaza(&mut self) {
         std::mem::swap(&mut self.sursa, &mut self.baza);
+        self.sursa.alese.clear();
+        self.baza.alese.clear();
+    }
+
+    /// Bazele comparate cu referinta, in ordinea bifarii.
+    pub fn baze_tinta(&self) -> Vec<String> {
+        if self.baza.alese.is_empty() {
+            if self.baza.baza.is_empty() {
+                Vec::new()
+            } else {
+                vec![self.baza.baza.clone()]
+            }
+        } else {
+            self.baza.alese.clone()
+        }
+    }
+
+    /// Bifeaza sau debifeaza o baza de comparat. Prima bifata ramane in
+    /// `baza.baza` (de acolo citesc mediul, antetul, sesiunea).
+    pub fn comuta_baza(&mut self, nume: &str) {
+        let mut v = self.baze_tinta();
+        match v.iter().position(|b| b == nume) {
+            Some(i) => {
+                v.remove(i);
+            }
+            None => v.push(nume.to_string()),
+        }
+        self.pune_baze_tinta(v);
+    }
+
+    /// Cum se scriu bazele comparate intr-un antet: „Client1", „Client1,
+    /// Client2", iar de la patru in sus „Client1, Client2 + 2".
+    pub fn eticheta_tinta(&self) -> String {
+        eticheta_baze(&self.baze_tinta())
+    }
+
+    /// Bazele de comparat, toate deodata (reluarea unei sesiuni, argumente).
+    pub fn pune_baze_tinta(&mut self, baze: Vec<String>) {
+        self.baza.baza = baze.first().cloned().unwrap_or_default();
+        self.baza.alese = baze;
     }
 
     /// Ce lipseste ca sa se poata compara. `None` = butonul e apasabil.
@@ -205,7 +264,7 @@ impl Conectare {
     /// invalid": asta e tot rostul lui.
     pub fn ce_lipseste(&self) -> Option<String> {
         if self.instantaneu.is_some() {
-            return match (self.sursa.baza.is_empty(), self.baza.baza.is_empty()) {
+            return match (self.sursa.baza.is_empty(), self.baze_tinta().is_empty()) {
                 (true, _) => Some("alege baza sursa din instantaneu".into()),
                 (_, true) => Some("alege baza de comparat din instantaneu".into()),
                 _ => self.acelasi_lucru(),
@@ -215,7 +274,12 @@ impl Conectare {
             if let Some(ce) = parte.ce_lipseste() {
                 return Some(format!("completeaza {ce} pentru {nume}"));
             }
-            if parte.baza.is_empty() {
+            let fara_baza = if std::ptr::eq(parte, &self.baza) {
+                self.baze_tinta().is_empty()
+            } else {
+                parte.baza.is_empty()
+            };
+            if fara_baza {
                 return Some(format!("alege baza pentru {nume}"));
             }
             if !parte.stare.e_conectat() {
@@ -228,7 +292,12 @@ impl Conectare {
     fn acelasi_lucru(&self) -> Option<String> {
         let acelasi_server =
             self.instantaneu.is_some() || self.sursa.server.eq_ignore_ascii_case(&self.baza.server);
-        if acelasi_server && self.sursa.baza.eq_ignore_ascii_case(&self.baza.baza) {
+        if acelasi_server
+            && self
+                .baze_tinta()
+                .iter()
+                .any(|b| self.sursa.baza.eq_ignore_ascii_case(b))
+        {
             return Some("sursa si baza sunt aceeasi".into());
         }
         None
@@ -248,6 +317,7 @@ mod teste {
             server: server.into(),
             acreditari: Acreditari::default(),
             baza: baza.into(),
+            alese: Vec::new(),
             baze: vec![baza.into()],
             stare: StareConexiune::Conectat("conectat".into()),
             auth_windows: true,
@@ -396,5 +466,63 @@ mod teste {
             "[GM-DB-002] autentificare"
         );
         assert!(!StareConexiune::Eroare("x".into()).e_conectat());
+    }
+
+    #[test]
+    fn bazele_comparate_se_bifeaza_si_prima_ramane_baza() {
+        let mut c = Conectare::noua();
+        c.sursa = parte_gata("SRV", "Ref");
+        c.baza = parte_gata("SRV", "");
+        c.baza.baze = vec!["Ref".into(), "A".into(), "B".into(), "C".into(), "D".into()];
+        assert!(c.baze_tinta().is_empty());
+        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru baza"));
+        c.comuta_baza("B");
+        c.comuta_baza("A");
+        assert_eq!(c.baze_tinta(), ["B", "A"], "in ordinea bifarii");
+        assert_eq!(c.baza.baza, "B", "prima bifata");
+        assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
+        assert_eq!(c.eticheta_tinta(), "B, A");
+        c.comuta_baza("C");
+        c.comuta_baza("D");
+        assert_eq!(c.eticheta_tinta(), "B, A + 2");
+        // debifata prima: urmatoarea ii ia locul
+        c.comuta_baza("B");
+        assert_eq!(c.baza.baza, "A");
+        assert_eq!(c.baze_tinta(), ["A", "C", "D"]);
+        // referinta printre cele bifate: nu se compara cu ea insasi
+        c.comuta_baza("ref");
+        assert_eq!(
+            c.ce_lipseste().as_deref(),
+            Some("sursa si baza sunt aceeasi")
+        );
+        c.comuta_baza("ref");
+        assert!(c.poate_compara());
+        // toate debifate: nu mai e nimic de comparat
+        for b in ["A", "C", "D"] {
+            c.comuta_baza(b);
+        }
+        assert!(c.baze_tinta().is_empty() && c.baza.baza.is_empty());
+    }
+
+    #[test]
+    fn o_baza_aleasa_fara_bife_e_o_comparare_cu_o_singura_baza() {
+        let mut c = Conectare::noua();
+        c.baza.baza = "Prod".into();
+        assert_eq!(c.baze_tinta(), ["Prod"]);
+        // bifarea porneste de la ea, nu o pierde
+        c.comuta_baza("Test");
+        assert_eq!(c.baze_tinta(), ["Prod", "Test"]);
+    }
+
+    #[test]
+    fn la_inversare_referinta_ramane_una_singura() {
+        let mut c = Conectare::noua();
+        c.sursa = parte_gata("SRV", "Ref");
+        c.baza = parte_gata("SRV", "");
+        c.pune_baze_tinta(vec!["A".into(), "B".into()]);
+        c.inverseaza();
+        assert_eq!(c.sursa.baza, "A");
+        assert!(c.sursa.alese.is_empty());
+        assert_eq!(c.baze_tinta(), ["Ref"]);
     }
 }

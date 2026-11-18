@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 761b41a5c2ced100 -->
+<!-- api-hash: 1515c4059038709d -->
 
 ## Rol
 
@@ -29,6 +29,7 @@ si editorul de diferente (etapa 8).
 |---|---|
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie |
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta}` | modelul lui; `Acreditari` **nu are `Debug` derivat** |
+| `Conectare::{baze_tinta, comuta_baza, pune_baze_tinta, eticheta_tinta}`, `eticheta_baze(v)` | bazele comparate cu referinta, bifate (una sau mai multe); prima ramane in `baza.baza` |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
@@ -40,7 +41,8 @@ si editorul de diferente (etapa 8).
 | `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | clicul si bula de pe harta; calculul e doar in `harta::indice_la` |
 | `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran, mediu)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |
 | `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra |
-| `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
+| `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy, pe `(baza, schema.nume)` |
+| `Obiect::{baza, cheie}`, `Lista::{baze, filtreaza_baza}`, `Ordine::Baza` | o referinta comparata cu mai multe baze: un rand per baza; filtrul si coloana Baza se arata doar cand sunt mai multe |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente |
 | `model_editor::plieaza(model, context) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |

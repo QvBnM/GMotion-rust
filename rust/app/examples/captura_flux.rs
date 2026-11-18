@@ -60,7 +60,12 @@ fn main() {
     let tinta = modul::pregateste(&fisier.obiecte(&a[3]).expect("baza tinta"));
     let comparare = modul::compara(&a[2], &sursa, &[(a[3].clone(), tinta.clone())], |_| {});
 
-    let mut app = Aplicatie::noua(comparare.randuri, sursa, tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(
+        comparare.randuri,
+        sursa,
+        vec![(a[3].clone(), tinta)],
+        modul::Revizuire::noua(),
+    );
     app.asigura_detalii(0, 40);
     if let Some(cerut) = a.get(6).filter(|x| !x.starts_with("--")) {
         if let Some(p) = (0..app.lista().vizibile().len())

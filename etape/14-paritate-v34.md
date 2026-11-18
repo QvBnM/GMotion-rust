@@ -51,7 +51,7 @@ corespunzator dispare din `cercetare/lipsuri-portare.md`.
 - [x] starea „deployat" tinuta minte; „include si ce a fost deja deployat"
 
 **D. Conectarea**
-- [ ] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
+- [x] o referinta comparata cu mai multe baze (bife); filtrul pe baza in lista
 - [ ] compararea pe alt fir: progres, timp, mesaj, Anuleaza
 - [ ] Deconecteaza (inapoi la conectare, cu confirmare)
 - [ ] Testeaza conexiunea, cu detaliile serverului
@@ -133,6 +133,17 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   similaritate, sortarea pe orice coloana in ambele sensuri,
   `pune_vizibilele_in_plan(cu_deployate)`; `Revizuire` tine deployatele cu
   amprenta. Sesiunea s-a oprit aici, la cererea lui Mihai.
+
+- **2026-11-18** D1 gata: o referinta, mai multe baze. Modulul si `gmotion`
+  stiau deja (`--baze A,B`); doar fereastra era 1 la 1. Schimbarea de fond:
+  un rand din lista e `(baza, schema.nume)`, nu numele — `in_plan`,
+  `pune_deploy`, `scoate_din_plan`, selectia si rutarea iau perechea.
+  Bifele stau in lista derulanta existenta a partii „Baza" (nu s-a schimbat
+  designul: aceeasi lista, cu bife si ramane deschisa); coloana si filtrul
+  Baza din lista apar doar cand sunt mai multe baze. Garda si scrierea
+  deploy-ului merg pe toate bazele deodata. Captura cu doua baze arata bine;
+  capturile oficiale vin cu E (instantaneul de previzualizare are mai multe
+  baze).
 
 ## Ce a iesit altfel decat planul
 

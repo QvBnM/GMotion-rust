@@ -12,6 +12,8 @@ import { ListView } from "std-widgets.slint";
 import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi } from "comune.slint";
 
 export struct RandListaUi {
+    // baza comparata; goala cand e una singura (coloana nu se arata)
+    baza: string,
     schema: string,
     nume: string,
     // numele tipului pentru utilizator („procedura")
@@ -80,6 +82,7 @@ global Stari {
 global Coloane {
     out property <length> stare: 34px;
     out property <length> tip: 92px;
+    out property <length> baza: 130px;
     out property <length> linii: 84px;
     out property <length> scor: 118px;
     out property <length> difera: 124px;
@@ -96,6 +99,7 @@ global Sortare {
     out property <int> difera: 4;
     out property <int> revizuit: 5;
     out property <int> deploy: 6;
+    out property <int> baza: 7;
 }
 
 // Un cap de coloana: clic = sorteaza; a doua oara, invers. Sageata arata
@@ -313,6 +317,12 @@ component RandTabel inherits Rectangle {
             Text { text: root.r.schema + "."; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
             Text { text: root.r.nume; font-family: Tema.font-mono; font-size: 12.5px; color: root.r.revizuit ? Tema.text-secundar : Tema.text; vertical-alignment: center; overflow: elide; }
         }
+        if root.r.baza != "": HorizontalLayout {
+            width: Coloane.baza;
+            padding-left: 8px;
+            padding-right: 10px;
+            Text { text: root.r.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
+        }
         Text { width: Coloane.tip; text: root.r.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
         HorizontalLayout {
             width: Coloane.linii;
@@ -412,6 +422,9 @@ export component FereastraLista inherits Window {
     in property <[TipUi]> tipuri;
     in property <int> categorie-activa: -1;   // indice in `categorii`, -1 = toate
     in property <int> tip-activ: -1;
+    // bazele comparate; goala cand e una singura (filtrul nu se arata)
+    in property <[string]> baze;
+    in property <int> baza-activa: -1;
 
     in property <string> rezumat-lista;       // „212 nerevizuite din 312"
     // coloana sortata (`Sortare`) si sensul ei
@@ -448,6 +461,7 @@ export component FereastraLista inherits Window {
     callback deschide-deploy();
     callback alege-categoria(int);
     callback alege-tipul(int);
+    callback alege-baza(int);
     callback alege-randul(int);
     callback comuta-revizuit(int);
     callback deschide-obiectul();
@@ -589,6 +603,15 @@ export component FereastraLista inherits Window {
                         numar: t.numar;
                         activ: root.tip-activ == i;
                         apasat => { root.alege-tipul(root.tip-activ == i ? -1 : i); }
+                    }
+                }
+                if root.baze.length > 0: VerticalLayout {
+                    alignment: center;
+                    MeniuFiltru {
+                        eticheta: "Toate bazele";
+                        optiuni: root.baze;
+                        ales: root.baza-activa;
+                        alege(i) => { root.alege-baza(i); }
                     }
                 }
                 VerticalLayout {
@@ -736,6 +759,16 @@ export component FereastraLista inherits Window {
                                 sortata: root.coloana-sortata == Sortare.nume;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.nume); }
+                            }
+                            if root.baze.length > 0: HorizontalLayout {
+                                padding-left: 8px;
+                                CapColoana {
+                                    titlu: "Baza";
+                                    latime: Coloane.baza - 8px;
+                                    sortata: root.coloana-sortata == Sortare.baza;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.baza); }
+                                }
                             }
                             CapColoana {
                                 titlu: "Tip";

@@ -34,6 +34,8 @@ pub enum Comanda {
     ComutaRevizuit,
     Filtreaza(Option<Stare>),
     FiltreazaTip(Option<String>),
+    /// Filtrul pe baza comparata (cand sunt mai multe).
+    FiltreazaBaza(Option<String>),
     Cauta(String),
     Sorteaza(Ordine),
     /// Filtrul pe ce ai facut cu obiectul (nerevizuite, omise, deployate...).
@@ -44,8 +46,8 @@ pub enum Comanda {
     PuneVizibileleInPlan(bool),
     /// Pune sau scoate obiectul selectat din plan.
     ComutaInPlan,
-    /// Scoate din plan obiectul `schema.nume` (din ecranul de deploy).
-    ScoateDinPlan(String),
+    /// Scoate din plan obiectul `(baza, schema.nume)` (din ecranul de deploy).
+    ScoateDinPlan(String, String),
     /// Deschide planul de deploy; ramane pe loc daca planul e gol.
     DeschideDeploy,
     // ---- editorul: textul final (vezi `modul::Editari`)
@@ -90,10 +92,12 @@ pub struct Aplicatie {
     lista: Lista,
     ecran: Ecran,
     revizuire: Revizuire,
-    /// Randurile compararii, pe `schema.nume`: de acolo vin amprentele.
+    /// Randurile compararii, pe `(baza, schema.nume)`: de acolo vin
+    /// amprentele.
     randuri: Vec<Rand>,
     sursa: Baza,
-    tinta: Baza,
+    /// Bazele comparate cu referinta, in ordinea aleasa.
+    tinte: Vec<(String, Baza)>,
     /// Textele finale (Aplica, Reset, scris de mana), salvate in sesiune.
     editari: Editari,
     /// Pentru Ctrl+Z: obiectul si textul lui final de dinainte de fiecare
@@ -106,14 +110,20 @@ pub struct Aplicatie {
 }
 
 impl Aplicatie {
-    /// `randuri` sunt randurile compararii; `sursa` si `tinta`, obiectele
-    /// pregatite ale celor doua baze.
-    pub fn noua(randuri: Vec<Rand>, sursa: Baza, tinta: Baza, revizuire: Revizuire) -> Self {
+    /// `randuri` sunt randurile compararii; `sursa`, obiectele pregatite ale
+    /// referintei; `tinte`, ale fiecarei baze comparate cu ea.
+    pub fn noua(
+        randuri: Vec<Rand>,
+        sursa: Baza,
+        tinte: Vec<(String, Baza)>,
+        revizuire: Revizuire,
+    ) -> Self {
         let obiecte: Vec<Obiect> = randuri
             .iter()
             .map(|r| {
                 let (schema, nume) = r.obiect.split_once('.').unwrap_or(("dbo", &r.obiect));
                 Obiect {
+                    baza: r.baza.clone(),
                     schema: schema.to_string(),
                     nume: nume.to_string(),
                     tip: r.tip.clone(),
@@ -148,7 +158,7 @@ impl Aplicatie {
             revizuire,
             randuri,
             sursa,
-            tinta,
+            tinte,
             editari: Editari::noi(),
             istoric: Vec::new(),
             diferenta: 0,
@@ -191,7 +201,7 @@ impl Aplicatie {
     /// si de mana?
     pub fn stare_text_final(&self) -> (bool, bool) {
         self.obiect()
-            .and_then(|o| self.rand(&o.id()))
+            .and_then(|o| self.rand(&o.baza, &o.id()))
             .and_then(|r| self.editari.text_final(r))
             .map_or((false, false), |t| (true, t.manual))
     }
@@ -204,9 +214,9 @@ impl Aplicatie {
     /// Textul curent al obiectului din dreapta (final sau al bazei) si cel al
     /// sursei: ce arata „Copiaza" si ce se editeaza de mana.
     pub fn texte_curente(&self) -> Option<(String, String)> {
-        let id = self.obiect()?.id();
-        let r = self.rand(&id)?;
-        let (a, b) = self.texte(&id)?;
+        let (baza, id) = self.obiect()?.cheie();
+        let r = self.rand(&baza, &id)?;
+        let (a, b) = self.texte(&baza, &id)?;
         Some((a.to_string(), self.editari.curent(r, b).to_string()))
     }
 
@@ -229,13 +239,32 @@ impl Aplicatie {
         self.lista.obiect_selectat()
     }
 
-    fn rand(&self, id: &str) -> Option<&Rand> {
-        self.randuri.iter().find(|r| r.obiect == id)
+    fn rand(&self, baza: &str, id: &str) -> Option<&Rand> {
+        self.randuri
+            .iter()
+            .find(|r| r.baza == baza && r.obiect == id)
+    }
+
+    /// Obiectele pregatite ale bazei comparate `baza`.
+    fn tinta(&self, baza: &str) -> Option<&Baza> {
+        self.tinte.iter().find(|(b, _)| b == baza).map(|(_, t)| t)
+    }
+
+    /// Obiectul `id` in referinta si in baza comparata `baza`.
+    fn perechea(
+        &self,
+        baza: &str,
+        id: &str,
+    ) -> (
+        Option<&modul::comparare::ObiectPregatit>,
+        Option<&modul::comparare::ObiectPregatit>,
+    ) {
+        (self.sursa.get(id), self.tinta(baza).and_then(|t| t.get(id)))
     }
 
     /// Textele pregatite ale obiectului selectat, daca exista in ambele baze.
-    fn texte(&self, id: &str) -> Option<(&str, &str)> {
-        match (self.sursa.get(id), self.tinta.get(id)) {
+    fn texte(&self, baza: &str, id: &str) -> Option<(&str, &str)> {
+        match self.perechea(baza, id) {
             (Some(a), Some(b)) => Some((a.afisare.as_str(), b.afisare.as_str())),
             _ => None,
         }
@@ -248,9 +277,9 @@ impl Aplicatie {
     /// arata mereu sursa fata de ce va ajunge in baza, iar liniile schimbate
     /// fata de baza sunt marcate (adus / scris de tine).
     pub fn model_editor(&self) -> Option<ModelEditor> {
-        let id = self.obiect()?.id();
-        let (a, b) = self.texte(&id)?;
-        let Some(r) = self.rand(&id) else {
+        let (baza, id) = self.obiect()?.cheie();
+        let (a, b) = self.texte(&baza, &id)?;
+        let Some(r) = self.rand(&baza, &id) else {
             return Some(construieste(a, b));
         };
         let curent = self.editari.curent(r, b);
@@ -262,9 +291,9 @@ impl Aplicatie {
 
     /// Propozitia pentru previzualizare si detaliile randului curent.
     pub fn texte_obiect(&self) -> Option<(&str, &str, Vec<&'static str>)> {
-        let id = self.obiect()?.id();
-        let (a, b) = self.texte(&id)?;
-        let setari = match (self.sursa.get(&id), self.tinta.get(&id)) {
+        let (baza, id) = self.obiect()?.cheie();
+        let (a, b) = self.texte(&baza, &id)?;
+        let setari = match self.perechea(&baza, &id) {
             (Some(x), Some(y)) => modul::setari_diferite(x.setari, y.setari),
             _ => Vec::new(),
         };
@@ -278,8 +307,8 @@ impl Aplicatie {
             let Some(o) = self.lista.obiect(p) else {
                 continue;
             };
-            let id = o.id();
-            let (Some(a), Some(b)) = (self.sursa.get(&id), self.tinta.get(&id)) else {
+            let (baza, id) = o.cheie();
+            let (Some(a), Some(b)) = self.perechea(&baza, &id) else {
                 continue;
             };
             let setari = modul::setari_diferite(a.setari, b.setari);
@@ -326,6 +355,7 @@ impl Aplicatie {
             Comanda::ComutaRevizuit => return self.comuta_revizuit(),
             Comanda::Filtreaza(s) => self.lista.filtreaza_stare(s),
             Comanda::FiltreazaTip(t) => self.lista.filtreaza_tip(t),
+            Comanda::FiltreazaBaza(b) => self.lista.filtreaza_baza(b),
             Comanda::Cauta(t) => self.lista.cauta(&t),
             Comanda::Sorteaza(o) => self.lista.sorteaza(o),
             Comanda::FiltreazaRevizuire(f) => self.lista.filtreaza_revizuire(f),
@@ -338,8 +368,8 @@ impl Aplicatie {
                     self.lista.comuta_in_plan(p);
                 }
             }
-            Comanda::ScoateDinPlan(id) => {
-                self.lista.scoate_din_plan(&id);
+            Comanda::ScoateDinPlan(baza, id) => {
+                self.lista.scoate_din_plan(&baza, &id);
                 // planul golit nu mai are ce arata
                 if self.ecran == Ecran::Deploy && self.lista.in_plan().is_empty() {
                     self.ecran = Ecran::Lista;
@@ -447,10 +477,11 @@ impl Aplicatie {
     /// Schimba textul final al obiectului curent, cu intrare in istoric.
     /// Intoarce `true` (de salvat) daca s-a schimbat ceva.
     fn schimba_textul(&mut self, f: impl FnOnce(&mut Editari, &Rand, &str, &str)) -> bool {
-        let Some(id) = self.obiect().map(|o| o.id()) else {
+        let Some((baza, id)) = self.obiect().map(|o| o.cheie()) else {
             return false;
         };
-        let (Some(r), Some((a, b))) = (self.rand(&id).cloned(), self.texte(&id)) else {
+        let (Some(r), Some((a, b))) = (self.rand(&baza, &id).cloned(), self.texte(&baza, &id))
+        else {
             return false;
         };
         let (a, b) = (a.to_string(), b.to_string());
@@ -493,7 +524,8 @@ impl Aplicatie {
                 continue;
             };
             self.revizuire.marcheaza_deployat(&r);
-            self.lista.pune_deploy(&pas.obiect, Deploy::Deployat);
+            self.lista
+                .pune_deploy(&pas.baza, &pas.obiect, Deploy::Deployat);
             schimbat = true;
         }
         schimbat
@@ -509,7 +541,7 @@ impl Aplicatie {
     pub fn randuri_vizibile(&self) -> Vec<Rand> {
         (0..self.lista.vizibile().len())
             .filter_map(|p| self.lista.obiect(p))
-            .filter_map(|o| self.rand(&o.id()))
+            .filter_map(|o| self.rand(&o.baza, &o.id()))
             .cloned()
             .collect()
     }
@@ -543,8 +575,8 @@ impl Aplicatie {
         let Some(o) = self.lista.obiect(p) else {
             return false;
         };
-        let (id, era) = (o.id(), o.omis);
-        let Some(rand) = self.rand(&id).cloned() else {
+        let (baza, id, era) = (o.baza.clone(), o.id(), o.omis);
+        let Some(rand) = self.rand(&baza, &id).cloned() else {
             return false;
         };
         if era {
@@ -556,23 +588,29 @@ impl Aplicatie {
         true
     }
 
-    /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii.
-    /// `referinta` si `tinta` sunt numele bazelor; `facut_la`, momentul.
-    pub fn plan(&self, referinta: &str, tinta: &str, facut_la: &str) -> modul::Plan {
+    /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii,
+    /// pe toate bazele comparate. `referinta` e numele referintei;
+    /// `facut_la`, momentul.
+    pub fn plan(&self, referinta: &str, facut_la: &str) -> modul::Plan {
         let alese = self.lista.in_plan();
         let comparare = modul::Comparare {
             referinta: referinta.to_string(),
-            baze: vec![tinta.to_string()],
+            baze: self.baze(),
             randuri: self.randuri.clone(),
             numaratoare: modul::Numaratoare::default(),
         };
         modul::Plan::din_comparare(
             &comparare,
             &self.sursa,
-            &[(tinta.to_string(), self.tinta.clone())],
-            |r| alese.iter().any(|a| a == &r.obiect),
+            &self.tinte,
+            |r| alese.iter().any(|(b, o)| b == &r.baza && o == &r.obiect),
             facut_la,
         )
+    }
+
+    /// Numele bazelor comparate, in ordinea aleasa.
+    pub fn baze(&self) -> Vec<String> {
+        self.tinte.iter().map(|(b, _)| b.clone()).collect()
     }
 
     /// Obiectele pregatite ale sursei: de aici se scrie codul in deploy.
@@ -606,8 +644,8 @@ impl Aplicatie {
         let Some(o) = self.lista.obiect(p) else {
             return false;
         };
-        let (id, era) = (o.id(), o.revizuit);
-        let Some(rand) = self.rand(&id).cloned() else {
+        let (baza, id, era) = (o.baza.clone(), o.id(), o.revizuit);
+        let Some(rand) = self.rand(&baza, &id).cloned() else {
             return false;
         };
         if era {
@@ -643,6 +681,10 @@ mod teste {
         }
     }
 
+    fn ids(a: &Aplicatie) -> Vec<String> {
+        a.lista().in_plan().into_iter().map(|(_, id)| id).collect()
+    }
+
     /// Doua baze cu: un obiect modificat, unul modificat altfel, unul care
     /// exista doar in sursa.
     fn aplicatie() -> Aplicatie {
@@ -661,7 +703,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        Aplicatie::noua(comparare.randuri, sursa, tinta, Revizuire::noua())
+        Aplicatie::noua(
+            comparare.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        )
     }
 
     #[test]
@@ -672,15 +719,15 @@ mod teste {
         assert_eq!(app.ecran(), Ecran::Lista);
         app.comanda(Comanda::Selecteaza(0));
         app.comanda(Comanda::ComutaInPlan);
-        let id = app.obiect().unwrap().id();
-        assert_eq!(app.lista().in_plan(), vec![id.clone()]);
+        let (baza, id) = app.obiect().unwrap().cheie();
+        assert_eq!(app.lista().in_plan(), vec![(baza.clone(), id.clone())]);
         app.comanda(Comanda::DeschideDeploy);
         assert_eq!(app.ecran(), Ecran::Deploy);
-        let plan = app.plan("Ref", "Baza", "acum");
+        let plan = app.plan("Ref", "acum");
         assert_eq!(plan.pasi.len(), 1);
         assert_eq!(plan.pasi[0].obiect, id);
         // scos ultimul obiect: inapoi in lista, planul e gol
-        app.comanda(Comanda::ScoateDinPlan(id));
+        app.comanda(Comanda::ScoateDinPlan(baza, id));
         assert_eq!(app.ecran(), Ecran::Lista);
         assert!(app.lista().in_plan().is_empty());
     }
@@ -722,11 +769,11 @@ mod teste {
         let mut a = aplicatie();
         a.comanda(Comanda::Cauta("pA".into()));
         a.comanda(Comanda::PuneVizibileleInPlan(false));
-        assert_eq!(a.lista().in_plan(), ["dbo.pA"]);
+        assert_eq!(ids(&a), ["dbo.pA"]);
         a.comanda(Comanda::Cauta(String::new()));
         a.comanda(Comanda::PuneVizibileleInPlan(false));
         assert_eq!(
-            a.lista().in_plan(),
+            ids(&a),
             ["dbo.pA", "dbo.pB", "dbo.pDoarSursa"],
             "toate se pot deploia"
         );
@@ -736,7 +783,7 @@ mod teste {
     fn dupa_deploy_obiectele_din_plan_sunt_deployate_si_tin_minte() {
         let mut a = aplicatie();
         a.comanda(Comanda::PuneVizibileleInPlan(false));
-        let plan = a.plan("Referinta", "Client1", "acum");
+        let plan = a.plan("Referinta", "acum");
         assert_eq!(plan.pasi.len(), 3);
         assert!(a.marcheaza_deployate(&plan), "e de salvat in sesiune");
         assert_eq!(a.lista().progres_deploy(), (3, 3));
@@ -863,7 +910,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        let b = Aplicatie::noua(c.randuri, sursa, tinta, salvata.clone());
+        let b = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            salvata.clone(),
+        );
         assert!(b.obiect().unwrap().revizuit);
 
         // obiectul s-a schimbat pe server: bifa nu se mai reia
@@ -875,7 +927,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        let b = Aplicatie::noua(c.randuri, sursa, tinta, salvata);
+        let b = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            salvata,
+        );
         assert!(!b.obiect().unwrap().revizuit);
     }
 
@@ -928,7 +985,12 @@ mod teste {
             &[("Client1".to_string(), tinta.clone())],
             |_| {},
         );
-        let mut a = Aplicatie::noua(c.randuri, sursa, tinta, Revizuire::noua());
+        let mut a = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        );
         a.comanda(Comanda::Deschide);
         (a, SURSA, BAZA)
     }
@@ -1037,6 +1099,117 @@ mod teste {
         assert_eq!(
             gmotion_core::normalizeaza(&curent),
             gmotion_core::normalizeaza(sursa)
+        );
+    }
+
+    /// O referinta comparata cu doua baze: pA difera in ambele, pB doar in
+    /// Client2, pN lipseste din Client1.
+    fn aplicatie_doua_baze() -> Aplicatie {
+        let sursa = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nSELECT 2"),
+            obiect_db("pN", "CREATE PROC dbo.pN AS\nSELECT 3"),
+        ]);
+        let c1 = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 10"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nSELECT 2"),
+        ]);
+        let c2 = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 20"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nSELECT 21"),
+            obiect_db("pN", "CREATE PROC dbo.pN AS\nSELECT 3"),
+        ]);
+        let tinte = vec![("Client1".to_string(), c1), ("Client2".to_string(), c2)];
+        let c = modul::compara("Ref", &sursa, &tinte, |_| {});
+        Aplicatie::noua(c.randuri, sursa, tinte, Revizuire::noua())
+    }
+
+    fn selecteaza(a: &mut Aplicatie, baza: &str, nume: &str) {
+        let p = (0..a.lista().vizibile().len())
+            .find(|&p| {
+                let o = a.lista().obiect(p).unwrap();
+                o.baza == baza && o.nume == nume
+            })
+            .expect("randul exista");
+        a.comanda(Comanda::Selecteaza(p));
+    }
+
+    #[test]
+    fn cu_doua_baze_fiecare_rand_isi_arata_baza_lui() {
+        let mut a = aplicatie_doua_baze();
+        assert_eq!(a.baze(), ["Client1", "Client2"]);
+        assert_eq!(
+            a.lista().vizibile().len(),
+            4,
+            "pA x2, pB in Client2, pN in Client1"
+        );
+        selecteaza(&mut a, "Client1", "pA");
+        let (_, b) = a.texte_curente().unwrap();
+        assert!(b.contains("SELECT 10"), "{b}");
+        selecteaza(&mut a, "Client2", "pA");
+        let (_, b) = a.texte_curente().unwrap();
+        assert!(b.contains("SELECT 20"), "{b}");
+        a.comanda(Comanda::Deschide);
+        assert_eq!(a.ecran(), Ecran::Editor);
+        // filtrul pe baza
+        a.comanda(Comanda::InapoiLaLista);
+        a.comanda(Comanda::FiltreazaBaza(Some("Client1".into())));
+        assert_eq!(a.lista().vizibile().len(), 2);
+        a.comanda(Comanda::FiltreazaBaza(None));
+        assert_eq!(a.lista().vizibile().len(), 4);
+    }
+
+    #[test]
+    fn revizuirea_si_textul_final_sunt_pe_baza_nu_pe_nume() {
+        let mut a = aplicatie_doua_baze();
+        selecteaza(&mut a, "Client1", "pA");
+        a.comanda(Comanda::ComutaRevizuit);
+        a.comanda(Comanda::AplicaToate);
+        selecteaza(&mut a, "Client2", "pA");
+        assert!(
+            !a.obiect().unwrap().revizuit,
+            "bifa din Client1 nu trece in Client2"
+        );
+        assert_eq!(a.stare_text_final(), (false, false));
+        let t = a.texte_finale();
+        assert!(t.contains_key(&("Client1".to_string(), "dbo.pA".to_string())));
+        assert!(!t.contains_key(&("Client2".to_string(), "dbo.pA".to_string())));
+    }
+
+    #[test]
+    fn planul_cuprinde_fiecare_baza_si_deploy_ul_marcheaza_doar_ce_s_a_scris() {
+        let mut a = aplicatie_doua_baze();
+        selecteaza(&mut a, "Client2", "pA");
+        a.comanda(Comanda::ComutaInPlan);
+        selecteaza(&mut a, "Client1", "pN");
+        a.comanda(Comanda::ComutaInPlan);
+        let plan = a.plan("Ref", "acum");
+        let mut pasi: Vec<(String, String)> = plan
+            .pasi
+            .iter()
+            .map(|p| (p.baza.clone(), p.obiect.clone()))
+            .collect();
+        pasi.sort();
+        assert_eq!(
+            pasi,
+            [
+                ("Client1".to_string(), "dbo.pN".to_string()),
+                ("Client2".to_string(), "dbo.pA".to_string())
+            ]
+        );
+        assert!(a.marcheaza_deployate(&plan));
+        selecteaza(&mut a, "Client1", "pA");
+        assert_eq!(
+            a.obiect().unwrap().deploy,
+            Deploy::Nu,
+            "pA din Client1 nu era in plan"
+        );
+        selecteaza(&mut a, "Client2", "pA");
+        assert_eq!(a.obiect().unwrap().deploy, Deploy::Deployat);
+        a.comanda(Comanda::ScoateDinPlan("Client2".into(), "dbo.pA".into()));
+        assert_eq!(
+            a.lista().in_plan(),
+            [("Client1".to_string(), "dbo.pN".to_string())]
         );
     }
 }

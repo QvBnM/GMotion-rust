@@ -9,6 +9,8 @@
 /// Un pas din plan, in ordinea din script.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PasDeploy {
+    /// Baza in care se scrie.
+    pub baza: String,
     /// `true` = obiectul nu exista in baza; deploy-ul il creeaza.
     pub creeaza: bool,
     /// `schema.nume`.
@@ -139,6 +141,7 @@ mod teste {
 
     fn pas(creeaza: bool, obiect: &str) -> PasDeploy {
         PasDeploy {
+            baza: "Prod".into(),
             creeaza,
             obiect: obiect.into(),
             tip: "procedura".into(),

@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 0aed0ff85b578be3 -->
+<!-- api-hash: 2b9d64e615135ca6 -->
 
 ## Rol
 
@@ -26,21 +26,21 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 
 | Element | Ce face |
 |---|---|
-| `Aplicatie::noua(randuri, sursa, tinta, revizuire)` | starea initiala, din randurile unei comparari |
+| `Aplicatie::noua(randuri, sursa, tinte, revizuire)` | starea initiala, din randurile unei comparari; `tinte` = fiecare baza comparata cu referinta |
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
 | `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
-| `Aplicatie::plan(referinta, tinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii |
+| `Aplicatie::plan(referinta, facut_la)`, `sursa()`, `baze()` | pe toate bazele comparate: planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |
 | `deploy::StareDeploy` (`nou`, `pasi_in_ordine`, `aplica_verificarea`, `verificare_esuata`, `poate_scrie`, `scrie`, `alege_impartirea`) | ecranul de deploy: garda pe obiectele recitite, scrierea cu revenirea inainte, aceleasi functii ca `gmotion deploy --plan` |
 | `deploy::{ecran, impartire_din, pozitia_impartirii}`, `Garda`, `PasAfisat` | ce se deseneaza pe ecranul de deploy |
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
-| `pornire::compara(c) -> Comparata` | citeste ambele baze si compara |
+| `pornire::compara(c) -> Comparata` | citeste referinta si fiecare baza bifata (`Conectare::baze_tinta`) si compara |
 
 ## Invariante
 
@@ -57,6 +57,10 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 5. **Parola iese din `Acreditari` intr-un singur loc:** `pornire::deschide`.
    Nu ajunge in starea afisata, in sesiuni sau in mesajele de eroare — exista
    test.
+6. **Un rand e `(baza, schema.nume)`, nu numele.** Cu mai multe baze comparate,
+   acelasi obiect apare o data pentru fiecare; bifa, textul final, planul si
+   „deployat" tin de rand. Cautarea dupa nume singur ar lega Client1 de
+   Client2.
 
 ## Erori tipice
 

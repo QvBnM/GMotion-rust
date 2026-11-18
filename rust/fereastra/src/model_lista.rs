@@ -137,6 +137,9 @@ impl FiltruRevizuire {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Obiect {
+    /// Baza comparata de care tine randul: acelasi obiect apare o data pentru
+    /// fiecare baza comparata cu referinta.
+    pub baza: String,
     pub schema: String,
     pub nume: String,
     /// Codul din `sys.objects.type` (`P`, `V`, `FN`...); numele pentru
@@ -157,6 +160,16 @@ pub struct Obiect {
 impl Obiect {
     pub fn id(&self) -> String {
         format!("{}.{}", self.schema, self.nume)
+    }
+
+    /// Ce identifica randul in lista: `(baza, schema.nume)`. Numele singur nu
+    /// ajunge cand o referinta e comparata cu mai multe baze.
+    pub fn cheie(&self) -> (String, String) {
+        (self.baza.clone(), self.id())
+    }
+
+    fn e(&self, baza: &str, id: &str) -> bool {
+        self.baza == baza && self.id() == id
     }
 
     /// Se poate deploia: are cod in sursa care se poate citi. Un obiect doar
@@ -181,6 +194,8 @@ pub enum Ordine {
     /// Revizuit / omis / nerevizuit.
     Revizuire,
     Deploy,
+    /// Baza comparata (cand sunt mai multe).
+    Baza,
 }
 
 impl Ordine {
@@ -196,6 +211,8 @@ pub struct Filtru {
     pub stare: Option<Stare>,
     /// Codul tipului (`P`, `V`...).
     pub tip: Option<String>,
+    /// Baza comparata; `None` = toate.
+    pub baza: Option<String>,
     pub cautare: String,
     pub revizuire: Option<FiltruRevizuire>,
     /// Intervalul de similaritate, in procente. Cat timp e 0-100, nu se
@@ -210,6 +227,7 @@ impl Default for Filtru {
         Filtru {
             stare: None,
             tip: None,
+            baza: None,
             cautare: String::new(),
             revizuire: None,
             scor_min: 0.0,
@@ -311,6 +329,22 @@ impl Lista {
         self.recalculeaza();
     }
 
+    pub fn filtreaza_baza(&mut self, baza: Option<String>) {
+        self.filtru.baza = baza;
+        self.recalculeaza();
+    }
+
+    /// Bazele comparate, in ordinea in care apar in lista.
+    pub fn baze(&self) -> Vec<String> {
+        let mut v: Vec<String> = Vec::new();
+        for o in &self.obiecte {
+            if !v.contains(&o.baza) {
+                v.push(o.baza.clone());
+            }
+        }
+        v
+    }
+
     pub fn cauta(&mut self, text: &str) {
         self.filtru.cautare = text.to_string();
         self.recalculeaza();
@@ -342,9 +376,9 @@ impl Lista {
         self.recalculeaza();
     }
 
-    /// Starea de deploy a obiectului `schema.nume`.
-    pub fn pune_deploy(&mut self, id: &str, d: Deploy) {
-        for o in self.obiecte.iter_mut().filter(|o| o.id() == id) {
+    /// Starea de deploy a obiectului `schema.nume` din `baza`.
+    pub fn pune_deploy(&mut self, baza: &str, id: &str, d: Deploy) {
+        for o in self.obiecte.iter_mut().filter(|o| o.e(baza, id)) {
             o.deploy = d;
         }
     }
@@ -400,19 +434,20 @@ impl Lista {
         true
     }
 
-    /// Scoate din plan obiectul cu `schema.nume` dat, vizibil sau nu.
-    pub fn scoate_din_plan(&mut self, id: &str) {
-        for o in self.obiecte.iter_mut().filter(|o| o.id() == id) {
+    /// Scoate din plan obiectul `schema.nume` din `baza`, vizibil sau nu.
+    pub fn scoate_din_plan(&mut self, baza: &str, id: &str) {
+        for o in self.obiecte.iter_mut().filter(|o| o.e(baza, id)) {
             o.in_plan = false;
         }
     }
 
-    /// Obiectele din plan, `schema.nume`, in ordinea din lista completa.
-    pub fn in_plan(&self) -> Vec<String> {
+    /// Obiectele din plan, `(baza, schema.nume)`, in ordinea din lista
+    /// completa.
+    pub fn in_plan(&self) -> Vec<(String, String)> {
         self.obiecte
             .iter()
             .filter(|o| o.in_plan)
-            .map(Obiect::id)
+            .map(Obiect::cheie)
             .collect()
     }
 
@@ -494,7 +529,7 @@ impl Lista {
     fn recalculeaza(&mut self) {
         // obiectul selectat ramane selectat daca mai e vizibil: altfel
         // previzualizarea de dedesubt ar sari pe alt obiect la fiecare filtru
-        let id_selectat = self.obiect_selectat().map(Obiect::id);
+        let id_selectat = self.obiect_selectat().map(Obiect::cheie);
         let cautare = self.filtru.cautare.to_lowercase();
         let mut v: Vec<usize> = self
             .obiecte
@@ -503,6 +538,7 @@ impl Lista {
             .filter(|(_, o)| {
                 self.filtru.stare.is_none_or(|s| o.stare == s)
                     && self.filtru.tip.as_deref().is_none_or(|t| o.tip == t)
+                    && self.filtru.baza.as_deref().is_none_or(|b| o.baza == b)
                     && (cautare.is_empty() || o.id().to_lowercase().contains(&cautare))
                     && self.filtru.revizuire.is_none_or(|f| f.potriveste(o))
                     && (!self.filtru.scor_activ()
@@ -551,10 +587,12 @@ impl Lista {
                 }
                 Ordine::Revizuire => rang_revizuire(a).cmp(&rang_revizuire(b)),
                 Ordine::Deploy => rang_deploy(a).cmp(&rang_deploy(b)),
+                Ordine::Baza => o[a].baza.cmp(&o[b].baza),
             };
             // numele departajeaza mereu crescator, ca ordinea sa fie stabila
             let c = if self.descrescator { c.reverse() } else { c };
             c.then_with(|| o[a].id().cmp(&o[b].id()))
+                .then_with(|| o[a].baza.cmp(&o[b].baza))
         });
         if ordine == Ordine::Nume && self.descrescator {
             v.reverse();
@@ -564,7 +602,7 @@ impl Lista {
             Some(id) => self
                 .vizibile
                 .iter()
-                .position(|&i| self.obiecte[i].id() == id)
+                .position(|&i| self.obiecte[i].e(&id.0, &id.1))
                 .or(if self.vizibile.is_empty() {
                     None
                 } else {
@@ -580,8 +618,14 @@ impl Lista {
 mod teste {
     use super::*;
 
+    /// `schema.nume` din plan, fara baza (testele de aici au una singura).
+    fn ids(l: &Lista) -> Vec<String> {
+        l.in_plan().into_iter().map(|(_, id)| id).collect()
+    }
+
     fn obiect(nume: &str, tip: &str, stare: Stare) -> Obiect {
         Obiect {
+            baza: "B".into(),
             schema: "dbo".into(),
             nume: nume.into(),
             tip: tip.into(),
@@ -629,15 +673,15 @@ mod teste {
             assert!(!l.comuta_in_plan(p), "{n} n-are cod de deploiat");
         }
         assert_eq!(
-            l.in_plan(),
+            ids(&l),
             vec!["dbo.pMod".to_string(), "dbo.pNou".to_string()]
         );
-        l.scoate_din_plan("dbo.pMod");
-        assert_eq!(l.in_plan(), vec!["dbo.pNou".to_string()]);
+        l.scoate_din_plan("B", "dbo.pMod");
+        assert_eq!(ids(&l), vec!["dbo.pNou".to_string()]);
         // a doua apasare scoate
         let p = poz(&l, "pNou");
         assert!(l.comuta_in_plan(p));
-        assert!(l.in_plan().is_empty());
+        assert!(ids(&l).is_empty());
     }
 
     #[test]
@@ -866,10 +910,11 @@ mod teste {
                 Deploy::Deployat => 3,
             }
             .to_string(),
+            Ordine::Baza => o.baza.clone(),
         }
     }
 
-    const COLOANE: [Ordine; 7] = [
+    const COLOANE: [Ordine; 8] = [
         Ordine::Nume,
         Ordine::Tip,
         Ordine::Linii,
@@ -877,6 +922,7 @@ mod teste {
         Ordine::DiferaIn,
         Ordine::Revizuire,
         Ordine::Deploy,
+        Ordine::Baza,
     ];
 
     #[test]
@@ -967,7 +1013,7 @@ mod teste {
         // pNou e deja in plan si deployat; pMare e omis; pVechi n-are cod
         assert_eq!(l.pune_vizibilele_in_plan(false), 2);
         assert_eq!(
-            l.in_plan(),
+            ids(&l),
             ["dbo.pMic", "dbo.pMediu", "dbo.pNou"],
             "ordinea e cea din lista completa, nu cea afisata"
         );
@@ -978,25 +1024,25 @@ mod teste {
     #[test]
     fn in_plan_sare_deployatele_pana_cand_se_cere_altfel() {
         let mut l = lista_stari();
-        l.scoate_din_plan("dbo.pNou");
+        l.scoate_din_plan("B", "dbo.pNou");
         assert_eq!(
             l.pune_vizibilele_in_plan(false),
             2,
             "pNou e deployat si neschimbat, deci se sare"
         );
-        assert!(!l.in_plan().contains(&"dbo.pNou".to_string()));
+        assert!(!ids(&l).contains(&"dbo.pNou".to_string()));
         assert_eq!(l.pune_vizibilele_in_plan(true), 1, "acum intra si el");
-        assert!(l.in_plan().contains(&"dbo.pNou".to_string()));
+        assert!(ids(&l).contains(&"dbo.pNou".to_string()));
     }
 
     #[test]
     fn in_plan_se_uita_doar_la_ce_e_filtrat() {
         let mut l = lista_stari();
-        l.scoate_din_plan("dbo.pNou");
+        l.scoate_din_plan("B", "dbo.pNou");
         l.filtreaza_scor(0.0, 50.0);
         assert_eq!(nume_vizibile(&l), ["pMic"]);
         assert_eq!(l.pune_vizibilele_in_plan(true), 1);
-        assert_eq!(l.in_plan(), ["dbo.pMic"], "ce nu se vede nu intra in plan");
+        assert_eq!(ids(&l), ["dbo.pMic"], "ce nu se vede nu intra in plan");
     }
 
     #[test]
@@ -1007,9 +1053,9 @@ mod teste {
             (1, 5),
             "versiunea noua nu se pune la bifate"
         );
-        l.pune_deploy("dbo.pMic", Deploy::Deployat);
+        l.pune_deploy("B", "dbo.pMic", Deploy::Deployat);
         assert_eq!(l.progres_deploy(), (2, 5));
-        l.pune_deploy("dbo.pMic", Deploy::VersiuneNoua);
+        l.pune_deploy("B", "dbo.pMic", Deploy::VersiuneNoua);
         assert_eq!(l.progres_deploy(), (1, 5));
     }
 
@@ -1022,7 +1068,7 @@ mod teste {
         l.pune_revizuirea(p, true, true);
         let o = l.obiect(p).unwrap();
         assert!(o.omis && !o.revizuit && !o.in_plan);
-        assert!(l.in_plan().is_empty());
+        assert!(ids(&l).is_empty());
     }
 
     #[test]
@@ -1035,5 +1081,63 @@ mod teste {
         l.cauta("nimic-nu-se-potriveste");
         l.muta_selectia(1);
         assert_eq!(l.selectat(), None, "lista goala nu are selectie");
+    }
+
+    /// Acelasi obiect comparat cu doua baze: doua randuri, fiecare cu starea
+    /// lui.
+    fn lista_doua_baze() -> Lista {
+        let mut a = obiect("pX", "P", Stare::Modificat);
+        a.baza = "Client1".into();
+        let mut b = obiect("pX", "P", Stare::Modificat);
+        b.baza = "Client2".into();
+        let mut c = obiect("pY", "P", Stare::DoarSursa);
+        c.baza = "Client2".into();
+        Lista::noua(vec![a, b, c])
+    }
+
+    #[test]
+    fn acelasi_obiect_in_doua_baze_sunt_doua_randuri_independente() {
+        let mut l = lista_doua_baze();
+        assert_eq!(l.baze(), ["Client1", "Client2"]);
+        assert_eq!(l.vizibile().len(), 3);
+        // ordinea: numele, apoi baza
+        let chei: Vec<(String, String)> = (0..3).map(|p| l.obiect(p).unwrap().cheie()).collect();
+        assert_eq!(chei[0], ("Client1".to_string(), "dbo.pX".to_string()));
+        assert_eq!(chei[1], ("Client2".to_string(), "dbo.pX".to_string()));
+        // in plan doar pe Client2
+        l.comuta_in_plan(1);
+        assert_eq!(l.in_plan(), [("Client2".to_string(), "dbo.pX".to_string())]);
+        // deployat doar in Client1
+        l.pune_deploy("Client1", "dbo.pX", Deploy::Deployat);
+        assert_eq!(l.obiect(0).unwrap().deploy, Deploy::Deployat);
+        assert_eq!(l.obiect(1).unwrap().deploy, Deploy::Nu);
+        // scos din plan in Client1: Client2 ramane
+        l.scoate_din_plan("Client1", "dbo.pX");
+        assert_eq!(l.in_plan().len(), 1);
+        l.scoate_din_plan("Client2", "dbo.pX");
+        assert!(l.in_plan().is_empty());
+    }
+
+    #[test]
+    fn filtrul_pe_baza_si_selectia_tin_de_rand_nu_de_nume() {
+        let mut l = lista_doua_baze();
+        l.selecteaza(1);
+        assert_eq!(l.obiect_selectat().unwrap().baza, "Client2");
+        l.filtreaza_baza(Some("Client2".into()));
+        assert_eq!(nume_vizibile(&l), ["pX", "pY"]);
+        assert_eq!(
+            l.obiect_selectat().unwrap().cheie(),
+            ("Client2".to_string(), "dbo.pX".to_string()),
+            "selectia ramane pe acelasi rand, nu pe primul cu acelasi nume"
+        );
+        l.filtreaza_baza(Some("Client1".into()));
+        assert_eq!(nume_vizibile(&l), ["pX"]);
+        l.filtreaza_baza(None);
+        assert_eq!(l.vizibile().len(), 3);
+        // sortarea pe baza, ambele sensuri
+        l.sorteaza(Ordine::Baza);
+        assert_eq!(l.obiect(0).unwrap().baza, "Client1");
+        l.sorteaza(Ordine::Baza);
+        assert_eq!(l.obiect(0).unwrap().baza, "Client2");
     }
 }

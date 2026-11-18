@@ -95,35 +95,37 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
 pub struct Comparata {
     pub randuri: Vec<modul::Rand>,
     pub sursa: modul::Baza,
-    pub tinta: modul::Baza,
+    /// Fiecare baza comparata, in ordinea bifarii.
+    pub tinte: Vec<(String, modul::Baza)>,
     pub server: String,
 }
 
-/// Citeste ambele baze si compara. Sincron: ecranul de conectare nu are
-/// progres in machete, iar pe instantaneu dureaza oricum sub o secunda.
-/// (Pe server real, progresul e lucru de etapa viitoare.)
+/// Citeste referinta si fiecare baza bifata, apoi compara. Toate bazele
+/// comparate stau pe serverul partii „Baza": se deschide o singura conexiune.
 pub fn compara(c: &Conectare) -> Result<Comparata, String> {
+    let baze = c.baze_tinta();
+    if baze.is_empty() {
+        return Err("alege cel putin o baza de comparat".into());
+    }
     let mut sursa_db = deschide(c, &c.sursa)?;
     let server = sursa_db.descriere();
     let obiecte_sursa = sursa_db.obiecte(&c.sursa.baza).map_err(|e| e.to_string())?;
-    let obiecte_tinta = if c.instantaneu.is_some() {
-        sursa_db.obiecte(&c.baza.baza).map_err(|e| e.to_string())?
+    let mut tinta_db = if c.instantaneu.is_some() {
+        sursa_db
     } else {
-        let mut tinta_db = deschide(c, &c.baza)?;
-        tinta_db.obiecte(&c.baza.baza).map_err(|e| e.to_string())?
+        deschide(c, &c.baza)?
     };
+    let mut tinte = Vec::new();
+    for b in &baze {
+        let obiecte = tinta_db.obiecte(b).map_err(|e| e.to_string())?;
+        tinte.push((b.clone(), modul::pregateste(&obiecte)));
+    }
     let sursa = modul::pregateste(&obiecte_sursa);
-    let tinta = modul::pregateste(&obiecte_tinta);
-    let comparare = modul::compara(
-        &c.sursa.baza,
-        &sursa,
-        &[(c.baza.baza.clone(), tinta.clone())],
-        |_| {},
-    );
+    let comparare = modul::compara(&c.sursa.baza, &sursa, &tinte, |_| {});
     Ok(Comparata {
         randuri: comparare.randuri,
         sursa,
-        tinta,
+        tinte,
         server,
     })
 }
@@ -217,5 +219,46 @@ mod teste {
             "parola in mesajul de eroare: {}",
             stare.text()
         );
+    }
+
+    #[test]
+    fn o_referinta_se_compara_cu_toate_bazele_bifate() {
+        let d = std::env::temp_dir().join(format!("gmotion-pornire-multe-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        std::fs::write(
+            &cale,
+            r#"{"versiune":1,"server":"SRV","creat":"2026-11-17T10:00:00Z","nota":"","baze":{
+                "R":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 1"}],
+                "A":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 2"}],
+                "B":[]}}"#,
+        )
+        .unwrap();
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        c.sursa.baza = "R".into();
+        assert!(compara(&c).is_err(), "fara nicio baza bifata nu se compara");
+        c.comuta_baza("A");
+        c.comuta_baza("B");
+        let r = compara(&c).expect("compararea merge");
+        let nume: Vec<&str> = r.tinte.iter().map(|(b, _)| b.as_str()).collect();
+        assert_eq!(nume, ["A", "B"]);
+        let mut randuri: Vec<(String, modul::Categorie)> = r
+            .randuri
+            .iter()
+            .map(|x| (x.baza.clone(), x.categorie))
+            .collect();
+        randuri.sort();
+        assert_eq!(
+            randuri,
+            [
+                ("A".to_string(), modul::Categorie::Diferit),
+                ("B".to_string(), modul::Categorie::Lipsa)
+            ]
+        );
+        // o baza bifata care nu exista: eroare, nu o comparare pe jumatate
+        c.comuta_baza("NuExista");
+        assert!(compara(&c).is_err());
+        std::fs::remove_dir_all(&d).ok();
     }
 }

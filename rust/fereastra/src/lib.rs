@@ -476,6 +476,7 @@ fn cod_ordine(o: model_lista::Ordine) -> i32 {
         Ordine::DiferaIn => 4,
         Ordine::Revizuire => 5,
         Ordine::Deploy => 6,
+        Ordine::Baza => 7,
     }
 }
 
@@ -489,6 +490,7 @@ pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
         4 => Ordine::DiferaIn,
         5 => Ordine::Revizuire,
         6 => Ordine::Deploy,
+        7 => Ordine::Baza,
         _ => Ordine::Nume,
     }
 }
@@ -519,6 +521,9 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
         Stare::Identic => 3,
         Stare::Criptat => 4,
     };
+    // cu o singura baza comparata, coloana Baza si filtrul ei nu se arata
+    let baze = lista.baze();
+    let mai_multe_baze = baze.len() > 1;
     let randuri: Vec<RandListaUi> = lista
         .vizibile()
         .iter()
@@ -529,6 +534,11 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
                 None => (String::new(), String::new()),
             };
             RandListaUi {
+                baza: if mai_multe_baze {
+                    o.baza.as_str().into()
+                } else {
+                    SharedString::new()
+                },
                 schema: o.schema.as_str().into(),
                 nume: o.nume.as_str().into(),
                 tip: gmotion_core::nume_tip(&o.tip).into(),
@@ -598,6 +608,21 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .and_then(|t| lista.contoare_tipuri().iter().position(|(x, _)| x == t))
             .map_or(-1, |i| i as i32),
     );
+    ui.set_baza_activa(
+        lista
+            .filtru()
+            .baza
+            .as_deref()
+            .and_then(|b| baze.iter().position(|x| x == b))
+            .map_or(-1, |i| i as i32),
+    );
+    ui.set_baze(ModelRc::new(VecModel::from(if mai_multe_baze {
+        baze.iter()
+            .map(|b| SharedString::from(b.as_str()))
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    })));
     ui.set_rezumat_lista(lista.rezumat_vizibile().into());
     ui.set_coloana_sortata(cod_ordine(lista.ordine()));
     ui.set_sens_descrescator(lista.descrescator());
@@ -694,6 +719,10 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
     ui.set_mediu(mediu.cod());
     ui.set_numar(e.pasi.len().to_string().into());
     ui.set_rezumat(model_deploy::rezumat(&e.pasi).into());
+    let mai_multe_baze = e
+        .pasi
+        .iter()
+        .any(|p| e.pasi.first().is_some_and(|q| q.baza != p.baza));
     let pasi: Vec<PasDeployUi> = e
         .pasi
         .iter()
@@ -707,6 +736,13 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
                 nume: nume.into(),
                 tip: p.tip.as_str().into(),
                 id: p.obiect.as_str().into(),
+                baza: p.baza.as_str().into(),
+                // cu o singura baza, eticheta ei e deja in antet
+                eticheta_baza: if mai_multe_baze {
+                    p.baza.as_str().into()
+                } else {
+                    SharedString::new()
+                },
             }
         })
         .collect();
@@ -889,7 +925,12 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         StareConexiune::Conectat(_) => 2,
         StareConexiune::Eroare(_) => 3,
     };
-    let parte = |p: &model_conectare::Parte, eticheta: &str, rol: &str, mediu: Mediu| ParteUi {
+    // `alese`: doar pentru partea comparata, unde bazele se bifeaza
+    let parte = |p: &model_conectare::Parte,
+                 eticheta: &str,
+                 rol: &str,
+                 mediu: Mediu,
+                 alese: Option<Vec<String>>| ParteUi {
         eticheta: eticheta.into(),
         rol: rol.into(),
         mediu: mediu.eticheta().into(),
@@ -901,7 +942,17 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         parola: "•"
             .repeat(if p.acreditari.are_parola() { 10 } else { 0 })
             .into(),
-        baza: p.baza.as_str().into(),
+        baza: match &alese {
+            Some(v) => model_conectare::eticheta_baze(v).into(),
+            None => p.baza.as_str().into(),
+        },
+        multipla: alese.is_some(),
+        bifate: ModelRc::new(VecModel::from(
+            p.baze
+                .iter()
+                .map(|b| alese.as_ref().is_some_and(|v| v.contains(b)))
+                .collect::<Vec<_>>(),
+        )),
         baze: ModelRc::new(VecModel::from(
             p.baze
                 .iter()
@@ -924,7 +975,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
             sursa: r.sursa.as_str().into(),
             baza: r.baza.as_str().into(),
             mediu: r.mediu.as_str().into(),
-            cod_mediu: mediu_dupa_nume(&r.baza).cod(),
+            cod_mediu: mediu_dupa_nume(r.baze.first().map_or("", String::as_str)).cod(),
             cand: r.cand.as_str().into(),
             progres: r.progres.as_str().into(),
         })
@@ -935,8 +986,15 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         "Sursa",
         "de unde vine codul",
         mediu_dupa_nume(&c.sursa.baza),
+        None,
     ));
-    ui.set_baza(parte(&c.baza, "Baza", "unde ajunge", mediu_tinta));
+    ui.set_baza(parte(
+        &c.baza,
+        "Baza",
+        "unde ajunge",
+        mediu_tinta,
+        Some(c.baze_tinta()),
+    ));
     ui.set_mediu(mediu_tinta.cod());
     ui.set_certificat(c.text_certificat().into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
@@ -1077,15 +1135,18 @@ mod teste {
         ui.on_cauta(move |t| a.borrow_mut().push(format!("cauta{t}")));
         let a = apeluri.clone();
         ui.on_pune_vizibilele_in_plan(move |cu| a.borrow_mut().push(format!("plan{cu}")));
+        let a = apeluri.clone();
+        ui.on_alege_baza(move |i| a.borrow_mut().push(format!("baza{i}")));
 
         ui.invoke_sorteaza_coloana(cod_ordine(model_lista::Ordine::Scor));
         ui.invoke_alege_starea(2);
         ui.invoke_schimba_scorul("40".into(), "90".into());
         ui.invoke_exporta_csv();
         ui.invoke_pune_vizibilele_in_plan(true);
+        ui.invoke_alege_baza(1);
         assert_eq!(
             *apeluri.borrow(),
-            ["sort3", "stare2", "scor40-90", "csv", "plantrue"],
+            ["sort3", "stare2", "scor40-90", "csv", "plantrue", "baza1"],
             "fiecare element nou din bara de filtre are actiune"
         );
 
@@ -1129,6 +1190,7 @@ mod teste {
             Ordine::DiferaIn,
             Ordine::Revizuire,
             Ordine::Deploy,
+            Ordine::Baza,
         ] {
             assert_eq!(ordine_din_cod(cod_ordine(o)), o, "dus-intors pentru {o:?}");
         }
@@ -1411,6 +1473,7 @@ mod teste {
     fn lista_de_proba() -> model_lista::Lista {
         use model_lista::{Obiect, Stare};
         let o = |nume: &str, tip: &str, stare: Stare| Obiect {
+            baza: "CharismaProd".into(),
             schema: "dbo".into(),
             nume: nume.into(),
             tip: tip.into(),
@@ -1446,8 +1509,8 @@ mod teste {
         use model_lista::{Deploy, FiltruRevizuire, Ordine};
         let ui = fereastra_lista();
         let mut lista = lista_de_proba();
-        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
-        lista.pune_deploy("dbo.usp_Import", Deploy::VersiuneNoua);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Import", Deploy::VersiuneNoua);
         lista.sorteaza(Ordine::Scor);
         lista.filtreaza_revizuire(Some(FiltruRevizuire::Nerevizuite));
         lista.filtreaza_scor(30.0, 80.0);
@@ -1488,7 +1551,7 @@ mod teste {
         use model_lista::Deploy;
         let ui = fereastra_lista();
         let mut lista = lista_de_proba();
-        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Stoc", Deploy::Deployat);
         let p = (0..lista.vizibile().len())
             .find(|&p| lista.obiect(p).unwrap().nume == "usp_Stoc")
             .unwrap();
@@ -1501,6 +1564,28 @@ mod teste {
             .expect("randul");
         assert_eq!(r.deploy, 4, "omis: lasat deoparte deliberat");
         assert!(r.omis);
+    }
+
+    #[test]
+    fn coloana_si_filtrul_bazei_apar_doar_cu_mai_multe_baze() {
+        let ui = fereastra_lista();
+        let lista = lista_de_proba();
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(ui.get_baze().row_count(), 0, "o singura baza: fara filtru");
+        assert!(ui.get_randuri().iter().all(|r| r.baza.is_empty()));
+
+        let mut obiecte = lista.obiecte().to_vec();
+        let mut alt = obiecte[0].clone();
+        alt.baza = "CharismaTest".into();
+        obiecte.push(alt);
+        let mut lista = model_lista::Lista::noua(obiecte);
+        lista.filtreaza_baza(Some("CharismaTest".into()));
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let baze: Vec<String> = ui.get_baze().iter().map(|b| b.to_string()).collect();
+        assert_eq!(baze, ["CharismaProd", "CharismaTest"]);
+        assert_eq!(ui.get_baza_activa(), 1);
+        assert_eq!(ui.get_randuri().row_count(), 1);
+        assert_eq!(ui.get_randuri().row_data(0).unwrap().baza, "CharismaTest");
     }
 
     #[test]
@@ -1674,6 +1759,7 @@ mod teste {
             stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
             auth_windows: false,
             servere_gasite: vec!["SRV-DEV\\SQL2019".into(), "SRV-PROD".into()],
+            ..Parte::default()
         };
         c.baza = Parte {
             server: "SRV-PROD".into(),
@@ -1699,6 +1785,77 @@ mod teste {
         assert_eq!(ui.get_mediu(), 2);
         assert_eq!(ui.get_baza().mediu, "PROD");
         assert_eq!(ui.get_sursa().mediu, "DEV");
+    }
+
+    #[test]
+    fn planul_pe_mai_multe_baze_arata_baza_fiecarui_pas() {
+        use model_deploy::{EcranDeploy, GardaDeploy, PasDeploy, RezultatDeploy};
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w)));
+        let ui = FereastraDeploy::new().expect("fereastra de test");
+        aplica_tema(&ui, Mod::Luminos);
+        let pas = |baza: &str| PasDeploy {
+            baza: baza.into(),
+            creeaza: false,
+            obiect: "dbo.p".into(),
+            tip: "procedura".into(),
+        };
+        let mut e = EcranDeploy {
+            referinta: "Dev".into(),
+            tinta: "Prod".into(),
+            pasi: vec![pas("Prod")],
+            sarite: 0,
+            garda: GardaDeploy::Neverificata,
+            impartire: 0,
+            cate: 10,
+            poate_scrie: false,
+            director: String::new(),
+            rezultat: RezultatDeploy::Nescris,
+        };
+        incarca_deploy(&ui, &e, Mediu::Prod);
+        assert_eq!(
+            ui.get_pasi().row_data(0).unwrap().eticheta_baza,
+            "",
+            "una singura: e in antet"
+        );
+        e.pasi.push(pas("Test"));
+        incarca_deploy(&ui, &e, Mediu::Prod);
+        let etichete: Vec<String> = ui
+            .get_pasi()
+            .iter()
+            .map(|p| p.eticheta_baza.to_string())
+            .collect();
+        assert_eq!(etichete, ["Prod", "Test"]);
+        // „scoate din plan" spune si baza, nu doar numele
+        let apel: Rc<RefCell<Vec<String>>> = Rc::default();
+        let a = apel.clone();
+        ui.on_scoate_din_plan(move |b, id| a.borrow_mut().push(format!("{b}/{id}")));
+        let p = ui.get_pasi().row_data(1).unwrap();
+        ui.invoke_scoate_din_plan(p.baza, p.id);
+        assert_eq!(*apel.borrow(), ["Test/dbo.p"]);
+    }
+
+    #[test]
+    fn bazele_bifate_ajung_in_lista_de_alegere() {
+        use model_conectare::{Conectare, Parte};
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        c.baza = Parte {
+            server: "SRV".into(),
+            baze: vec!["A".into(), "B".into(), "C".into()],
+            ..Parte::default()
+        };
+        c.comuta_baza("C");
+        c.comuta_baza("A");
+        incarca_conectare(&ui, &c);
+        let b = ui.get_baza();
+        assert!(b.multipla, "partea comparata are bife");
+        assert!(!ui.get_sursa().multipla, "referinta e una singura");
+        let bifate: Vec<bool> = b.bifate.iter().collect();
+        assert_eq!(bifate, [true, false, true], "paralel cu lista de baze");
+        assert_eq!(b.baza, "C, A", "campul le arata pe toate");
     }
 
     #[test]
