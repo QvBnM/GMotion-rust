@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="utf-8"><title>GMotion revizie</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+ --fundal:#0d1120;--suprafata:#151a2e;--strat:#1d2440;--cod:#0f1424;--panou-sursa:#131930;
+ --cap-sursa:#1a2038;--cap-baza:#221d3d;--contur-baza:#4b3a78;--linie:#2a3255;--linie-slaba:#1e2542;
+ --text:#eef1ff;--text2:#a3acd0;--text3:#8a93b8;--selectie:#3a4680;--accent:#ffb547;--pe-accent:#1a1200;
+ --tine:#b98cff;--prod:#d92b2b;
+ --mod:#ffb547;--mod-f:#312b29;--mod-in:#5a4630;--add:#3ddc97;--add-f:#152e33;--del:#ff6b81;--del-f:#2e1f30;
+ --ident:#232a45;--ha:#0f1424;--hb:#1a2038;
+ --kw:#8fb4ff;--str:#ffcf8a;--var:#d6a8ff;--com:#8a93b8;
+ --ui:'Geist',system-ui,sans-serif;--mono:'Geist Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--fundal);color:var(--text);font-family:var(--ui);font-size:13px;width:1440px;height:900px;overflow:hidden}
+.mono{font-family:var(--mono)}
+.kbd{font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--strat);border-radius:4px;padding:1px 5px;margin-left:6px}
+/* bara de sus */
+.sus{height:56px;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--linie-slaba)}
+.logo{font-weight:600;font-size:17px;letter-spacing:-.3px}.logo b{color:var(--accent)}
+.sep{width:1px;height:22px;background:var(--linie)}
+.baze{display:flex;gap:8px;align-items:center;color:var(--text2)}
+.baze .t{color:var(--text)}
+.prod{background:var(--prod);color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px}
+.spatiu{flex:1}
+.progres{display:flex;flex-direction:column;gap:4px;width:150px;font-size:11px;color:var(--text3)}
+.progres .bar{height:3px;background:var(--strat);border-radius:2px}.progres .bar i{display:block;height:3px;width:28%;background:var(--accent);border-radius:2px}
+.btn{white-space:nowrap;border:1px solid var(--linie);background:var(--suprafata);color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.btn.prim{background:var(--accent);color:var(--pe-accent);border-color:var(--accent);font-weight:600}
+.btn.mic{padding:4px 9px;font-size:12px}
+/* corp */
+.corp{display:flex;height:calc(900px - 56px - 26px)}
+.sina{width:244px;position:relative;border-right:1px solid var(--linie-slaba);display:flex;flex-direction:column}
+.cauta{margin:12px;border:1px solid var(--linie);border-radius:8px;padding:7px 10px;color:var(--text3);display:flex;justify-content:space-between}
+.vederi{display:flex;gap:4px;padding:0 12px 10px}
+.vederi span{white-space:nowrap;padding:4px 8px;border-radius:6px;color:var(--text2);font-size:12px}
+.vederi span.on{background:var(--strat);color:var(--text)}
+.grup{padding:10px 14px 4px;font-size:11px;color:var(--text3);display:flex;gap:6px;text-transform:none}
+.grup b{color:var(--text2);font-weight:500}
+.ob{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 14px;margin:0 6px;border-radius:7px;font-size:12px}
+.ob.cur{background:var(--selectie)}
+.cerc{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--text3);flex:none}
+.cerc.ok{background:var(--add);border-color:var(--add);box-shadow:inset 0 0 0 2px var(--fundal)}
+.lit{font-family:var(--mono);font-size:11px;width:10px;flex:none}
+.lit.M{color:var(--mod)}.lit.A{color:var(--add)}.lit.D{color:var(--del)}
+.nume{flex:1;white-space:nowrap;overflow:hidden;font-family:var(--mono);color:var(--text2)}
+.ob.cur .nume{color:var(--text)}
+.nume s{text-decoration:none;color:var(--text3)}
+.pm{font-family:var(--mono);font-size:11px;white-space:nowrap}.pm .a{color:var(--add)}.pm .d{color:var(--del)}
+.nr{font-size:10px;background:var(--tine);color:#140a26;border-radius:8px;padding:0 5px;font-weight:600}
+.sina .jos{margin-top:auto;border-top:1px solid var(--linie-slaba);padding:10px 14px;color:var(--text3);font-size:12px;display:flex;justify-content:space-between}
+
+.scap{display:flex;align-items:center;gap:2px;padding:10px 8px 0 14px;font-size:12px;color:var(--text2)}
+.scap b{font-weight:500;color:var(--text)}
+.ic{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px}
+.ic.on{background:var(--strat);color:var(--accent)}
+.prinde{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize}
+.prinde::after{content:'';position:absolute;left:2px;top:50%;height:36px;margin-top:-18px;width:2px;border-radius:1px;background:var(--linie)}
+.tt{position:absolute;z-index:8;background:var(--strat);border:1px solid var(--linie);color:var(--text);font:12px var(--mono);padding:6px 9px;border-radius:7px;box-shadow:0 8px 24px rgba(0,0,0,.5);white-space:nowrap}
+.tt small{display:block;font:11px var(--ui);color:var(--text3);margin-top:3px}
+.sina .ob{padding-right:8px}
+.sina .ob.hov{background:var(--strat)}
+.cursor{position:absolute;z-index:9;width:0;height:0;border-left:7px solid #fff;border-top:5px solid transparent;border-bottom:5px solid transparent;transform:rotate(-30deg)}
+.tab.prev{font-style:italic}
+.tab .pin{color:var(--accent);font-style:normal;font-size:10px}
+.peste{margin-left:auto;margin-right:10px;align-self:center;font-size:12px;color:var(--text3);border:1px solid var(--linie);border-radius:6px;padding:2px 8px}
+/* sina ascunsa */
+.sina-mica{display:none;width:36px;border-right:1px solid var(--linie-slaba);flex-direction:column;align-items:center;padding-top:10px;gap:8px;font-size:11px;color:var(--text3)}
+.sina-mica .v{writing-mode:vertical-rl;transform:rotate(180deg);margin-top:8px;letter-spacing:.3px}
+body.ascuns .sina{display:none}body.ascuns .sina-mica{display:flex}
+body.ascuns .tt,body.ascuns .cursor{display:none}
+/* sina pe dreapta */
+body.dreapta .corp{flex-direction:row-reverse}
+body.dreapta .sina{border-right:none;border-left:1px solid var(--linie-slaba)}
+body.dreapta .prinde{right:auto;left:-3px}
+/* zona principala */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.taburi{display:flex;height:36px;border-bottom:1px solid var(--linie-slaba);padding-left:8px;align-items:flex-end;gap:2px}
+.tab{padding:8px 14px;font-size:12px;color:var(--text3);border-radius:8px 8px 0 0;display:flex;gap:8px;align-items:center}
+.tab.on{background:var(--suprafata);color:var(--text)}
+.tab i{font-style:normal;color:var(--text3)}
+.cap{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--suprafata);border-bottom:1px solid var(--linie-slaba)}
+.cap .titlu{font-family:var(--mono);font-size:14px}.cap .titlu s{text-decoration:none;color:var(--text3)}
+.chip{font-size:11px;padding:3px 8px;border-radius:12px;border:1px solid var(--linie);color:var(--text2)}
+.chip.on{border-color:var(--accent);color:var(--accent)}
+.comut{display:flex;background:var(--cod);border:1px solid var(--linie);border-radius:8px;padding:2px}
+.comut span{padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text2)}.comut span.on{background:var(--strat);color:var(--text)}
+.panouri{flex:1;display:flex;gap:0;position:relative;min-height:0}
+.panou{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--cod)}
+.panou.st{border-right:1px solid var(--linie)}
+.pcap{height:30px;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:12px;color:var(--text3);background:var(--cap-sursa)}
+.panou.dr .pcap{background:var(--cap-baza)}
+.pcap b{color:var(--text);font-weight:600}
+.cod{font-family:var(--mono);font-size:12.5px;line-height:21px;overflow:hidden;flex:1}
+.r{display:flex;height:21px;white-space:pre;position:relative}
+.r .n{width:44px;text-align:right;padding-right:12px;color:var(--text3);flex:none}
+.r .g{width:18px;flex:none;position:relative}
+.r .t{overflow:hidden}
+.r.mod{background:var(--mod-f)}.r.mod .n{color:var(--mod)}
+.r.mod::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--mod)}
+.r.gol{background:repeating-linear-gradient(135deg,var(--ha) 0 6px,var(--hb) 6px 12px)}
+.r.pli{color:var(--text3);font-family:var(--ui);font-size:11px;padding-left:62px;background:var(--panou-sursa)}
+.r.sel{background:#3b3226}
+.r.sel::after{content:'';position:absolute;left:0;right:0;top:0;bottom:0;border-left:3px solid var(--tine);pointer-events:none}
+.in{background:var(--mod-in);border-radius:2px}
+.kw{color:var(--kw)}.str{color:var(--str)}.var{color:var(--var)}.com{color:var(--com);font-style:italic}
+/* banda de jos */
+.banda{height:26px;border-top:1px solid var(--linie-slaba);display:flex;align-items:center;gap:18px;padding:0 16px;font-size:11px;color:var(--text3)}
+.banda b{font-family:var(--mono);color:var(--text2);font-weight:500;margin-right:4px}
+/* adnotari de macheta */
+.adn{position:absolute;z-index:9;background:#ffe066;color:#1a1200;font:600 11px/14px var(--ui);border-radius:10px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px rgba(255,224,102,.25)}
+</style></head><body><script>document.body.className=location.hash.slice(1)</script>
+
+<div class="sus">
+ <div class="logo">g<b>&bull;</b>motion</div>
+ <div class="sep"></div>
+ <div class="baze"><span class="t mono">CharismaERP_GetsBet</span> &rarr; <span class="t mono">CharismaERP_GetsBet_Copy</span> <span class="prod">PROD</span></div>
+ <div class="spatiu"></div>
+ <div class="progres"><div style="display:flex;justify-content:space-between"><span>5/18 revizuite</span><span>28%</span></div><div class="bar"><i></i></div></div>
+ <div class="sep"></div>
+ <span class="btn">&#9675; Revizuit<span class="kbd">r</span></span>
+ <span class="btn prim">&#10003; In plan<span class="kbd" style="background:rgba(0,0,0,.15);color:var(--pe-accent)">i</span></span>
+ <span class="btn">Deploy (4)</span>
+</div>
+
+<div class="corp">
+ <!-- sina cu obiecte -->
+ <div class="sina-mica"><span class="ic">&raquo;</span><span style="color:var(--mod)">M</span><span>18</span><span style="color:var(--add)">A</span><span>3</span><span style="color:var(--del)">D</span><span>2</span><span class="v">Obiecte &middot; 5/18 revizuite</span></div>
+ <div class="sina">
+  <div class="prinde" title="trage pentru latime (200-360 px)"></div>
+  <div class="scap"><b>Obiecte</b>&nbsp;<span style="color:var(--text3)">23</span><span class="spatiu"></span><span class="ic on" title="fixat">&#128204;&#xFE0E;</span><span class="ic" title="muta pe dreapta">&#8644;</span><span class="ic" title="ascunde ([)">&laquo;</span></div>
+  <div class="cauta" style="margin:8px 12px 10px"><span>Cauta obiect</span><span class="kbd">Ctrl F</span></div>
+  <div class="vederi"><span class="on">Stare</span><span>Schema</span><span>Tip</span><span style="margin-left:auto" title="fara revizuite">&#9675;</span></div>
+
+  <div class="grup">&#9662; <b>Modificate</b> 18</div>
+  <div class="ob"><span class="cerc ok"></span><span class="lit M">M</span><span class="nume">TES&hellip;_LiniiGoale</span><span class="pm"><span class="a">+11</span> <span class="d">-11</span></span></div>
+  <div class="ob cur"><span class="cerc"></span><span class="lit M">M</span><span class="nume">TES&hellip;lizaVanzari</span><span class="pm"><span class="a">+41</span> <span class="d">-44</span></span></div>
+  <div class="ob"><span class="cerc ok"></span><span class="lit M">M</span><span class="nume">TES&hellip;eB_Imbricat</span><span class="pm"><span class="a">+12</span> <span class="d">-13</span></span></div>
+  <div class="ob"><span class="cerc"></span><span class="lit M">M</span><span class="nume">TES&hellip;nsertValues</span><span class="pm"><span class="a">+4</span> <span class="d">-5</span></span></div>
+  <div class="ob"><span class="cerc"></span><span class="lit M">M</span><span class="nume">TES&hellip;nsertSelect</span><span class="pm"><span class="a">+5</span> <span class="d">-5</span></span></div>
+  <div class="ob"><span class="cerc ok"></span><span class="lit M">M</span><span class="nume">TES&hellip;CTEMultiplu</span><span class="pm"><span class="a">+18</span> <span class="d">-20</span></span></div>
+  <div class="ob hov"><span class="cerc"></span><span class="lit M">M</span><span class="nume">TES&hellip;queryExists</span><span class="pm"><span class="a">+10</span> <span class="d">-11</span></span></div>
+  <div class="ob"><span class="cerc"></span><span class="lit M">M</span><span class="nume">TES&hellip;gCuKeywords</span><span class="pm"><span class="a">+4</span> <span class="d">-4</span></span></div>
+  <div class="ob"><span class="cerc"></span><span class="lit M">M</span><span class="nume">TES&hellip;aseH_Cursor</span><span class="pm"><span class="a">+5</span> <span class="d">-6</span></span></div>
+  <div class="ob" style="color:var(--text3);padding-left:42px;font-size:11px">+ inca 9</div>
+
+  <div class="grup">&#9662; <b>Doar in sursa</b> 3 <span style="margin-left:auto">se vor crea</span></div>
+  <div class="ob"><span class="cerc"></span><span class="lit A">A</span><span class="nume">usp_RaportLunar</span><span class="pm"><span class="a">+86</span></span></div>
+  <div class="ob"><span class="cerc ok"></span><span class="lit A">A</span><span class="nume">fn_TvaLaData</span><span class="pm"><span class="a">+22</span></span></div>
+  <div class="ob"><span class="cerc"></span><span class="lit A">A</span><span class="nume">vw_StocCurent</span><span class="pm"><span class="a">+31</span></span></div>
+
+  <div class="grup">&#9656; <b>Doar in baza</b> 2 <span style="margin-left:auto">se sar</span></div>
+  <div class="grup">&#9656; <b>Identice</b> 412</div>
+
+  <div class="cursor" style="left:150px;top:332px"></div>
+  <div class="tt" style="left:150px;top:345px">dbo.TESTSIMILITUDINE_CaseF_SubqueryExists<small>procedura &middot; +10 -11 &middot; similar 92% &middot; difera in cod</small></div>
+  <div class="jos"><span>18 modificate</span><span>Export CSV</span></div>
+ </div>
+
+ <!-- zona principala -->
+ <div class="main">
+  <div class="taburi">
+   <div class="tab"><span class="pin">&#9679;</span>CaseA_LiniiGoale <i>&times;</i></div>
+   <div class="tab"><span class="pin">&#9679;</span>CaseE_CTEMultiplu <i>&times;</i></div>
+   <div class="tab on prev">AnalizaVanzari <i>&times;</i></div>
+   <span class="peste">+2 &#9662;</span>
+  </div>
+  <div class="cap">
+   <span class="titlu"><s>dbo.</s>TESTSIMILITUDINE_AnalizaVanzari</span>
+   <span class="pm mono"><span class="a">+41</span> <span class="d">-44</span></span>
+   <span style="color:var(--text3);font-size:12px">difera in</span>
+   <span class="chip on">cod</span><span class="chip on">siruri</span><span class="chip">comentarii</span>
+   <div class="spatiu"></div>
+   <span class="btn mic">&#9675; Revizuit</span>
+   <div class="comut"><span class="on">Alaturat</span><span>Unificat</span></div>
+  </div>
+
+  <div class="panouri">
+   <div class="panou st"><div class="pcap"><b>Sursa</b><span class="mono">CharismaERP_GetsBet</span><span>68 de linii</span><span class="spatiu"></span><span>doar citire</span></div><div class="cod" id="st"></div></div>
+   <div class="panou dr"><div class="pcap"><b>Baza</b><span class="mono">CharismaERP_GetsBet_Copy</span><span>70 de linii</span><span class="spatiu"></span><span class="prod">PROD</span></div><div class="cod" id="dr"></div></div>
+
+
+   </div>
+ </div>
+</div>
+
+<div class="banda">
+ <span><b>j k</b>obiect</span><span><b>n p</b>diferenta</span><span><b>e</b>text final</span><span><b>r</b>revizuit</span><span><b>[</b>ascunde lista</span><span><b>Ctrl W</b>inchide tab</span>
+ <span class="spatiu"></span><span>sesiune: 2026-11-18 14:02 &middot; TS2409\MIHAIG</span>
+</div>
+
+<script>
+// [nrSt, textSt, nrDr, textDr, tip]  tip: i=identic m=modificat g=gol pe stanga p=pliat ; ⟦⟧ = diferenta in linie
+const R=[
+ ['p','5 linii identice, 1-5'],
+ [6,'    SET NOCOUNT ON;',6,'    SET NOCOUNT ON;','i'],
+ [7,'',7,'','i'],
+ [8,'    -- [SIMULARE TABELE FIZICE]',8,'    -- [SIMULARE TABELE FIZICE]','i'],
+ [9,'    CREATE TABLE #Orders (',9,'    CREATE TABLE #Orders (','m'],
+ [10,'        OrderID INT,',10,'        OrderID INT,','m'],
+ [11,'        CustomerID INT,',11,'        CustomerID INT,','m'],
+ [12,'        TotalAmount DECIMAL(18,2),',12,'        TotalAmount DECIMAL(18,2),','m'],
+ [null,'',13,'        ⟦Status NVARCHAR(50),⟧','m'],
+ [13,'        OrderDate DATETIME',14,'        OrderDate DATETIME','m'],
+ [14,'    );',15,'    );','m'],
+ [15,'',16,'','i'],
+ [16,'    CREATE TABLE #Customers (',17,'    CREATE TABLE #Customers (','i'],
+ [17,'        CustomerID INT,',18,'        CustomerID INT,','i'],
+ ['p','7 linii identice, 18-24'],
+ [25,"    (2, 'Client XYZ', 'Germania'),",26,"    (2, 'Client XYZ', 'Germania'),",'i'],
+ [26,"    (3, 'Client 123', 'Romania');",27,"    (3, 'Client 123', 'Romania');",'i'],
+ [27,'',28,'','i'],
+ [28,'    INSERT INTO #Orders (OrderID, CustomerID, TotalAmount, OrderDate)',29,'    INSERT INTO #Orders (OrderID, CustomerID, TotalAmount, ⟦Status, ⟧OrderDate)','m'],
+ [29,'    (101, 1, 550.00, DATEFROMPARTS(@AnCalcular, 5, 10)),',30,"    (101, 1, 550.00, ⟦'Completed', ⟧DATEFROMPARTS(@AnCalcular, 5, 10)),",'m'],
+ [30,'    (102, 1, 1200.00, DATEFROMPARTS(@AnCalcular, 6, 12)),',31,"    (102, 1, 1200.00, ⟦'Completed', ⟧DATEFROMPARTS(@AnCalcular, 6, 12)),",'m'],
+ [31,'    (103, 2, 450.00, DATEFROMPARTS(@AnCalcular, 2, 15)),',32,"    (103, 2, 450.00, ⟦'Cancelled', ⟧DATEFROMPARTS(@AnCalcular, 2, 15)),",'m'],
+ [32,'    (104, 3, 2000.00, DATEFROMPARTS(@AnCalcular - 1, 12, 1));',33,"    (104, 3, 2000.00, ⟦'Completed', ⟧DATEFROMPARTS(@AnCalcular - 1, 12, 1));",'m'],
+ [33,'',34,'','i'],
+ [34,'    -- [LOGICA PROCEDURII]',35,'    -- [LOGICA PROCEDURII]','m'],
+ [35,'    WITH VanzariPartitionate AS (',36,'    WITH VanzariPartitionate AS (','m'],
+ [36,'        SELECT',37,'        ⟦select⟧','m'],
+];
+const KW=/\b(SET|NOCOUNT|ON|CREATE|TABLE|INT|DECIMAL|NVARCHAR|DATETIME|INSERT|INTO|VALUES|WITH|AS|SELECT|select|DATEFROMPARTS)\b/g;
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function hl(s){
+  if(/^\s*--/.test(s)) return '<span class="com">'+esc(s)+'</span>';
+  let out='';const re=/('[^']*')|(@\w+)|([A-Za-z_]\w*)|(\d+(?:\.\d+)?)|([\s\S])/g;let m;
+  while((m=re.exec(s))){
+    if(m[1])out+='<span class="str">'+esc(m[1])+'</span>';
+    else if(m[2])out+='<span class="var">'+m[2]+'</span>';
+    else if(m[3])out+=(/^(SET|NOCOUNT|ON|CREATE|TABLE|INT|DECIMAL|NVARCHAR|DATETIME|INSERT|INTO|VALUES|WITH|AS|SELECT|select|DATEFROMPARTS)$/.test(m[3])?'<span class="kw">'+m[3]+'</span>':m[3]);
+    else if(m[4])out+='<span class="str">'+m[4]+'</span>';
+    else out+=esc(m[5]);
+  }
+  return out;
+}
+function cod(s){return s.split(/(⟦[^⟧]*⟧)/).map(p=>p.startsWith('⟦')?'<span class="in">'+hl(p.slice(1,-1))+'</span>':hl(p)).join('')}
+function rand(n,t,tip,g){
+  if(n===null) return '<div class="r gol"></div>';
+  const cls=tip==='m'?'r mod':tip==='s'?'r mod sel':'r';
+  return `<div class="${cls}"><span class="n">${n}</span><span class="g">${g||''}</span><span class="t">${cod(t)}</span></div>`;
+}
+let st='',dr='';
+for(const r of R){
+  if(r[0]==='p'){const x=`<div class="r pli">${r[1]}</div>`;st+=x;dr+=x;continue}
+  st+=rand(r[0],r[1],r[4]); dr+=rand(r[2],r[3],r[4]);
+}
+document.getElementById('st').innerHTML=st;document.getElementById('dr').innerHTML=dr;
+</script>
+</body></html>

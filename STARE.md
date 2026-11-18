@@ -76,6 +76,11 @@ fiindca atinge fiecare text:
 Apoi B (lista ramane in stanga la „Deschide"), C (incadrarea), D (harta),
 F (conectarea). Ordinea si criteriile: `etape/15-interfata-si-incredere.md`.
 
+**Dupa etapa 15:** `etape/16-lista-si-taburi.md` (NEPORNITA) — lista din
+stanga primeste pin / ascundere / mutare, iar editorul taburi (previzualizare
++ maxim 8 fixate; `j` / `k` sar peste obiectele fixate). Fara note pe blocuri
+in editor (Mihai). Macheta: `cercetare/machete/sina-si-taburi/`.
+
 **Inainte de orice lansare: `cercetare/audit-qa-2026-11-18.md`** — constatari
 blocante, nereproduse inca pe implementarea asta.
 
