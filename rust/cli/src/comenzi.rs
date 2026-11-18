@@ -7,7 +7,6 @@
 //! eroare pastreaza codul original (`GM-DB-001`, ...), ca raportul
 //! utilizatorului sa duca direct la cauza.
 
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use gmotion_db::Instantaneu;
@@ -527,6 +526,59 @@ pub fn export(
     Ok(())
 }
 
+/// Planul din compararea de acum: randurile alese (toate, sau `--doar`).
+fn plan_din(r: &Rulare, doar: Option<&str>) -> modul::Plan {
+    let filtru = doar.map(lista);
+    modul::Plan::din_comparare(
+        &r.comparare,
+        &r.referinta,
+        &r.altele,
+        |rand| {
+            filtru
+                .as_ref()
+                .map_or(true, |f| f.iter().any(|x| x == &rand.obiect))
+        },
+        &acum(),
+    )
+}
+
+/// Scrie planul de deploy, cu amprentele de acum, ca sa fie verificat de
+/// `deploy --plan` inainte de a scrie ceva.
+pub fn plan(
+    args: &ArgumenteSursa,
+    referinta: &str,
+    baze_cerute: Option<&str>,
+    doar: Option<&str>,
+    ieșire: Option<PathBuf>,
+    format: Format,
+) -> Result<(), String> {
+    let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
+    let p = plan_din(&r, doar);
+    if p.pasi.is_empty() {
+        return Err(modul::Eroare::NimicDeDeployat.to_string());
+    }
+    let cale = ieșire.unwrap_or_else(|| PathBuf::from(format!("plan_{}.json", acum_compact())));
+    let text = serde_json::to_string_pretty(&p).map_err(|e| e.to_string())?;
+    std::fs::write(&cale, text).map_err(|e| format!("nu pot scrie {}: {e}", cale.display()))?;
+    format.progres(&format!(
+        "Scris {} ({} pasi{}).\n\
+         Deploy-ul, cu verificarea ca baza n-a mai fost atinsa:\n  \
+         gmotion deploy <SURSA> --referinta {referinta} --plan {}",
+        cale.display(),
+        p.pasi.len(),
+        if p.sarite > 0 {
+            format!(", {} sarite", p.sarite)
+        } else {
+            String::new()
+        },
+        cale.display()
+    ));
+    if format == Format::Json {
+        return afisare::scrie_json(&p).map_err(|e| e.to_string());
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn deploy(
     args: &ArgumenteSursa,
@@ -535,49 +587,49 @@ pub fn deploy(
     director: Option<PathBuf>,
     mod_impartire: modul::ModImpartire,
     doar: Option<&str>,
+    cale_plan: Option<&Path>,
     format: Format,
 ) -> Result<(), String> {
-    let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-
-    let filtru = doar.map(lista);
-    let mut pe_baza: BTreeMap<String, Vec<modul::DeDeployat>> = BTreeMap::new();
-    let mut sarite = 0usize;
-
-    for rand in &r.comparare.randuri {
-        if let Some(f) = &filtru {
-            if !f.iter().any(|x| x == &rand.obiect) {
-                continue;
+    // Cu `--plan`: bazele sunt cele din plan, iar ce se citeste acum e
+    // verificat contra amprentelor de atunci. Fara: planul se face acum, din
+    // ce tocmai s-a citit, deci garda e trivial adevarata.
+    let (plan, r) = match cale_plan {
+        Some(c) => {
+            let text = std::fs::read_to_string(c)
+                .map_err(|e| format!("nu pot citi planul {}: {e}", c.display()))?;
+            let plan: modul::Plan = serde_json::from_str(&text)
+                .map_err(|e| format!("planul {} nu e valid: {e}", c.display()))?;
+            if plan.referinta != referinta {
+                return Err(format!(
+                    "planul e facut cu referinta {:?}, nu {referinta:?}",
+                    plan.referinta
+                ));
             }
+            let mut baze: Vec<&str> = plan.pasi.iter().map(|p| p.baza.as_str()).collect();
+            baze.sort_unstable();
+            baze.dedup();
+            if baze.is_empty() {
+                return Err(modul::Eroare::NimicDeDeployat.to_string());
+            }
+            let r = ruleaza_comparare(args, referinta, Some(&baze.join(",")), format)?;
+            plan.verifica_sau_opreste(&r.referinta, &r.altele)
+                .map_err(|e| e.to_string())?;
+            format.progres(&format!(
+                "Baza n-a mai fost atinsa: cele {} obiecte din plan (facut la {}) sunt exact cum erau.",
+                plan.pasi.len(),
+                plan.facut_la
+            ));
+            (plan, r)
         }
-        if rand.categorie == modul::Categorie::Extra {
-            // exista doar in baza comparata: nu exista cod in referinta de adus
-            sarite += 1;
-            continue;
+        None => {
+            let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
+            (plan_din(&r, doar), r)
         }
-        if rand.categorie == modul::Categorie::Criptat {
-            // criptat intr-una din parti: nu exista cod de citit, si un obiect
-            // criptat al furnizorului nu se suprascrie
-            sarite += 1;
-            continue;
-        }
-        let Some(o) = r.referinta.get(&rand.obiect) else {
-            // nu se poate intampla: randurile non-extra vin din referinta
-            continue;
-        };
-        if o.definitie.is_empty() {
-            sarite += 1; // criptat in referinta, lipsa in tinta
-            continue;
-        }
-        pe_baza
-            .entry(rand.baza.clone())
-            .or_default()
-            .push(modul::DeDeployat {
-                obiect: rand.obiect.clone(),
-                tip: rand.tip.clone(),
-                cod: modul::aplica_create_or_alter(&o.definitie),
-                setari: o.setari,
-            });
-    }
+    };
+
+    let pe_baza = plan.de_deployat(&r.referinta).map_err(|e| e.to_string())?;
+    let revenire = plan.revenire(&r.referinta, &r.altele);
+    let sarite = plan.sarite;
 
     let director = director.unwrap_or_else(|| {
         PathBuf::from(format!(
@@ -587,10 +639,11 @@ pub fn deploy(
         ))
     });
 
-    let raport = modul::deploy::scrie(
+    let raport = modul::deploy::scrie_cu_revenire(
         &director,
         referinta,
         &pe_baza,
+        &revenire,
         mod_impartire,
         sarite,
         &acum(),
@@ -598,31 +651,33 @@ pub fn deploy(
     .map_err(|e| e.to_string())?;
 
     format.progres(&format!(
-        "Scris {} fisiere in {} ({} obiecte{}).",
+        "Scris {} fisiere in {} ({} obiecte{}).\n\
+         Revenirea, salvata inainte: {} fisiere in {}.",
         raport.fisiere.len(),
         raport.director.display(),
         raport.obiecte,
         if sarite > 0 {
-            format!(", {sarite} sarite - exista doar in baza comparata")
+            format!(", {sarite} sarite - exista doar in baza comparata sau sunt criptate")
         } else {
             String::new()
-        }
+        },
+        raport.revenire.len(),
+        raport.director.join("revenire").display(),
     ));
     if format == Format::Json {
         #[derive(serde::Serialize)]
         struct R {
             director: String,
             fisiere: Vec<String>,
+            revenire: Vec<String>,
             obiecte: usize,
             sarite: usize,
         }
+        let siruri = |v: &[PathBuf]| v.iter().map(|f| f.display().to_string()).collect();
         return afisare::scrie_json(&R {
             director: raport.director.display().to_string(),
-            fisiere: raport
-                .fisiere
-                .iter()
-                .map(|f| f.display().to_string())
-                .collect(),
+            fisiere: siruri(&raport.fisiere),
+            revenire: siruri(&raport.revenire),
             obiecte: raport.obiecte,
             sarite: raport.sarite,
         })

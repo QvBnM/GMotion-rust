@@ -251,7 +251,11 @@ fn modurile_de_impartire_a_deploy_ului() {
             mod_arg,
         ]);
         assert!(o.status.success(), "{mod_arg}: {}", err(&o));
-        let n = std::fs::read_dir(&out_dir).unwrap().count();
+        // Doar fisierele: `revenire/` e subdirector, separat de deploy.
+        let n = std::fs::read_dir(&out_dir)
+            .unwrap()
+            .filter(|e| e.as_ref().unwrap().path().is_file())
+            .count();
         assert_eq!(n, asteptat, "modul {mod_arg} a scris {n} fisiere");
     }
     std::fs::remove_dir_all(&d).ok();
@@ -459,13 +463,9 @@ fn deploy_scrie_definitia_originala_octet_cu_octet() {
         iesire.to_str().unwrap(),
     ]);
     assert!(o.status.success(), "{}", err(&o));
-    let fisier = std::fs::read_dir(&iesire)
-        .unwrap()
-        .next()
-        .unwrap()
-        .unwrap()
-        .path();
-    let text = std::fs::read_to_string(fisier).unwrap();
+    // Numit explicit: in director sta si `revenire/`, iar ordinea din
+    // `read_dir` nu e garantata.
+    let text = std::fs::read_to_string(iesire.join("T.sql")).unwrap();
     let asteptat = definitie.replacen("CREATE PROCEDURE", "CREATE OR ALTER PROCEDURE", 1);
     assert!(
         text.contains(&asteptat),
@@ -620,4 +620,143 @@ fn revizuirea_se_tine_minte_si_cade_cand_obiectul_se_schimba() {
     assert_eq!(v["revizuite"], 0);
     let o = ruleaza_rev(&["--goleste"]);
     assert!(o.status.success(), "{}", err(&o));
+}
+
+/// Garda „baza n-a mai fost atinsa", pe binar: planul tine amprentele de la
+/// comparare; daca tinta s-a schimbat intre timp, deploy-ul se opreste cu
+/// `GM-MOD-012`, spune obiectul pe nume si nu scrie nimic.
+#[test]
+fn deploy_cu_plan_se_opreste_daca_baza_s_a_schimbat() {
+    let d = dir("plan-garda");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let plan = d.join("plan.json");
+    let o = ruleaza(&[
+        "plan",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-o",
+        plan.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let p: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&plan).unwrap()).unwrap();
+    assert_eq!(
+        p["pasi"].as_array().unwrap().len(),
+        2,
+        "pClienti si pStoc: {p}"
+    );
+    assert_eq!(p["sarite"], 1, "pLocal exista doar in tinta");
+
+    // Intre plan si deploy, cineva schimba pClienti pe Client1.
+    let text = std::fs::read_to_string(&inst).unwrap();
+    let schimbat = d.join("schimbat.json");
+    std::fs::write(
+        &schimbat,
+        text.replace("WHERE activ = 0", "WHERE activ = 2"),
+    )
+    .unwrap();
+    let iesire = d.join("out");
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        schimbat.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "--plan",
+        plan.to_str().unwrap(),
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert!(!o.status.success(), "garda trebuia sa opreasca");
+    let e = err(&o);
+    assert!(e.contains("GM-MOD-012"), "{e}");
+    assert!(e.contains("Client1: dbo.pClienti a fost modificat"), "{e}");
+    assert!(!iesire.exists(), "nu trebuia scris nimic");
+
+    // Pe baza neatinsa, acelasi plan trece si scrie si revenirea.
+    let o = ruleaza(&[
+        "--json",
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "--plan",
+        plan.to_str().unwrap(),
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let r: serde_json::Value = serde_json::from_str(&out(&o)).expect("--json scoate numai JSON");
+    assert_eq!(r["obiecte"], 2);
+    assert_eq!(r["revenire"].as_array().unwrap().len(), 1, "{r}");
+}
+
+/// Scriptul de revenire se scrie din definitiile actuale ale tintei: ce
+/// exista se reface cum e acum, ce deploy-ul creeaza se sterge.
+#[test]
+fn deploy_scrie_revenirea_din_tinta() {
+    let d = dir("revenire");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let iesire = d.join("out");
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let rev = std::fs::read_to_string(iesire.join("revenire").join("Client1.sql")).unwrap();
+    assert!(rev.contains("USE [Client1];"));
+    assert!(rev.contains("WHERE activ = 0"), "codul din tinta:\n{rev}");
+    assert!(
+        !rev.contains("WHERE activ = 1"),
+        "nu codul din referinta:\n{rev}"
+    );
+    assert!(
+        rev.contains("DROP PROCEDURE IF EXISTS [dbo].[pStoc];"),
+        "{rev}"
+    );
+    assert!(
+        !rev.contains("pLocal"),
+        "extra nu e in deploy, deci nici in revenire"
+    );
+}
+
+#[test]
+fn planul_altei_referinte_e_refuzat() {
+    let d = dir("plan-ref");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let plan = d.join("plan.json");
+    let o = ruleaza(&[
+        "plan",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-o",
+        plan.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Client1",
+        "--plan",
+        plan.to_str().unwrap(),
+        "-d",
+        d.join("out").to_str().unwrap(),
+    ]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("referinta"), "{}", err(&o));
 }

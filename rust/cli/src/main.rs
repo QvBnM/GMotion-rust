@@ -186,8 +186,36 @@ enum Comanda {
         cate: usize,
 
         /// Doar obiectele astea, ca `schema.nume`, separate prin virgula.
+        #[arg(long, value_name = "A,B", conflicts_with = "plan")]
+        doar: Option<String>,
+
+        /// Planul scris de `gmotion plan`. Inainte de a scrie ceva, obiectele
+        /// din plan se recitesc si se compara cu amprentele de atunci; daca
+        /// s-a schimbat ceva, deploy-ul se opreste si spune ce (GM-MOD-012).
+        #[arg(long, value_name = "PLAN.JSON", conflicts_with = "baze")]
+        plan: Option<PathBuf>,
+    },
+
+    /// Scrie planul de deploy: ce intra, cu amprentele de acum ale fiecarui
+    /// obiect, ca deploy-ul de mai tarziu sa poata verifica ca baza n-a mai
+    /// fost atinsa intre timp.
+    Plan {
+        #[command(flatten)]
+        sursa: ArgumenteSursa,
+
+        #[arg(long, value_name = "BAZA")]
+        referinta: String,
+
+        #[arg(long, value_name = "A,B,C")]
+        baze: Option<String>,
+
+        /// Doar obiectele astea, ca `schema.nume`, separate prin virgula.
         #[arg(long, value_name = "A,B")]
         doar: Option<String>,
+
+        /// Fisierul planului. Lipsa lui genereaza un nume cu data.
+        #[arg(short = 'o', long = "ieșire", alias = "iesire", value_name = "CALE")]
+        ieșire: Option<PathBuf>,
     },
 
     /// Exporta lista de diferente ca CSV, pentru Excel.
@@ -258,6 +286,7 @@ fn main() -> std::process::ExitCode {
             mod_fisiere,
             cate,
             doar,
+            plan,
         } => comenzi::deploy(
             sursa,
             referinta,
@@ -270,6 +299,21 @@ fn main() -> std::process::ExitCode {
                 ModArg::CateN => ModImpartire::CateN(*cate),
             },
             doar.as_deref(),
+            plan.as_deref(),
+            format,
+        ),
+        Comanda::Plan {
+            sursa,
+            referinta,
+            baze,
+            doar,
+            ieșire,
+        } => comenzi::plan(
+            sursa,
+            referinta,
+            baze.as_deref(),
+            doar.as_deref(),
+            ieșire.clone(),
             format,
         ),
         Comanda::Export {
