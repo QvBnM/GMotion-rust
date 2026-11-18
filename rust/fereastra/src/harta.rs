@@ -747,4 +747,35 @@ mod teste {
             }
         }
     }
+
+    /// C9 din `cercetare/audit-qa-2026-11-18.md`: pe harta de la `aec038a`,
+    /// un grup de peste ~8.700 de obiecte de acelasi tip dadea o imagine mai
+    /// lata de 32.767 px si aplicatia **cadea** (`unwrap` pe `None` in
+    /// `euclid`) la prima desenare — exact cazul „baza noua / goala" pe un ERP
+    /// de 21.000 de obiecte.
+    ///
+    /// Harta de acum (refacuta la etapa 15) se rupe pe randuri in latimea
+    /// data si coboara trepte de zoom, deci nu mai are cum. Testul o tine
+    /// asa: nicio imagine mai mare de 8.192 px pe nicio latura, pe 50.000 de
+    /// obiecte de un singur tip.
+    #[test]
+    fn nicio_imagine_a_hartii_nu_trece_de_8192_px() {
+        for n in [8_700usize, 21_000, 50_000] {
+            let (grupuri, inaltime) = aseaza(
+                vec![("procedura".into(), celule(n, 0))],
+                1300.0,
+                INALTIME_MAXIMA,
+            );
+            assert!(inaltime.is_finite() && inaltime > 0.0, "{n}: {inaltime}");
+            for g in &grupuri {
+                for (w, h, px) in [picteaza(g, &LUMINOS), picteaza_bara(g, &LUMINOS)] {
+                    assert!(w <= 8192 && h <= 8192, "{n} obiecte: imagine de {w}x{h} px");
+                    assert_eq!(px.len(), (w * h) as usize);
+                }
+            }
+            // toate obiectele ajung pe harta, oricat de multe
+            let total: usize = grupuri.iter().map(|g| g.celule.len()).sum();
+            assert_eq!(total, n);
+        }
+    }
 }

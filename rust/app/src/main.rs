@@ -1004,7 +1004,13 @@ fn ruleaza() -> Result<(), String> {
             d();
         });
         let c = comanda.clone();
-        lista_ui.on_comuta_revizuit(move |_| c(Comanda::ComutaRevizuit));
+        lista_ui.on_comuta_revizuit(move |i| {
+            // indicele randului apasat, nu cel selectat (V9)
+            match usize::try_from(i) {
+                Ok(p) => c(Comanda::ComutaRevizuitLa(p)),
+                Err(_) => c(Comanda::ComutaRevizuit),
+            }
+        });
         let c = comanda.clone();
         lista_ui.on_cauta(move |t| c(Comanda::Cauta(t.to_string())));
         let c = comanda.clone();

@@ -41,6 +41,10 @@ pub enum Comanda {
     ObiectUrmator,
     ObiectAnterior,
     ComutaRevizuit,
+    /// Bifa „Revizuit" de pe un **anumit** rand vizibil (clic cu mouse-ul).
+    /// Randul devine si cel selectat: altfel bifa unui rand ar bifa alt
+    /// obiect decat cel apasat (V9 din auditul QA).
+    ComutaRevizuitLa(usize),
     Filtreaza(Option<Stare>),
     FiltreazaTip(Option<String>),
     /// Filtrul pe baza comparata (cand sunt mai multe).
@@ -562,6 +566,13 @@ impl Aplicatie {
                 self.ghidat = None;
             }
             Comanda::ComutaRevizuit => return self.comuta_revizuit(),
+            Comanda::ComutaRevizuitLa(p) => {
+                if self.lista.obiect(p).is_none() {
+                    return false;
+                }
+                self.lista.selecteaza(p);
+                return self.comuta_revizuit();
+            }
             Comanda::Filtreaza(s) => self.lista.filtreaza_stare(s),
             Comanda::FiltreazaTip(t) => self.lista.filtreaza_tip(t),
             Comanda::FiltreazaBaza(b) => self.lista.filtreaza_baza(b),
@@ -1566,5 +1577,34 @@ mod teste {
             gmotion_core::normalizeaza(&curent),
             gmotion_core::normalizeaza(sursa)
         );
+    }
+
+    /// V9 din `cercetare/audit-qa-2026-11-18.md`: bifa „Revizuit" de pe un
+    /// rand bifa obiectul **selectat**, nu pe cel apasat — legatura din
+    /// fereastra ignora indicele trimis de `lista.slint`.
+    #[test]
+    fn bifa_unui_rand_bifeaza_randul_ei_nu_pe_cel_selectat() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Selecteaza(0));
+        let nume = |a: &Aplicatie, p: usize| a.lista().obiect(p).unwrap().nume.clone();
+        let (primul, al_doilea) = (nume(&a, 0), nume(&a, 1));
+        assert_ne!(primul, al_doilea);
+
+        assert!(a.comanda(Comanda::ComutaRevizuitLa(1)));
+        assert!(
+            a.lista().obiect(1).unwrap().revizuit,
+            "{al_doilea} e randul apasat"
+        );
+        assert!(
+            !a.lista().obiect(0).unwrap().revizuit,
+            "{primul} era doar selectat, nu apasat"
+        );
+        // si randul apasat devine cel selectat, ca sa nu se mai desincronizeze
+        assert_eq!(a.lista().selectat(), Some(1));
+        // al doilea clic scoate bifa
+        assert!(a.comanda(Comanda::ComutaRevizuitLa(1)));
+        assert!(!a.lista().obiect(1).unwrap().revizuit);
+        // un rand care nu exista nu face nimic
+        assert!(!a.comanda(Comanda::ComutaRevizuitLa(999)));
     }
 }

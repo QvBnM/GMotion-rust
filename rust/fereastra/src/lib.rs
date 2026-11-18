@@ -2517,4 +2517,94 @@ mod teste {
             ultima.1
         );
     }
+
+    /// V9 din `cercetare/audit-qa-2026-11-18.md`: bifa „Revizuit" de pe un
+    /// rand bifa alt obiect. `lista.slint` trimitea `comuta-revizuit(i)`, dar
+    /// legatura din Rust ignora indicele si bifa randul **selectat**; clicul
+    /// pe bifa nu selecteaza randul (TouchArea-ul bifei sta peste cel al
+    /// randului). In plus `Bifa` isi scria singura `bifat`, deci randul arata
+    /// bifat fara sa fie — si un rand reciclat de `ListView` arata apoi
+    /// starea altui obiect.
+    #[test]
+    fn bifa_unui_rand_nu_bifeaza_alt_rand() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        let ui = fereastra_lista();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        let rand = |nume: &str| RandListaUi {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "procedura".into(),
+            litera: "M".into(),
+            ..Default::default()
+        };
+        ui.set_randuri(ModelRc::new(VecModel::from(vec![
+            rand("pA"),
+            rand("pB"),
+            rand("pC"),
+        ])));
+        ui.set_selectat(0);
+        ui.show().expect("fereastra se arata");
+
+        let bifate: Rc<RefCell<Vec<i32>>> = Rc::default();
+        let b = bifate.clone();
+        ui.on_comuta_revizuit(move |i| b.borrow_mut().push(i));
+        let clicuri: Rc<RefCell<Vec<i32>>> = Rc::default();
+        let c = clicuri.clone();
+        ui.on_clic_rand(move |i| c.borrow_mut().push(i));
+
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // primul rand: se cauta pe coloana „Obiect", ca in testul de panou
+        let y0 = (0..900)
+            .step_by(4)
+            .map(|y| y as f32)
+            .find(|&y| {
+                clic(300.0, y);
+                let gasit = clicuri.borrow().last() == Some(&0);
+                clicuri.borrow_mut().clear();
+                gasit
+            })
+            .expect("primul rand raspunde la clic");
+        // bifa randului al treilea: patrat de 13 px in coloana „Revizuit",
+        // deci se cauta si pe latime si pe inaltimea randului
+        let randul = 2usize;
+        let sus = y0 + 34.0 * randul as f32 - 4.0;
+        let mut gasit = false;
+        for x in (600..1440).step_by(3) {
+            for y in 0..12 {
+                clic(x as f32, sus + y as f32 * 3.0);
+                if !bifate.borrow().is_empty() {
+                    gasit = true;
+                    break;
+                }
+            }
+            if gasit {
+                break;
+            }
+        }
+        assert!(gasit, "bifa randului al treilea primeste clicul");
+        assert_eq!(
+            *bifate.borrow(),
+            [randul as i32],
+            "bifa trebuie sa spuna randul ei, nu pe cel selectat"
+        );
+        // si nu-si schimba singura desenul: starea vine din model
+        assert!(
+            !ui.get_randuri().row_data(randul).unwrap().revizuit,
+            "bifa nu se deseneaza bifata inainte sa raspunda modelul"
+        );
+    }
 }

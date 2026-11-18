@@ -345,7 +345,10 @@ export component Tab inherits Rectangle {
 
 export component Bifa inherits Rectangle {
     in property <string> text;
-    in-out property <bool> bifat;
+    // `in`, nu `in-out`: bifa nu-si scrie singura starea. Scrisa de ea,
+    // randul arata bifat fara sa fie, si un rand reciclat de `ListView`
+    // arata apoi starea altui obiect (V9 din auditul QA).
+    in property <bool> bifat;
     callback schimbat(bool);
     height: 16px;
     min-width: 13px + 6px + eticheta.preferred-width;
@@ -383,8 +386,7 @@ export component Bifa inherits Rectangle {
     }
     TouchArea {
         clicked => {
-            root.bifat = !root.bifat;
-            root.schimbat(root.bifat);
+            root.schimbat(!root.bifat);
         }
     }
 }
