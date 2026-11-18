@@ -699,6 +699,27 @@ patrate, doar ca proportie sub fiecare grup. Contrastul jetoanelor noi trece
 
 ---
 
+## 2026-11-18 — Aspect nou, aceleasi functii: trei ecrane legate
+
+**Context.** Dupa ce a ales Harta si Panza, Mihai a precizat: „vreau sa
+pastrez functionalitatile, doar ca vreau sa le vad diferit". Prima schita a
+hartii inlocuia tabelul din v3.4 si nu avea butoanele editorului.
+
+**Decizie (Mihai).** (1) Ecranul de conectare intra in acelasi stil, iar cele
+trei ecrane au continuitate intre ele. (2) Ecranul cu patrate **contine lista
+din v3.4**: tabelul cu toate coloanele, filtrele, CSV si Deployer, iar harta
+sta deasupra ca vedere de ansamblu, legata de tabel. (3) Editorul pastreaza
+**toate butoanele din v3.4** (Aplica toate, Reset, navigarea, Mod ghidat,
+Side-by-side / Inline, Ascunde diferentele, Re-sincronizeaza, Uneste
+cursorul, Copiaza, Am ajuns la o concluzie, Omite, fereastra modului ghidat).
+
+**Cum.** `cercetare/schita-slint/` deseneaza toate trei in Slint, cu motorul
+adevarat in editor. `README.md` de acolo are tabelul „functie din v3.4 → unde
+e acum", cu ce e desenat si ce are doar locul stabilit. Regula din intrarea
+de mai sus ramane: o functie din v3.4 nu se scoate tacit.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână

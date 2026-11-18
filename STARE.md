@@ -77,12 +77,13 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
 
-**Directia vizuala e aleasa** (2026-11-18, `JURNAL.md`): Harta pentru lista,
-Panza pentru editor. Fezabilitatea e dovedita in Slint, in
-`cercetare/schita-slint/` (capturi si ce ramane de dovedit in `README.md`). Nu se
-porteaza in `rust/fereastra` pana nu termina paritatea cu v3.4, decat daca
-Mihai cere altfel. **Inca de stiut:** si ecranul de conectare si deploy-ul vor
-urma una dintre cele doua, sau ii trebuie fiecaruia o schita proprie?
+**Directia vizuala e aleasa** (2026-11-18, `JURNAL.md`): conectarea si lista in
+stilul hartii (intunecat), editorul ca panza (alb), cu **toate functiile din
+v3.4**. Schita in Slint, cu capturi si tabelul „functie v3.4 → unde e acum":
+`cercetare/schita-slint/README.md`. Nu se porteaza in `rust/fereastra` pana
+nu termina paritatea cu v3.4, decat daca Mihai cere altfel. **Inca de
+stiut:** planul de deploy (Deployer) urmeaza stilul listei (intunecat) sau al
+editorului (alb)?
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
