@@ -245,7 +245,29 @@ pub fn compara(
                 continue;
             }
             if c.hash == r.hash {
-                n.identice += 1;
+                // acelasi text, dar setarile de creare pot diferi: cu
+                // `QUOTED_IDENTIFIER OFF` un `"a"` e sir, cu ON e coloana.
+                // Nu se vede in text, deci pana la auditul QA (C6) obiectul
+                // era numarat identic si nu se putea deploia.
+                let setari = setari_diferite(r.setari, c.setari);
+                if setari.is_empty() {
+                    n.identice += 1;
+                    continue;
+                }
+                n.diferite += 1;
+                randuri.push(Rand {
+                    id,
+                    obiect: nume.clone(),
+                    baza: baza.clone(),
+                    // textul e acelasi: un procent de similaritate ar minti
+                    scor: None,
+                    rezumat: format!("difera doar setarile: {}", setari.join(", ")),
+                    tip: r.tip.clone(),
+                    categorie: Categorie::Diferit,
+                    hash_referinta: Some(r.hash.clone()),
+                    hash_curent: Some(c.hash.clone()),
+                });
+                id += 1;
                 continue;
             }
             let scor = scor_afisat(scor_similaritate(&r.afisare, &c.afisare));
@@ -499,5 +521,44 @@ mod teste {
         // instantaneu vechi, fara setari: nu se afirma nimic
         assert!(setari_diferite(None, Some(qi_off)).is_empty());
         assert!(setari_diferite(Some(on), None).is_empty());
+    }
+
+    /// C6 din `cercetare/audit-qa-2026-11-18.md`: acelasi text cu alt
+    /// `QUOTED_IDENTIFIER` se numara „identic", deci nu apare in lista si nu
+    /// se poate deploia. Cu QI OFF, `"a"` e un sir; cu ON, o coloana — alt
+    /// comportament la executie, pe ~21% din obiectele serverului real.
+    #[test]
+    fn acelasi_text_cu_alte_setari_e_diferit_nu_identic() {
+        let on = Setari {
+            ansi_nulls: true,
+            quoted_identifier: true,
+        };
+        let cod = "CREATE PROC dbo.pSet AS SELECT \"a\"";
+        let r = pregateste(&[Obiect {
+            schema: "dbo".into(),
+            nume: "pSet".into(),
+            tip: "P".into(),
+            definitie: cod.into(),
+            setari: Some(on),
+        }]);
+        let t = pregateste(&[Obiect {
+            schema: "dbo".into(),
+            nume: "pSet".into(),
+            tip: "P".into(),
+            definitie: cod.into(),
+            setari: Some(Setari {
+                quoted_identifier: false,
+                ..on
+            }),
+        }]);
+        let c = compara("Ref", &r, &[("Tinta".to_string(), t)], |_| {});
+        assert_eq!(c.numaratoare.identice, 0, "setarile nu sunt o bagatela");
+        assert_eq!(c.randuri.len(), 1, "{:?}", c.randuri);
+        assert_eq!(c.randuri[0].categorie, Categorie::Diferit);
+        assert!(
+            c.randuri[0].rezumat.contains("QUOTED_IDENTIFIER"),
+            "rezumatul spune ce difera: {:?}",
+            c.randuri[0].rezumat
+        );
     }
 }
