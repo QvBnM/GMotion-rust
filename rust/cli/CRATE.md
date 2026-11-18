@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 72f9e9f927cf19f9 -->
+<!-- api-hash: 27ff957a10e8c182 -->
 
 ## Rol
 
@@ -30,10 +30,11 @@ Doua lucruri trebuie sa ramana adevarate:
 | `baze` | bazele disponibile |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
-| `revizuire` | ce s-a marcat ca revizuit; bifa cade cand obiectul s-a schimbat |
+| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat |
+| `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--din-fisier` (scris de mana); aceeasi sesiune ca fereastra |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
 | `plan` | ce intra in deploy, cu amprentele de acum, intr-un `.json` |
-| `deploy` | scripturile, cu codul din referinta, si revenirea in `revenire/`. Cu `--plan`, intai verifica ca baza n-a mai fost atinsa (`GM-MOD-012`) |
+| `deploy` | scripturile, cu codul din referinta (sau textul final din editor, daca e valabil; fara cele omise), si revenirea in `revenire/`. Cu `--plan`, intai verifica ca baza n-a mai fost atinsa (`GM-MOD-012`) |
 | `export` | CSV pentru Excel |
 
 Argumente comune: `--server`/`--port`/`--certificat` sau `--sursa`,

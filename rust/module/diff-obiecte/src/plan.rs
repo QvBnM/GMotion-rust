@@ -230,6 +230,17 @@ impl Plan {
     /// Se cheama dupa garda, cu obiectele recitite; un obiect din plan care
     /// nu mai e in referinta e `GM-MOD-012`, nu un pas sarit in tacere.
     pub fn de_deployat(&self, referinta: &Baza) -> Rezultat<BTreeMap<String, Vec<DeDeployat>>> {
+        self.de_deployat_cu(referinta, &BTreeMap::new())
+    }
+
+    /// Ca [`Plan::de_deployat`], dar un obiect cu text final (editat in
+    /// editor: blocuri aplicate, scris de mana) se deployeaza cu **textul
+    /// final**, pe `(baza, schema.nume)`. Setarile raman cele din referinta.
+    pub fn de_deployat_cu(
+        &self,
+        referinta: &Baza,
+        texte_finale: &BTreeMap<(String, String), String>,
+    ) -> Rezultat<BTreeMap<String, Vec<DeDeployat>>> {
         let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
         for p in &self.pasi {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
@@ -238,7 +249,11 @@ impl Plan {
             pe_baza.entry(p.baza.clone()).or_default().push(DeDeployat {
                 obiect: p.obiect.clone(),
                 tip: p.tip.clone(),
-                cod: aplica_create_or_alter(&o.definitie),
+                cod: aplica_create_or_alter(
+                    texte_finale
+                        .get(&(p.baza.clone(), p.obiect.clone()))
+                        .map_or(o.definitie.as_str(), String::as_str),
+                ),
                 setari: o.setari,
             });
         }
@@ -485,6 +500,25 @@ mod teste {
         assert_eq!(t.len(), 2);
         assert_eq!(t[0].cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1");
         assert!(p.de_deployat(&Baza::new()).is_err());
+    }
+
+    #[test]
+    fn textul_final_inlocuieste_codul_din_referinta() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let texte = BTreeMap::from([(
+            ("Tinta".to_string(), "dbo.pA".to_string()),
+            "ALTER PROCEDURE dbo.pA AS SELECT 'final'".to_string(),
+        )]);
+        let d = p.de_deployat_cu(&r, &texte).unwrap();
+        assert_eq!(
+            d["Tinta"][0].cod,
+            "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 'final'"
+        );
+        assert_eq!(
+            d["Tinta"][1].cod, "CREATE OR ALTER PROCEDURE dbo.pB AS SELECT 2",
+            "fara text final: codul din referinta"
+        );
     }
 
     #[test]

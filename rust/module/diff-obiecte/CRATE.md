@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 0fa3cb5bdcba32dc -->
+<!-- api-hash: a9effae9b7902e4e -->
 
 ## Rol
 
@@ -27,9 +27,10 @@ biblioteca** — fara nicio interfata.
 | `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `setari_diferite(a, b)`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
 | `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `Fel`, `Bucata`, `Marcaj` |
 | `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
-| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
+| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
-| `revizuire` | `Revizuire` — ce s-a revizuit, legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
+| `revizuire` | `Revizuire` — ce s-a revizuit **sau omis** (`omite`, `e_omis`), legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
+| `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_toate`, `reset`, `pune` (scris de mana), `pentru_deploy`; legat de amprenta, salvat in sesiune; `TextFinal` |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |
 
@@ -91,6 +92,13 @@ biblioteca** — fara nicio interfata.
    reface, ce deploy-ul creeaza se sterge (`DROP ... IF EXISTS`). Intai
    refacerile, apoi stergerile in ordinea inversa dependentelor. Daca
    revenirea nu se poate scrie, nu se scrie nici deploy-ul.
+8d. **Textul final e legat de amprenta obiectului** (ca bifa): daca sursa
+   sau baza s-au schimbat de la editare, nu mai e valabil si nu intra in
+   deploy. Un text final egal cu textul bazei nu e editare (se scoate).
+   „Aplica toate" pune textul exact al sursei; „Aplica" compune prin
+   `gmotion_core::compune`, aceeasi aliniere ca editorul.
+8e. **Un obiect e ori revizuit, ori omis.** Omisele nu intra in planul facut
+   din `cli` fara `--doar`.
 9. **CSV-ul are BOM UTF-8, separator `;`, CRLF si virgula zecimala** — altfel
    Excel romanesc strica diacriticele sau pune totul pe o coloana.
 

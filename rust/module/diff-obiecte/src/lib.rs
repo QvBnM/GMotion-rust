@@ -15,6 +15,8 @@
 //! - [`plan`] — ce intra in deploy, cu amprentele de la comparare, si garda
 //!   „baza n-a mai fost atinsa". Se strica spunand „neatins" despre un obiect
 //!   schimbat intre timp;
+//! - [`editare`] — textul final (Aplica, Reset, scris de mana). Se strica
+//!   deployand alt text decat cel vazut;
 //! - [`export`] — CSV pentru Excel;
 //! - [`eroare`] — coduri `GM-MOD-*`.
 //!
@@ -23,6 +25,7 @@
 pub mod comparare;
 pub mod deploy;
 pub mod diferente;
+pub mod editare;
 pub mod eroare;
 pub mod export;
 mod modul;
@@ -34,6 +37,7 @@ pub use comparare::{
 };
 pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, PasRevenire, Raport};
 pub use diferente::{detalii_obiect, diferente_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj};
+pub use editare::{Editari, TextFinal};
 pub use eroare::{Eroare, Rezultat};
 pub use export::{scrie_csv, Stare};
 pub use modul::ModulDiffObiecte;

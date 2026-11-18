@@ -332,11 +332,40 @@ fn detalii_randuri(r: &Rulare) -> afisare::Detalii {
 /// valabila. Asa se vede si cate bife au cazut fiindca obiectul s-a schimbat
 /// pe server — informatia pentru care exista comanda.
 #[allow(clippy::too_many_arguments)]
+/// Sesiunea salvata a referintei, sau una noua. Aceeasi pentru `revizuire`
+/// si `editare`: progresul si textele finale stau impreuna, ca in fereastra.
+fn sesiune_sau_noua(
+    sesiuni: &gmotion_platforma::Sesiuni,
+    args: &ArgumenteSursa,
+    referinta: &str,
+) -> Result<gmotion_platforma::Sesiune, String> {
+    Ok(sesiuni
+        .incarca(referinta)
+        .map_err(|e| e.to_string())?
+        .unwrap_or_else(|| {
+            gmotion_platforma::Sesiune::noua(
+                args.eticheta_server()
+                    .unwrap_or_else(|| "instantaneu".to_string()),
+                if args.sursa.is_some() {
+                    "instantaneu"
+                } else if args.auth.utilizator.is_some() {
+                    "SQL"
+                } else {
+                    "Windows"
+                },
+                referinta,
+                acum(),
+            )
+        }))
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn revizuire(
     args: &ArgumenteSursa,
     referinta: &str,
     baze_cerute: Option<&str>,
     marcheaza: Option<&str>,
+    omite: Option<&str>,
     scoate: Option<&str>,
     goleste: bool,
     format: Format,
@@ -354,24 +383,7 @@ pub fn revizuire(
     }
 
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-    let mut sesiune = sesiuni
-        .incarca(referinta)
-        .map_err(|e| e.to_string())?
-        .unwrap_or_else(|| {
-            gmotion_platforma::Sesiune::noua(
-                args.eticheta_server()
-                    .unwrap_or_else(|| "instantaneu".to_string()),
-                if args.sursa.is_some() {
-                    "instantaneu"
-                } else if args.auth.utilizator.is_some() {
-                    "SQL"
-                } else {
-                    "Windows"
-                },
-                referinta,
-                acum(),
-            )
-        });
+    let mut sesiune = sesiune_sau_noua(&sesiuni, args, referinta)?;
     let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
     let (valabile, cazute) = revizuire.valabile(&r.comparare.randuri);
 
@@ -393,6 +405,24 @@ pub fn revizuire(
             }
         }
     }
+    if let Some(l) = omite {
+        for obiect in lista(l) {
+            let mut gasit = false;
+            for rand in r
+                .comparare
+                .randuri
+                .iter()
+                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
+            {
+                revizuire.omite(rand);
+                gasit = true;
+            }
+            schimbat |= gasit;
+            if !gasit {
+                necunoscute.push(obiect);
+            }
+        }
+    }
     if let Some(l) = scoate {
         for obiect in lista(l) {
             // pe toate bazele, nu doar pe prima: acelasi obiect poate fi
@@ -406,6 +436,7 @@ pub fn revizuire(
                 .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
             {
                 gasit |= revizuire.scoate(&x.baza, &x.obiect);
+                gasit |= revizuire.scoate_omis(&x.baza, &x.obiect);
             }
             schimbat |= gasit;
             if !gasit {
@@ -440,8 +471,16 @@ pub fn revizuire(
                 .filter(|x| revizuire.e_revizuit(x))
                 .map(|x| x.obiect.as_str())
                 .collect();
+            let omise: Vec<&str> = r
+                .comparare
+                .randuri
+                .iter()
+                .filter(|x| revizuire.e_omis(x))
+                .map(|x| x.obiect.as_str())
+                .collect();
             afisare::scrie_json(&serde_json::json!({
                 "referinta": referinta,
+                "omise": omise,
                 "revizuite": valabile_acum,
                 "total": total,
                 "cazute": cazute,
@@ -467,10 +506,182 @@ pub fn revizuire(
                     println!("  {}  {}", x.baza, x.obiect);
                 }
             }
+            let omise: Vec<&modul::Rand> = r
+                .comparare
+                .randuri
+                .iter()
+                .filter(|x| revizuire.e_omis(x))
+                .collect();
+            if !omise.is_empty() {
+                println!("\nOmise (nu intra in deploy): {}", omise.len());
+                for x in omise {
+                    println!("  {}  {}", x.baza, x.obiect);
+                }
+            }
             let _ = valabile;
             Ok(())
         }
     }
+}
+
+/// Ce face `editare` cu textul final.
+pub enum ActiuneEditare {
+    /// Doar arata diferentele ramase, numerotate.
+    Arata,
+    /// Aplica diferentele cu numerele astea (de la 1, ca in editor).
+    Aplica(Vec<usize>),
+    AplicaToate,
+    Reset,
+    /// Textul final, scris de mana, dintr-un fisier.
+    DinFisier(PathBuf),
+}
+
+/// Textul final al unui obiect: ce face in editor „Aplica", „Aplica toate",
+/// „Reset" si „Editeaza", aici fara fereastra (CLAUDE.md §3). Se salveaza in
+/// aceeasi sesiune ca revizuirea, deci fereastra il vede, si invers.
+#[allow(clippy::too_many_arguments)]
+pub fn editare(
+    args: &ArgumenteSursa,
+    referinta: &str,
+    baza: &str,
+    obiect: &str,
+    actiune: ActiuneEditare,
+    arata_final: bool,
+    format: Format,
+) -> Result<(), String> {
+    let r = ruleaza_comparare(args, referinta, Some(baza), format)?;
+    let rand = r
+        .comparare
+        .randuri
+        .iter()
+        .find(|x| x.baza == baza && x.obiect.eq_ignore_ascii_case(obiect))
+        .ok_or_else(|| format!("{obiect} nu difera intre {referinta} si {baza}"))?
+        .clone();
+    let text_sursa = r
+        .referinta
+        .get(&rand.obiect)
+        .map(|o| o.afisare.clone())
+        .ok_or_else(|| format!("{obiect} nu exista in {referinta}: nu e nimic de adus"))?;
+    let text_baza = r
+        .altele
+        .iter()
+        .find(|(b, _)| b == baza)
+        .and_then(|(_, o)| o.get(&rand.obiect))
+        .map(|o| o.afisare.clone())
+        .unwrap_or_default();
+
+    let sesiuni =
+        gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
+    let mut sesiune = sesiune_sau_noua(&sesiuni, args, referinta)?;
+    let mut editari = modul::Editari::din_sesiune(&sesiune);
+
+    let schimbat = match actiune {
+        ActiuneEditare::Arata => false,
+        ActiuneEditare::Aplica(numere) => {
+            let diferente =
+                gmotion_core::aliniaza(&text_sursa, editari.curent(&rand, &text_baza)).diferente();
+            let mut blocuri = Vec::new();
+            for n in numere {
+                let b = n
+                    .checked_sub(1)
+                    .and_then(|i| diferente.get(i))
+                    .ok_or_else(|| {
+                        format!(
+                            "nu exista diferenta {n}: obiectul are {} diferente ramase",
+                            diferente.len()
+                        )
+                    })?;
+                blocuri.push(*b);
+            }
+            editari.aplica_blocuri(&rand, &text_sursa, &text_baza, &blocuri);
+            true
+        }
+        ActiuneEditare::AplicaToate => {
+            editari.aplica_toate(&rand, &text_sursa, &text_baza);
+            true
+        }
+        ActiuneEditare::Reset => editari.reset(&rand),
+        ActiuneEditare::DinFisier(cale) => {
+            let text = std::fs::read_to_string(&cale)
+                .map_err(|e| format!("nu pot citi {}: {e}", cale.display()))?;
+            let text = gmotion_core::pregateste_afisare(&text);
+            editari.pune(&rand, text, true, &text_baza);
+            true
+        }
+    };
+    if schimbat {
+        editari.curata(&r.comparare.randuri);
+        editari.in_sesiune(&mut sesiune);
+        sesiune.salvata = acum();
+        sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
+    }
+
+    let curent = editari.curent(&rand, &text_baza).to_string();
+    let a = gmotion_core::aliniaza(&text_sursa, &curent);
+    let diferente = a.diferente();
+    let manual = editari.text_final(&rand).is_some_and(|t| t.manual);
+    let editat = editari.text_final(&rand).is_some();
+    if format == Format::Json {
+        let lista_dif: Vec<serde_json::Value> = diferente
+            .iter()
+            .enumerate()
+            .map(|(i, &b)| {
+                let d = &a.diff[b];
+                serde_json::json!({
+                    "nr": i + 1,
+                    "tip": d.tip.eticheta(),
+                    "sursa": d.stanga,
+                    "baza": d.dreapta,
+                })
+            })
+            .collect();
+        return afisare::scrie_json(&serde_json::json!({
+            "obiect": rand.obiect,
+            "baza": baza,
+            "editat": editat,
+            "manual": manual,
+            "diferente": lista_dif,
+            "text_final": if editat { Some(curent.as_str()) } else { None },
+        }))
+        .map_err(|e| e.to_string());
+    }
+    if arata_final {
+        println!("{curent}");
+        return Ok(());
+    }
+    println!(
+        "{} in {baza}: {}{}",
+        rand.obiect,
+        if editat {
+            "text final salvat"
+        } else {
+            "needitat (textul bazei)"
+        },
+        if manual { ", scris si de mana" } else { "" }
+    );
+    if diferente.is_empty() {
+        println!("Nicio diferenta ramasa fata de {referinta}.");
+    }
+    for (i, &b) in diferente.iter().enumerate() {
+        let d = &a.diff[b];
+        let prima = |t: &Option<String>| {
+            t.as_deref()
+                .and_then(|t| t.lines().next())
+                .unwrap_or("—")
+                .chars()
+                .take(70)
+                .collect::<String>()
+        };
+        println!(
+            "  {:>3}. {:<9} sursa: {}\n       {:<9} baza:  {}",
+            i + 1,
+            d.tip.eticheta(),
+            prima(&d.stanga),
+            "",
+            prima(&d.dreapta)
+        );
+    }
+    Ok(())
 }
 
 pub fn export(
@@ -495,17 +706,35 @@ pub fn export(
 /// Planul din compararea de acum: randurile alese (toate, sau `--doar`).
 fn plan_din(r: &Rulare, doar: Option<&str>) -> modul::Plan {
     let filtru = doar.map(lista);
+    // ce s-a omis (in fereastra sau cu `revizuire --omite`) nu intra in deploy,
+    // ca in v3.4; cu `--doar` se poate cere totusi explicit
+    let omise = salvate(&r.comparare.referinta).0;
     modul::Plan::din_comparare(
         &r.comparare,
         &r.referinta,
         &r.altele,
-        |rand| {
-            filtru
-                .as_ref()
-                .map_or(true, |f| f.iter().any(|x| x == &rand.obiect))
+        |rand| match &filtru {
+            Some(f) => f.iter().any(|x| x == &rand.obiect),
+            None => !omise.e_omis(rand),
         },
         &acum(),
     )
+}
+
+/// Revizuirea (cu omisele) si textele finale salvate pentru referinta. Lipsa
+/// sesiunii sau o sesiune de neinteles dau stari goale: deploy-ul merge si
+/// fara ele, cu codul din referinta.
+fn salvate(referinta: &str) -> (modul::Revizuire, modul::Editari) {
+    gmotion_platforma::Sesiuni::pentru_modul(modul::NUME)
+        .ok()
+        .and_then(|s| s.incarca(referinta).ok().flatten())
+        .map(|s| {
+            (
+                modul::Revizuire::din_sesiune(&s),
+                modul::Editari::din_sesiune(&s),
+            )
+        })
+        .unwrap_or_default()
 }
 
 /// Scrie planul de deploy, cu amprentele de acum, ca sa fie verificat de
@@ -593,7 +822,22 @@ pub fn deploy(
         }
     };
 
-    let pe_baza = plan.de_deployat(&r.referinta).map_err(|e| e.to_string())?;
+    // textele finale facute in editor (sau cu `gmotion editare`), daca sunt
+    // inca valabile pentru obiectele de acum
+    let texte_finale = salvate(referinta).1.pentru_deploy(&r.comparare.randuri);
+    let cu_text_final = plan
+        .pasi
+        .iter()
+        .filter(|p| texte_finale.contains_key(&(p.baza.clone(), p.obiect.clone())))
+        .count();
+    if cu_text_final > 0 {
+        format.progres(&format!(
+            "{cu_text_final} obiecte se deployeaza cu textul final din editor, nu cu codul din referinta."
+        ));
+    }
+    let pe_baza = plan
+        .de_deployat_cu(&r.referinta, &texte_finale)
+        .map_err(|e| e.to_string())?;
     let revenire = plan.revenire(&r.referinta, &r.altele);
     let sarite = plan.sarite;
 

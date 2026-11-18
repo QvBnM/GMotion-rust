@@ -760,3 +760,119 @@ fn planul_altei_referinte_e_refuzat() {
     assert!(!o.status.success());
     assert!(err(&o).contains("referinta"), "{}", err(&o));
 }
+
+/// „Aplica", „Omite" si deploy-ul cu textul final, fara fereastra
+/// (CLAUDE.md §3), pe binar: textul final se salveaza in sesiune si ajunge
+/// in deploy; obiectul omis nu.
+#[test]
+fn editarea_si_omiterea_ajung_in_deploy() {
+    let d = dir("editare");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let baza = [
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--baza",
+        "Client1",
+        "--obiect",
+    ];
+
+    // pClienti difera (activ = 1 / 0): o diferenta, numerotata 1
+    let mut a: Vec<&str> = vec!["--json", "editare"];
+    a.extend(baza);
+    a.push("dbo.pClienti");
+    let o = ruleaza_in(&a, Some(&date));
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["editat"], false);
+    assert_eq!(v["diferente"].as_array().unwrap().len(), 1, "{v}");
+
+    // numar inexistent: eroare, cod nenul
+    let mut a: Vec<&str> = vec!["editare"];
+    a.extend(baza);
+    a.extend(["dbo.pClienti", "--aplica", "7"]);
+    let o = ruleaza_in(&a, Some(&date));
+    assert!(!o.status.success());
+    assert!(err(&o).contains("nu exista diferenta 7"), "{}", err(&o));
+
+    // un text scris de mana
+    let manual = d.join("manual.sql");
+    std::fs::write(
+        &manual,
+        "CREATE PROCEDURE dbo.pClienti AS\nSELECT nume FROM Clienti WHERE activ = 42",
+    )
+    .unwrap();
+    let mut a: Vec<&str> = vec!["--json", "editare"];
+    a.extend(baza);
+    a.extend(["dbo.pClienti", "--din-fisier", manual.to_str().unwrap()]);
+    let o = ruleaza_in(&a, Some(&date));
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(
+        (v["editat"].as_bool(), v["manual"].as_bool()),
+        (Some(true), Some(true))
+    );
+
+    // pStoc se omite
+    let o = ruleaza_in(
+        &[
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--omite",
+            "dbo.pStoc",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+
+    let iesire = d.join("out");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let sql = std::fs::read_to_string(iesire.join("Client1.sql")).unwrap();
+    assert!(sql.contains("WHERE activ = 42"), "textul final:\n{sql}");
+    assert!(!sql.contains("WHERE activ = 1"), "nu codul din referinta");
+    assert!(!sql.contains("pStoc"), "pStoc e omis:\n{sql}");
+
+    // reset: inapoi la codul din referinta
+    let mut a: Vec<&str> = vec!["editare"];
+    a.extend(baza);
+    a.extend(["dbo.pClienti", "--reset"]);
+    assert!(ruleaza_in(&a, Some(&date)).status.success());
+    let iesire2 = d.join("out2");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire2.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let sql = std::fs::read_to_string(iesire2.join("Client1.sql")).unwrap();
+    assert!(
+        sql.contains("WHERE activ = 1") && !sql.contains("activ = 42"),
+        "{sql}"
+    );
+}

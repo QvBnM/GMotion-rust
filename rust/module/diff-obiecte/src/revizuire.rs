@@ -44,6 +44,11 @@ pub struct Revizuire {
     /// `baza` -> `schema.nume` -> amprenta de atunci.
     #[serde(default)]
     baze: BTreeMap<String, BTreeMap<String, Amprenta>>,
+    /// Obiectele omise („Omite" din v3.4): analizate, dar lasate deliberat
+    /// in afara deploy-ului. Aceeasi regula ca bifa: cad daca obiectul se
+    /// schimba. Un obiect e ori revizuit, ori omis, nu amandoua.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    omise: BTreeMap<String, BTreeMap<String, Amprenta>>,
 }
 
 impl Revizuire {
@@ -51,8 +56,40 @@ impl Revizuire {
         Self::default()
     }
 
+    /// Marcheaza randul ca omis (si scoate bifa „revizuit", daca era).
+    pub fn omite(&mut self, r: &Rand) {
+        self.scoate(&r.baza, &r.obiect);
+        self.omise
+            .entry(r.baza.clone())
+            .or_default()
+            .insert(r.obiect.clone(), Amprenta::a_randului(r));
+    }
+
+    /// Scoate marcajul „omis". Intoarce `true` daca exista.
+    pub fn scoate_omis(&mut self, baza: &str, obiect: &str) -> bool {
+        let scos = self
+            .omise
+            .get_mut(baza)
+            .is_some_and(|b| b.remove(obiect).is_some());
+        self.omise.retain(|_, b| !b.is_empty());
+        scos
+    }
+
+    /// Omis, si obiectul e acelasi ca atunci.
+    pub fn e_omis(&self, r: &Rand) -> bool {
+        self.omise
+            .get(&r.baza)
+            .and_then(|b| b.get(&r.obiect))
+            .is_some_and(|a| *a == Amprenta::a_randului(r))
+    }
+
+    pub fn numar_omise(&self) -> usize {
+        self.omise.values().map(BTreeMap::len).sum()
+    }
+
     /// Marcheaza randul ca revizuit, cu amprenta lui de acum.
     pub fn marcheaza(&mut self, r: &Rand) {
+        self.scoate_omis(&r.baza, &r.obiect);
         self.baze
             .entry(r.baza.clone())
             .or_default()
@@ -110,6 +147,16 @@ impl Revizuire {
             });
         }
         self.baze.retain(|_, obiecte| !obiecte.is_empty());
+        for (baza, obiecte) in self.omise.iter_mut() {
+            obiecte.retain(|obiect, amprenta| {
+                let pastreaza = randuri.iter().any(|r| {
+                    r.baza == *baza && r.obiect == *obiect && Amprenta::a_randului(r) == *amprenta
+                });
+                scoase += usize::from(!pastreaza);
+                pastreaza
+            });
+        }
+        self.omise.retain(|_, obiecte| !obiecte.is_empty());
         scoase
     }
 
@@ -118,7 +165,7 @@ impl Revizuire {
     }
 
     pub fn e_goala(&self) -> bool {
-        self.numar() == 0
+        self.numar() == 0 && self.numar_omise() == 0
     }
 
     /// Obiectele bifate pe o baza, in ordine.
@@ -257,5 +304,46 @@ mod teste {
             serde_json::json!("altceva decat ne asteptam"),
         );
         assert!(Revizuire::din_sesiune(&s).e_goala());
+    }
+
+    #[test]
+    fn omis_si_revizuit_se_exclud_si_omis_cade_la_schimbare() {
+        let r = rand_test("a", "b");
+        let mut v = Revizuire::noua();
+        v.omite(&r);
+        assert!(v.e_omis(&r) && !v.e_revizuit(&r));
+        v.marcheaza(&r);
+        assert!(v.e_revizuit(&r) && !v.e_omis(&r), "revizuit scoate omis");
+        v.omite(&r);
+        assert!(v.e_omis(&r) && !v.e_revizuit(&r), "omis scoate revizuit");
+        let schimbat = rand_test("a", "b2");
+        assert!(!v.e_omis(&schimbat));
+        assert!(!v.e_goala());
+        assert_eq!(v.curata(&[schimbat]), 1);
+        assert!(v.e_goala());
+    }
+
+    #[test]
+    fn omisele_supravietuiesc_sesiunii() {
+        let r = rand_test("a", "b");
+        let mut v = Revizuire::noua();
+        v.omite(&r);
+        let mut s = Sesiune::noua("srv", "Windows", "Ref", "t");
+        v.in_sesiune(&mut s);
+        assert!(Revizuire::din_sesiune(&s).e_omis(&r));
+    }
+
+    fn rand_test(hr: &str, hc: &str) -> Rand {
+        Rand {
+            id: 0,
+            obiect: "dbo.p".into(),
+            baza: "Client1".into(),
+            scor: Some(90.0),
+            rezumat: String::new(),
+            tip: "P".into(),
+            categorie: Categorie::Diferit,
+            hash_referinta: Some(hr.into()),
+            hash_curent: Some(hc.into()),
+        }
     }
 }

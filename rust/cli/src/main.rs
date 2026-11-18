@@ -136,13 +136,56 @@ enum Comanda {
         #[arg(long, value_name = "schema.obiect,...")]
         marcheaza: Option<String>,
 
-        /// Scoate bifa de pe obiectele astea.
+        /// Omite obiectele astea: analizate, dar lasate in afara deploy-ului.
+        #[arg(long, value_name = "schema.obiect,...")]
+        omite: Option<String>,
+
+        /// Scoate bifa (revizuit sau omis) de pe obiectele astea.
         #[arg(long, value_name = "schema.obiect,...")]
         scoate: Option<String>,
 
         /// Sterge tot progresul salvat pentru referinta asta.
         #[arg(long)]
         goleste: bool,
+    },
+
+    /// Textul final al unui obiect: aplica diferente din referinta, toate,
+    /// reset, sau un text scris de mana. Fara actiune, arata diferentele
+    /// ramase, numerotate. Se salveaza in sesiune si intra in deploy.
+    Editare {
+        #[command(flatten)]
+        sursa: ArgumenteSursa,
+
+        #[arg(long, value_name = "BAZA")]
+        referinta: String,
+
+        /// Baza comparata.
+        #[arg(long, value_name = "BAZA")]
+        baza: String,
+
+        /// Obiectul, ca `schema.nume`.
+        #[arg(long, value_name = "SCHEMA.NUME")]
+        obiect: String,
+
+        /// Aplica diferentele cu numerele astea (de la 1, ca in editor).
+        #[arg(long, value_name = "1,3", conflicts_with_all = ["aplica_toate", "reset", "din_fisier"])]
+        aplica: Option<String>,
+
+        /// Textul final devine exact cel din referinta.
+        #[arg(long, conflicts_with_all = ["reset", "din_fisier"])]
+        aplica_toate: bool,
+
+        /// Inapoi la textul bazei.
+        #[arg(long, conflicts_with = "din_fisier")]
+        reset: bool,
+
+        /// Textul final, scris de mana, din fisierul asta.
+        #[arg(long, value_name = "CALE")]
+        din_fisier: Option<PathBuf>,
+
+        /// Scrie textul final la iesirea standard, in loc de rezumat.
+        #[arg(long)]
+        arata_final: bool,
     },
 
     /// Arata diferentele unui singur obiect, linie cu linie.
@@ -261,6 +304,7 @@ fn main() -> std::process::ExitCode {
             referinta,
             baze,
             marcheaza,
+            omite,
             scoate,
             goleste,
         } => comenzi::revizuire(
@@ -268,10 +312,51 @@ fn main() -> std::process::ExitCode {
             referinta,
             baze.as_deref(),
             marcheaza.as_deref(),
+            omite.as_deref(),
             scoate.as_deref(),
             *goleste,
             format,
         ),
+        Comanda::Editare {
+            sursa,
+            referinta,
+            baza,
+            obiect,
+            aplica,
+            aplica_toate,
+            reset,
+            din_fisier,
+            arata_final,
+        } => (|| {
+            let actiune = if let Some(a) = aplica {
+                let numere = sursa::lista(a)
+                    .iter()
+                    .map(|n| {
+                        n.trim()
+                            .parse::<usize>()
+                            .map_err(|_| format!("{n:?} nu e un numar de diferenta"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                comenzi::ActiuneEditare::Aplica(numere)
+            } else if *aplica_toate {
+                comenzi::ActiuneEditare::AplicaToate
+            } else if *reset {
+                comenzi::ActiuneEditare::Reset
+            } else if let Some(f) = din_fisier {
+                comenzi::ActiuneEditare::DinFisier(f.clone())
+            } else {
+                comenzi::ActiuneEditare::Arata
+            };
+            comenzi::editare(
+                sursa,
+                referinta,
+                baza,
+                obiect,
+                actiune,
+                *arata_final,
+                format,
+            )
+        })(),
         Comanda::Diferente {
             sursa,
             referinta,

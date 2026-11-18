@@ -6,11 +6,12 @@
 //! real, sau o bucata schimbata nu e marcata. Toate trei se vad imediat in
 //! editor si duc la decizii gresite la deploy.
 //!
-//! Un singur motor: blocurile, imperecherea si bucatile schimbate vin din
-//! `gmotion_core::diff_aliniat`. Aici doar se aseaza pe randuri.
+//! Un singur motor: blocurile, imperecherea, bucatile schimbate **si asezarea
+//! pe linii** vin din `gmotion_core` (`aliniaza`), aceeasi aliniere pe care o
+//! foloseste compunerea textului final. Aici doar se coloreaza.
 
 use gmotion_core::lexer::{segmente, Fel};
-use gmotion_core::{diff_aliniat, linii_start_blocuri, split_statements, TipDiferenta};
+use gmotion_core::{aliniaza, TipDiferenta};
 
 /// Culoarea de sintaxa a unei bucati.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +71,9 @@ pub struct Rand {
     pub stare: Stare,
     /// Primul rand al unui bloc diferit: acolo se pune eticheta (MODIFICAT...).
     pub inceput_bloc: bool,
+    /// Blocul motorului din care vine randul (indexul in diff), `None` pe
+    /// liniile dintre blocuri. Prin el „Aplica" stie ce aplica.
+    pub bloc: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -78,6 +82,9 @@ pub struct ModelEditor {
     /// Indexul randului de inceput al fiecarei diferente, in ordine: pentru
     /// navigarea „anterior / urmator" si pentru minimap.
     pub diferente: Vec<usize>,
+    /// Pentru fiecare diferenta (acelasi index ca `diferente`), blocul
+    /// motorului: ce primeste `gmotion_core::compune` ca sa o aplice.
+    pub blocuri: Vec<usize>,
 }
 
 const CUVINTE_CHEIE: &[&str] = &[
@@ -287,122 +294,71 @@ fn schimbat_pe_caractere(segmente: &[gmotion_core::Segment]) -> Vec<bool> {
 /// Construieste modelul pentru doua texte deja pregatite pentru afisare
 /// (`gmotion_core::pregateste_afisare`).
 pub fn construieste(text_ref: &str, text_tinta: &str) -> ModelEditor {
-    let randuri_diff = diff_aliniat(text_ref, text_tinta);
-    let start_ref = linii_start_blocuri(text_ref, &split_statements(text_ref, false));
-    let start_tinta = linii_start_blocuri(text_tinta, &split_statements(text_tinta, false));
-    let original_ref: Vec<&str> = text_ref.lines().collect();
-    let original_tinta: Vec<&str> = text_tinta.lines().collect();
-
-    let mut randuri: Vec<Rand> = Vec::new();
-    let mut diferente: Vec<usize> = Vec::new();
-    let (mut bloc_ref, mut bloc_tinta) = (0usize, 0usize);
-    let (mut ultim_ref, mut ultim_tinta) = (0usize, 0usize);
-
-    // Liniile originale dintre blocuri (goale, sau blocuri doar-comentariu pe
-    // care segmentarea le arunca): context egal, ca sa se vada tot obiectul.
-    let completeaza = |randuri: &mut Vec<Rand>, r: (usize, usize), t: (usize, usize)| {
-        let n = r.1.saturating_sub(r.0).max(t.1.saturating_sub(t.0));
-        for i in 0..n {
-            let parte = |k: usize, original: &[&str]| Parte {
-                nr: Some(k + 1),
-                bucati: linii_bloc(original.get(k).copied().unwrap_or(""), None)
-                    .into_iter()
-                    .next()
-                    .unwrap_or_default(),
-            };
-            let lr = (r.0 + i < r.1).then_some(r.0 + i);
-            let lt = (t.0 + i < t.1).then_some(t.0 + i);
-            randuri.push(Rand {
-                stanga: lr.map_or_else(Parte::umplutura, |k| parte(k, &original_ref)),
-                dreapta: lt.map_or_else(Parte::umplutura, |k| parte(k, &original_tinta)),
-                stare: Stare::Egal,
-                inceput_bloc: false,
-            });
-        }
-    };
-
-    for rd in &randuri_diff {
-        let s_ref = rd.stanga.as_ref().map(|_| {
-            let s = start_ref
-                .get(bloc_ref)
-                .map_or(ultim_ref, |&s| s.max(ultim_ref));
-            bloc_ref += 1;
-            s
-        });
-        let s_tinta = rd.dreapta.as_ref().map(|_| {
-            let s = start_tinta
-                .get(bloc_tinta)
-                .map_or(ultim_tinta, |&s| s.max(ultim_tinta));
-            bloc_tinta += 1;
-            s
-        });
-        completeaza(
-            &mut randuri,
-            (ultim_ref, s_ref.unwrap_or(ultim_ref)),
-            (ultim_tinta, s_tinta.unwrap_or(ultim_tinta)),
-        );
-        let stare = match rd.tip {
+    let a = aliniaza(text_ref, text_tinta);
+    // Culorile se calculeaza pe blocul intreg, o data: un comentariu sau un
+    // sir pe mai multe linii trebuie sa-si pastreze culoarea pe fiecare linie.
+    let mut colorate: Vec<[Option<Vec<Vec<Bucata>>>; 2]> = vec![[None, None]; a.diff.len()];
+    let mut randuri: Vec<Rand> = Vec::with_capacity(a.randuri.len());
+    let mut diferente = Vec::new();
+    let mut blocuri = Vec::new();
+    for r in &a.randuri {
+        let stare = match r.tip {
             TipDiferenta::Egal => Stare::Egal,
             TipDiferenta::Modificat => Stare::Modificat,
             TipDiferenta::Sters => Stare::Sters,
             TipDiferenta::Adaugat => Stare::Adaugat,
         };
-        let st = rd.stanga.as_deref().map(|t| {
-            linii_bloc(
-                t,
-                rd.seg_stanga
-                    .as_deref()
-                    .map(schimbat_pe_caractere)
-                    .as_deref(),
-            )
-        });
-        let dr = rd.dreapta.as_deref().map(|t| {
-            linii_bloc(
-                t,
-                rd.seg_dreapta
-                    .as_deref()
-                    .map(schimbat_pe_caractere)
-                    .as_deref(),
-            )
-        });
-        let n_st = st.as_ref().map_or(0, Vec::len);
-        let n_dr = dr.as_ref().map_or(0, Vec::len);
-        if stare != Stare::Egal {
-            diferente.push(randuri.len());
-        }
-        // Blocul ocupa aceeasi inaltime in ambele panouri (ca in v3.4): partea
-        // mai scurta primeste randuri de umplutura.
-        for i in 0..n_st.max(n_dr) {
-            let parte = |linii: &Option<Vec<Vec<Bucata>>>, start: Option<usize>| match (
-                linii.as_ref().and_then(|l| l.get(i)),
-                start,
-            ) {
-                (Some(b), Some(s)) => Parte {
-                    nr: Some(s + i + 1),
-                    bucati: b.clone(),
-                },
-                _ => Parte::umplutura(),
+        let mut parte = |linie: &Option<gmotion_core::Linie>, dreapta: bool| -> Parte {
+            let Some(l) = linie else {
+                return Parte::umplutura();
             };
-            randuri.push(Rand {
-                stanga: parte(&st, s_ref),
-                dreapta: parte(&dr, s_tinta),
-                stare,
-                inceput_bloc: i == 0 && stare != Stare::Egal,
-            });
+            let bucati = match r.bloc {
+                Some(b) => {
+                    let rd = &a.diff[b];
+                    let cache = &mut colorate[b][usize::from(dreapta)];
+                    let linii = cache.get_or_insert_with(|| {
+                        let (text, seg) = if dreapta {
+                            (rd.dreapta.as_deref(), rd.seg_dreapta.as_deref())
+                        } else {
+                            (rd.stanga.as_deref(), rd.seg_stanga.as_deref())
+                        };
+                        linii_bloc(
+                            text.unwrap_or(""),
+                            seg.map(schimbat_pe_caractere).as_deref(),
+                        )
+                    });
+                    linii.get(r.linie_in_bloc).cloned().unwrap_or_default()
+                }
+                None => linii_bloc(&l.text, None)
+                    .into_iter()
+                    .next()
+                    .unwrap_or_default(),
+            };
+            Parte {
+                nr: Some(l.nr),
+                bucati,
+            }
+        };
+        let stanga = parte(&r.stanga, false);
+        let dreapta = parte(&r.dreapta, true);
+        let inceput_bloc = r.linie_in_bloc == 0 && r.bloc.is_some() && stare != Stare::Egal;
+        if inceput_bloc {
+            diferente.push(randuri.len());
+            blocuri.push(r.bloc.unwrap_or_default());
         }
-        if let Some(s) = s_ref {
-            ultim_ref = s + n_st;
-        }
-        if let Some(s) = s_tinta {
-            ultim_tinta = s + n_dr;
-        }
+        randuri.push(Rand {
+            stanga,
+            dreapta,
+            stare,
+            inceput_bloc,
+            bloc: r.bloc,
+        });
     }
-    completeaza(
-        &mut randuri,
-        (ultim_ref, original_ref.len()),
-        (ultim_tinta, original_tinta.len()),
-    );
-    ModelEditor { randuri, diferente }
+    ModelEditor {
+        randuri,
+        diferente,
+        blocuri,
+    }
 }
 
 /// Un rand de afisat in editor: o linie din model, sau o pliere care ascunde
