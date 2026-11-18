@@ -14,8 +14,8 @@ biblioteca** — fara nicio interfata.
   deci nu stie daca vin de pe un server sau din instantaneu.
 - **Nu compara texte.** Normalizarea, segmentarea si diff-ul sunt
   `gmotion-core`. Un al doilea motor aici ar fi exact bug-ul din v3.4.
-- **Nu desenează si nu deschide dialoguri.** Caile de ieșire vin ca argument.
-- **Nu depinde de alt modul.** Daca ar avea nevoie, acel ceva aparține
+- **Nu deseneaza si nu deschide dialoguri.** Caile de iesire vin ca argument.
+- **Nu depinde de alt modul.** Daca ar avea nevoie, acel ceva apartine
   platformei.
 - **Nu citeste ceasul.** Marcajul de timp din scripturi se da din afara:
   altfel rezultatul n-ar fi testabil.
@@ -31,7 +31,7 @@ biblioteca** — fara nicio interfata.
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `revizuire` | `Revizuire` — ce s-a revizuit, legat de amprenta continutului; `din_sesiune` / `in_sesiune` |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
-| rădăcină | `NUME` = `"diff-obiecte"` |
+| radacina | `NUME` = `"diff-obiecte"` |
 
 ## Invariante
 
@@ -43,9 +43,9 @@ biblioteca** — fara nicio interfata.
    v3.4 avea „scor 100 -> identic"; scorul e rotunjit, deci pe obiecte mari
    un `NOT` sters disparea (audit 2026-11-17). Ce e cosmetic e deja prins de
    hash, care e calculat pe forma normalizata.
-3. **`Diferenta::id` NU e poziția in lista.** E id-ul stabil dat de
-   `gmotion_core`: poziția blocului in referinta pentru randurile ancorate,
-   numere negative unice pentru cele doar-adaugate. Prin el supraviețuiesc
+3. **`Diferenta::id` NU e pozitia in lista.** E id-ul stabil dat de
+   `gmotion_core`: pozitia blocului in referinta pentru randurile ancorate,
+   numere negative unice pentru cele doar-adaugate. Prin el supravietuiesc
    deciziile utilizatorului („linia asta o iau, asta nu") unei recalculari. Cu
    indexul din lista, orice schimbare in tinta le-ar muta pe alte linii.
 4. **Obiectele `extra` nu se pot deploia** — exista doar in baza comparata, deci
@@ -57,7 +57,7 @@ biblioteca** — fara nicio interfata.
 6. **Primul `CREATE`/`ALTER <tip>` din cod devine `CREATE OR ALTER`.** Se
    cauta doar in cod (prin `gmotion_core::lexer`), nu in comentarii sau
    string-uri; pozitiile sunt in textul original. `CREATE TABLE` nu se atinge.
-   Codul deja `CREATE OR ALTER` rămâne neatins.
+   Codul deja `CREATE OR ALTER` ramane neatins.
 6b. **Nimic nu se scrie daca ceva e periculos** (verificare inainte de orice
    fisier): nume cu caractere de control (`GM-MOD-008`), o linie `GO` in
    definitie (`GM-MOD-009`; sqlcmd taie batch-ul chiar si intr-un string),
@@ -74,7 +74,7 @@ biblioteca** — fara nicio interfata.
    13.0.4001+; Azure exceptat): pe un server vechi `RAISERROR` + `SET NOEXEC
    ON`, inainte de orice `USE`. Fiecare fisier se termina cu `SET NOEXEC OFF`.
 7. **Fiecare baza isi aduce propriul `USE [...]`,** inclusiv in modul „tot
-   intr-un fisier": altfel al doilea set ar rula pe baza greșita.
+   intr-un fisier": altfel al doilea set ar rula pe baza gresita.
 8. **Un nume de baza sau obiect nu poate forma o cale.** Separatorii devin `_`,
    punctele de la capete se taie. Numele de fisier sunt unice in cadrul unei
    rulari (fara a deosebi majusculele), numele rezervate Windows (`CON`,
@@ -103,7 +103,7 @@ biblioteca** — fara nicio interfata.
 | `GM-MOD-003` | scripturile nu se scriu: drepturi, disc | `src/deploy.rs` |
 | `GM-MOD-004` | id de rand inexistent | `src/eroare.rs` |
 | `GM-MOD-005` | exportul CSV cade, sau nimic de exportat | `src/export.rs` |
-| `GM-MOD-006/007` | eroare venita de la platforma / de la date. **Codul original rămâne in text** | `src/eroare.rs` |
+| `GM-MOD-006/007` | eroare venita de la platforma / de la date. **Codul original ramane in text** | `src/eroare.rs` |
 | `GM-MOD-008` | nume de baza / obiect cu caractere de control: ar injecta cod in script | `src/deploy.rs` |
 | `GM-MOD-009` | linie `GO` in definitie: obiectul se deployeaza de mana | `src/deploy.rs` |
 | `GM-MOD-010` | directorul de deploy nu e gol | `src/deploy.rs` |
@@ -112,7 +112,7 @@ biblioteca** — fara nicio interfata.
 
 **Un obiect raportat ca „modificat" care se deschide identic** era bug-ul tipic
 din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
-`gmotion_core`, deci cauza nu mai poate fi aia: caută in `core/src/segmentare.rs`.
+`gmotion_core`, deci cauza nu mai poate fi aia: cauta in `core/src/segmentare.rs`.
 
 ## Testare
 
@@ -120,7 +120,7 @@ din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
 cd rust && cargo test -p gmotion-modul-diff-obiecte      # 87 teste
 ```
 
-`tests/flux_complet.rs` ruleaza tot lanțul pe un instantaneu: citire prin
+`tests/flux_complet.rs` ruleaza tot lantul pe un instantaneu: citire prin
 `SursaObiecte` -> comparare -> diff -> deploy -> CSV, fara baza de date si fara
 interfata. **E si forma in care un bug de pe o baza reala devine test de
 regresie:** se schimba doar instantaneul.

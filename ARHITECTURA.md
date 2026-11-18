@@ -9,14 +9,14 @@ Harta repo-ului: ce exista, ce depinde de ce, si de ce e asa. Pentru reguli vezi
 
 **1. Platforma vs module.** Ce e comun tuturor uneltelor sta in platforma.
 Fiecare unealta e un crate separat. Adaugarea modulului 2 nu trebuie sa atinga
-modulul 1 — iar daca o atinge, contractul de modul era greșit.
+modulul 1 — iar daca o atinge, contractul de modul era gresit.
 
 **2. Un fisier se separa doar daca are o cauza de eroare proprie.** Nu
 despicam ca sa bifam module.
 
 ---
 
-## Direcția dependentelor
+## Directia dependentelor
 
 ```
                        +-----------+
@@ -62,7 +62,7 @@ mecanic de `unelte/verifica.sh`.
 | `rust/cli/` | Binarul headless: `compara`, `instantaneu`, `diagnostic`, `diferente`, `revizuire`, `deploy`, `export`. | gata |
 | `rust/fereastra/` | Ferestrele native, tema, componentele comune, modelele lor. | editorul si lista, gata |
 | `rust/app/` | Binarul cu interfata (`gmotion-ui`): leaga ferestrele de module si tine starea. | lista ↔ editor, gata |
-| `unelte/` | Poarta de verificare, urmarirea stării, scripturile de regenerare. | gata |
+| `unelte/` | Poarta de verificare, urmarirea starii, scripturile de regenerare. | gata |
 | `etape/` | Scopul, criteriile de terminare si jurnalul fiecarei etape. Exact una e `ACTIVA`. | gata |
 
 ---

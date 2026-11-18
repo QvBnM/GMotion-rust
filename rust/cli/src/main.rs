@@ -1,13 +1,13 @@
 //! `gmotion` — binarul headless.
 //!
 //! **Se strica astfel:** argumentele nu se potrivesc cu ce face comanda, sau
-//! programul iese cu 0 cand a eșuat. Al doilea e cel rau: o rulare programata
+//! programul iese cu 0 cand a esuat. Al doilea e cel rau: o rulare programata
 //! ar raporta succes.
 //!
-//! Exista inaintea interfetei grafice, si rămâne dupa ea, ca mod de depanare
-//! permanent. Doua lucruri trebuie sa rămână adevarate:
+//! Exista inaintea interfetei grafice, si ramane dupa ea, ca mod de depanare
+//! permanent. Doua lucruri trebuie sa ramana adevarate:
 //!
-//! 1. **tot ce face aplicatia se poate acționa de aici**, deci orice bug e
+//! 1. **tot ce face aplicatia se poate actiona de aici**, deci orice bug e
 //!    reproductibil fara interfata si fara mouse;
 //! 2. **fiecare comanda merge si cu `--sursa <instantaneu>`**, nu doar cu un
 //!    server, deci un bug de pe o baza de productie se reia pe orice masina.
@@ -45,8 +45,8 @@ use sursa::ArgumenteSursa;
                   de procese. Pune-o in GMOTION_PAROLA, sau foloseste --parola-fisier."
 )]
 struct Argumente {
-    /// Scrie rezultatul ca JSON. Mesajele de progres merg atunci la ieșirea de
-    /// erori, ca ieșirea standard sa rămână parsabila.
+    /// Scrie rezultatul ca JSON. Mesajele de progres merg atunci la iesirea de
+    /// erori, ca iesirea standard sa ramana parsabila.
     #[arg(long, global = true)]
     json: bool,
 
@@ -72,7 +72,7 @@ enum Comanda {
     /// sistem. Prima comanda de rulat cand ceva nu merge.
     Diagnostic,
 
-    /// Caută instante SQL Server in reteaua locala (SQL Browser, UDP 1434).
+    /// Cauta instante SQL Server in reteaua locala (SQL Browser, UDP 1434).
     Servere,
 
     /// Listeaza bazele disponibile.
@@ -81,7 +81,7 @@ enum Comanda {
         sursa: ArgumenteSursa,
     },
 
-    /// Scrie obiectele brute intr-un fisier, ca sa poată fi reluate offline.
+    /// Scrie obiectele brute intr-un fisier, ca sa poata fi reluate offline.
     Instantaneu {
         #[command(flatten)]
         sursa: ArgumenteSursa,
@@ -90,11 +90,11 @@ enum Comanda {
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
 
-        /// Fisierul de ieșire.
-        #[arg(short = 'o', long = "ieșire", alias = "iesire", value_name = "CALE")]
-        ieșire: PathBuf,
+        /// Fisierul de iesire.
+        #[arg(short = 'o', long = "iesire", alias = "iesire", value_name = "CALE")]
+        iesire: PathBuf,
 
-        /// Nota libera: ce bug se urmarește. Ajunge in fisier.
+        /// Nota libera: ce bug se urmareste. Ajunge in fisier.
         #[arg(long, default_value = "")]
         nota: String,
     },
@@ -173,7 +173,7 @@ enum Comanda {
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
 
-        /// Directorul de ieșire. Lipsa lui genereaza un nume cu data.
+        /// Directorul de iesire. Lipsa lui genereaza un nume cu data.
         #[arg(short = 'd', long, value_name = "CALE")]
         director: Option<PathBuf>,
 
@@ -214,8 +214,8 @@ enum Comanda {
         doar: Option<String>,
 
         /// Fisierul planului. Lipsa lui genereaza un nume cu data.
-        #[arg(short = 'o', long = "ieșire", alias = "iesire", value_name = "CALE")]
-        ieșire: Option<PathBuf>,
+        #[arg(short = 'o', long = "iesire", alias = "iesire", value_name = "CALE")]
+        iesire: Option<PathBuf>,
     },
 
     /// Exporta lista de diferente ca CSV, pentru Excel.
@@ -229,9 +229,9 @@ enum Comanda {
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
 
-        /// Fisierul de ieșire. Lipsa lui genereaza un nume cu data.
-        #[arg(short = 'o', long = "ieșire", alias = "iesire", value_name = "CALE")]
-        ieșire: Option<PathBuf>,
+        /// Fisierul de iesire. Lipsa lui genereaza un nume cu data.
+        #[arg(short = 'o', long = "iesire", alias = "iesire", value_name = "CALE")]
+        iesire: Option<PathBuf>,
     },
 }
 
@@ -247,9 +247,9 @@ fn main() -> std::process::ExitCode {
         Comanda::Instantaneu {
             sursa,
             baze,
-            ieșire,
+            iesire,
             nota,
-        } => comenzi::instantaneu(sursa, baze.as_deref(), ieșire, nota, format),
+        } => comenzi::instantaneu(sursa, baze.as_deref(), iesire, nota, format),
         Comanda::Compara {
             sursa,
             referinta,
@@ -307,27 +307,27 @@ fn main() -> std::process::ExitCode {
             referinta,
             baze,
             doar,
-            ieșire,
+            iesire,
         } => comenzi::plan(
             sursa,
             referinta,
             baze.as_deref(),
             doar.as_deref(),
-            ieșire.clone(),
+            iesire.clone(),
             format,
         ),
         Comanda::Export {
             sursa,
             referinta,
             baze,
-            ieșire,
-        } => comenzi::export(sursa, referinta, baze.as_deref(), ieșire.clone(), format),
+            iesire,
+        } => comenzi::export(sursa, referinta, baze.as_deref(), iesire.clone(), format),
     };
 
     match rezultat {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(mesaj) => {
-            // Mereu la ieșirea de erori, si mereu cod nenul: altfel o rulare
+            // Mereu la iesirea de erori, si mereu cod nenul: altfel o rulare
             // programata ar raporta succes.
             eprintln!("Eroare: {mesaj}");
             std::process::ExitCode::FAILURE

@@ -131,7 +131,7 @@ fn conectare(cale: &str, progres: bool) {
     ui.set_servere_gasite(model_din(vec![
         ServerUi {
             nume: "srv-dev\\SQL2019".into(),
-            eticheta: "IMPLICITĂ".into(),
+            eticheta: "IMPLICITA".into(),
         },
         ServerUi {
             nume: "srv-prod\\SQL2019".into(),
@@ -169,26 +169,26 @@ fn conectare(cale: &str, progres: bool) {
             })
             .collect(),
     ));
-    ui.set_rezumat_pornire(format!("{SURSA} față de 2 baze").into());
+    ui.set_rezumat_pornire(format!("{SURSA} fata de 2 baze").into());
     ui.set_nr_sesiuni("3".into());
     ui.set_sesiune_gasita(SesiuneUi {
         referinta: SURSA.into(),
         server: "srv-dev\\SQL2019".into(),
         progres: "124 din 336 rezolvate, 7 la deploy".into(),
-        cand: "ultima dată ieri, 17:40".into(),
+        cand: "ultima data ieri, 17:40".into(),
     });
     let mut jurnal = vec![
         (
             "14:31:02",
             0,
-            "Rețea",
-            "Se caută servere în rețea (SQL Browser, UDP 1434)",
+            "Retea",
+            "Se cauta servere in retea (SQL Browser, UDP 1434)",
         ),
         (
             "14:31:03",
             1,
-            "Rețea",
-            "3 servere găsite: srv-dev\\SQL2019, srv-prod\\SQL2019, srv-test",
+            "Retea",
+            "3 servere gasite: srv-dev\\SQL2019, srv-prod\\SQL2019, srv-test",
         ),
         (
             "14:31:09",
@@ -212,7 +212,7 @@ fn conectare(cale: &str, progres: bool) {
             "14:31:22",
             0,
             "Baze",
-            "Referință CharismaERP_GetsBet; de comparat: CharismaERP_GetsBet_Copy, CharismaProd",
+            "Referinta CharismaERP_GetsBet; de comparat: CharismaERP_GetsBet_Copy, CharismaProd",
         ),
     ];
     if progres {
@@ -223,7 +223,7 @@ fn conectare(cale: &str, progres: bool) {
                 "Citire",
                 "Se citesc obiectele din CharismaERP_GetsBet",
             ),
-            ("14:31:29", 1, "Citire", "21.183 de obiecte citite în 4,1 s"),
+            ("14:31:29", 1, "Citire", "21.183 de obiecte citite in 4,1 s"),
             (
                 "14:31:29",
                 0,
@@ -296,7 +296,7 @@ fn catalog() -> (Vec<Grup>, Vec<Obiect>) {
     };
     let def = [
         ("dbo", "Proceduri", 9412, 141, "usp_", "PROC"),
-        ("dbo", "Funcții", 2210, 38, "fn_", "FN"),
+        ("dbo", "Functii", 2210, 38, "fn_", "FN"),
         ("dbo", "View-uri", 3104, 27, "vw_", "VIEW"),
         ("rpt", "Proceduri", 1873, 52, "usp_Raport", "PROC"),
         ("dbo", "Triggere", 612, 13, "trg_", "TRG"),
@@ -338,15 +338,15 @@ fn catalog() -> (Vec<Grup>, Vec<Obiect>) {
                         let s = (rnd() * 2.0) as u32;
                         let mut d = format!("{m} modificate");
                         if a > 0 {
-                            d += &format!(", {a} adăugate");
+                            d += &format!(", {a} adaugate");
                         }
                         if s > 0 {
-                            d += &format!(", {s} șterse");
+                            d += &format!(", {s} sterse");
                         }
                         (0.62 + rnd() as f32 * 0.37, d)
                     }
-                    2 => (0.0, "lipsește din bază".to_string()),
-                    3 => (0.0, "doar în bază".to_string()),
+                    2 => (0.0, "lipseste din baza".to_string()),
+                    3 => (0.0, "doar in baza".to_string()),
                     _ => (1.0, "doar QUOTED_IDENTIFIER".to_string()),
                 };
                 let stare = if rnd() < 0.37 {
@@ -536,14 +536,14 @@ fn lista(cale: &str) {
     ui.set_coloane(model_din(vec![
         col("#", 44.0, 0),
         col("Obiect", 0.0, 0),
-        col("Bază", 210.0, 0),
+        col("Baza", 210.0, 0),
         col("Tip", 72.0, 0),
         col("Similaritate", 170.0, 1),
-        col("Diferențe", 220.0, 0),
+        col("Diferente", 220.0, 0),
         col("Stare", 64.0, 0),
         col("Ultima modif.", 120.0, 0),
         col("Deploy", 130.0, 0),
-        col("Acțiune", 92.0, 0),
+        col("Actiune", 92.0, 0),
     ]));
 
     let numara = |f: &dyn Fn(&Obiect) -> bool| obiecte.iter().filter(|o| f(o)).count();
@@ -560,13 +560,13 @@ fn lista(cale: &str) {
     ui.set_f_baza("Toate bazele".into());
     ui.set_f_tip("Toate tipurile".into());
     ui.set_f_categorie("Toate categoriile".into());
-    ui.set_f_stare("Toate stările".into());
+    ui.set_f_stare("Toate starile".into());
     ui.set_sim_min("0".into());
     ui.set_sim_max("100".into());
     ui.set_nr_deploy(numara(&|o| o.deploy == 1).to_string().into());
     ui.set_subsol(
         format!(
-            "{total_dif} obiecte (din {}), sortate după similaritate",
+            "{total_dif} obiecte (din {}), sortate dupa similaritate",
             mii(21_183)
         )
         .into(),
@@ -726,12 +726,12 @@ fn panza(cale: &str, ghidat: bool, paleta: bool) {
     ui.set_tinta(BAZA.into());
     ui.set_mediu("TEST".into());
     ui.set_obiect_nav("17 / 18".into());
-    ui.set_tip(format!("Procedură, comparată cu {BAZA}").into());
+    ui.set_tip(format!("Procedura, comparata cu {BAZA}").into());
     ui.set_schema("dbo.".into());
     ui.set_nume(OBIECT.into());
     ui.set_fraza(
         format!(
-            "{}% similar. {} modificate, {} de adus, {} de șters. Una e deja adusă.",
+            "{}% similar. {} modificate, {} de adus, {} de sters. Una e deja adusa.",
             format!("{similar:.2}").replace('.', ","),
             numara(Stare::Modificat),
             numara(Stare::Sters),
@@ -739,7 +739,7 @@ fn panza(cale: &str, ghidat: bool, paleta: bool) {
         )
         .into(),
     );
-    ui.set_salvat("Se aplică în timp real, salvat la 14:52".into());
+    ui.set_salvat("Se aplica in timp real, salvat la 14:52".into());
     ui.set_diferenta_nav(format!("{} / {nr_blocuri}", curent + 1).into());
     ui.set_nerezolvate(format!("{} nerezolvate", nr_blocuri - 1).into());
     ui.set_revizuite("124".into());
@@ -758,7 +758,7 @@ fn panza(cale: &str, ghidat: bool, paleta: bool) {
         ui.set_derulare(-(y - 3.0 * 24.0).max(0.0));
         ui.set_ghidat(true);
         ui.set_ghidat_titlu(
-            format!("Mod ghidat, diferența {} din {nr_blocuri}", curent + 1).into(),
+            format!("Mod ghidat, diferenta {} din {nr_blocuri}", curent + 1).into(),
         );
     }
     if paleta {
@@ -778,16 +778,16 @@ fn panza(cale: &str, ghidat: bool, paleta: bool) {
             .map(|(i, n)| ComandaUi {
                 grup: if i == 0 { "Obiecte".into() } else { "".into() },
                 text: format!("dbo.{n}").into(),
-                sub: "procedură".into(),
+                sub: "procedura".into(),
                 punct: Color::from_rgb_u8(0xf5, 0xa5, 0x24),
                 mono: true,
                 activ: i == 0,
             })
             .collect();
         for (i, (t, s)) in [
-            ("Aplică toate", ""),
+            ("Aplica toate", ""),
             ("Mod ghidat", "g"),
-            ("Copiază rezultatul", ""),
+            ("Copiaza rezultatul", ""),
             ("Deployer", "7 obiecte"),
         ]
         .iter()

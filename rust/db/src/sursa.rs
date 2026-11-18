@@ -1,6 +1,6 @@
 //! Contractul prin care restul aplicatiei ia obiecte: `SursaObiecte`.
 //!
-//! **Se strica astfel:** nimic singur. Dar daca granita e trasa greșit, tot ce
+//! **Se strica astfel:** nimic singur. Dar daca granita e trasa gresit, tot ce
 //! e deasupra devine imposibil de testat fara SQL Server — si asta e cea mai
 //! scumpa greseala pe care o putem face in proiectul asta.
 //!
@@ -38,7 +38,7 @@ pub trait SursaObiecte {
     /// ajunge pentru ambele surse; exista ca sa nu repete fiecare apelant bucla
     /// si raportarea.
     ///
-    /// Prima eroare oprește citirea: o comparare pe baze incomplete ar da
+    /// Prima eroare opreste citirea: o comparare pe baze incomplete ar da
     /// rezultate false, ceea ce e mai rau decat sa nu dea nimic.
     ///
     /// `progres` e `&mut dyn FnMut`, nu `impl FnMut`: un parametru generic ar
@@ -110,11 +110,11 @@ mod teste {
         assert_eq!(pasi[2], (2, 2, String::new()));
     }
 
-    /// Traitul trebuie sa rămână folosibil ca `Box<dyn SursaObiecte>`: asa
+    /// Traitul trebuie sa ramana folosibil ca `Box<dyn SursaObiecte>`: asa
     /// alege linia de comanda intre server si instantaneu la rulare. Un
     /// parametru generic intr-o metoda ar rupe asta, si s-a intamplat o data.
     #[test]
-    fn traitul_rămâne_compatibil_cu_dyn() {
+    fn traitul_ramane_compatibil_cu_dyn() {
         let mut cutie: Box<dyn SursaObiecte> = Box::new(SursaTest { esueaza_la: None });
         assert_eq!(cutie.baze().unwrap().len(), 3);
         let baze = vec!["A".to_string()];
@@ -125,7 +125,7 @@ mod teste {
     }
 
     #[test]
-    fn prima_eroare_oprește_citirea() {
+    fn prima_eroare_opreste_citirea() {
         let mut s = SursaTest {
             esueaza_la: Some("B".into()),
         };

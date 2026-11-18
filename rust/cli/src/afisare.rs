@@ -5,8 +5,8 @@
 //! doua rulari intre ele la etapa de paritate, si cum citesc eu un rezultat
 //! fara sa cer o captura de ecran.
 //!
-//! Regula: pe `--json`, la ieșirea standard **nu iese nimic in afara de JSON**.
-//! Mesajele de progres si avertismentele merg la ieșirea de erori.
+//! Regula: pe `--json`, la iesirea standard **nu iese nimic in afara de JSON**.
+//! Mesajele de progres si avertismentele merg la iesirea de erori.
 
 use std::io::Write;
 
@@ -28,7 +28,7 @@ impl Format {
     }
 
     /// Unde merg mesajele de progres. Pe JSON, la erori: altfel ar strica
-    /// ieșirea.
+    /// iesirea.
     pub fn progres(self, mesaj: &str) {
         let mesaj = fara_control(mesaj);
         match self {
@@ -56,7 +56,7 @@ fn celula(s: &str) -> String {
         .collect()
 }
 
-/// Un tabel simplu, aliniat pe lațimea conținutului.
+/// Un tabel simplu, aliniat pe latimea continutului.
 ///
 /// Fara dependinta de un crate de tabele: zece linii de cod fac exact ce
 /// trebuie, iar coloanele noastre sunt mereu text scurt.
@@ -237,7 +237,7 @@ pub fn comparare_json<'a>(c: &'a Comparare, detalii: &'a Detalii) -> CompararJso
     }
 }
 
-/// Scrie un JSON la ieșirea standard. `Result` ca sa nu dea panica pe o
+/// Scrie un JSON la iesirea standard. `Result` ca sa nu dea panica pe o
 /// conducta inchisa (`| head`).
 pub fn scrie_json<T: serde::Serialize>(v: &T) -> std::io::Result<()> {
     let text = serde_json::to_string_pretty(v)
@@ -308,9 +308,9 @@ mod teste {
             ],
         );
         let linii: Vec<&str> = t.lines().collect();
-        // linia de separatori are lațimea coloanei celei mai lungi
+        // linia de separatori are latimea coloanei celei mai lungi
         assert!(linii[1].starts_with(&"-".repeat("mult-mai-lung".len())));
-        // prima coloana e umpluta pana la aceeasi lațime
+        // prima coloana e umpluta pana la aceeasi latime
         assert!(linii[2].starts_with("scurt        "));
     }
 
@@ -324,7 +324,7 @@ mod teste {
 
     #[test]
     fn tabelul_numara_caractere_nu_octeti() {
-        let t = tabel(&["A"], &[vec!["ăîâșț".into()]]);
+        let t = tabel(&["A"], &[vec!["ăîâșț".into()]]); // diacritice-permise: date de test
         let linii: Vec<&str> = t.lines().collect();
         assert_eq!(
             linii[1].chars().count(),
@@ -374,7 +374,7 @@ mod teste {
         Detalii::from([(
             0,
             gmotion_modul_diff_obiecte::Detalii {
-                difera_in: "un șir".into(),
+                difera_in: "un sir".into(),
                 linii_plus: 2,
                 linii_minus: 1,
             },
@@ -388,7 +388,7 @@ mod teste {
         assert!(!fara.contains("DIFERA IN"));
         let cu = comparare_text(&c, &detalii_exemplu());
         assert!(cu.contains("DIFERA IN") && cu.contains("LINII"), "{cu}");
-        assert!(cu.contains("un șir") && cu.contains("+2 -1"), "{cu}");
+        assert!(cu.contains("un sir") && cu.contains("+2 -1"), "{cu}");
         // randul fara detalii (lipsa din baza) nu ramane cu coloana goala
         assert!(cu.contains("—"), "{cu}");
     }
@@ -412,7 +412,7 @@ mod teste {
         assert_eq!(d.len(), 1);
         assert_eq!(d[0]["id"], 0);
         assert_eq!(d[0]["obiect"], "dbo.pLung");
-        assert_eq!(d[0]["difera_in"], "un șir");
+        assert_eq!(d[0]["difera_in"], "un sir");
         assert_eq!(d[0]["linii_plus"], 2);
     }
 }

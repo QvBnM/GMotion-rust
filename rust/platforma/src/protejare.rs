@@ -9,7 +9,7 @@
 //! Nimeni altcineva nu poate citi fisierul, nici copiindu-l.
 //!
 //! Pe alt sistem: **nu se cripteaza**, si fisierul o spune in clar. E acceptabil
-//! doar fiindca o sesiune **nu conține niciodata secrete** — vezi
+//! doar fiindca o sesiune **nu contine niciodata secrete** — vezi
 //! `sesiune.rs`, unde tipul nu are loc pentru o parola. Daca vreodata ajunge un
 //! secret intr-o sesiune, calea de non-Windows trebuie sa refuze salvarea, nu
 //! sa scrie in clar.
@@ -83,22 +83,22 @@ mod platforma_nativa {
             cb_data: u32::try_from(copie.len()).ok()?,
             pb_data: copie.as_mut_ptr(),
         };
-        let mut ieșire = DataBlob {
+        let mut iesire = DataBlob {
             cb_data: 0,
             pb_data: ptr::null_mut(),
         };
-        let ok = f(&intrare_blob, &mut ieșire);
-        if ok == 0 || ieșire.pb_data.is_null() {
+        let ok = f(&intrare_blob, &mut iesire);
+        if ok == 0 || iesire.pb_data.is_null() {
             return None;
         }
         let rezultat =
-            unsafe { std::slice::from_raw_parts(ieșire.pb_data, ieșire.cb_data as usize) }.to_vec();
-        unsafe { LocalFree(ieșire.pb_data.cast()) };
+            unsafe { std::slice::from_raw_parts(iesire.pb_data, iesire.cb_data as usize) }.to_vec();
+        unsafe { LocalFree(iesire.pb_data.cast()) };
         Some(rezultat)
     }
 
     pub fn protejeaza(clar: &[u8]) -> Option<Vec<u8>> {
-        apel(clar, |intrare, ieșire| unsafe {
+        apel(clar, |intrare, iesire| unsafe {
             CryptProtectData(
                 intrare,
                 ptr::null(),
@@ -106,13 +106,13 @@ mod platforma_nativa {
                 ptr::null_mut(),
                 ptr::null_mut(),
                 UI_FORBIDDEN,
-                ieșire,
+                iesire,
             )
         })
     }
 
     pub fn deprotejeaza(protejat: &[u8]) -> Option<Vec<u8>> {
-        apel(protejat, |intrare, ieșire| unsafe {
+        apel(protejat, |intrare, iesire| unsafe {
             CryptUnprotectData(
                 intrare,
                 ptr::null_mut(),
@@ -120,7 +120,7 @@ mod platforma_nativa {
                 ptr::null_mut(),
                 ptr::null_mut(),
                 UI_FORBIDDEN,
-                ieșire,
+                iesire,
             )
         })
     }

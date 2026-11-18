@@ -1,7 +1,7 @@
 @echo off
 REM Poarta, pe Windows. Vezi unelte/verifica.sh pentru varianta completa:
 REM asta ruleaza doar partea de Rust plus harness-ul, fara verificarile scrise
-REM in bash (direcția dependentelor, sincronizarea CRATE.md).
+REM in bash (directia dependentelor, sincronizarea CRATE.md).
 REM Pentru poarta completa pe Windows: bash unelte/verifica.sh (Git Bash / WSL).
 setlocal
 cd /d "%~dp0.."

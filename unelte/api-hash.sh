@@ -2,7 +2,7 @@
 # Amprenta API-ului public al unui crate. Serveste la o singura verificare:
 # daca API-ul s-a schimbat, `CRATE.md` trebuie actualizat in acelasi commit.
 #
-# Cauza de eroare proprie: documentatia care rămâne in urma codului. E singurul
+# Cauza de eroare proprie: documentatia care ramane in urma codului. E singurul
 # fel de bug pe care nu-l prinde niciun test.
 #
 #   unelte/api-hash.sh rust/core

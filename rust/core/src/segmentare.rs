@@ -210,7 +210,7 @@ fn incepe_cu_if_while(text: &str) -> bool {
 }
 
 /// Plafon de siguranta: peste atatea blocuri renuntam la grupare, ca sa nu
-/// inghitim tot obiectul cand `BEGIN` aparține unui construct mult mai larg.
+/// inghitim tot obiectul cand `BEGIN` apartine unui construct mult mai larg.
 const MAX_BLOCURI_COMPUSE: usize = 6;
 
 /// Leaga un `IF`/`WHILE ... BEGIN` neinchis de blocurile urmatoare, pana se
@@ -298,7 +298,7 @@ fn uneste_cicluri_cursor(blocuri: Vec<String>) -> Vec<String> {
 
 /// Imparte codul in blocuri logice.
 ///
-/// `uneste_cursor` corespunde comutatorului din interfata ("Unește ciclul
+/// `uneste_cursor` corespunde comutatorului din interfata ("Uneste ciclul
 /// cursor"); implicit e oprit.
 pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
     if cod.is_empty() {
@@ -427,7 +427,7 @@ pub fn cheie_bloc(bloc: &str) -> String {
 ///
 /// Nu se poate obtine prin insumarea numarului de linii al blocurilor:
 /// segmentarea arunca liniile goale folosite ca separator, deci suma
-/// subestimeaza pozitia reala cu o linie pentru fiecare gol intalnit. Se caută
+/// subestimeaza pozitia reala cu o linie pentru fiecare gol intalnit. Se cauta
 /// in schimb blocul ca subsir literal in textul original.
 pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
     let mut out: Vec<usize> = Vec::with_capacity(blocuri.len());

@@ -175,7 +175,7 @@ mod teste {
             "a 'b' [c] \"d\" -- e\n/* f */ g",
             "'neinchis",
             "/* /* imbricat */ inca */ x",
-            "ăîș 'ț' [ș]",
+            "ăîș 'ț' [ș]", // diacritice-permise: date de test
         ] {
             let s = segmente(t);
             let mut poz = 0;

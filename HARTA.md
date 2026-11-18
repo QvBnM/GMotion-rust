@@ -18,13 +18,13 @@ lipsea.
 | Doua obiecte identice apar ca „modificate" | normalizarea nu curata ceva (spatii, comentarii, paranteze, majuscule) | `rust/core/src/normalizare.rs` |
 | Scorul de similaritate pare absurd | `scor_similaritate` sau rotunjirea bancara | `rust/core/src/normalizare.rs` |
 | Blocuri taiate in mijlocul unui string / comentariu / `CASE` | urmarirea literalelor si a stivei in segmentare | `rust/core/src/segmentare.rs` |
-| Un `UNION`, cursor `FOR` sau `INSERT ... SELECT` apare rupt in doua | `bloc_este_continuat`, `unește_blocuri_compuse`, `unește_cicluri_cursor` | `rust/core/src/segmentare.rs` |
+| Un `UNION`, cursor `FOR` sau `INSERT ... SELECT` apare rupt in doua | `bloc_este_continuat`, `uneste_blocuri_compuse`, `uneste_cicluri_cursor` | `rust/core/src/segmentare.rs` |
 | Numar de blocuri diferit de ce arata editorul | segmentare — e exact clasa de bug care a produs toate divergentele din v3.4 | `rust/core/src/segmentare.rs` |
-| Blocuri imperecheate greșit (se vede ca „sters + adaugat" in loc de „modificat") | alinierea prin programare dinamica, `perechi_replace` | `rust/core/src/diff.rs` |
-| Rezumat greșit („2 sterse" care nu exista) | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `rust/core/src/diff.rs` |
+| Blocuri imperecheate gresit (se vede ca „sters + adaugat" in loc de „modificat") | alinierea prin programare dinamica, `perechi_replace` | `rust/core/src/diff.rs` |
+| Rezumat gresit („2 sterse" care nu exista) | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `rust/core/src/diff.rs` |
 | Diferente in interiorul liniei marcate aiurea | `diff_intra` | `rust/core/src/diff.rs` |
 | Rezultate diferite de `difflib` din Python | portul `SequenceMatcher` (atentie: `autojunk=False`) | `rust/core/src/seqmatch.rs` |
-| Testul de conformitate cade | **presupui intai ca portul Rust e greșit**, nu fixture-ul | `rust/core/tests/conformitate.rs` |
+| Testul de conformitate cade | **presupui intai ca portul Rust e gresit**, nu fixture-ul | `rust/core/tests/conformitate.rs` |
 
 ## Harness si fixture
 
@@ -33,7 +33,7 @@ lipsea.
 | Vreau sa vad divergentele Python vs JS | `python3 -I referinta/compara.py` |
 | Vreau sa regenerez fixture-ul de referinta | `unelte/regenereaza-fixture.sh` — explicit, cu motiv in `JURNAL.md` |
 | `corpus_bench.json` lipseste | `python3 -I referinta/genereaza_corpus.py` (negitat, se genereaza local) |
-| Masuratori de performanta | `referinta/README.md`, secțiunea de la final |
+| Masuratori de performanta | `referinta/README.md`, sectiunea de la final |
 | Paritate Python v3.4 / Rust pe un instantaneu | `python3 -I referinta/paritate.py <instantaneu> --referinta <baza> --gmotion <binar>` |
 | Paritatea raporteaza „de verificat" | obiect cu string-uri / identificatori / comentarii sau foarte mare, tratat deliberat altfel decat in v3.4; `gmotion diferente`, apoi in `*.asteptari.json` cu motiv | `referinta/paritate.py` |
 | Paritatea raporteaza o regresie | intai `rust/module/diff-obiecte/src/comparare.rs`, apoi motorul din `core`; o `regresie` pe `rezumat` arata si ce zice JS |
@@ -45,7 +45,7 @@ lipsea.
 |---|---|---|
 | Scriptul de deploy e refuzat cu `GM-MOD-008/009/010/011` | nume cu caractere de control / `GO` in definitie / director ne-gol / obiect criptat | `rust/module/diff-obiecte/src/deploy.rs` |
 | Deploy-ul cu `--plan` se opreste cu `GM-MOD-012` | baza (sau referinta) s-a schimbat de la plan; daca nu s-a schimbat, amprenta e gresita | `rust/module/diff-obiecte/src/plan.rs` |
-| Scriptul de revenire reface/sterge greșit sau in ordine greșita | `PasRevenire`, `text_revenire` | `rust/module/diff-obiecte/src/deploy.rs` |
+| Scriptul de revenire reface/sterge gresit sau in ordine gresita | `PasRevenire`, `text_revenire` | `rust/module/diff-obiecte/src/deploy.rs` |
 | `GM-DB-001` „No such host is known” pe `SRV\INSTANTA` | instanta numita nerezolvata prin SQL Browser | `rust/db/src/sqlserver.rs`, `interpreteaza_server` |
 | `GM-DB-001` „SQL browser timeout” | SQL Browser oprit / UDP 1434 blocat; ocolire cu `--port` | `rust/db/src/sqlserver.rs`, `deschide_tcp` |
 
@@ -60,11 +60,11 @@ lipsea.
 
 | Simptom | Unde |
 |---|---|
-| Poarta cade pe `api-hash` | ai schimbat API-ul public fara sa actualizezi `CRATE.md`; hash-ul nou e in ieșire |
-| Poarta cade pe direcția dependentelor | un crate depinde la dreapta in lanț, sau un modul de alt modul — vezi `ARHITECTURA.md` |
-| Poarta sare verificari | citeste ieșirea: lipseste `node`, `python3`, sau tinta `wasm32` |
+| Poarta cade pe `api-hash` | ai schimbat API-ul public fara sa actualizezi `CRATE.md`; hash-ul nou e in iesire |
+| Poarta cade pe directia dependentelor | un crate depinde la dreapta in lant, sau un modul de alt modul — vezi `ARHITECTURA.md` |
+| Poarta sare verificari | citeste iesirea: lipseste `node`, `python3`, sau tinta `wasm32` |
 | Poarta cade pe `stare si etape` | doua etape marcate ACTIVA, o stare necunoscuta, sau `STARE.md` nu numeste etapa activa |
-| Poarta noteaza ca `STARE.md` e vechi | ruleaza `unelte/stare.sh` si actualizeaza-l — vezi secțiunea 0 din `CLAUDE.md` |
+| Poarta noteaza ca `STARE.md` e vechi | ruleaza `unelte/stare.sh` si actualizeaza-l — vezi sectiunea 0 din `CLAUDE.md` |
 
 ## Reluarea lucrului
 
@@ -95,5 +95,5 @@ simptomele. Se completeaza la etapa care creeaza crate-ul.
 | Sesiunea salvata se suprascrie intre module | `rust/platforma/` — cheia trebuie `<modul>/<slug>.dat` |
 | Sesiunea nu se poate decripta | `rust/platforma/` (DPAPI) |
 | O metoda de modul apare la nivelul de sus al interfetei | `rust/platforma/` — rutare, nu expunere directa |
-| Scriptul de deploy generat e greșit | `rust/module/diff-obiecte/` |
+| Scriptul de deploy generat e gresit | `rust/module/diff-obiecte/` |
 | Fereastra: DPI, monitoare, maximizare, DWM | `rust/fereastra/` (un singur fisier Win32 — aceeasi categorie de bug) |

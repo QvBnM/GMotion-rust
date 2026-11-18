@@ -37,7 +37,7 @@ Partea care are nevoie de rulari pe Windows:
       driverele aduc aceleasi obiecte
 - [x] timpul lui `gmotion instantaneu` pe bazele reale e masurat si comparat
       cu incarcarea din aplicatia Python (citirea Rust e secventiala, Python
-      foloseste 4 conexiuni — vezi `JURNAL.md`, „Citirea bazelor rămâne
+      foloseste 4 conexiuni — vezi `JURNAL.md`, „Citirea bazelor ramane
       secventiala"); daca e inacceptabil, paralelismul intra in `db`
 - [x] obiectele relevante din instantaneul real (extrase, anonimizate daca
       trebuie) sunt fixture de regresie in repo — instantaneul intreg are 202 MB
@@ -71,7 +71,7 @@ Partea care are nevoie de rulari pe Windows:
   definitie in ambele baze. Corectat: la `lipsa`/`extra` un rezumat diferit e
   direct regresie.
 - **2026-11-17** Asteptat doua corecturi de rezumat (README-ul de referinta
-  numeste doua divergente vizibile), a ieșit una. Recalculat: la
+  numeste doua divergente vizibile), a iesit una. Recalculat: la
   `comentariu_bloc_multiline` textul normalizat e identic, deci in lista e
   identic in ambele versiuni si nu primeste rezumat deloc. Cifra era corecta.
 
@@ -97,7 +97,7 @@ Partea care are nevoie de rulari pe Windows:
   interfata ar fi inghetat dupa 2000 de linii. Corectat cu index absolut;
   testele pe `Tampon` local, vazute cazand pe logica veche; 0 caderi din 600
   dupa. Tot de aici: poarta numara testele din randurile `test ... ok`, care
-  se amesteca uneori cu jurnalul (se vede si in ieșirea de pe Windows), deci
+  se amesteca uneori cu jurnalul (se vede si in iesirea de pe Windows), deci
   numarul afisat varia (167/168). Numara acum din `test result:`.
 
 - **2026-11-17** Pe Windows: `pe_windows_datele_nu_apar_in_clar` trece —
@@ -109,7 +109,7 @@ Partea care are nevoie de rulari pe Windows:
   (`interpreteaza_server` + `connect_named`), acceptand si `GAZDA,PORT` ca
   Python-ul. Testat pe Linux cu un SQL Browser fals pe UDP; vazut cazand pe
   codul vechi cu exact simptomul de pe Windows (1433 in loc de Browser).
-  Lectia: niciun test nu folosea un nume de server cu `\`, deși e forma cea
+  Lectia: niciun test nu folosea un nume de server cu `\`, desi e forma cea
   mai comuna in productie — si chiar `servere` o produce.
 
 - **2026-11-17** Instantaneul real merge: `TS2409\MIHAIG`, doua baze,
@@ -117,7 +117,7 @@ Partea care are nevoie de rulari pe Windows:
   aduce in repo nu tine (limita GitHub de 100 MB, si e cod CharismaERP).
   Schimbat: `paritate.py` ruleaza pe masina lui Mihai, vine doar raportul.
   Pentru asta: raportul se scurteaza la 40 de cazuri pe categorie (complet in
-  `--json`) si ieșirea e fortata UTF-8 (consola Windows). Probat pe un
+  `--json`) si iesirea e fortata UTF-8 (consola Windows). Probat pe un
   instantaneu sintetic de 45.000 obiecte: 2,6 s. Tot de aici: `tiberius`
   scria ~8 linii INFO la fiecare conexiune si acoperea progresul; filtrul
   implicit e acum `info,tiberius=warn`.
@@ -152,7 +152,7 @@ Partea care are nevoie de rulari pe Windows:
   cele doua baze in 19 s secvential; Python 29,6 s cu 4 conexiuni (citire +
   comparatie, deci nu strict comparabil). Rust nu e mai lent, deci
   paralelismul amanat nu e necesar. Defect gasit: jurnalul punea coduri ANSI
-  si in ieșire redirectata (fisierul de rezultat era plin de `[2m`); corectat
+  si in iesire redirectata (fisierul de rezultat era plin de `[2m`); corectat
   cu `IsTerminal`, test pe binar vazut cazand.
 
 - **2026-11-17** Fixture-ul `TESTSIMILITUDINE` (18+18 obiecte) e in repo,
@@ -167,7 +167,7 @@ Partea care are nevoie de rulari pe Windows:
   pastrate), mesajele si notele fara cifra, commit-ul de curatare disparut;
   continutul final identic. Impins cu `--force-with-lease`.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 **Motorul nu a avut nicio regresie; toate defectele au fost la granite.** 0
 regresii pe 21.193 de obiecte reale. In schimb, la prima atingere a tintei

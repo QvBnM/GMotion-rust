@@ -1,6 +1,6 @@
 //! Configurarea: ce se poate schimba fara recompilare.
 //!
-//! **Se strica astfel:** o valoare implicita greșita face aplicatia sa pară
+//! **Se strica astfel:** o valoare implicita gresita face aplicatia sa para
 //! stricata pe o masina si buna pe alta. De-aia implicitele sunt in cod, nu in
 //! fisier: un fisier lipsa trebuie sa dea comportamentul corect, nu o eroare.
 //!
@@ -184,7 +184,7 @@ mod teste {
     fn camp_necunoscut_e_eroare_nu_e_ignorat() {
         let d = dir("necunoscut");
         let cale = d.join("c.json");
-        // Un camp scris greșit trebuie observat: altfel utilizatorul crede ca a
+        // Un camp scris gresit trebuie observat: altfel utilizatorul crede ca a
         // schimbat o setare si nu s-a schimbat nimic.
         std::fs::write(&cale, r#"{"timeout_conectare_sec": 5}"#).unwrap();
         assert!(Configurare::citeste(&cale).is_err());
@@ -233,7 +233,7 @@ mod teste {
         std::fs::write(&cale, r#"{"obiecte_per_script": 50}"#).unwrap();
         let c = Configurare::citeste(&cale).unwrap();
         assert_eq!(c.obiecte_per_script, 50);
-        assert_eq!(c.timeout_conectare_s, 30, "restul rămâne implicit");
+        assert_eq!(c.timeout_conectare_s, 30, "restul ramane implicit");
         std::fs::remove_dir_all(&d).ok();
     }
 }

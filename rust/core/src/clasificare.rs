@@ -2,7 +2,7 @@
 //!
 //! **Se strica astfel:** un obiect care difera doar intr-un mesaj afisat
 //! utilizatorului e trecut drept „difera in cod" (sau invers), si cine se uita
-//! in lista decide greșit ce deployeaza. Exact cazul
+//! in lista decide gresit ce deployeaza. Exact cazul
 //! `GenerateOrderByRecommendedOrder`: o majuscula intr-un sir, pe care v3.4 o
 //! inghitea de tot.
 //!
@@ -147,7 +147,7 @@ pub fn clasifica_randuri(randuri: &[crate::diff::RandDiff]) -> Clasificare {
     c
 }
 
-/// Textul din coloana „Difera in", ca in machete: „cod, șiruri", „un șir",
+/// Textul din coloana „Difera in", ca in machete: „cod, siruri", „un sir",
 /// „comentariu", „QUOTED_IDENTIFIER", „—".
 ///
 /// `setari` sunt numele setarilor de sesiune care difera (`QUOTED_IDENTIFIER`,
@@ -160,7 +160,7 @@ pub fn eticheta(c: Clasificare, setari: &[&str]) -> String {
     if c.siruri > 0 {
         // singular doar cand sirul e singura diferenta din tot obiectul
         let singur = c.siruri == 1 && c.cod == 0 && c.comentarii == 0 && setari.is_empty();
-        parti.push(if singur { "un șir" } else { "șiruri" }.to_string());
+        parti.push(if singur { "un sir" } else { "siruri" }.to_string());
     }
     if c.comentarii > 0 {
         parti.push(
@@ -181,8 +181,8 @@ pub fn eticheta(c: Clasificare, setari: &[&str]) -> String {
 }
 
 /// O propozitie despre ce difera, pentru previzualizarea din lista:
-/// „un singur caracter, într-un șir: Nu → nu" cand chiar atat e, altfel
-/// „diferă în cod, șiruri".
+/// „un singur caracter, intr-un sir: Nu → nu" cand chiar atat e, altfel
+/// „difera in cod, siruri".
 ///
 /// Rostul ei e sa raspunda la intrebarea pusa inainte de a deschide editorul:
 /// merita deschis? Un mesaj cu o majuscula schimbata, nu; o conditie, da.
@@ -191,9 +191,9 @@ pub fn propozitie(text_referinta: &str, text_curent: &str, setari: &[&str]) -> S
     let c = clasifica_randuri(&randuri);
     let general = || {
         if c.nimic() && setari.is_empty() {
-            "fără diferențe".to_string()
+            "fara diferente".to_string()
         } else {
-            format!("diferă în {}", eticheta(c, setari))
+            format!("difera in {}", eticheta(c, setari))
         }
     };
     if !setari.is_empty() {
@@ -235,21 +235,21 @@ pub fn propozitie(text_referinta: &str, text_curent: &str, setari: &[&str]) -> S
         return general();
     }
     let unde = if c.doar_siruri() {
-        "într-un șir"
+        "intr-un sir"
     } else if c.doar_comentarii() {
-        "într-un comentariu"
+        "intr-un comentariu"
     } else {
-        "în cod"
+        "in cod"
     };
     // „un singur caracter" se refera la cat s-a schimbat, nu la cat se arata:
-    // in machete scrie „un singur caracter, într-un șir: Nu → nu", unde se
+    // in machete scrie „un singur caracter, intr-un sir: Nu → nu", unde se
     // arata cuvantul din jur (asa il recunoaste omul in cod).
     let un_caracter = a.chars().count() == b.chars().count()
         && a.chars().zip(b.chars()).filter(|(x, y)| x != y).count() == 1;
     let cat = if un_caracter {
         "un singur caracter"
     } else {
-        "o singură bucată"
+        "o singura bucata"
     };
     format!("{cat}, {unde}: {a} → {b}")
 }
@@ -270,7 +270,7 @@ mod teste {
         let b = "CREATE PROC p AS\nBEGIN\nRAISERROR('Nu s-au gasit date', 16, 1);\nEND";
         let c = clasifica(a, b);
         assert!(c.doar_siruri(), "{c:?}");
-        assert_eq!(eticheta(c, &[]), "un șir");
+        assert_eq!(eticheta(c, &[]), "un sir");
     }
 
     #[test]
@@ -314,7 +314,7 @@ mod teste {
         let b = "SELECT * FROM t WHERE a <= 10\n\nPRINT 'terminat'";
         let c = clasifica(a, b);
         assert!(c.cod > 0 && c.siruri > 0, "{c:?}");
-        assert_eq!(eticheta(c, &[]), "cod, șiruri");
+        assert_eq!(eticheta(c, &[]), "cod, siruri");
     }
 
     #[test]
@@ -354,7 +354,7 @@ mod teste {
             siruri: 1,
             ..Default::default()
         };
-        assert_eq!(eticheta(s, &["ANSI_NULLS"]), "șiruri, ANSI_NULLS");
+        assert_eq!(eticheta(s, &["ANSI_NULLS"]), "siruri, ANSI_NULLS");
     }
 
     #[test]
@@ -376,12 +376,12 @@ mod teste {
 
     #[test]
     fn propozitia_spune_exact_ce_s_a_schimbat_cand_e_un_singur_lucru() {
-        // cazul din machete: „un singur caracter, într-un șir: Nu → nu"
+        // cazul din machete: „un singur caracter, intr-un sir: Nu → nu"
         let a = pregateste_afisare("RAISERROR('Nu s-au gasit date', 16, 1);");
         let b = pregateste_afisare("RAISERROR('nu s-au gasit date', 16, 1);");
         assert_eq!(
             propozitie(&a, &b, &[]),
-            "un singur caracter, într-un șir: Nu → nu"
+            "un singur caracter, intr-un sir: Nu → nu"
         );
     }
 
@@ -390,7 +390,7 @@ mod teste {
         let a = pregateste_afisare("SELECT 1 FROM t\n\nPRINT 'a'");
         let b = pregateste_afisare("SELECT 2 FROM t\n\nPRINT 'b'");
         let p = propozitie(&a, &b, &[]);
-        assert!(p.starts_with("diferă în "), "{p}");
+        assert!(p.starts_with("difera in "), "{p}");
     }
 
     #[test]
@@ -400,7 +400,7 @@ mod teste {
             "SELECT 1\n\nUPDATE dbo.Tabel SET Coloana = 'o valoare destul de lunga' WHERE Id = 1",
         );
         let p = propozitie(&a, &b, &[]);
-        assert!(p.starts_with("diferă în "), "{p}");
+        assert!(p.starts_with("difera in "), "{p}");
     }
 
     #[test]
@@ -408,8 +408,8 @@ mod teste {
         let t = pregateste_afisare("CREATE PROC dbo.p AS\nSELECT 1");
         assert_eq!(
             propozitie(&t, &t, &["QUOTED_IDENTIFIER"]),
-            "diferă în QUOTED_IDENTIFIER"
+            "difera in QUOTED_IDENTIFIER"
         );
-        assert_eq!(propozitie(&t, &t, &[]), "fără diferențe");
+        assert_eq!(propozitie(&t, &t, &[]), "fara diferente");
     }
 }

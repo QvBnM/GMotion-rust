@@ -36,8 +36,8 @@ impl Stare {
     pub fn categorie(self) -> &'static str {
         match self {
             Stare::Modificat => "Modificate",
-            Stare::DoarSursa => "Doar în sursă",
-            Stare::DoarBaza => "Doar în bază",
+            Stare::DoarSursa => "Doar in sursa",
+            Stare::DoarBaza => "Doar in baza",
             Stare::Identic => "Identice",
             Stare::Criptat => "Criptate",
         }
@@ -47,8 +47,8 @@ impl Stare {
     pub fn descriere(self) -> &'static str {
         match self {
             Stare::Modificat => "modificat",
-            Stare::DoarSursa => "doar în sursă",
-            Stare::DoarBaza => "doar în bază",
+            Stare::DoarSursa => "doar in sursa",
+            Stare::DoarBaza => "doar in baza",
             Stare::Identic => "identic",
             Stare::Criptat => "criptat",
         }

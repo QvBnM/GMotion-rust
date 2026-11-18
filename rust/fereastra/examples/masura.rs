@@ -93,7 +93,7 @@ fn main() {
                 &AntetEditor {
                     schema: "dbo",
                     nume: "usp_Uriasa",
-                    tip: "procedură",
+                    tip: "procedura",
                     sursa_baza: "CharismaDev",
                     sursa_server: "srv-dev",
                     tinta_baza: "CharismaProd",

@@ -22,13 +22,13 @@ pub enum Eroare {
     #[error("[GM-DB-003] autentificarea integrata Windows nu e disponibila pe acest sistem")]
     AuthIntegrataIndisponibila,
 
-    #[error("[GM-DB-004] interogarea a eșuat pe baza {baza}: {detaliu}")]
+    #[error("[GM-DB-004] interogarea a esuat pe baza {baza}: {detaliu}")]
     Interogare { baza: String, detaliu: String },
 
     #[error("[GM-DB-005] baza {baza} nu exista pe {server} sau nu e accesibila")]
     BazaLipsa { server: String, baza: String },
 
-    #[error("[GM-DB-006] descoperirea instantelor a eșuat: {detaliu}")]
+    #[error("[GM-DB-006] descoperirea instantelor a esuat: {detaliu}")]
     Descoperire { detaliu: String },
 
     #[error("[GM-DB-007] instantaneul {cale} nu poate fi citit: {detaliu}")]
@@ -69,7 +69,7 @@ impl Eroare {
         }
     }
 
-    /// Mai are rost sa reincerci? Un timeout de retea, da; o parola greșita, nu.
+    /// Mai are rost sa reincerci? Un timeout de retea, da; o parola gresita, nu.
     pub fn merita_reincercat(&self) -> bool {
         matches!(self, Eroare::Conectare { .. } | Eroare::Descoperire { .. })
     }
@@ -140,7 +140,8 @@ mod teste {
 
     #[test]
     fn baze_cu_nume_obisnuite_sunt_acceptate() {
-        for n in ["Contabilitate 2024", "My DB", "Facturare_ț", "X]y", "a'b"] {
+        let nume = ["Contabilitate 2024", "My DB", "Facturare_ț", "X]y", "a'b"]; // diacritice-permise: date de test
+        for n in nume {
             assert!(valideaza_baza(n).is_ok(), "{n:?} ar trebui acceptat");
         }
         for n in ["", "a\nb", "a\u{1b}[2J", &"x".repeat(129)] {
@@ -216,7 +217,7 @@ mod teste {
         for e in &toate {
             assert!(
                 e.to_string().contains(e.cod()),
-                "mesajul lui {} nu conține codul",
+                "mesajul lui {} nu contine codul",
                 e.cod()
             );
         }

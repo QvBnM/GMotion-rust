@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use crate::eroare::{Eroare, Rezultat};
 use crate::model::Instanta;
 
-/// Portul pe care ascultă serviciul SQL Browser.
+/// Portul pe care asculta serviciul SQL Browser.
 const PORT_BROWSER: u16 = 1434;
 
 /// `0x02` = CLNT_BCAST_EX: „toate instantele din retea, raportati-va".
@@ -22,10 +22,10 @@ const CERERE_BROADCAST: [u8; 1] = [0x02];
 /// Parseaza un raspuns SSRP intr-o lista de instante.
 ///
 /// Formatul: 3 octeti de antet, apoi blocuri `cheie;valoare;...` separate prin
-/// `;;`. Cheile care ne interesează: `ServerName`, `InstanceName`, `tcp`,
+/// `;;`. Cheile care ne intereseaza: `ServerName`, `InstanceName`, `tcp`,
 /// `Version`.
 ///
-/// Separat de retea **tocmai** ca sa poată fi testat: raspunsurile reale sunt
+/// Separat de retea **tocmai** ca sa poata fi testat: raspunsurile reale sunt
 /// greu de obtinut, iar formatul are destule capcane (instanta implicita se
 /// numeste `MSSQLSERVER` si nu se scrie in nume; `tcp` poate lipsi).
 pub fn parseaza_raspuns(date: &[u8], ip: &str) -> Vec<Instanta> {
@@ -270,7 +270,7 @@ mod teste {
         }
         // cheie fara valoare, nume gol: nu produce instante fantoma
         assert!(parseaza_raspuns(&raspuns("ServerName;;tcp;1433;;"), "1.2.3.4").is_empty());
-        // port nenumeric: instanta rămâne, portul devine None
+        // port nenumeric: instanta ramane, portul devine None
         let i = parseaza_raspuns(&raspuns("tcp;nuEnumar;ServerName;SRV;;"), "1.2.3.4");
         assert_eq!(i[0].port, None);
     }

@@ -1,7 +1,7 @@
 //! Modelul ecranului de conectare: ce s-a completat, ce lipseste, ce se poate
 //! apasa, si ce comparari recente se pot relua.
 //!
-//! **Se strica astfel:** butonul „Compară" e apasabil cu campuri lipsa (si
+//! **Se strica astfel:** butonul „Compara" e apasabil cu campuri lipsa (si
 //! erorile apar abia dupa ce astepti conectarea), inversarea pierde parolele
 //! pe drum, sau — cel mai rau — parola ajunge intr-un jurnal. De-aia starea
 //! sta aici, se testeaza fara fereastra, iar tipul care tine parola **nu are
@@ -73,7 +73,7 @@ impl StareConexiune {
     pub fn text(&self) -> &str {
         match self {
             StareConexiune::Neincercat => "",
-            StareConexiune::SeConecteaza => "se conectează…",
+            StareConexiune::SeConecteaza => "se conecteaza…",
             StareConexiune::Conectat(t) => t,
             StareConexiune::Eroare(t) => t,
         }
@@ -140,8 +140,8 @@ pub struct Recenta {
 pub struct Conectare {
     pub sursa: Parte,
     pub baza: Parte,
-    /// Textul despre certificat, ca in machetă: „Certificatul serverului nu se
-    /// verifică." Se schimba din legatura „Schimbă".
+    /// Textul despre certificat, ca in macheta: „Certificatul serverului nu se
+    /// verifica." Se schimba din legatura „Schimba".
     pub certificat: String,
     pub recente: Vec<Recenta>,
     /// Instantaneul deschis in locul serverelor („Deschide un instantaneu…").
@@ -159,7 +159,7 @@ impl Conectare {
                 auth_windows: true,
                 ..Parte::default()
             },
-            certificat: "Certificatul serverului nu se verifică.".to_string(),
+            certificat: "Certificatul serverului nu se verifica.".to_string(),
             ..Conectare::default()
         }
     }
@@ -177,20 +177,20 @@ impl Conectare {
     pub fn ce_lipseste(&self) -> Option<String> {
         if self.instantaneu.is_some() {
             return match (self.sursa.baza.is_empty(), self.baza.baza.is_empty()) {
-                (true, _) => Some("alege baza sursă din instantaneu".into()),
+                (true, _) => Some("alege baza sursa din instantaneu".into()),
                 (_, true) => Some("alege baza de comparat din instantaneu".into()),
                 _ => self.acelasi_lucru(),
             };
         }
-        for (parte, nume) in [(&self.sursa, "sursă"), (&self.baza, "baza")] {
+        for (parte, nume) in [(&self.sursa, "sursa"), (&self.baza, "baza")] {
             if let Some(ce) = parte.ce_lipseste() {
-                return Some(format!("completează {ce} pentru {nume}"));
+                return Some(format!("completeaza {ce} pentru {nume}"));
             }
             if parte.baza.is_empty() {
                 return Some(format!("alege baza pentru {nume}"));
             }
             if !parte.stare.e_conectat() {
-                return Some(format!("conectează-te la {nume}"));
+                return Some(format!("conecteaza-te la {nume}"));
             }
         }
         self.acelasi_lucru()
@@ -200,7 +200,7 @@ impl Conectare {
         let acelasi_server =
             self.instantaneu.is_some() || self.sursa.server.eq_ignore_ascii_case(&self.baza.server);
         if acelasi_server && self.sursa.baza.eq_ignore_ascii_case(&self.baza.baza) {
-            return Some("sursa și baza sunt aceeași".into());
+            return Some("sursa si baza sunt aceeasi".into());
         }
         None
     }
@@ -251,16 +251,16 @@ mod teste {
         let mut c = Conectare::noua();
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("completează serverul pentru sursă")
+            Some("completeaza serverul pentru sursa")
         );
         c.sursa.server = "SRV-DEV".into();
-        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru sursă"));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru sursa"));
         c.sursa.baza = "Dev".into();
-        assert_eq!(c.ce_lipseste().as_deref(), Some("conectează-te la sursă"));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("conecteaza-te la sursa"));
         c.sursa.stare = StareConexiune::Conectat("conectat".into());
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("completează serverul pentru baza")
+            Some("completeaza serverul pentru baza")
         );
         c.baza = parte_gata("SRV-PROD", "Prod");
         assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
@@ -288,7 +288,7 @@ mod teste {
         c.baza = parte_gata("srv", "aceeasi");
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("sursa și baza sunt aceeași"),
+            Some("sursa si baza sunt aceeasi"),
             "acelasi server si aceeasi baza, indiferent de majuscule"
         );
         // alt server, acelasi nume de baza: e o comparare buna
@@ -320,7 +320,7 @@ mod teste {
         c.instantaneu = Some("/tmp/inst.json".into());
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("alege baza sursă din instantaneu")
+            Some("alege baza sursa din instantaneu")
         );
         c.sursa.baza = "A".into();
         assert_eq!(
@@ -337,7 +337,7 @@ mod teste {
     #[test]
     fn starea_conexiunii_are_text_pentru_fiecare_caz() {
         assert_eq!(StareConexiune::Neincercat.text(), "");
-        assert_eq!(StareConexiune::SeConecteaza.text(), "se conectează…");
+        assert_eq!(StareConexiune::SeConecteaza.text(), "se conecteaza…");
         assert!(StareConexiune::Conectat("conectat · 21.204 obiecte".into()).e_conectat());
         assert_eq!(
             StareConexiune::Eroare("[GM-DB-002] autentificare".into()).text(),

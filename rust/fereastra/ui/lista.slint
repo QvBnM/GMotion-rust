@@ -16,7 +16,7 @@ import { Tema, Despartitor, Chevron, Buton, ButonPrincipal, Jumatate, RandUi } f
 export struct RandListaUi {
     schema: string,
     nume: string,
-    // numele tipului pentru utilizator („procedură")
+    // numele tipului pentru utilizator („procedura")
     tip: string,
     litera: string,
     // 0 modificat, 1 doar in sursa, 2 doar in baza, 3 identic, 4 criptat
@@ -238,7 +238,7 @@ export component FereastraLista inherits Window {
     // previzualizare
     in property <string> obiect-schema;
     in property <string> obiect-nume;
-    in property <string> ce-difera;           // „un singur caracter, într-un șir: Nu → nu"
+    in property <string> ce-difera;           // „un singur caracter, intr-un sir: Nu → nu"
     in property <bool> obiect-revizuit;
     in property <[RandUi]> previzualizare;
     in property <image> tigla-hasura;
@@ -382,7 +382,7 @@ export component FereastraLista inherits Window {
                             }
                             if root.cautare == "" && !camp.has-focus: Text {
                                 x: 8px;
-                                text: "Caută";
+                                text: "Cauta";
                                 font-size: 13px;
                                 color: Tema.text-secundar;
                                 vertical-alignment: center;
@@ -393,7 +393,7 @@ export component FereastraLista inherits Window {
                         horizontal-stretch: 0;
                         alignment: center;
                         Buton {
-                            text: "Recompară";
+                            text: "Recompara";
                             apasat => { root.recompara(); }
                         }
                     }
@@ -597,7 +597,7 @@ export component FereastraLista inherits Window {
                                 }
                                 Text {
                                     width: 200px;
-                                    text: "Diferă în";
+                                    text: "Difera in";
                                     font-size: 12px;
                                     color: Tema.text-secundar;
                                     vertical-alignment: center;
@@ -691,7 +691,7 @@ export component FereastraLista inherits Window {
                                             alignment: center;
                                             Buton {
                                                 inalt: 26px;
-                                                text: "În plan";
+                                                text: "In plan";
                                                 apasat => { root.adauga-in-plan(); }
                                             }
                                         }
@@ -803,7 +803,7 @@ export component FereastraLista inherits Window {
                                     if root.previzualizare.length == 0: Text {
                                         x: 16px;
                                         y: 12px;
-                                        text: "Selectează un obiect ca să vezi diferența.";
+                                        text: "Selecteaza un obiect ca sa vezi diferenta.";
                                         font-size: 12.5px;
                                         color: Tema.text-secundar;
                                     }

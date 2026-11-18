@@ -1,7 +1,7 @@
 //! Compararea unei baze fata de referinta: ce lipseste, ce e in plus, ce e
 //! identic, ce difera.
 //!
-//! **Se strica astfel:** un obiect e pus in categoria greșita — cel mai rau,
+//! **Se strica astfel:** un obiect e pus in categoria gresita — cel mai rau,
 //! raportat ca identic cand nu e, fiindca atunci nu-l mai deschide nimeni ca sa
 //! vada. De-aia clasificarea trece prin hash **si** prin scor, in ordinea asta.
 //!

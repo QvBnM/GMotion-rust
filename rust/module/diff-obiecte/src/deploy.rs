@@ -1,6 +1,6 @@
 //! Generatorul de scripturi de deploy.
 //!
-//! **Se strica astfel:** produce SQL greșit, si se observa **dupa** ce a rulat
+//! **Se strica astfel:** produce SQL gresit, si se observa **dupa** ce a rulat
 //! pe o baza. E partea cu cel mai mare cost al unei greseli din tot modulul, de
 //! aceea are cele mai multe teste si nicio scurtatura.
 //!
@@ -176,7 +176,7 @@ fn cuvinte_de_cod(cod: &str) -> Vec<Cuvant<'_>> {
 
 /// Transforma primul `CREATE` sau `ALTER <tip>` in `CREATE OR ALTER`.
 ///
-/// Un script care face `CREATE` pe un obiect existent eșueaza; unul care face
+/// Un script care face `CREATE` pe un obiect existent esueaza; unul care face
 /// `ALTER` pe un obiect inexistent, la fel. `CREATE OR ALTER` merge in ambele
 /// cazuri, deci acelasi script poate fi rulat si pe o baza careia lipseste
 /// obiectul si pe una care il are intr-o versiune veche.
@@ -684,11 +684,11 @@ fn scrie_deploy(
 
     let mut fisiere = Vec::new();
     let mut nume_fisiere = NumeFisiere::default();
-    let mut scrie_fisier = |baza_nume: String, conținut: String| -> Rezultat<()> {
+    let mut scrie_fisier = |baza_nume: String, continut: String| -> Rezultat<()> {
         let nume = nume_fisiere.unic(&baza_nume, "sql");
         let cale = director.join(&nume);
-        let conținut = format!("{conținut}{SFARSIT_SCRIPT}");
-        std::fs::write(&cale, conținut).map_err(|e| Eroare::ScriereDeploy {
+        let continut = format!("{continut}{SFARSIT_SCRIPT}");
+        std::fs::write(&cale, continut).map_err(|e| Eroare::ScriereDeploy {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
         })?;
@@ -828,7 +828,7 @@ mod teste {
     }
 
     #[test]
-    fn doar_prima_apariție_se_schimba() {
+    fn doar_prima_aparitie_se_schimba() {
         let cod = "CREATE PROCEDURE dbo.p AS\n-- CREATE PROCEDURE dbo.altceva\nEXEC('CREATE VIEW v AS SELECT 1')";
         let rez = aplica_create_or_alter(cod);
         assert_eq!(rez.matches("CREATE OR ALTER").count(), 1);
@@ -843,7 +843,7 @@ mod teste {
     }
 
     #[test]
-    fn cod_fara_create_sau_alter_rămâne_neatins() {
+    fn cod_fara_create_sau_alter_ramane_neatins() {
         for cod in [
             "SELECT 1",
             "",
@@ -1064,7 +1064,8 @@ mod teste {
         let d = dir("coliziune");
         let cod = "CREATE OR ALTER PROC dbo.p AS SELECT 1";
         let mut m = BTreeMap::new();
-        for b in ["Baza Mea", "Baza_Mea", "baza_mea", "CON", "Bază", "Bazâ"] {
+        let baze = ["Baza Mea", "Baza_Mea", "baza_mea", "CON", "Bază", "Bazâ"]; // diacritice-permise: date de test
+        for b in baze {
             m.insert(b.to_string(), vec![o("dbo.p", cod)]);
         }
         let r = scrie(&d, "Ref", &m, ModImpartire::PerBaza, 0, "t").unwrap();
@@ -1230,7 +1231,7 @@ mod teste {
             let t = std::fs::read_to_string(f).unwrap();
             let garda = t.find("SET NOEXEC ON").expect("garda lipseste");
             let poz_use = t.find("USE [").unwrap();
-            // mesajul gărzii contine si el „CREATE OR ALTER"; codul incepe cu tipul
+            // mesajul garzii contine si el „CREATE OR ALTER"; codul incepe cu tipul
             let primul_create = t
                 .find("CREATE OR ALTER PROC")
                 .or_else(|| t.find("CREATE OR ALTER VIEW"))
@@ -1274,7 +1275,7 @@ mod teste {
         assert_eq!(r.fisiere.len(), 1);
         let t = std::fs::read_to_string(d.join("deploy_complet.sql")).unwrap();
         // fiecare baza isi aduce propriul USE: altfel al doilea set ar rula pe
-        // baza greșita
+        // baza gresita
         assert_eq!(t.matches("USE [").count(), 2);
         assert!(t.find("USE [Client1]").unwrap() < t.find("USE [Client2]").unwrap());
         std::fs::remove_dir_all(&d).ok();

@@ -40,7 +40,7 @@ pub struct ArgumenteAuth {
 
 impl ArgumenteAuth {
     /// Construieste autentificarea. Mesajele de eroare spun **exact** ce sa
-    /// facă utilizatorul, fiindca asta e primul loc in care se blocheaza
+    /// faca utilizatorul, fiindca asta e primul loc in care se blocheaza
     /// cineva care foloseste unealta prima data.
     pub fn rezolva(&self) -> Result<Autentificare, String> {
         let Some(utilizator) = self.utilizator.clone() else {
@@ -87,7 +87,7 @@ impl ArgumenteAuth {
     }
 }
 
-/// Prima linie, fara terminatorii. O parola nu conține `\n`, iar un fisier
+/// Prima linie, fara terminatorii. O parola nu contine `\n`, iar un fisier
 /// scris de un editor are mai mult ca sigur o linie noua la final.
 /// Prima linie, fara BOM la inceput si fara `\r` la sfarsit. PowerShell 5.1
 /// (`Out-File`, `-Encoding utf8`) scrie BOM; un fisier cu terminatii vechi de
@@ -131,7 +131,7 @@ mod teste {
     }
 
     #[test]
-    fn utilizator_fara_parola_spune_ce_sa_facă() {
+    fn utilizator_fara_parola_spune_ce_sa_faca() {
         // Nu depinde de mediu: testul ruleaza doar daca variabila nu e setata,
         // altfel verifica cealalta ramura. Fara umblat la mediul global, ca sa
         // nu fie nevoie de serializare.

@@ -81,7 +81,7 @@ python3 -I referinta/paritate.py --din-cazuri --gmotion rust/target/debug/gmotio
 Optional `--csv export.csv` (exportul aplicatiei Python pe aceleasi baze) si
 `--json raport.json`. Un rezumat diferit pe un obiect `diferit` se arbitreaza
 prin motorul JS (`rezumat_js.mjs`): daca JS da ce da Rust, e `corectura`;
-orice altceva e `regresie`. Cod de ieșire 0 / 1 (regresii) / 2 (intrare).
+orice altceva e `regresie`. Cod de iesire 0 / 1 (regresii) / 2 (intrare).
 
 Un instantaneu mare se micsoreaza la obiectele de interes cu
 `extrage.py instantaneu.json --filtru TEXT -o mic.json` (pastreaza obiectul din
@@ -118,7 +118,7 @@ munca diferita. Se vede direct in numarul de randuri produse - 8424 pentru
 Python, 6934 pentru Rust. Varianta Rust ruleaza alinierea prin programare
 dinamica (`perechi_replace`), care compara fiecare bloc din referinta cu
 fiecare bloc din tinta; `mostenire/motor.py` imperecheaza pozitional, mai ieftin si mai
-greșit. Rust face deci substantial mai mult, in timp apropiat.
+gresit. Rust face deci substantial mai mult, in timp apropiat.
 
 Castigul real al migrarii nu e deci viteza bruta, ci:
 

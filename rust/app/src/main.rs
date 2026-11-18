@@ -51,7 +51,7 @@ impl Stare {
 }
 
 fn main() {
-    // mesaj de om la ieșirea de erori, nu un `Debug` al tipului de eroare:
+    // mesaj de om la iesirea de erori, nu un `Debug` al tipului de eroare:
     // asta e tot ce vede cineva care porneste gresit aplicatia
     if let Err(e) = ruleaza() {
         eprintln!("{e}");
@@ -316,7 +316,7 @@ fn ruleaza() -> Result<(), String> {
             let (baze, stare_noua) = match p.ce_lipseste() {
                 Some(ce) => (
                     Vec::new(),
-                    StareConexiune::Eroare(format!("completează {ce}")),
+                    StareConexiune::Eroare(format!("completeaza {ce}")),
                 ),
                 None => pornire::citeste_bazele(&c, p),
             };
@@ -339,10 +339,10 @@ fn ruleaza() -> Result<(), String> {
             // doua stari, ca in v3.4: nevalidat (implicit) sau depozitul
             // sistemului. Calea unei autoritati se da din linia de comanda.
             let mut st = s.borrow_mut();
-            st.conectare.certificat = if st.conectare.certificat.contains("nu se verifică") {
-                "Certificatul serverului se verifică cu depozitul sistemului.".into()
+            st.conectare.certificat = if st.conectare.certificat.contains("nu se verifica") {
+                "Certificatul serverului se verifica cu depozitul sistemului.".into()
             } else {
-                "Certificatul serverului nu se verifică.".into()
+                "Certificatul serverului nu se verifica.".into()
             };
             drop(st);
             d();

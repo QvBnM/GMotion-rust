@@ -42,7 +42,7 @@ pub fn deschide(c: &Conectare, p: &Parte) -> Result<Box<dyn SursaObiecte>, Strin
 }
 
 /// `srv.domeniu.local,1433` -> (`srv.domeniu.local`, 1433). Forma cu virgula e
-/// cea pe care o scrie lumea (si cea din machetă), nu una inventata aici.
+/// cea pe care o scrie lumea (si cea din macheta), nu una inventata aici.
 fn imparte_portul(server: &str) -> (String, Option<u16>) {
     match server.rsplit_once(',') {
         Some((s, p)) => match p.trim().parse::<u16>() {
@@ -68,7 +68,7 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
                 "conectat · {} {}",
                 baze.len(),
                 if baze.len() == 1 {
-                    "bază"
+                    "baza"
                 } else if baze.len() < 20 {
                     "baze"
                 } else {

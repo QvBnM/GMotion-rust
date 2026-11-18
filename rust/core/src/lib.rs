@@ -7,11 +7,11 @@
 //! implementari paralele de acum (`mostenire/motor.py` si portul JS din `mostenire/ui.py`), care au
 //! divergat deja - vezi `referinta/README.md`.
 //!
-//! Semantica portata e cea a motorului JS, care e varianta corecta si mai nouă.
+//! Semantica portata e cea a motorului JS, care e varianta corecta si mai noua.
 //!
-//! Fiecare modul are antetul lui, cu categoria de bug care ii aparține:
+//! Fiecare modul are antetul lui, cu categoria de bug care ii apartine:
 //! `normalizare` (fals „modificat"), `segmentare` (blocuri taiate prost),
-//! `diff` (blocuri imperecheate greșit), `seqmatch` (abateri de la `difflib`).
+//! `diff` (blocuri imperecheate gresit), `seqmatch` (abateri de la `difflib`).
 //! Contractul complet — invariante, erori tipice, depanare — e in `CRATE.md`.
 //!
 //! ```
@@ -48,9 +48,9 @@ pub const TIPURI_OBIECTE: [&str; 6] = ["P", "V", "FN", "IF", "TF", "TR"];
 /// Textele sunt cele din machete (`cercetare/machete/Main.dc.html`).
 pub fn nume_tip(tip: &str) -> &'static str {
     match tip.trim().to_ascii_uppercase().as_str() {
-        "P" => "procedură",
+        "P" => "procedura",
         "V" => "view",
-        "FN" | "IF" | "TF" => "funcție",
+        "FN" | "IF" | "TF" => "functie",
         "TR" => "trigger",
         _ => "obiect",
     }
@@ -65,9 +65,9 @@ mod teste {
         for t in TIPURI_OBIECTE {
             assert_ne!(nume_tip(t), "obiect", "tipul {t} n-are nume");
         }
-        assert_eq!(nume_tip("P"), "procedură");
+        assert_eq!(nume_tip("P"), "procedura");
         assert_eq!(nume_tip("v"), "view");
-        assert_eq!(nume_tip(" TF "), "funcție");
+        assert_eq!(nume_tip(" TF "), "functie");
         assert_eq!(nume_tip("TR"), "trigger");
         // un tip pe care nu-l comparam: nu da panica, da un nume generic
         assert_eq!(nume_tip("U"), "obiect");

@@ -72,16 +72,16 @@ vede ce difera, in ce anume difera, si cum arata diferenta — pe o lista de
   cadru si **217 ms** pe cadru derulat.
 
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 1. **Macheta cerea ceva ce motorul nu poate arata.** Randul „difera doar in
    comentariu" din `Main.dc.html` nu e accesibil: normalizarea sterge
    comentariile, deci obiectul iese identic. Intrebat, Mihai a decis sa ramana
-   asa. Lectie: o machetă poate contine, fara sa vrea, o schimbare de motor —
+   asa. Lectie: o macheta poate contine, fara sa vrea, o schimbare de motor —
    se vede abia cand incerci sa o implementezi cu datele adevarate.
 
-2. **„Un singur caracter" din machetă nu inseamna ce pare.** Propozitia
-   „un singur caracter, într-un șir: Nu → nu" numara caracterele schimbate, dar
+2. **„Un singur caracter" din macheta nu inseamna ce pare.** Propozitia
+   „un singur caracter, intr-un sir: Nu → nu" numara caracterele schimbate, dar
    arata cuvantul din jur. Prima implementare a incercat sa arate chiar
    caracterul (`N → n`) si suna absurd.
 

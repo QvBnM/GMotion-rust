@@ -1,5 +1,5 @@
 //! Fluxul de sesiuni pe disc, cu accent pe bug-ul pe care platforma trebuie
-//! sa-l facă imposibil: doua module care lucreaza pe aceeasi baza de referinta
+//! sa-l faca imposibil: doua module care lucreaza pe aceeasi baza de referinta
 //! nu au voie sa-si suprascrie progresul.
 //!
 //! In versiunea Python cheia era doar numele bazei (`_cale_sesiune(referinta)`
@@ -13,7 +13,7 @@ use gmotion_platforma::{Sesiune, Sesiuni};
 /// fiecare test din acest fisier ia lacatul si il tine pana la final.
 static LACAT: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Lacatul plus directorul propriu al testului. Se tine cat trăiește valoarea
+/// Lacatul plus directorul propriu al testului. Se tine cat traieste valoarea
 /// intoarsa.
 fn pregateste(eticheta: &str) -> (std::sync::MutexGuard<'static, ()>, std::path::PathBuf) {
     // `unwrap_or_else` pe otravire: daca un test anterior a dat panica,
@@ -44,7 +44,7 @@ fn sesiune(referinta: &str, nota: &str) -> Sesiune {
 fn tot_fluxul_de_sesiuni() {
     // Un singur test pentru tot, fiindca GMOTION_DIR_DATE e global in proces:
     // doua teste care-l schimba in paralel s-ar calca reciproc. Mai bine un
-    // test lung si corect decat patru care pică aleator.
+    // test lung si corect decat patru care pica aleator.
     let (_lacat, dir) = pregateste("flux");
 
     let diff = Sesiuni::pentru_modul("diff-obiecte").unwrap();
@@ -89,7 +89,7 @@ fn tot_fluxul_de_sesiuni() {
     assert_eq!(
         diff.lista().unwrap().len(),
         2,
-        "fisierul stricat trebuie sarit, nu sa facă listarea sa cada"
+        "fisierul stricat trebuie sarit, nu sa faca listarea sa cada"
     );
 
     // --- stergere ---
@@ -125,7 +125,7 @@ fn nume_de_baze_dificile() {
         "Baza Cu Spatii",
         "baza/cu/slash",
         "baza\\cu\\backslash",
-        "BAZĂ-cu-diacritice",
+        "BAZĂ-cu-diacritice", // diacritice-permise: date de test
         "..",
         "a:b*c?d",
         "Baza.2026",

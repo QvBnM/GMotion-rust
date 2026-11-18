@@ -48,7 +48,7 @@ fn obiecte(n: usize) -> Vec<model_lista::Obiect> {
                 stare,
                 detalii: (stare == Stare::Modificat && i % 100 == 0).then(|| {
                     model_lista::Detalii {
-                        difera_in: "cod, șiruri".into(),
+                        difera_in: "cod, siruri".into(),
                         linii_plus: i % 97,
                         linii_minus: i % 31,
                     }

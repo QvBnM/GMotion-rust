@@ -8,14 +8,14 @@ Versiunea in productie e GMotion v3.4, in Python. Codul ei e **inghetat** in
 `mostenire/`, ca referinta de paritate; vezi `mostenire/MOSTENIRE.md`.
 
 **Reia lucrul de unde a rams:** `STARE.md`, apoi etapa activa din `etape/`,
-apoi `unelte/verifica.sh`. Ritualul complet e in `CLAUDE.md`, secțiunea 0.
+apoi `unelte/verifica.sh`. Ritualul complet e in `CLAUDE.md`, sectiunea 0.
 
-| Document | Ce conține |
+| Document | Ce contine |
 |---|---|
 | `STARE.md` | unde suntem acum, urmatorul pas concret, ce e blocat, capcane active |
 | `etape/NN-*.md` | scopul si criteriile de terminare ale fiecarei etape, plus jurnalul ei de lucru |
 | `CLAUDE.md` | regulile de lucru. Contractul — se citeste inainte de orice schimbare |
-| `ARHITECTURA.md` | harta crate-urilor, direcția dependentelor, si de ce e asa |
+| `ARHITECTURA.md` | harta crate-urilor, directia dependentelor, si de ce e asa |
 | `HARTA.md` | simptom -> fisierul vinovat. Indexul de depanare |
 | `JURNAL.md` | deciziile luate, cu alternativele si motivul. Append-only |
 | `<crate>/CRATE.md` | contractul fiecarui crate: rol, API, invariante, depanare |
@@ -48,7 +48,7 @@ o lista Python de token-uri pe langa text. Fiecare token e un obiect separat cu
 antetul lui. In Rust token-urile sunt felii din acelasi tampon.
 
 Viteza bruta **nu** e un motiv puternic: masurat, castigul pe munca
-comparabila e ~4x, nu ordinele de magnitudine la care te-ai aștepta. Cifrele si
+comparabila e ~4x, nu ordinele de magnitudine la care te-ai astepta. Cifrele si
 explicatia sunt in `referinta/README.md`.
 
 ---
@@ -108,8 +108,8 @@ unelte/verifica.sh rapid        # fara wasm si fara harness
 
 Verifica format, clippy fara avertismente, toate testele, tinta `wasm32` pentru
 `core`, `cargo check` pe `x86_64-pc-windows-msvc` (codul `cfg(windows)` nu e
-verificat de nimic altceva pe Linux), direcția dependentelor, sincronizarea fiecarui `CRATE.md` cu API-ul lui
-public, coerenta stării (`STARE.md` plus exact o etapa activa), si faptul ca
+verificat de nimic altceva pe Linux), directia dependentelor, sincronizarea fiecarui `CRATE.md` cu API-ul lui
+public, coerenta starii (`STARE.md` plus exact o etapa activa), si faptul ca
 `mostenire/` n-a fost atins.
 
 ```
@@ -165,14 +165,14 @@ rust/
   app/               binarul cu interfata
 ```
 
-Direcția dependentelor, verificata mecanic de poarta:
+Directia dependentelor, verificata mecanic de poarta:
 
 ```
 core  <-  db  <-  platforma  <-  module/*  <-  app, cli
 ```
 
 Nimic nu depinde la dreapta. **Niciun modul nu depinde de alt modul** — daca
-are nevoie de ceva din alt modul, acel ceva aparține platformei.
+are nevoie de ceva din alt modul, acel ceva apartine platformei.
 
 ### Contractul de modul
 
@@ -203,7 +203,7 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 
 | # | Etapa | Rezultat verificabil |
 |---|---|---|
-| 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta, urmarirea stării. `core` mutat neatins. *(facut)* |
+| 0 | **Restructurare + reguli** | schelet, `mostenire/` inghetat, documentele de regula, poarta, urmarirea starii. `core` mutat neatins. *(facut)* |
 | 1 | **`core` consolidat** | antete de fisier, `CRATE.md`, build `wasm32` verificat, fuzz pe segmentare. Fara schimbari de semantica |
 | 2 | **`db`** | `SursaObiecte` + impl fixture + impl SQL Server, descoperire instante. Decis `tiberius`. *(facut; verificat pe server real la etapa 6)* |
 | 3 | **`platforma`** | configurare, sesiuni cu cheie `<modul>/<slug>.dat`, jurnal, registru, rutare cu prefix. *(facut)* |
@@ -211,7 +211,7 @@ Fiecare etapa = un branch si un PR, cu cod functional la final si poarta verde.
 | 5 | **`cli`** | `compara`, `instantaneu`, `diagnostic`, `deploy`, `export`. **Aplicatie completa si utilizabila.** *(facut)* |
 | 6 | **Paritate pe baze reale** | aceleasi baze prin Python si prin CLI, rezultate identice sau diferente explicate ca corecturi. Abia aici se poate retrage Python. *(facut: 0 regresii pe 21.193 obiecte reale)* |
 | 7 | **Remedierea auditului** | constatarile critice si inalte din auditul de la `f561bf9` reparate, cu teste vazute cazand pe codul vechi; divergentele deliberate fata de v3.4 listate explicit. *(facut)* |
-| 8 | **`module/upgrade`** | primul test real al contractului de modul. Daca cere modificari in platforma, contractul de la etapa 3 era greșit si se corecteaza acum, cat e ieftin. **Asteapta specificatia de la Mihai.** |
+| 8 | **`module/upgrade`** | primul test real al contractului de modul. Daca cere modificari in platforma, contractul de la etapa 3 era gresit si se corecteaza acum, cat e ieftin. **Asteapta specificatia de la Mihai.** |
 | 9 | **Prototip editor diff** | doar editorul, in toolkitul candidat. Scop: aflat costul real al partii grele. Dupa discutia despre GUI |
 | 10 | **`fereastra` + interfata** | UI complet, cu `cli` ramas permanent ca mod de depanare |
 
@@ -236,5 +236,5 @@ toolkit nativ nu da asta din cutie — va fi nevoie de un view de text desenat
 manual.
 
 Pentru RDP si servere fara GPU, toolkit-ul trebuie sa aiba **renderer
-software** (Slint are). **Tauri nu e o opțiune:** foloseste WebView2 pe
+software** (Slint are). **Tauri nu e o optiune:** foloseste WebView2 pe
 Windows, deci ar reintroduce exact dependenta pe care rescrierea o elimina.

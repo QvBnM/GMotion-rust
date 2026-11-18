@@ -15,7 +15,7 @@ use crate::eroare::{Eroare, Rezultat};
 /// Numele directorului aplicatiei, sub directorul de date al utilizatorului.
 const NUME_APP: &str = "GMotion";
 
-/// Rădăcina datelor aplicatiei.
+/// Radacina datelor aplicatiei.
 ///
 /// Windows: `%APPDATA%\GMotion`.
 /// Altundeva (dezvoltare): `$XDG_DATA_HOME/gmotion` sau `$HOME/.local/share/gmotion`.
@@ -115,7 +115,7 @@ mod teste {
     }
 
     #[test]
-    fn modul_cu_nume_ostil_nu_poate_ieși_din_director() {
+    fn modul_cu_nume_ostil_nu_poate_iesi_din_director() {
         for m in ["../../etc", "..", "a/b"] {
             assert!(director_sesiuni(m).is_err(), "{m:?} ar trebui refuzat");
         }

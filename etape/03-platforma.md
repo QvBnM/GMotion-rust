@@ -20,7 +20,7 @@ Adaugarea modulului 2 nu trebuie sa atinga modulul 1.
 - [x] `jurnal`: tinte per crate, tampon marginit
 - [x] `modul`: contract, registru, rutare cu prefix, metode comune protejate
 - [x] coduri `GM-PLAT-001..011`, in `JURNAL.md`
-- [x] o sesiune nu poate conține secrete — proprietate a tipului, testata
+- [x] o sesiune nu poate contine secrete — proprietate a tipului, testata
 - [x] `CRATE.md`
 - [x] poarta verde
 - [ ] **DPAPI verificat functional pe Windows** — neacoperit aici
@@ -46,9 +46,9 @@ Adaugarea modulului 2 nu trebuie sa atinga modulul 1.
 - **2026-11-17** Testele de sesiuni serializate cu un lacat — vezi mai jos.
 - **2026-11-17** 32 de teste.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
-**Verificarea de Windows din poarta s-a plătit in aceeasi zi in care a fost
+**Verificarea de Windows din poarta s-a platit in aceeasi zi in care a fost
 adaugata.** Prima versiune a FFI-ului DPAPI incerca sa unifice
 `CryptProtectData` si `CryptUnprotectData` printr-un pointer de functie
 `extern "system"`, si pasa un closure Rust. Nu compila. Pe Linux nu se vedea
@@ -61,7 +61,7 @@ Generalizarea, de pus in `CLAUDE.md`: **codul in spatele unui `cfg` pe alta
 tinta trebuie verificat pe tinta aia, altfel nu e verificat deloc.** Acum
 poarta o face.
 
-**Testele de sesiuni erau instabile si trecuseră.** Amandoua schimbau
+**Testele de sesiuni erau instabile si trecusera.** Amandoua schimbau
 `GMOTION_DIR_DATE`, care e globala in proces, iar `cargo test` ruleaza in
 paralel — deci ar fi picat aleator, probabil mult mai tarziu si pe altceva. Le-am
 rulat intai cu `--test-threads=1` fara sa ma gandesc, apoi am observat.
@@ -69,12 +69,12 @@ Serializate cu un lacat static si rulate de trei ori cu paralelismul implicit.
 **Un test care trece nu inseamna un test corect**, acelasi tip de greseala ca
 fuzz-ul de la etapa 1.
 
-**Expectativa mea dintr-un test era greșita, nu codul.** `slug("ÎmiPlace")`
+**Expectativa mea dintr-un test era gresita, nu codul.** `slug("ImiPlace")`
 dadea `miplace-8`, iar eu asteptam `-9`: numarasem octeti, nu caractere.
 Discriminantul foloseste `chars().count()`, care e ce trebuie.
 
 **Partea de ecrane din contractul de modul a rams minimala,** deliberat:
 interfata nu exista, si un contract de UI scris acum ar fi ghicit. Marcat ca
 provizoriu in `modul.rs`. Testul real al contractului e modulul 2, la etapa 9 —
-si daca atunci cere schimbari in platforma, contractul de aici era greșit, cat
+si daca atunci cere schimbari in platforma, contractul de aici era gresit, cat
 e ieftin de corectat.

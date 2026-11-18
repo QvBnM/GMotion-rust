@@ -58,9 +58,9 @@ merg si dupa; nicio functie nu dispare.
   jetoanelor din `lib.rs` e legata de `Paleta` prin destructurare fara `..`:
   vazuta cazand cu o linie scoasa. Testul de contrast vazut cazand pe
   `INTUNECAT` cu `text_tert` mai deschis (4,38:1 pe strat). Un test a prins
-  un bug real: `din_nume(" Întunecat ")` nu recunostea „Î" (`to_ascii_lowercase`).
+  un bug real: `din_nume(" Intunecat ")` nu recunostea „I" (`to_ascii_lowercase`).
   IBM Plex scos din binar.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

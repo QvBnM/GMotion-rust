@@ -27,7 +27,7 @@ const CAP: [&str; 8] = [
 ];
 
 /// Un camp CSV: se pun ghilimele doar daca e nevoie, iar ghilimelele din
-/// conținut se dubleaza.
+/// continut se dubleaza.
 ///
 /// Un camp care incepe cu `=`, `+`, `-`, `@`, tab sau CR e luat de Excel drept
 /// formula (`=HYPERLINK(...)`, `@SUM(...)`); numele de baze si obiecte vin din
@@ -195,10 +195,10 @@ mod teste {
 
     #[test]
     fn diacriticele_trec_intacte() {
-        let (d, brut) = scrie_in_temp(&[rand(0, "dbo.pÎncărcare", Some(50.0), "ștersă")]);
+        let (d, brut) = scrie_in_temp(&[rand(0, "dbo.pÎncărcare", Some(50.0), "ștersă")]); // diacritice-permise: date de test
         let text = String::from_utf8(brut[3..].to_vec()).unwrap();
-        assert!(text.contains("dbo.pÎncărcare"));
-        assert!(text.contains("ștersă"));
+        assert!(text.contains("dbo.pÎncărcare")); // diacritice-permise: date de test
+        assert!(text.contains("ștersă")); // diacritice-permise: date de test
         std::fs::remove_dir_all(&d).ok();
     }
 

@@ -57,7 +57,7 @@ fn citeste<T: serde::de::DeserializeOwned>(fisier: &str) -> Vec<T> {
 
 /// Un singur test care acopera toate cazurile si raporteaza TOATE nepotrivirile
 /// odata. Un test per caz ar fi mai granular, dar la o regresie de segmentare
-/// ar eșua zeci de teste simultan si raportul ar fi ilizibil.
+/// ar esua zeci de teste simultan si raportul ar fi ilizibil.
 /// Locurile in care portul se abate **deliberat** de la motorul JS (si de la
 /// v3.4): (caz, camp, motiv). Fixture-ul JS nu se regenereaza pentru ele — JS
 /// are bug-ul. Fiecare intrare trebuie sa si diverga efectiv: o intrare care nu

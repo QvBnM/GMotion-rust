@@ -215,7 +215,7 @@ fn se_inregistreaza_la_platforma() {
         }
         Ruta::Platforma(_) => panic!("ar trebui sa fie metoda de modul"),
     }
-    // metodele comune rămân la platforma
+    // metodele comune raman la platforma
     assert!(matches!(
         r.ruteaza("cauta_servere").unwrap(),
         Ruta::Platforma("cauta_servere")

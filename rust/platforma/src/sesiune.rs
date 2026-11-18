@@ -6,7 +6,7 @@
 //! salvand progres pe aceeasi baza ar fi sters sesiunea modulului de diff.
 //! Aici cheia e `<modul>/<slug>.dat` din start.
 //!
-//! **O sesiune nu conține niciodata secrete.** Nu e o convenție, e o
+//! **O sesiune nu contine niciodata secrete.** Nu e o conventie, e o
 //! proprietate a tipului: [`Sesiune`] nu are camp de parola, iar
 //! `gmotion_db::Autentificare` nu implementeaza `Serialize`. Asta face
 //! acceptabil ca pe non-Windows fisierul sa nu fie criptat. Daca vreodata
@@ -69,7 +69,7 @@ impl Sesiune {
 
 /// Numele de fisier pentru o baza de referinta.
 ///
-/// Numele de baze pot conține orice; fisierele nu. Se reduce la litere, cifre
+/// Numele de baze pot contine orice; fisierele nu. Se reduce la litere, cifre
 /// si cratima, pentru lizibilitate, plus 48 de biti din SHA-256 pe numele
 /// **exact**, ca doua nume diferite sa nu ajunga niciodata in acelasi fisier.
 /// Pana la audit discriminantul era lungimea numelui, deci `Prod.2024` si
@@ -253,8 +253,8 @@ mod teste {
         assert!(slug("Baza Mea").starts_with("baza-mea-"));
         assert!(slug("a/b\\c").starts_with("a-b-c-"));
         assert!(slug("---").starts_with("baza-"));
-        assert!(slug("ÎmiPlace").starts_with("miplace-"));
-        // acelasi nume da mereu acelasi slug
+        assert!(slug("ÎmiPlace").starts_with("miplace-")); // diacritice-permise: date de test
+                                                           // acelasi nume da mereu acelasi slug
         assert_eq!(slug("Baza1"), slug("Baza1"));
     }
 
@@ -266,14 +266,14 @@ mod teste {
             ("a/b", "a//b"),
             ("Prod.2024", "Prod_2024"),
             ("Baza_A", "baza-a"),
-            ("Ăla", "Îla"),
+            ("Ăla", "Îla"), // diacritice-permise: date de test
         ] {
             assert_ne!(slug(a), slug(b), "{a:?} / {b:?}");
         }
     }
 
     #[test]
-    fn slugul_nu_poate_ieși_din_director() {
+    fn slugul_nu_poate_iesi_din_director() {
         for n in ["../../etc/passwd", "..", "./..", "C:\\Windows"] {
             let s = slug(n);
             assert!(

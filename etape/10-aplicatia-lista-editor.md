@@ -20,7 +20,7 @@ sesiuni — si se pierde singur cand obiectul s-a schimbat pe server.
 - [x] **accesibila din `cli`** (CLAUDE.md §3): marcare, listare si golire,
       cu test pe binarul adevarat
 - [x] `rust/app`: crate nou, binar cu fereastra, care leaga ecranele —
-      `Deschide` / `Enter` duce in editor, `Esc` / „← Listă" inapoi, `j` / `k`
+      `Deschide` / `Enter` duce in editor, `Esc` / „← Lista" inapoi, `j` / `k`
       trec la obiectul urmator / anterior **fara** sa se intoarca in lista
 - [x] rutarea e testabila fara fereastra: ce ecran e activ, ce obiect e
       deschis, ce se intampla la fiecare comanda — teste fara Slint
@@ -51,7 +51,7 @@ sesiuni — si se pierde singur cand obiectul s-a schimbat pe server.
   editor): `cercetare/machete/capturi/Editor-deschis-din-lista.png`, facuta de
   `--example captura_flux`, care trece chiar prin comenzile aplicatiei.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 1. **Poarta a prins o regula de arhitectura lipsa.** `app -> fereastra` iesea
    „dependinta laterala", fiindca tabelul de niveluri le punea pe amandoua pe

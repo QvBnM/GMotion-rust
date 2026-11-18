@@ -6,7 +6,7 @@
 
 ## Scop
 
-Un repo in care doi oameni — unul dintre ei un asistent care pornește de la zero
+Un repo in care doi oameni — unul dintre ei un asistent care porneste de la zero
 la fiecare sesiune — pot construi, citi si depana fara sa-si strice munca
 reciproc. Fara cod nou de produs: doar structura, reguli si verificare.
 
@@ -18,7 +18,7 @@ reciproc. Fara cod nou de produs: doar structura, reguli si verificare.
 - [x] `CLAUDE.md`, `ARHITECTURA.md`, `HARTA.md`, `JURNAL.md` scrise
 - [x] `rust/core/CRATE.md` — sablonul de contract per crate
 - [x] `unelte/verifica.sh` ruleaza si raporteaza tot intr-o trecere
-- [x] poarta verifica tinta wasm32, direcția dependentelor, sincronizarea `CRATE.md`
+- [x] poarta verifica tinta wasm32, directia dependentelor, sincronizarea `CRATE.md`
 - [x] **verificat ca poarta prinde incalcari**, nu doar ca trece
 - [x] `README.md` rescris: structura noua, plan in zece etape
 - [x] poarta verde
@@ -41,25 +41,25 @@ reciproc. Fara cod nou de produs: doar structura, reguli si verificare.
   `mostenire/`, `SursaObiecte` ca trait. Motivele in `JURNAL.md`.
 - **2026-11-17** Instalat `wasm32-unknown-unknown`, ca verificarea de wasm din
   poarta sa ruleze real in loc sa fie raportata ca sarita. `core` compileaza.
-- **2026-11-17** Fixture-urile regenerate dupa mutare au ieșit identice — apar
+- **2026-11-17** Fixture-urile regenerate dupa mutare au iesit identice — apar
   ca simple redenumiri in git. Dovada ca harness-ul se comporta la fel.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 **Prima versiune a verificarii `mostenire/` nu prindea nimic.** Folosea
 `git diff HEAD -- mostenire/`, care raporta drept „modificare" si simpla mutare
 a fisierelor — deci commit-ul de restructurare cadea pe sine. Restrans la
-`--diff-filter=M` (doar conținut modificat). Dar asta inseamna ca verificarea nu
+`--diff-filter=M` (doar continut modificat). Dar asta inseamna ca verificarea nu
 putea fi testata inainte de commit, fiindca fisierele erau inca la vechea cale
 in `HEAD`; a trebuit retestata dupa.
 
-Lecția, generalizabila: **o verificare care n-a fost vazuta cazand nu e o
+Lectia, generalizabila: **o verificare care n-a fost vazuta cazand nu e o
 verificare.** De-aia a intrat in criteriile de terminare un punct separat
 pentru „poarta prinde incalcari", nu doar „poarta trece". Ambele verificari
 netriviale (`api-hash` si `mostenire/`) au fost puse la proba cu o incalcare
 deliberata.
 
-**Poarta nu e completa pe `cmd`.** Verificarile de direcție a dependentelor si
+**Poarta nu e completa pe `cmd`.** Verificarile de directie a dependentelor si
 de sincronizare `CRATE.md` sunt scrise in bash si Python, deci pe Windows cer
 Git Bash sau WSL. `verifica.bat` ruleaza doar fmt, clippy, teste si harness-ul.
 Notat ca intrebare deschisa in `STARE.md`.

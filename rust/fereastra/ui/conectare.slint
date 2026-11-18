@@ -1,7 +1,7 @@
 // Ecranul de conectare: ce se compara cu ce. Macheta:
 // `cercetare/machete/Conectare.dc.html`.
 //
-// Se strica astfel: butonul „Compară" pare apasabil cand lipseste ceva (si
+// Se strica astfel: butonul „Compara" pare apasabil cand lipseste ceva (si
 // omul afla abia dupa ce asteapta conectarea), sau parola ajunge unde nu
 // trebuie. Primul se decide in `src/model_conectare.rs` (testat fara
 // fereastra); al doilea tine de tipul care o pastreaza, fara `Debug` derivat.
@@ -287,7 +287,7 @@ component PanouParte inherits VerticalLayout {
         }
     }
     if !root.fara-servere && !p.auth-windows: Rand {
-        eticheta: "Parolă";
+        eticheta: "Parola";
         Camp {
             text: p.parola;
             ascuns: true;
@@ -299,7 +299,7 @@ component PanouParte inherits VerticalLayout {
         Alegere {
             ales: p.baza;
             optiuni: p.baze;
-            gol: root.fara-servere ? "alege baza" : "conectează-te întâi";
+            gol: root.fara-servere ? "alege baza" : "conecteaza-te intai";
             schimbat(t) => { root.baza-schimbata(t); }
             cerut => { root.cere-bazele(); }
         }
@@ -492,7 +492,7 @@ export component FereastraConectare inherits Window {
                                 height: 20px;
                                 min-width: schimba.preferred-width;
                                 schimba := Text {
-                                    text: "Schimbă";
+                                    text: "Schimba";
                                     font-size: 13px;
                                     color: Tema.selectie;
                                     vertical-alignment: center;
@@ -506,7 +506,7 @@ export component FereastraConectare inherits Window {
                             alignment: center;
                             Text {
                                 text: root.ce-lipseste == ""
-                                    ? "Se citește, nu se scrie nimic."
+                                    ? "Se citeste, nu se scrie nimic."
                                     : root.ce-lipseste;
                                 font-size: 12px;
                                 color: root.ce-lipseste == "" ? Tema.text-secundar : Tema.mod-text;
@@ -517,12 +517,12 @@ export component FereastraConectare inherits Window {
                             horizontal-stretch: 0;
                             alignment: center;
                             if root.ce-lipseste == "": ButonPrincipal {
-                                text: "Compară";
+                                text: "Compara";
                                 height: 32px;
                                 apasat => { root.compara(); }
                             }
                             if root.ce-lipseste != "": Buton {
-                                text: "Compară";
+                                text: "Compara";
                                 inalt: 32px;
                                 apasabil: false;
                             }
@@ -608,7 +608,7 @@ export component FereastraConectare inherits Window {
                                 }
                                 Text {
                                     width: 90px;
-                                    text: "Continuă";
+                                    text: "Continua";
                                     font-size: 13px;
                                     color: Tema.selectie;
                                     horizontal-alignment: right;

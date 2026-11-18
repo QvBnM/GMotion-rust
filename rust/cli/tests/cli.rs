@@ -1,14 +1,14 @@
 //! Teste pe binarul adevarat, nu pe functii interne.
 //!
-//! Rostul: ce am verificat o data de mana sa rămână verificat. Probele manuale
+//! Rostul: ce am verificat o data de mana sa ramana verificat. Probele manuale
 //! care nu devin teste se pierd, si atunci urmatoarea regresie se descopera la
 //! utilizator.
 //!
 //! Acoperite anume:
-//! - `--json` scoate **numai** JSON la ieșirea standard (jurnalul si progresul
-//!   la erori). Prima versiune a jurnalului scria la stdout si facea ieșirea
+//! - `--json` scoate **numai** JSON la iesirea standard (jurnalul si progresul
+//!   la erori). Prima versiune a jurnalului scria la stdout si facea iesirea
 //!   neparsabila;
-//! - codul de ieșire e nenul la eșec, altfel o rulare programata ar raporta
+//! - codul de iesire e nenul la esec, altfel o rulare programata ar raporta
 //!   succes;
 //! - parola nu se accepta ca argument de linie de comanda.
 
@@ -36,8 +36,8 @@ fn ruleaza_in(args: &[&str], dir_date: Option<&Path>) -> Output {
         c.env("GMOTION_DIR_DATE", d);
     }
     c.args(args)
-        // Fara jurnal in teste: nu schimba ieșirea standard, dar face
-        // diagnosticarea unui eșec mai curata.
+        // Fara jurnal in teste: nu schimba iesirea standard, dar face
+        // diagnosticarea unui esec mai curata.
         .env("GMOTION_JURNAL", "error")
         .env_remove("GMOTION_PAROLA")
         .output()
@@ -125,7 +125,7 @@ fn fluxul_complet_pe_instantaneu() {
         "diferenta cosmetica nu trebuie raportata:\n{t}"
     );
 
-    // --- compara, JSON: numai JSON la ieșirea standard ---
+    // --- compara, JSON: numai JSON la iesirea standard ---
     let o = ruleaza(&[
         "compara",
         "--sursa",
@@ -136,7 +136,7 @@ fn fluxul_complet_pe_instantaneu() {
     ]);
     assert!(o.status.success(), "{}", err(&o));
     let v: serde_json::Value = serde_json::from_str(&out(&o))
-        .unwrap_or_else(|e| panic!("ieșirea standard nu e JSON curat ({e}):\n{}", out(&o)));
+        .unwrap_or_else(|e| panic!("iesirea standard nu e JSON curat ({e}):\n{}", out(&o)));
     assert_eq!(v["referinta"], "Referinta");
     assert_eq!(v["diferite"], 1);
     assert_eq!(v["lipsa"], 1);
@@ -199,7 +199,7 @@ fn fluxul_complet_pe_instantaneu() {
     assert!(!sql.contains("activ = 0"));
     // obiectul care exista doar in tinta nu se deploiaza
     assert!(!sql.contains("dbo.pLocal"), "{sql}");
-    // In mod text progresul merge la ieșirea standard; doar pe --json se muta
+    // In mod text progresul merge la iesirea standard; doar pe --json se muta
     // la erori, ca sa nu strice JSON-ul.
     assert!(out(&o).contains("1 sarite"), "{}", out(&o));
 
@@ -327,7 +327,7 @@ fn instantaneu_scris_de_cli_se_poate_relua() {
 }
 
 #[test]
-fn eșecurile_dau_cod_nenul_si_scriu_pe_erori() {
+fn esecurile_dau_cod_nenul_si_scriu_pe_erori() {
     let d = dir("esecuri");
     let inst = d.join("inst.json");
     scrie_instantaneu(&inst);
@@ -352,7 +352,7 @@ fn eșecurile_dau_cod_nenul_si_scriu_pe_erori() {
         let o = ruleaza(&args);
         assert!(
             !o.status.success(),
-            "{args:?} ar trebui sa eșueze, dar a ieșit cu 0"
+            "{args:?} ar trebui sa esueze, dar a iesit cu 0"
         );
         assert!(
             err(&o).contains(asteptat),
@@ -361,7 +361,7 @@ fn eșecurile_dau_cod_nenul_si_scriu_pe_erori() {
         );
         assert!(
             out(&o).is_empty(),
-            "{args:?}: eroarea nu are ce caută la ieșirea standard:\n{}",
+            "{args:?}: eroarea nu are ce cauta la iesirea standard:\n{}",
             out(&o)
         );
     }
@@ -431,7 +431,7 @@ fn jurnalul_redirectat_nu_are_coduri_de_culoare() {
     );
     assert!(
         !e.contains('\u{1b}'),
-        "coduri ANSI in ieșire redirectata:\n{e:?}"
+        "coduri ANSI in iesire redirectata:\n{e:?}"
     );
 }
 
@@ -508,7 +508,7 @@ fn compara_cu_detalii_spune_in_ce_difera_obiectul() {
     ]);
     assert!(o.status.success(), "{}", err(&o));
     let v: serde_json::Value = serde_json::from_str(&out(&o))
-        .unwrap_or_else(|e| panic!("ieșirea standard nu e JSON curat ({e}):\n{}", out(&o)));
+        .unwrap_or_else(|e| panic!("iesirea standard nu e JSON curat ({e}):\n{}", out(&o)));
     let det = v["detalii"].as_array().expect("campul detalii");
     assert_eq!(det.len(), 1, "doar obiectul diferit are detalii: {det:?}");
     assert_eq!(det[0]["obiect"], "dbo.pClienti");

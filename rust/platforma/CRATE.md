@@ -7,13 +7,13 @@
 Ce e comun tuturor uneltelor: unde stau datele, sesiuni, configurare, jurnal,
 contractul de modul si rutarea.
 
-Regula de impartire: ce foloseste mai mult de un modul stă aici; ce e specific
-unei unelte stă in crate-ul uneltei.
+Regula de impartire: ce foloseste mai mult de un modul sta aici; ce e specific
+unei unelte sta in crate-ul uneltei.
 
 ## Nu face
 
 - **Nu compara nimic** si nu stie ce e un obiect SQL dincolo de ce-i da `db`.
-- **Nu desenează nimic.** Partea de ecrane e doar declarativa.
+- **Nu deseneaza nimic.** Partea de ecrane e doar declarativa.
 - **Nu tine acreditari.** Parola se cere la fiecare pornire si nu se salveaza
   niciodata — nici criptata.
 - **Nu interpreteaza starea unui modul.** `Sesiune::date` e opac pentru
@@ -46,14 +46,14 @@ publica drept `<nume>/<metoda>`.
    Doua module pe aceeasi baza de referinta **nu** se suprascriu. In versiunea
    Python cheia era doar `<slug>.dat`, deci coliziunea era garantata de la al
    doilea modul.
-2. **O sesiune nu conține secrete.** Nu e o convenție, e o proprietate a
+2. **O sesiune nu contine secrete.** Nu e o conventie, e o proprietate a
    tipului: `Sesiune` nu are camp de parola, iar `gmotion_db::Autentificare` nu
    implementeaza `Serialize`. Asta face acceptabil ca pe non-Windows fisierul sa
    nu fie criptat. **Daca vreodata trebuie salvat un secret, calea de
    non-Windows din `protejare.rs` trebuie sa refuze, nu sa scrie in clar.**
-3. **Un identificator nu poate ieși din directorul de date.** Doar litere mici,
+3. **Un identificator nu poate iesi din directorul de date.** Doar litere mici,
    cifre, cratima — fiindca devine nume de director. `slug()` reduce orice nume
-   de baza la ceva care nu conține `/`, `\` sau `..`.
+   de baza la ceva care nu contine `/`, `\` sau `..`.
 3b. **Doua nume de baza diferite nu impart niciodata un fisier de sesiune:**
    `slug()` se termina cu 48 de biti de SHA-256 pe numele exact (pana la audit,
    lungimea numelui — `Prod.2024` si `Prod_2024` coliziau). `incarca` verifica
@@ -64,7 +64,7 @@ publica drept `<nume>/<metoda>`.
 5. **Un modul nu poate calca o metoda comuna.** Inregistrarea o refuza: altfel
    comportamentul ar depinde de modulul activ.
 6. **Un fisier de configurare stricat e eroare, nu implicite in silenta.** Un
-   fisier lipsa, in schimb, da implicitele. Un camp scris greșit e eroare
+   fisier lipsa, in schimb, da implicitele. Un camp scris gresit e eroare
    (`deny_unknown_fields`): altfel utilizatorul crede ca a schimbat o setare.
 7. **O sesiune ilizibila e sarita la listare, cu avertisment.** Un singur fisier
    stricat nu ascunde celelalte.
@@ -98,7 +98,7 @@ publica drept `<nume>/<metoda>`.
 cd rust && cargo test -p gmotion-platforma        # 32 teste
 ```
 
-Acopera: slug-uri care nu pot ieși din director, coliziunea de sesiuni intre
+Acopera: slug-uri care nu pot iesi din director, coliziunea de sesiuni intre
 module (testul care dovedeste ca bug-ul din versiunea Python nu mai e posibil),
 nume de baze cu spatii, slash, diacritice si `..`, configurare lipsa / stricata
 / partiala / cu valori absurde, rutare cu prefix si refuzul metodelor comune,

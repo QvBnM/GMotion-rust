@@ -16,7 +16,7 @@ clic.
 - [x] ecranul in Slint, fidel machetei: doua coloane Sursa / Baza (server,
       autentificare Windows / SQL, utilizator, parola, baza, starea
       conexiunii), butonul de inversare, certificatul intr-o linie cu
-      „Schimbă", butonul Compară
+      „Schimba", butonul Compara
 - [x] **parola nu ajunge niciodata intr-o sesiune, intr-un jurnal sau intr-un
       mesaj de eroare**; tipul care o tine nu are `Debug` derivat (CLAUDE.md §6)
 - [x] starea conexiunii se testeaza fara sa compari: „Se citeste, nu se scrie
@@ -26,7 +26,7 @@ clic.
 - [x] modelul ecranului (ce e completat, ce lipseste, ce se poate apasa) are
       teste fara fereastra
 - [x] `gmotion-ui` porneste fara argumente si duce in lista dupa o comparare
-- [x] captura PNG langa machetă
+- [x] captura PNG langa macheta
 - [x] poarta verde: `unelte/verifica.sh`
 - [x] `STARE.md` actualizat
 - [x] `JURNAL.md` completat, daca s-a luat vreo decizie
@@ -46,7 +46,7 @@ clic.
   bazelor, parola care nu apare in eroare), si drumul intreg in
   `app/tests/flux.rs`. Captura: `cercetare/machete/capturi/Conectare-nativ.png`.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 1. **Bazele se citesc cand le ceri, nu cand tastezi.** Prima idee era sa se
    conecteze singur dupa ce se completeaza campurile; ar fi insemnat o

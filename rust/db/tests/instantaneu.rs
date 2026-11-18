@@ -112,7 +112,7 @@ fn definitiile_supravietuiesc_caracterelor_dificile() {
     let cale = dir.join("i.json");
 
     let cazuri = [
-        "CREATE PROC p AS SELECT 'diacritice ăîâșț'",
+        "CREATE PROC p AS SELECT 'diacritice ăîâșț'", // diacritice-permise: date de test
         "CREATE PROC p AS SELECT '\"ghilimele\" si \\ backslash'",
         "CREATE PROC p AS\r\nSELECT 'CRLF'",
         "CREATE PROC p AS SELECT 'tab\there'",
@@ -153,7 +153,7 @@ fn instantaneul_e_reproductibil_intre_scrieri() {
     i.scrie(&b).unwrap();
 
     // Ordine stabila: altfel diff-ul a doua instantanee de pe acelasi server e
-    // nefolositor, si asta e exact ce vrei sa poți citi cand urmarești un bug.
+    // nefolositor, si asta e exact ce vrei sa poti citi cand urmaresti un bug.
     let (ta, tb) = (
         std::fs::read_to_string(&a).unwrap(),
         std::fs::read_to_string(&b).unwrap(),
@@ -170,7 +170,7 @@ fn instantaneul_e_reproductibil_intre_scrieri() {
 }
 
 /// Granita dintre `db` si `core`: sursa da text brut, iar motorul il poate
-/// consuma direct. Daca asta nu merge, granita e trasa greșit.
+/// consuma direct. Daca asta nu merge, granita e trasa gresit.
 #[test]
 fn obiectele_din_fixture_intra_direct_in_motor() {
     let mut i = Instantaneu::nou("SRV01", "2026-11-17T00:00:00Z");

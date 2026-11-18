@@ -6,22 +6,22 @@
 //! acopera forme pe care nu le-a ales nimeni.
 //!
 //! Generatorul NU produce SQL aleator: produce exact formele care pun la
-//! incercare invariantele — literale cu apostrof escapat care conțin cuvinte
+//! incercare invariantele — literale cu apostrof escapat care contin cuvinte
 //! cheie, comentarii bloc pe mai multe linii, `CASE` imbricate, paranteze
 //! adanci, `UNION` la final, cursor `FOR`, `INSERT ... SELECT`, `BEGIN TRAN`.
 //! Istoricul proiectului arata ca segmentarea e singura zona care a divergat,
 //! deci acolo se investeste.
 //!
-//! Deterministe: acelasi seed da acelasi text. Un eșec se reproduce cu
+//! Deterministe: acelasi seed da acelasi text. Un esec se reproduce cu
 //! `cargo test --test invariante -- --nocapture` si seed-ul din mesaj.
 
 use gmotion_core::{diff_aliniat, norm, normalizeaza, scor_similaritate, split_statements};
 
-/// Cate intrari se genereaza per test. Bugetul de timp al porții e de ordinul
+/// Cate intrari se genereaza per test. Bugetul de timp al portii e de ordinul
 /// secundelor, nu al minutelor — un fuzz care nu se ruleaza nu prinde nimic.
 const SEED_URI: u64 = 400;
 
-/// xorshift64*. Fara dependinta noua: `core` rămâne cu amprenta minima, fiindca
+/// xorshift64*. Fara dependinta noua: `core` ramane cu amprenta minima, fiindca
 /// e crate-ul care trebuie sa compileze si pe wasm.
 struct Rng(u64);
 
@@ -210,7 +210,7 @@ fn segmentarea_nu_pierde_cod() {
 
 /// Invariantul 4: un bloc nu se termina niciodata in interiorul unui literal,
 /// al unui comentariu bloc sau al unei paranteze deschise. Daca s-ar intampla,
-/// blocul urmator ar porni cu starea greșita si clasificarea ar fi aiurea —
+/// blocul urmator ar porni cu starea gresita si clasificarea ar fi aiurea —
 /// exact clasa de bug care a produs divergentele din v3.4.
 #[test]
 fn niciun_bloc_nu_se_taie_in_mijlocul_unui_construct() {
@@ -296,8 +296,8 @@ fn intrari_degenerate() {
         "--",
         "\r\n\r\n",
         "SELECT 1\r\nSELECT 2",
-        "ă î â ș ț",
-        "SELECT N'diacritice ăîâșț'",
+        "ă î â ș ț",                  // diacritice-permise: date de test
+        "SELECT N'diacritice ăîâșț'", // diacritice-permise: date de test
     ] {
         for uneste_cursor in [false, true] {
             let blocuri = split_statements(cod, uneste_cursor);

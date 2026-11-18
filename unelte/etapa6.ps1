@@ -50,7 +50,7 @@ $env:GMOTION_PAROLA = $c.GetNetworkCredential().Password
 
 function Pas([string]$titlu) { "`n==== $titlu" }
 
-# Ruleaza o comanda externa, arata ieșirea ca text, codul de ieșire si durata.
+# Ruleaza o comanda externa, arata iesirea ca text, codul de iesire si durata.
 function Ruleaza([scriptblock]$bloc) {
   $t = Get-Date
   & $bloc 2>&1 | ForEach-Object { "$_" }

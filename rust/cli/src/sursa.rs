@@ -2,7 +2,7 @@
 //!
 //! **Se strica astfel:** o comanda merge pe server dar nu pe instantaneu (sau
 //! invers), si atunci se pierde exact proprietatea pentru care exista
-//! `SursaObiecte` — ca tot ce face aplicatia sa poată fi reluat offline.
+//! `SursaObiecte` — ca tot ce face aplicatia sa poata fi reluat offline.
 //!
 //! De-aia construirea sursei e intr-un singur loc, si fiecare comanda care are
 //! nevoie de obiecte o foloseste. Daca apare o comanda care accepta doar
@@ -115,7 +115,7 @@ mod teste {
     fn eroarea(a: &ArgumenteSursa) -> String {
         match a.deschide() {
             Err(e) => e,
-            Ok(_) => panic!("ar fi trebuit sa eșueze"),
+            Ok(_) => panic!("ar fi trebuit sa esueze"),
         }
     }
 

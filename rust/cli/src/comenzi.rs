@@ -1,7 +1,7 @@
 //! Implementarea comenzilor.
 //!
 //! **Se strica astfel:** o comanda face altceva decat spune, sau iese cu codul
-//! 0 cand a eșuat. Al doilea e cel rau: o rulare programata ar raporta succes.
+//! 0 cand a esuat. Al doilea e cel rau: o rulare programata ar raporta succes.
 //!
 //! Fiecare comanda e o functie care intoarce `Result<(), String>`. Mesajul de
 //! eroare pastreaza codul original (`GM-DB-001`, ...), ca raportul
@@ -183,7 +183,7 @@ pub fn baze(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
 pub fn instantaneu(
     args: &ArgumenteSursa,
     baze_cerute: Option<&str>,
-    ieșire: &Path,
+    iesire: &Path,
     nota: &str,
     format: Format,
 ) -> Result<(), String> {
@@ -217,14 +217,14 @@ pub fn instantaneu(
         total += obiecte.len();
         inst.baze.insert(baza, obiecte);
     }
-    inst.scrie(ieșire).map_err(|e| e.to_string())?;
+    inst.scrie(iesire).map_err(|e| e.to_string())?;
 
     format.progres(&format!(
         "Scris {} ({} baze, {total} obiecte).\n\
          Reia-l cu: gmotion compara --sursa {} --referinta <BAZA>",
-        ieșire.display(),
+        iesire.display(),
         inst.baze.len(),
-        ieșire.display()
+        iesire.display()
     ));
     Ok(())
 }
@@ -511,7 +511,7 @@ pub fn export(
     args: &ArgumenteSursa,
     referinta: &str,
     baze_cerute: Option<&str>,
-    ieșire: Option<PathBuf>,
+    iesire: Option<PathBuf>,
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
@@ -519,7 +519,7 @@ pub fn export(
         return Err("nimic de exportat: bazele sunt identice cu referinta".into());
     }
     let cale =
-        ieșire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
+        iesire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
     let n = modul::scrie_csv(&cale, &r.comparare.randuri, |_| modul::Stare::default())
         .map_err(|e| e.to_string())?;
     format.progres(&format!("Scris {} ({n} randuri).", cale.display()));
@@ -549,7 +549,7 @@ pub fn plan(
     referinta: &str,
     baze_cerute: Option<&str>,
     doar: Option<&str>,
-    ieșire: Option<PathBuf>,
+    iesire: Option<PathBuf>,
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
@@ -557,7 +557,7 @@ pub fn plan(
     if p.pasi.is_empty() {
         return Err(modul::Eroare::NimicDeDeployat.to_string());
     }
-    let cale = ieșire.unwrap_or_else(|| PathBuf::from(format!("plan_{}.json", acum_compact())));
+    let cale = iesire.unwrap_or_else(|| PathBuf::from(format!("plan_{}.json", acum_compact())));
     let text = serde_json::to_string_pretty(&p).map_err(|e| e.to_string())?;
     std::fs::write(&cale, text).map_err(|e| format!("nu pot scrie {}: {e}", cale.display()))?;
     format.progres(&format!(

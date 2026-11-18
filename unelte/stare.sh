@@ -17,7 +17,7 @@ teste="$(cd rust && cargo test --all 2>/dev/null | grep -cE '^test .* \.\.\. ok$
 
 printf '\nAntetul pentru STARE.md:\n\n'
 printf '**Actualizat:** %s · commit `%s` · branch `%s`\n' "$azi" "$head_scurt" "$branch"
-printf '**Poarta:** <ruleaza unelte/verifica.sh si scrie verde/roșie> (%s teste)\n' "$teste"
+printf '**Poarta:** <ruleaza unelte/verifica.sh si scrie verde/rosie> (%s teste)\n' "$teste"
 
 printf '\nEtapa activa: %s\n' "$activa"
 

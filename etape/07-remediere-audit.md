@@ -125,7 +125,7 @@ repo-ul public (decizia lui Mihai).
   dupa dependente, garda de versiune (`CREATE OR ALTER` cere 13.0.4001+), plus
   citirea paralela (v4 era mai lent decat v3.4 pe o retea cu latenta mare).
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 **Paritatea perfecta cu v3.4 nu mai e tinta, si asta a cerut unelte noi.**
 Etapa 6 a dovedit ca portul reproduce v3.4 — inclusiv bug-urile. Reparatia

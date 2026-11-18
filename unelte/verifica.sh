@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Poarta. Nimic nu se commiteaza daca asta nu e verde.
 #
-# Ruleaza toate verificarile, apoi raporteaza. NU se oprește la prima eroare:
+# Ruleaza toate verificarile, apoi raporteaza. NU se opreste la prima eroare:
 # vrei sa vezi tot ce e rupt intr-o singura rulare, nu sa reporneasca de zece
 # ori. Verificarile care nu pot rula (lipseste `node`, lipseste tinta wasm) sunt
-# raportate explicit ca SARIT — citeste ieșirea, nu doar codul de retur.
+# raportate explicit ca SARIT — citeste iesirea, nu doar codul de retur.
 #
 #   unelte/verifica.sh            tot
 #   unelte/verifica.sh rapid      fara wasm si fara conformitatea Python/JS
@@ -24,7 +24,7 @@ cade()   { printf '%s  CADE  %s%s\n'   "$ROSU"   "$1" "$ZERO"; ESECURI+=("$1"); 
 sare()   { printf '%s  sarit %s — %s%s\n' "$GALBEN" "$1" "$2" "$ZERO"; SARITE+=("$1: $2"); }
 titlu()  { printf '\n%s== %s%s\n' "$GRI" "$1" "$ZERO"; }
 
-# Ruleaza o comanda; la eșec arata ieșirea.
+# Ruleaza o comanda; la esec arata iesirea.
 ruleaza() {
   local nume="$1"; shift
   local ies
@@ -93,10 +93,10 @@ else
 fi
 
 # ---------------------------------------------------------------- 6. dependente
-# Direcția e: core <- db <- platforma <- module/* <- fereastra, cli <- app.
+# Directia e: core <- db <- platforma <- module/* <- fereastra, cli <- app.
 # Nimic nu depinde la dreapta, si niciun modul nu depinde de alt modul.
 # `app` e deasupra tuturor: el compune ferestrele cu modulele.
-titlu "direcția dependentelor"
+titlu "directia dependentelor"
 python3 - <<'PY'
 import os, re, sys, glob
 
@@ -128,10 +128,10 @@ for cale in glob.glob("rust/**/Cargo.toml", recursive=True):
 if probleme:
     print("\n".join(probleme)); sys.exit(1)
 PY
-if [ $? -eq 0 ]; then pas "direcția dependentelor"; else cade "direcția dependentelor"; fi
+if [ $? -eq 0 ]; then pas "directia dependentelor"; else cade "directia dependentelor"; fi
 
 # ---------------------------------------------------------------- 7. CRATE.md
-# Cauza de eroare proprie: documentatia rămasa in urma codului. Singurul fel de
+# Cauza de eroare proprie: documentatia ramasa in urma codului. Singurul fel de
 # bug pe care nu-l prinde niciun test.
 titlu "CRATE.md sincronizat cu API-ul public"
 for crate in rust/*/ rust/module/*/; do
@@ -151,9 +151,9 @@ done
 
 # ---------------------------------------------------------------- 8. stare
 # Cauza de eroare proprie: sesiunea care nu stie de unde sa continue. Un
-# asistent pornește de la zero la fiecare sesiune, iar utilizatorul poate intra
+# asistent porneste de la zero la fiecare sesiune, iar utilizatorul poate intra
 # de pe alt cont — daca STARE.md minte sau doua etape se cred active, se reia
-# munca greșita. Verificat deci, nu doar cerut.
+# munca gresita. Verificat deci, nu doar cerut.
 titlu "stare si etape"
 python3 - <<'PY_STARE'
 import glob, os, re, sys
@@ -162,7 +162,7 @@ probleme, avertismente = [], []
 STARI = {"NEPORNITA", "ACTIVA", "INCHEIATA", "ABANDONATA"}
 
 if not os.path.exists("STARE.md"):
-    probleme.append("lipseste STARE.md — vezi secțiunea 0 din CLAUDE.md")
+    probleme.append("lipseste STARE.md — vezi sectiunea 0 din CLAUDE.md")
 
 active = []
 for cale in sorted(glob.glob("etape/*.md")):
@@ -178,12 +178,12 @@ for cale in sorted(glob.glob("etape/*.md")):
     elif m.group(1) == "ACTIVA":
         active.append(cale)
     if m.group(1) == "INCHEIATA" and "(se completeaza la incheiere)" in txt:
-        avertismente.append(f"{cale}: incheiata, dar 'Ce a ieșit altfel decat planul' e necompletat")
+        avertismente.append(f"{cale}: incheiata, dar 'Ce a iesit altfel decat planul' e necompletat")
 
 if len(active) > 1:
     probleme.append("mai multe etape ACTIVA: " + ", ".join(active) + " — nu se poate sti unde suntem")
 
-# STARE.md trebuie sa numeasca etapa activa, altfel trimite in altă parte.
+# STARE.md trebuie sa numeasca etapa activa, altfel trimite in alta parte.
 if os.path.exists("STARE.md") and active:
     stare = open("STARE.md", encoding="utf-8").read()
     if os.path.basename(active[0]) not in stare:
@@ -209,6 +209,38 @@ if git rev-parse --git-dir >/dev/null 2>&1 && [ -f STARE.md ]; then
 fi
 
 # ---------------------------------------------------------------- 9. mostenire
+# ---------------------------------------------------------------------------
+# Fara diacritice nicaieri (Mihai, 2026-11-18): textele vor trece in engleza,
+# iar pana atunci se scriu fara diacritice — in interfata, in mesaje, in
+# comentarii si in documente. Exceptie: datele de test care verifica
+# intentionat nume cu diacritice ale utilizatorului, marcate pe linie cu
+# `diacritice-permise`. mostenire/ si fixture-urile din referinta/ nu se ating.
+titlu "fara diacritice"
+python3 - <<'PY_DIACRITICE'
+import re, subprocess, sys
+fisiere = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split("\n")
+r = re.compile("[\u0103\u00e2\u00ee\u0219\u015f\u021b\u0163\u0102\u00c2\u00ce\u0218\u015e\u021a\u0162]")
+gasite = []
+for f in fisiere:
+    if not f or f.startswith("mostenire/") or (f.startswith("referinta/") and f != "referinta/README.md"):
+        continue
+    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml)$", f) or "LICENSE" in f:
+        continue
+    try:
+        linii = open(f, encoding="utf-8").read().split("\n")
+    except (OSError, UnicodeDecodeError):
+        continue
+    for i, l in enumerate(linii, 1):
+        if r.search(l) and "diacritice-permise" not in l:
+            gasite.append(f"{f}:{i}: {l.strip()[:70]}")
+if gasite:
+    print("\n".join(gasite[:20]))
+    if len(gasite) > 20:
+        print(f"... inca {len(gasite) - 20}")
+    sys.exit(1)
+PY_DIACRITICE
+if [ $? -eq 0 ]; then pas "fara diacritice"; else cade "fara diacritice"; fi
+
 titlu "mostenire/ nemodificat"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:

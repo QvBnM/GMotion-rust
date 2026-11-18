@@ -173,8 +173,8 @@ fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
 ///
 /// Fara asta, imperecherea e pur pozitionala: daca in tinta a fost inserat un
 /// bloc la mijloc, toate blocurile de dupa apar ca "modificate" desi sunt
-/// neatinse. Blocurile prea diferite intre ele nu sunt forțate intr-o pereche -
-/// ramân stergere + adaugare, care descrie corect ce s-a intamplat.
+/// neatinse. Blocurile prea diferite intre ele nu sunt fortate intr-o pereche -
+/// raman stergere + adaugare, care descrie corect ce s-a intamplat.
 fn perechi_replace(bv: &[String], bn: &[String]) -> Vec<(usize, usize)> {
     let (n, m) = (bv.len(), bn.len());
     if n == 0 || m == 0 {
@@ -195,7 +195,7 @@ fn perechi_replace(bv: &[String], bn: &[String]) -> Vec<(usize, usize)> {
         }
     }
 
-    // d[i][j] = scorul cumulat maxim; p[i][j] = direcția din care s-a ajuns
+    // d[i][j] = scorul cumulat maxim; p[i][j] = directia din care s-a ajuns
     let mut d = vec![vec![0f64; m + 1]; n + 1];
     let mut p = vec![vec![0u8; m + 1]; n + 1];
     for i in 1..=n {

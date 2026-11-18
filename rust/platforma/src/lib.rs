@@ -1,8 +1,8 @@
 //! Ce e comun tuturor uneltelor din GMotion.
 //!
-//! Regula de impartire: ce foloseste mai mult de un modul stă aici; ce e
-//! specific unei unelte stă in crate-ul uneltei. Niciun modul nu depinde de alt
-//! modul — daca are nevoie de ceva din altul, acel ceva aparține platformei.
+//! Regula de impartire: ce foloseste mai mult de un modul sta aici; ce e
+//! specific unei unelte sta in crate-ul uneltei. Niciun modul nu depinde de alt
+//! modul — daca are nevoie de ceva din altul, acel ceva apartine platformei.
 //!
 //! Modulele, fiecare cu categoria lui de bug:
 //!

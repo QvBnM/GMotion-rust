@@ -42,32 +42,32 @@ comparare, diff, deploy, export. Testabil cap-coada pe un instantaneu.
 - **2026-11-17** Marcajul de timp din scripturi se da din afara, nu se citeste
   din ceas — altfel generatorul n-ar fi testabil.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 **Am scris `Diferenta` cu indexul din lista drept identificator, si era
-greșit.** `gmotion_core::RandDiff` are deja un camp `id` care e **stabil intre
-recalculari**: poziția blocului in referinta pentru randurile ancorate, numere
-negative unice pentru cele doar-adaugate. Prin el supraviețuiesc deciziile
+gresit.** `gmotion_core::RandDiff` are deja un camp `id` care e **stabil intre
+recalculari**: pozitia blocului in referinta pentru randurile ancorate, numere
+negative unice pentru cele doar-adaugate. Prin el supravietuiesc deciziile
 utilizatorului din editor („linia asta o iau, asta nu") unei recalculari. Cu
 indexul din lista, orice schimbare in tinta le-ar fi mutat pe alte linii — un
 bug care s-ar fi vazut tarziu si ar fi parut aleator.
 
 Cauza greselii: am presupus forma lui `RandDiff` din memorie in loc sa o
-citesc. A ieșit la iveala doar fiindca `serde` nu putea serializa tipurile din
-`core` (care nu depinde de `serde`, deliberat), deci am fost obligat sa mă uit.
+citesc. A iesit la iveala doar fiindca `serde` nu putea serializa tipurile din
+`core` (care nu depinde de `serde`, deliberat), deci am fost obligat sa ma uit.
 **Noroc, nu proces.** Lectia: cand portez ceva care traverseaza o granita de
 crate, citesc tipul, nu-l presupun.
 
-**`aplica_create_or_alter` a ieșit intai inutil de complicat** — un lanț de
+**`aplica_create_or_alter` a iesit intai inutil de complicat** — un lant de
 iteratori cu un `let _ = cuvant;` in el, scris ca sa unific doua cazuri care nu
 aveau nevoie de unificare. Clippy l-a prins (`let-binding has unit value`).
 Rescris simplu: adun pozitiile, le sortez, iau prima care e urmata de un tip de
 obiect.
 
-**Doua expectative greșite in testele mele, nu in cod:** `slug("../etc")` si
+**Doua expectative gresite in testele mele, nu in cod:** `slug("../etc")` si
 numaratoarea de obiecte identice din fluxul complet (Client1 da 2, Client2 da 4,
 deci 6, nu 5). Al doilea caz e util ca avertisment: intr-un test cu date
-construite de mana, cifra asteptata e la fel de ușor de greșit ca si codul. La
+construite de mana, cifra asteptata e la fel de usor de gresit ca si codul. La
 `slug` am inlocuit verificarea sirului exact cu verificarea **proprietatii** —
 ca rezultatul nu poate forma o cale — care e ce conteaza de fapt.
 

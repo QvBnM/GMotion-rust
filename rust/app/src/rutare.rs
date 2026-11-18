@@ -93,7 +93,7 @@ impl Aplicatie {
     }
 
     /// Obiectul selectat (in lista) sau deschis (in editor) — acelasi, mereu:
-    /// editorul se deschide pe selectie, iar `j` / `k` din editor **mută
+    /// editorul se deschide pe selectie, iar `j` / `k` din editor **muta
     /// selectia**, ca intoarcerea in lista sa cada unde trebuie.
     pub fn obiect(&self) -> Option<&Obiect> {
         self.lista.obiect_selectat()

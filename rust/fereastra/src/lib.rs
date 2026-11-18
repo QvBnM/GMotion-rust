@@ -291,7 +291,7 @@ fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>,
 pub struct AntetEditor<'a> {
     pub schema: &'a str,
     pub nume: &'a str,
-    /// „procedură", „vedere", „functie"...
+    /// „procedura", „vedere", „functie"...
     pub tip: &'a str,
     pub sursa_baza: &'a str,
     pub sursa_server: &'a str,
@@ -303,13 +303,13 @@ pub struct AntetEditor<'a> {
     pub revizuit: bool,
 }
 
-/// „1 diferență" / „4 diferențe" / „21 de diferențe".
+/// „1 diferenta" / „4 diferente" / „21 de diferente".
 fn numar_diferente(n: usize) -> String {
     match n {
-        0 => "fără diferențe".to_string(),
-        1 => "1 diferență".to_string(),
-        2..=19 => format!("{n} diferențe"),
-        _ => format!("{n} de diferențe"),
+        0 => "fara diferente".to_string(),
+        1 => "1 diferenta".to_string(),
+        2..=19 => format!("{n} diferente"),
+        _ => format!("{n} de diferente"),
     }
 }
 
@@ -495,7 +495,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             ui.set_ce_difera(
                 o.detalii
                     .as_ref()
-                    .map_or(String::new(), |d| format!("diferă în {}", d.difera_in))
+                    .map_or(String::new(), |d| format!("difera in {}", d.difera_in))
                     .into(),
             );
         }
@@ -512,9 +512,9 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
 /// machete. Singularul vine din `gmotion_core::nume_tip`.
 fn nume_tip_plural(tip: &str) -> &'static str {
     match gmotion_core::nume_tip(tip) {
-        "procedură" => "Proceduri",
+        "procedura" => "Proceduri",
         "view" => "View-uri",
-        "funcție" => "Funcții",
+        "functie" => "Functii",
         "trigger" => "Triggere",
         _ => "Alte obiecte",
     }
@@ -522,7 +522,7 @@ fn nume_tip_plural(tip: &str) -> &'static str {
 
 /// Pune in previzualizare diferenta obiectului selectat: aceleasi randuri ca
 /// in editor (un singur motor), pliate, plus propozitia care spune ce s-a
-/// schimbat („un singur caracter, într-un șir: Nu → nu").
+/// schimbat („un singur caracter, intr-un sir: Nu → nu").
 ///
 /// Textele sunt cele pregatite pentru afisare (`pregateste_afisare`).
 pub fn incarca_previzualizare(
@@ -716,7 +716,7 @@ mod teste {
             &AntetEditor {
                 schema: "dbo",
                 nume: "usp_Test",
-                tip: "procedură",
+                tip: "procedura",
                 sursa_baza: "Dev",
                 sursa_server: "srv-dev",
                 tinta_baza: "Prod",
@@ -730,7 +730,7 @@ mod teste {
         assert_eq!(ui.get_obiect_schema(), "dbo");
         assert_eq!(ui.get_eticheta_mediu(), "PROD");
         assert_eq!(ui.get_mediu(), 2);
-        assert_eq!(ui.get_rezumat(), "1 diferență");
+        assert_eq!(ui.get_rezumat(), "1 diferenta");
         assert_eq!(ui.get_total_diferente(), 1);
         assert!(ui.get_randuri().row_count() > 0);
         assert_eq!(ui.get_marcaje().row_count(), 1);
@@ -753,7 +753,7 @@ mod teste {
         let antet = AntetEditor {
             schema: "dbo",
             nume: "usp_Test",
-            tip: "procedură",
+            tip: "procedura",
             sursa_baza: "Dev",
             sursa_server: "",
             tinta_baza: "Prod",
@@ -791,7 +791,7 @@ mod teste {
         let antet = AntetEditor {
             schema: "dbo",
             nume: "usp_Test",
-            tip: "procedură",
+            tip: "procedura",
             sursa_baza: "Dev",
             sursa_server: "",
             tinta_baza: "Prod",
@@ -823,10 +823,10 @@ mod teste {
 
     #[test]
     fn numeralele_sunt_in_romana() {
-        assert_eq!(numar_diferente(0), "fără diferențe");
-        assert_eq!(numar_diferente(1), "1 diferență");
-        assert_eq!(numar_diferente(4), "4 diferențe");
-        assert_eq!(numar_diferente(21), "21 de diferențe");
+        assert_eq!(numar_diferente(0), "fara diferente");
+        assert_eq!(numar_diferente(1), "1 diferenta");
+        assert_eq!(numar_diferente(4), "4 diferente");
+        assert_eq!(numar_diferente(21), "21 de diferente");
         assert_eq!(detaliu_panou("srv-dev", 47), "srv-dev · 47 de linii");
         assert_eq!(detaliu_panou("", 1), "1 linie");
         assert_eq!(detaliu_panou("srv", 9), "srv · 9 linii");
@@ -898,8 +898,8 @@ mod teste {
             categorii,
             [
                 "Modificate",
-                "Doar în sursă",
-                "Doar în bază",
+                "Doar in sursa",
+                "Doar in baza",
                 "Identice",
                 "Criptate"
             ]
@@ -918,7 +918,7 @@ mod teste {
             .iter()
             .find(|r| r.nume == "usp_Stoc")
             .expect("randul obiectului modificat");
-        assert_eq!(r.tip, "procedură");
+        assert_eq!(r.tip, "procedura");
         assert_eq!(r.litera, "M");
         // lista e sortata alfabetic, deci primul rand e altul
         assert_eq!(ui.get_randuri().row_data(0).unwrap().nume, "usp_Import");
@@ -945,7 +945,7 @@ mod teste {
         incarca_previzualizare(&ui, &a, &b, &[]);
         assert_eq!(
             ui.get_ce_difera(),
-            "un singur caracter, într-un șir: Nu → nu"
+            "un singur caracter, intr-un sir: Nu → nu"
         );
         assert!(ui.get_previzualizare().row_count() > 0);
         goleste_previzualizarea(&ui);
@@ -974,7 +974,7 @@ mod teste {
         lista.pune_detalii(
             p,
             model_lista::Detalii {
-                difera_in: "un șir".into(),
+                difera_in: "un sir".into(),
                 linii_plus: 1,
                 linii_minus: 1,
             },
@@ -986,7 +986,7 @@ mod teste {
             .find(|r| r.nume == "usp_Stoc")
             .unwrap();
         assert_eq!((r.plus.as_str(), r.minus.as_str()), ("+1", "−1"));
-        assert_eq!(r.difera_in, "un șir");
+        assert_eq!(r.difera_in, "un sir");
     }
 
     fn fereastra_conectare() -> FereastraConectare {
@@ -1003,7 +1003,7 @@ mod teste {
         let ui = fereastra_conectare();
         let mut c = Conectare::noua();
         incarca_conectare(&ui, &c);
-        assert_eq!(ui.get_ce_lipseste(), "completează serverul pentru sursă");
+        assert_eq!(ui.get_ce_lipseste(), "completeaza serverul pentru sursa");
 
         c.sursa = Parte {
             server: "SRV-DEV".into(),

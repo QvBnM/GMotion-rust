@@ -3,7 +3,7 @@
 #
 # PAS EXPLICIT, niciodata automat. Un fixture regenerat ca sa treaca un test e
 # exact mecanismul prin care au divergat cele doua motoare din v3.4. Daca un
-# test de conformitate cade, intai presupui ca portul Rust e greșit.
+# test de conformitate cade, intai presupui ca portul Rust e gresit.
 #
 # Se ruleaza doar cand:
 #   - s-a adaugat un caz in referinta/cazuri.json, sau

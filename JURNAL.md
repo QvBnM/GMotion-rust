@@ -18,8 +18,8 @@ de la aceleasi commit-uri.
 acum, raman doar in istoricul git; (c) se inghetata in repo.
 
 **Motiv.** (c). Harness-ul de conformitate are nevoie de `motor.py` si `ui.py`
-ca sa poată regenera fixture-urile, si etapa de paritate are nevoie de o
-versiune care nu se mișca. Dezvoltarea paralela ar face tinta de paritate
+ca sa poata regenera fixture-urile, si etapa de paritate are nevoie de o
+versiune care nu se misca. Dezvoltarea paralela ar face tinta de paritate
 mobila; stergerea ar scoate plasa de siguranta.
 
 **Consecinte.** `mostenire/` nu se modifica niciodata. Se sterge abia dupa ce
@@ -36,7 +36,7 @@ prototipul de interfata.
 costul partii grele; (b) CLI si paritate intai, interfata dupa.
 
 **Motiv.** (b). Mediul de dezvoltare al asistentului e Linux, fara SQL Server si
-fara fereastra. Daca tot ce e valoros trăiește in spatele unui GUI Windows,
+fara fereastra. Daca tot ce e valoros traieste in spatele unui GUI Windows,
 fiecare bug devine o rulare manuala pe masina utilizatorului. Paritatea cu
 Python — singurul lucru care permite retragerea versiunii vechi — nu depinde
 deloc de interfata, deci nu are sens sa fie blocata de componenta cu cea mai
@@ -75,7 +75,7 @@ bloc pe mai multe linii il face sa raporteze doua blocuri sterse care nu
 exista).
 
 **Consecinte.** Fixture-ul de referinta e `referinta/rezultate_js.json`. Cand
-testul de conformitate cade, presupunerea implicita e ca portul Rust e greșit,
+testul de conformitate cade, presupunerea implicita e ca portul Rust e gresit,
 nu fixture-ul. Divergentele raman deci intentionate: versiunea Rust **nu** e
 identica cu `motor.py`, si asta e corect.
 
@@ -95,7 +95,7 @@ face I/O si trebuie sa ramana compilabil pe wasm.
 **Context.** Decizia deschisa din etapa 0. Versiunea Python foloseste ODBC si
 cere un driver instalat pe masina tinta.
 
-**Alternative.** (a) `odbc-api` — comportament identic cu azi, dar rămâne
+**Alternative.** (a) `odbc-api` — comportament identic cu azi, dar ramane
 dependenta de driver; (b) `tiberius` — TDS nativ, pur Rust.
 
 **Motiv.** (b), si nu pentru argumentul din plan. Scoaterea ODBC de pe masina
@@ -107,7 +107,7 @@ a decide: `tiberius` are SQL auth, `AuthMethod::Integrated` prin SSPI pe Windows
 (feature `winauth`), si descoperire prin SQL Browser — acopera tot ce face
 versiunea Python.
 
-**Consecinte.** Testul pe server real rămâne necesar, dar ca **validare**, nu ca
+**Consecinte.** Testul pe server real ramane necesar, dar ca **validare**, nu ca
 alegere, si nu blocheaza etapele urmatoare. Daca validarea cade pe
 autentificarea integrata intr-un domeniu, alternativa nu e intoarcerea la ODBC
 ci `integrated-auth-gssapi`.
@@ -173,10 +173,10 @@ compilat nici analizat aici.
 biblioteca standard a tintei, si functioneaza inclusiv cu `tiberius` pe
 SChannel. Deci codul de Windows poate fi verificat la compilare fara Windows.
 
-**Consecinte.** S-a plătit in aceeasi zi: prima versiune a FFI-ului DPAPI nu
+**Consecinte.** S-a platit in aceeasi zi: prima versiune a FFI-ului DPAPI nu
 compila pe Windows (closure Rust pasat unde se cerea pointer `extern "system"`)
 si nimic de pe Linux nu o arata. Regula generala a intrat in `CLAUDE.md`.
-Verificarea e sarita in modul `rapid` al porții, deci inainte de a declara
+Verificarea e sarita in modul `rapid` al portii, deci inainte de a declara
 gata cod de Windows se ruleaza poarta completa.
 
 ---
@@ -196,7 +196,7 @@ director.
 
 ---
 
-## 2026-11-17 — O sesiune nu conține secrete, deci clar pe non-Windows e acceptabil
+## 2026-11-17 — O sesiune nu contine secrete, deci clar pe non-Windows e acceptabil
 
 **Context.** DPAPI exista doar pe Windows. Pe Linux ar trebui ori criptare cu
 altceva, ori nimic.
@@ -204,8 +204,8 @@ altceva, ori nimic.
 **Alternative.** (a) un alt mecanism de criptare pe Linux; (b) refuz de a salva;
 (c) scriere in clar, cu marcaj.
 
-**Motiv.** (c), dar **numai** fiindca o sesiune nu conține secrete prin
-construcție: `Sesiune` nu are camp de parola, iar `Autentificare` nu
+**Motiv.** (c), dar **numai** fiindca o sesiune nu contine secrete prin
+constructie: `Sesiune` nu are camp de parola, iar `Autentificare` nu
 implementeaza `Serialize`. Parola se cere la fiecare pornire, ca in versiunea
 Python. Non-Windows e oricum doar mediu de dezvoltare.
 
@@ -221,42 +221,42 @@ din `protejare.rs` trebuie sa **refuze**, nu sa scrie in clar. Scris in
 catre linia de comanda. Prima versiune folosea indexul din lista.
 
 **Motiv.** `gmotion_core::RandDiff` are deja un `id` stabil intre recalculari:
-poziția blocului in referinta pentru randurile ancorate, numere negative unice
+pozitia blocului in referinta pentru randurile ancorate, numere negative unice
 pentru cele doar-adaugate. Deciziile utilizatorului din editor („linia asta o
 iau in deploy, asta nu") se tin minte pe acel id. Cu indexul din lista, orice
 schimbare in tinta le-ar muta pe alte linii.
 
 **Consecinte.** Scris ca invariant in `rust/module/diff-obiecte/CRATE.md`. Cand
-apare editorul, cheia de override e `id`, niciodata poziția.
+apare editorul, cheia de override e `id`, niciodata pozitia.
 
 ---
 
-## 2026-11-17 — Citirea bazelor rămâne secventiala, deocamdata
+## 2026-11-17 — Citirea bazelor ramane secventiala, deocamdata
 
 **Context.** `aduce_obiecte` din versiunea Python citea bazele cu 4 conexiuni
 simultane (`ThreadPoolExecutor`).
 
 **Motiv.** Nu am portat paralelismul: nu am cu ce masura daca merita, si ar
-aduce anulare, erori parțiale si un runtime in plus in `platforma`.
+aduce anulare, erori partiale si un runtime in plus in `platforma`.
 
 **Consecinte.** De masurat la etapa de paritate, pe baze reale. Daca citirea
 dureaza inacceptabil, se adauga in `db::obiecte_multe`, nu in modul — ca sa
-rămână un singur loc. Notat ca neacoperit in `CRATE.md`.
+ramana un singur loc. Notat ca neacoperit in `CRATE.md`.
 
 ---
 
-## 2026-11-17 — Jurnalul scrie la ieșirea de erori, nu la cea standard
+## 2026-11-17 — Jurnalul scrie la iesirea de erori, nu la cea standard
 
-**Context.** `tracing_subscriber::fmt::layer()` scrie implicit la ieșirea
+**Context.** `tracing_subscriber::fmt::layer()` scrie implicit la iesirea
 standard. Linia de comanda scrie JSON tot acolo.
 
-**Motiv.** `gmotion compara --json` producea o ieșire neparsabila, fiindca
+**Motiv.** `gmotion compara --json` producea o iesire neparsabila, fiindca
 liniile de jurnal se amestecau cu JSON-ul. Niciun test de unitate nu o arata:
 toate chemau functii, nu procese.
 
-**Consecinte.** Jurnalul merge la erori. In mod text progresul merge la ieșirea
+**Consecinte.** Jurnalul merge la erori. In mod text progresul merge la iesirea
 standard; pe `--json` se muta si el la erori. Acoperit de un test care parseaza
-ieșirea binarului. Regula generala in `CLAUDE.md`: un binar se probeaza
+iesirea binarului. Regula generala in `CLAUDE.md`: un binar se probeaza
 rulandu-l.
 
 ---
@@ -303,9 +303,9 @@ Modulele `pyodbc`/`webview` se inlocuiesc doar in procesul scriptului;
 
 ---
 
-## 2026-11-17 — Citirea bazelor rămâne secventiala (confirmat pe date reale)
+## 2026-11-17 — Citirea bazelor ramane secventiala (confirmat pe date reale)
 
-**Context.** Decizia „Citirea bazelor rămâne secventiala, deocamdata" lasa
+**Context.** Decizia „Citirea bazelor ramane secventiala, deocamdata" lasa
 masuratoarea pe etapa 6.
 
 **Masuratoare.** Doua baze CharismaERP de ~21.000 de obiecte fiecare, acelasi
@@ -314,7 +314,7 @@ citire + comparatie).
 
 **Motiv.** Rust nu e mai lent decat versiunea pe care o inlocuieste, deci
 paralelismul n-ar rezolva o problema existenta si ar aduce anulare, erori
-parțiale si complexitate in `db`. Se redeschide doar daca un utilizator
+partiale si complexitate in `db`. Se redeschide doar daca un utilizator
 compara multe baze odata si timpul devine o plangere.
 
 ---
@@ -436,7 +436,7 @@ conexiunea se arunca dupa orice eroare; `rezolva_port_instanta` propriu
 
 ## 2026-11-17 — Citirea bazelor devine paralela (anuleaza „ramane secventiala")
 
-**Anuleaza** intrarea „Citirea bazelor rămâne secventiala (confirmat pe date
+**Anuleaza** intrarea „Citirea bazelor ramane secventiala (confirmat pe date
 reale)".
 
 **Context.** A doua rulare a lui Mihai a fost pe alta retea (192.168.1.x, cu
@@ -549,8 +549,8 @@ se **scoate**. Incrucisarea se face intr-un singur loc, `cod_stare` din
 ## 2026-11-17 — Comentariul singur ramane zgomot filtrat
 
 **Context.** Machetele arata un obiect care difera doar intr-un comentariu
-(`rpt.usp_SoldParteneri`, „comentariu", +1 −1) si, in editor, „4 diferențe,
-una doar în comentariu". Motorul insa sterge comentariile la normalizare, ca
+(`rpt.usp_SoldParteneri`, „comentariu", +1 −1) si, in editor, „4 diferente,
+una doar in comentariu". Motorul insa sterge comentariile la normalizare, ca
 in v3.4: un asemenea obiect iese „identic" si nu ajunge nici in lista, nici in
 editor. Alternativa era sa pastram comentariile in hash si in segmentare.
 
@@ -632,7 +632,7 @@ opreste la fel ca unul modificat. Oprirea e `GM-MOD-012`, cu fiecare obiect pe
 nume.
 
 **Forma in `cli`.** `gmotion plan -o plan.json` scrie planul (pasii, cu
-amprentele); `gmotion deploy --plan plan.json` recitește, verifica, si abia
+amprentele); `gmotion deploy --plan plan.json` reciteste, verifica, si abia
 apoi scrie. Fara `--plan`, deploy-ul face planul pe loc din ce tocmai a citit.
 Planul e JSON fiindca e si forma in care fereastra il va tine intre ecrane.
 
@@ -743,7 +743,7 @@ diacritice). Implicitul ramane luminos pana sunt rescrise toate ecranele.
 
 ## Coduri de eroare — registru
 
-Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
+Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
 cautabil in jurnale vechi si in rapoarte de bug.
 
 | Prefix | Zona |

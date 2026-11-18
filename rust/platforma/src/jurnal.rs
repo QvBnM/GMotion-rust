@@ -15,7 +15,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 /// Cate linii se tin in memorie. Peste atat, cele mai vechi se arunca: un
-/// tampon care creste nemarginit intr-o aplicatie care rămâne deschisa toata
+/// tampon care creste nemarginit intr-o aplicatie care ramane deschisa toata
 /// ziua e o scurgere de memorie, nu o facilitate.
 const MAX_LINII: usize = 2000;
 
@@ -106,7 +106,7 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for StratTampon {
             }
             fn record_debug(&mut self, camp: &tracing::field::Field, val: &dyn std::fmt::Debug) {
                 // `format_args!` (mesajul obisnuit) are `Debug` fara ghilimele;
-                // inainte se tăiau ghilimelele de la capete, si cu ele si pe
+                // inainte se taiau ghilimelele de la capete, si cu ele si pe
                 // cele care faceau parte din mesaj.
                 if camp.name() == "message" {
                     self.mesaj = format!("{val:?}");
@@ -177,8 +177,8 @@ pub fn porneste() {
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(FILTRU_IMPLICIT));
     let _ = tracing_subscriber::registry()
         .with(env)
-        // La ieșirea de ERORI, nu la cea standard. Linia de comanda scrie
-        // JSON la ieșirea standard, iar o linie de jurnal amestecata acolo il
+        // La iesirea de ERORI, nu la cea standard. Linia de comanda scrie
+        // JSON la iesirea standard, iar o linie de jurnal amestecata acolo il
         // face neparsabil. S-a intamplat: prima versiune folosea implicitul
         // `fmt::layer()`, care scrie la stdout, si `gmotion ... --json` nu se
         // putea citi.

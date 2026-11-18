@@ -2,9 +2,9 @@
 
 > **Primul fisier de citit la pornirea unei sesiuni.** Spune unde suntem si ce
 > urmeaza. Istoricul a ceea ce s-a facut e in `git log`; aici sta doar ce git nu
-> poate spune: ce urmeaza, ce e blocat, si ce te-ar face sa greșești acum.
+> poate spune: ce urmeaza, ce e blocat, si ce te-ar face sa gresesti acum.
 >
-> Ordinea de pornire e in `CLAUDE.md`, secțiunea 0.
+> Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
 **Poarta:** verde (338 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
@@ -71,7 +71,7 @@ la deschidere), nume case-insensitive intre baze, divergentele Unicode fata de
 JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
-## Ce aștept de la Mihai
+## Ce astept de la Mihai
 
 **Intrebare deschisa:** planul de deploy (Deployer) urmeaza stilul listei sau
 al editorului? Cu aceeasi paleta peste tot, intrebarea e doar de asezare.
@@ -92,7 +92,7 @@ urmatorul pas.
 
 4. **Deploy-ul sterge obiectele care nu mai sunt in sursa?** Macheta are un
    pas `DROP`. Acum obiectele `extra` se sar, ca in v3.4.
-5. **„Rulează" executa scriptul pe server din aplicatie?** Acum GMotion doar
+5. **„Ruleaza" executa scriptul pe server din aplicatie?** Acum GMotion doar
    scrie `.sql`; rularea e in SSMS / sqlcmd. Daca da, e o etapa proprie.
 
 **Trei intrebari din etapa 11** (niciuna nu blocheaza etapa 12):
@@ -107,11 +107,11 @@ urmatorul pas.
    baza ta, din masuratori). Machetele n-au ecran de progres; v3.4 avea. Il
    facem, sau e acceptabil asa?
 
-Rămâne deschis si: paritatea porții pe `cmd` (acum cere Git Bash sau WSL).
+Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 ## Capcane active
 
-Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
+Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
 - **Modul implicit e luminos pana sunt rescrise toate ecranele.** Ecranele
   vechi n-au fost gandite pe fond inchis: `--tema intunecat` merge, dar arata
@@ -137,8 +137,8 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 - **Granitele cod / string / comentariu se decid intr-un singur loc:**
   `core/src/lexer.rs`. O regula noua pe text (in motor sau in deploy) care nu
   trece prin el reintroduce clasa de bug-uri reparata la etapa 7.
-- **Testul de conformitate care cade nu inseamna fixture greșit.** Presupunerea
-  implicita e ca portul Rust e greșit. Fixture-ul se regenereaza doar explicit,
+- **Testul de conformitate care cade nu inseamna fixture gresit.** Presupunerea
+  implicita e ca portul Rust e gresit. Fixture-ul se regenereaza doar explicit,
   prin `unelte/regenereaza-fixture.sh`, cu motivul in `JURNAL.md`.
 - **Un container nou nu are tintele wasm32 si windows-msvc.** Poarta le sare
   si iese tot „verde". Citeste lista de verificari sarite; instaleaza-le cu
@@ -152,7 +152,7 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
 - **Pe Windows ruleaza cu 2 teste mai putin decat pe Linux, si e corect**
   (`auth_integrata_e_refuzata_devreme_pe_linux`, `pe_linux_marcajul_...`). Pe
   Windows in schimb ruleaza `pe_windows_datele_nu_apar_in_clar`.
-- **`mostenire/` nu se atinge.** Poarta cade pe orice modificare de conținut
+- **`mostenire/` nu se atinge.** Poarta cade pe orice modificare de continut
   acolo. Daca ai nevoie de o schimbare in Python, discuta intai: probabil
   insemna ca trebuie regenerate fixture-urile.
 - **Versiunea Rust NU e identica cu `mostenire/motor.py`, si asta e corect.**

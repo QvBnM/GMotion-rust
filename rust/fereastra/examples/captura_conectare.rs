@@ -1,5 +1,5 @@
 //! Randeaza ecranul de conectare fara ecran, intr-un PNG, cu datele din
-//! machetă (`cercetare/machete/Conectare.dc.html`), ca sa se poata compara.
+//! macheta (`cercetare/machete/Conectare.dc.html`), ca sa se poata compara.
 //!
 //!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png
 use std::rc::Rc;
@@ -54,7 +54,7 @@ fn main() {
             baza: "CharismaTest".into(),
             mediu: "TEST".into(),
             cand: "luni, 10:12".into(),
-            progres: "deploy făcut".into(),
+            progres: "deploy facut".into(),
         },
         Recenta {
             sursa: "Charisma_Copy".into(),

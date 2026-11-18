@@ -674,7 +674,7 @@ mod teste {
                 r.stare
             );
         }
-        // blocul modificat are doua linii: ambele aparțin diferentei 0
+        // blocul modificat are doua linii: ambele apartin diferentei 0
         let bloc: Vec<Option<usize>> = (m.diferente[0]..)
             .take_while(|&i| m.randuri[i].stare != Stare::Egal)
             .map(|i| d[i])

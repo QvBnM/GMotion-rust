@@ -16,7 +16,7 @@ bazelor, citirea obiectelor comparabile. Singurul crate cu I/O de retea.
 - **Nu compara nimic.** Ce se compara cu ce e treaba modulului.
 - **Nu salveaza acreditari.** Sesiunile sunt `gmotion-platforma`. Parola nu se
   serializeaza, nu ajunge in `Debug`, nu ajunge in jurnal.
-- **Nu expune asincronie.** `tiberius` e async, dar runtime-ul rămâne inchis in
+- **Nu expune asincronie.** `tiberius` e async, dar runtime-ul ramane inchis in
   `sqlserver.rs`. Altfel `async` ar urca prin platforma si module pana in
   interfata, pentru o aplicatie care face citiri in lot.
 
@@ -33,12 +33,12 @@ se testeaza fara SQL Server.
 | `descriere()` | pentru jurnal si diagnostic. Niciodata parole |
 | `baze()` | bazele disponibile, sortate, fara cele de sistem |
 | `obiecte(baza)` | proceduri, view-uri, functii, triggere |
-| `obiecte_multe(baze, progres)` | bucla cu raportare de progres; prima eroare oprește citirea |
+| `obiecte_multe(baze, progres)` | bucla cu raportare de progres; prima eroare opreste citirea |
 
 ### Tipuri
 
 `Obiect` (`schema`, `nume`, `tip`, `definitie`, plus `id()` = `schema.nume`),
-`Tinta` (server + port opțional), `Autentificare` (`Sql` sau `Integrata`),
+`Tinta` (server + port optional), `Autentificare` (`Sql` sau `Integrata`),
 `Instanta`, `InfoServer`.
 
 ### Surse
@@ -75,7 +75,7 @@ se testeaza fara SQL Server.
    instantaneu. Altfel diff-ul a doua instantanee e nefolositor.
 5. **Un instantaneu dus-intors prin JSON da obiecte identice,** inclusiv CRLF,
    diacritice, ghilimele si apostrofuri escapate.
-6. **`obiecte_multe` se oprește la prima eroare.** O comparare pe baze
+6. **`obiecte_multe` se opreste la prima eroare.** O comparare pe baze
    incomplete da rezultate false, ceea ce e mai rau decat sa nu dea nimic.
    Pe SQL Server citeste pana la 4 baze deodata, pe conexiuni separate (ca
    v3.4); ordinea rezultatului e cea ceruta.
@@ -107,11 +107,11 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 | `GM-DB-001` cu „timeout dupa 30 s (TCP, TLS si autentificare)” | serverul accepta TCP dar nu termina login-ul: alt serviciu pe port, server blocat | `src/sqlserver.rs`, `conectare` |
 | `GM-DB-001` cu eroare de certificat | `--certificat sistem` pe un server cu certificat autosemnat sau cu alt nume | `src/sqlserver.rs`, `configuratie` |
 | `GM-DB-002` | autentificare refuzata: parola, utilizator, drepturi pe baza | `src/sqlserver.rs` |
-| `GM-DB-003` | auth integrata cerută pe un sistem care nu o are (orice non-Windows) | `src/sqlserver.rs` |
+| `GM-DB-003` | auth integrata ceruta pe un sistem care nu o are (orice non-Windows) | `src/sqlserver.rs` |
 | `GM-DB-004` | interogarea cade: drepturi lipsa pe `sys.sql_modules`, baza offline | `src/sqlserver.rs` |
 | `GM-DB-011` | nume de baza gol, peste 128 de caractere, sau cu caractere de control | `src/eroare.rs` |
-| `GM-DB-005` | baza cerută nu exista in sursa | `src/sqlserver.rs`, `src/fixture.rs` |
-| `GM-DB-006` | descoperirea eșueaza: socket UDP blocat local | `src/descoperire.rs` |
+| `GM-DB-005` | baza ceruta nu exista in sursa | `src/sqlserver.rs`, `src/fixture.rs` |
+| `GM-DB-006` | descoperirea esueaza: socket UDP blocat local | `src/descoperire.rs` |
 | `GM-DB-007` | instantaneul nu se citeste: fisier lipsa sau JSON rupt | `src/fixture.rs` |
 | `GM-DB-008` | instantaneul nu se scrie: drepturi, disc plin | `src/fixture.rs` |
 | `GM-DB-009` | instantaneu de alta versiune | `src/fixture.rs` |
@@ -150,7 +150,7 @@ Un bug de pe o baza reala se transforma in fixture, si de acolo in test de
 regresie:
 
 ```
-gmotion instantaneu --server SRV01 --baze A,B --ieșire bug.json
+gmotion instantaneu --server SRV01 --baze A,B --iesire bug.json
 gmotion compara --sursa bug.json
 ```
 

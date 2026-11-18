@@ -86,7 +86,7 @@ deploy-ul din interfata, sesiunile.
   ruleaza si nepliat. La fel pentru fonturi: cu `--font-mono UnNumeInexistent`
   iese alt PNG, deci Plex-ul incorporat chiar se foloseste.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 1. **Etapa s-a terminat pe alt aspect decat cel cu care a inceput.** Planul
    initial era „ca in v3.4"; pe parcurs Mihai a cerut cercetare de design si a

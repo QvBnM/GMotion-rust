@@ -2,18 +2,18 @@
 //!
 //! **Se strica astfel:** diff-ul nu corespunde cu ce arata lista — un obiect
 //! raportat ca „modificat" care se deschide si arata identic, sau invers. In
-//! versiunea Python asta se putea intampla **ușor**, fiindca lista venea din
+//! versiunea Python asta se putea intampla **usor**, fiindca lista venea din
 //! `motor.py` si editorul din portul JS, iar cele doua divergeau. Aici amandoua
 //! cheama acelasi `gmotion_core`.
 //!
 //! La cerere, nu la comparare: diff-ul complet pe mii de obiecte ar fi scump si
 //! aproape tot ar fi aruncat. Compararea foloseste doar hash si scor.
 //!
-//! **`id` nu e poziția in lista.** `gmotion_core` da fiecarui rand un id stabil
-//! intre recalculari: pentru randurile ancorate in referinta e poziția blocului
+//! **`id` nu e pozitia in lista.** `gmotion_core` da fiecarui rand un id stabil
+//! intre recalculari: pentru randurile ancorate in referinta e pozitia blocului
 //! in referinta, iar cele doar-adaugate primesc id-uri negative. Asta e cheia
 //! prin care se tin minte deciziile utilizatorului („linia asta o iau, asta
-//! nu") si supraviețuiesc unei recalculari. Daca s-ar folosi indexul din lista,
+//! nu") si supravietuiesc unei recalculari. Daca s-ar folosi indexul din lista,
 //! orice schimbare in tinta ar muta deciziile pe alte linii.
 
 use gmotion_core::{diff_aliniat, rezumat_diff, FelSchimbare, RandDiff, TipDiferenta};
@@ -77,7 +77,7 @@ impl Fel {
 /// Un rand de diff, in forma in care il consuma un ecran sau linia de comanda.
 ///
 /// Tipurile proprii, nu cele din `gmotion_core`: `core` nu depinde de `serde`
-/// (trebuie sa rămână minim, fiindca merge si pe wasm), iar forma serializata e
+/// (trebuie sa ramana minim, fiindca merge si pe wasm), iar forma serializata e
 /// o decizie a modulului, nu a motorului.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Diferenta {
@@ -137,7 +137,7 @@ pub fn diferente_obiect(referinta: &str, curent: &str) -> (Vec<Diferenta>, Strin
 /// cere pentru randurile pe care chiar le arata.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Detalii {
-    /// „cod, șiruri", „un șir", „comentariu", „QUOTED_IDENTIFIER", „—".
+    /// „cod, siruri", „un sir", „comentariu", „QUOTED_IDENTIFIER", „—".
     pub difera_in: String,
     /// Linii care ar intra in baza (sunt in sursa, nu si in baza).
     pub linii_plus: usize,
@@ -200,9 +200,9 @@ mod teste {
     #[test]
     fn id_ul_e_stabil_intre_recalculari_nu_e_indexul() {
         // Acelasi obiect de referinta, doua tinte diferite: randurile ancorate
-        // in referinta trebuie sa pastreze id-ul, chiar daca poziția in lista
+        // in referinta trebuie sa pastreze id-ul, chiar daca pozitia in lista
         // se schimba. Asta e ce permite ca deciziile utilizatorului sa
-        // supravieţuiasca unei recalculari.
+        // supravietuiasca unei recalculari.
         let referinta = "SELECT 1\n\nSELECT 2\n\nSELECT 3";
         let (a, _) = diferente_obiect(referinta, "SELECT 1\n\nSELECT 2\n\nSELECT 3");
         let (b, _) = diferente_obiect(referinta, "SELECT 1\n\nSELECT 99\n\nSELECT 3");
@@ -279,6 +279,6 @@ mod teste {
             "RAISERROR('Nu s-au gasit date', 16, 1);",
             &[],
         );
-        assert_eq!(d.difera_in, "un șir");
+        assert_eq!(d.difera_in, "un sir");
     }
 }

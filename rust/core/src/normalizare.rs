@@ -63,7 +63,7 @@ const MARCAJ_SFARSIT: char = '\u{E001}';
 /// Ultimul pas (`\s+([,;)])` -> `$1`) exista pentru ca stergerea hint-urilor
 /// sau a lui `COLLATE database_default` poate lasa un spatiu orfan inainte de
 /// virgula sau de paranteza inchisa (ex: `char(24) ,`). Fara el, doua blocuri
-/// identice semantic ieseau cu normalizari diferite si erau marcate greșit ca
+/// identice semantic ieseau cu normalizari diferite si erau marcate gresit ca
 /// `modificat`.
 ///
 /// Pastrate exact: string-urile (`'...'`) si identificatorii in ghilimele.
@@ -272,7 +272,7 @@ mod teste {
             ("SELECT \"a--b\", x FROM t", "SELECT \"a--b\", y FROM u"),
             // continutul literalelor
             ("WHERE s = 'Activ'", "WHERE s = 'ACTIV'"),
-            ("SELECT N'Ăla'", "SELECT N'ăla'"),
+            ("SELECT N'Ăla'", "SELECT N'ăla'"), // diacritice-permise: date de test
             ("SELECT 'a  b'", "SELECT 'a b'"),
             ("SELECT 'a ,b'", "SELECT 'a,b'"),
             ("WHERE c LIKE '[0-9]%'", "WHERE c LIKE '0-9%'"),

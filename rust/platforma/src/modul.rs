@@ -4,18 +4,18 @@
 //! **Se strica astfel:** metodele comune se rescriu in fiecare modul, sau un
 //! modul ajunge la starea altuia. In versiunea Python clasa `Api` expunea
 //! metodele modulului de diff direct la nivelul de sus (`test_conexiune`,
-//! `cauta_servere`, `progres`, `log_lines` lingă `rezultate` si
+//! `cauta_servere`, `progres`, `log_lines` linga `rezultate` si
 //! `genereaza_deployer`). Cu patru module, ori se ciocnesc numele, ori se
 //! copiaza codul comun de patru ori.
 //!
-//! Aici: ce e comun stă la platforma si se scrie o data; ce e specific se
+//! Aici: ce e comun sta la platforma si se scrie o data; ce e specific se
 //! inregistreaza cu prefix de modul, deci `diff-obiecte/rezultate` si
 //! `upgrade/rezultate` pot coexista.
 //!
 //! **Provizoriu:** partea de ecrane e declarativa si minimala, fiindca
 //! interfata nu exista inca. Se va largi la etapa de fereastra, si atunci
 //! modulul 2 va fi testul real al contractului — daca are nevoie de schimbari
-//! in platforma, contractul de aici era greșit.
+//! in platforma, contractul de aici era gresit.
 
 use std::collections::BTreeMap;
 
@@ -81,8 +81,8 @@ pub struct Ecran {
 
 /// Ce declara un modul despre sine.
 ///
-/// Nu conține logica: logica e in crate-ul modulului. Asta e doar ce trebuie sa
-/// stie platforma ca sa-l poată inregistra, ruta si porni.
+/// Nu contine logica: logica e in crate-ul modulului. Asta e doar ce trebuie sa
+/// stie platforma ca sa-l poata inregistra, ruta si porni.
 pub trait Modul {
     /// Identificator: litere mici, cifre, cratima. Devine prefix de ruta **si**
     /// nume de director pentru sesiuni, deci e validat strict.
@@ -178,7 +178,7 @@ impl Registru {
     /// intoarce [`Ruta::Platforma`].
     pub fn ruteaza(&self, ruta: &str) -> Rezultat<Ruta<'_>> {
         // Se intoarce intrarea din tabel, nu textul primit: `Ruta` trebuie sa
-        // trăiască independent de durata argumentului.
+        // traiasca independent de durata argumentului.
         if let Some(m) = METODE_PLATFORMA.iter().find(|m| **m == ruta) {
             return Ok(Ruta::Platforma(m));
         }

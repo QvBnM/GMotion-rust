@@ -11,8 +11,8 @@ proiectul.
 ## Nu face
 
 - **Fara I/O.** Niciun `std::fs`, nicio retea, nicio baza de date. Trebuie sa
-  compileze pe `wasm32-unknown-unknown`, ca sa poată fi folosit si de backend si
-  de editorul live — exact asta impiedica reapariția celor doua motoare
+  compileze pe `wasm32-unknown-unknown`, ca sa poata fi folosit si de backend si
+  de editorul live — exact asta impiedica reaparitia celor doua motoare
   divergente din v3.4.
 - Fara nimic specific unei interfete: fara culori, fara HTML, fara formatare de
   afisat.
@@ -64,20 +64,20 @@ proiectul.
 `clasifica_diferente(ref, tinta) -> Clasificare` (sau `clasifica_randuri` pe randuri deja aliniate) — in ce difera doua versiuni:
 `cod` / `siruri` / `comentarii` (bucati schimbate, nu caractere), prin `lexer`.
 `propozitie(ref, tinta, setari)` — propozitia din previzualizare:
-„un singur caracter, într-un șir: Nu → nu", altfel „diferă în ...".
+„un singur caracter, intr-un sir: Nu → nu", altfel „difera in ...".
 `eticheta(c, setari)` — textul din coloana „Difera in" al machetelor:
-„cod, șiruri", „un șir", „comentariu", „QUOTED_IDENTIFIER", „—".
+„cod, siruri", „un sir", „comentariu", „QUOTED_IDENTIFIER", „—".
 
 **Comentariul singur nu ajunge aici:** normalizarea sterge comentariile (ca in
 v3.4), deci un obiect care difera doar intr-un comentariu e „identic" si nu
 intra in lista. Decizie confirmata 2026-11-17; vezi testul
 `comentariul_singur_ramane_zgomot_filtrat`.
 
-### rădăcină
+### radacina
 `TIPURI_OBIECTE` — tipurile comparate, ca in `sys.objects.type`:
 `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.
-`nume_tip(tip)` — numele tipului pentru utilizator („procedură", „view",
-„funcție", „trigger"), acelasi text in `cli` si in fereastra.
+`nume_tip(tip)` — numele tipului pentru utilizator („procedura", „view",
+„functie", „trigger"), acelasi text in `cli` si in fereastra.
 
 ## Invariante
 
@@ -140,10 +140,10 @@ Trei straturi:
    aleator, ci formele care pun la incercare invariantele: literale si
    comentarii pe mai multe linii in care o linie **incepe** cu un cuvant cheie,
    `CASE` imbricate, paranteze pe mai multe linii, `UNION` la final, cursor
-   `FOR`, `INSERT ... SELECT`. Un eșec raporteaza seed-ul si textul.
+   `FOR`, `INSERT ... SELECT`. Un esec raporteaza seed-ul si textul.
 
 **Daca testul de conformitate cade, presupunerea implicita e ca portul Rust e
-greșit.** Fixture-ul nu se regenereaza pentru a face un test sa treaca — asa au
+gresit.** Fixture-ul nu se regenereaza pentru a face un test sa treaca — asa au
 divergat cele doua motoare din v3.4.
 
 Fuzz-ul a fost pus la proba cu trei bug-uri introduse deliberat in
@@ -165,7 +165,7 @@ cargo run --release --example bench      # cere referinta/corpus_bench.json
 Un caz nou se adauga in `referinta/cazuri.json`, se regenereaza fixture-ul prin
 `unelte/regenereaza-fixture.sh` (cere `node`), si abia apoi se repara codul.
 
-Un eșec de fuzz se reproduce cu seed-ul din mesaj. Generatorul e determinist:
+Un esec de fuzz se reproduce cu seed-ul din mesaj. Generatorul e determinist:
 `SEED_URI` si listele de fragmente sunt in capul lui `tests/invariante.rs`, si
 un fragment nou se adauga acolo cand apare o forma de T-SQL pe care nu o
 acopera.

@@ -39,7 +39,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 ## Invariante
 
 1. **Un singur obiect „curent".** Ce e selectat in lista e si ce se deschide in
-   editor; `j` / `k` din editor **mută selectia**, ca intoarcerea in lista sa
+   editor; `j` / `k` din editor **muta selectia**, ca intoarcerea in lista sa
    cada unde trebuie.
 2. **Bifa de revizuit trece prin `Revizuire`,** nu doar prin lista: altfel ar
    arata bifat ceva ce nu s-a salvat.

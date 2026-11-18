@@ -179,7 +179,7 @@ export component EditorDiferente inherits Window {
                                     Chevron { drum: "M 10 3 L 5 8 L 10 13"; culoare: Tema.text-secundar; width: 14px; height: 14px; stroke-width: 1.5px; }
                                 }
                                 lista-et := Text {
-                                    text: "Listă";
+                                    text: "Lista";
                                     font-size: 13px;
                                     color: Tema.text-secundar;
                                     vertical-alignment: center;
@@ -277,7 +277,7 @@ export component EditorDiferente inherits Window {
                                 apasat => { root.comuta-revizuit(); }
                             }
                             ButonPrincipal {
-                                text: "În plan";
+                                text: "In plan";
                                 apasat => { root.adauga-in-plan(); }
                             }
                         }
@@ -302,7 +302,7 @@ export component EditorDiferente inherits Window {
                         horizontal-stretch: 0;
                         spacing: 14px;
                         Tab {
-                            text: "Alăturat";
+                            text: "Alaturat";
                             activ: root.alaturat;
                             apasat => { root.alaturat = true; root.comuta-alaturat(true); }
                         }
@@ -317,7 +317,7 @@ export component EditorDiferente inherits Window {
                         horizontal-stretch: 0;
                         alignment: center;
                         Bifa {
-                            text: "pliază identicul";
+                            text: "pliaza identicul";
                             bifat: root.pliaza-identicul;
                             schimbat(v) => { root.pliaza-identicul = v; root.comuta-plierea(v); }
                         }
@@ -330,7 +330,7 @@ export component EditorDiferente inherits Window {
                             min-width: editeaza.preferred-width;
                             height: 18px;
                             editeaza := Text {
-                                text: "editează textul final";
+                                text: "editeaza textul final";
                                 font-size: 12.5px;
                                 color: Tema.selectie;
                                 vertical-alignment: center;
@@ -504,10 +504,10 @@ export component EditorDiferente inherits Window {
                     padding-left: 16px;
                     padding-right: 16px;
                     spacing: 16px;
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "n p"; ce: "diferență"; } }
+                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "n p"; ce: "diferenta"; } }
                     VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "j k"; ce: "obiect"; } }
                     VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "u"; ce: "unificat"; } }
-                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "esc"; ce: "listă"; } }
+                    VerticalLayout { horizontal-stretch: 0; alignment: center; Scurtatura { tasta: "esc"; ce: "lista"; } }
                     Rectangle { horizontal-stretch: 1; }
                     VerticalLayout {
                         horizontal-stretch: 0;

@@ -31,7 +31,7 @@ impl Mod {
     /// `intunecat` / `luminos`, ca la `gmotion-ui --tema`.
     pub fn din_nume(nume: &str) -> Option<Mod> {
         match nume.trim().to_lowercase().as_str() {
-            "intunecat" | "întunecat" | "dark" => Some(Mod::Intunecat),
+            "intunecat" | "întunecat" | "dark" => Some(Mod::Intunecat), // diacritice-permise: date de test
             "luminos" | "light" => Some(Mod::Luminos),
             _ => None,
         }
@@ -518,7 +518,7 @@ mod teste {
     #[test]
     fn modurile_se_aleg_dupa_nume() {
         assert_eq!(Mod::din_nume("intunecat"), Some(Mod::Intunecat));
-        assert_eq!(Mod::din_nume(" Întunecat "), Some(Mod::Intunecat));
+        assert_eq!(Mod::din_nume(" Întunecat "), Some(Mod::Intunecat)); // diacritice-permise: date de test
         assert_eq!(Mod::din_nume("luminos"), Some(Mod::Luminos));
         assert_eq!(Mod::din_nume("verde"), None);
         for m in [Mod::Intunecat, Mod::Luminos] {

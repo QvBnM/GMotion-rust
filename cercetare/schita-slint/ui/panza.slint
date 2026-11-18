@@ -67,7 +67,7 @@ component Punct inherits HorizontalLayout {
 component Copiaza inherits Rectangle {
     height: 26px; width: ct.preferred-width + 18px; border-radius: 7px; border-width: 1px; border-color: P.p-linie;
     background: zc.has-hover ? P.p-hover : P.p-fond;
-    ct := Text { text: "Copiază"; font-family: P.ui; font-size: 12px; color: P.p-text; }
+    ct := Text { text: "Copiaza"; font-family: P.ui; font-size: 12px; color: P.p-text; }
     zc := TouchArea { }
 }
 
@@ -116,8 +116,8 @@ export component Panza inherits Window {
                     Text { text: fraza; font-size: 16px; color: P.p-sec; horizontal-stretch: 1; vertical-alignment: center; }
                     // legenda culorilor, o data, pentru ambele panouri
                     Punct { c: P.p-mod; t: "modificat"; }
-                    Punct { c: P.p-add; t: "adus din sursă"; }
-                    Punct { c: P.p-del; t: "doar în bază"; }
+                    Punct { c: P.p-add; t: "adus din sursa"; }
+                    Punct { c: P.p-del; t: "doar in baza"; }
                     Punct { c: P.p-tine; t: "scris de tine"; } }
             }
         }
@@ -139,7 +139,7 @@ export component Panza inherits Window {
                         Rectangle { width: panou; border-top-left-radius: 14px; border-top-right-radius: 14px; background: P.p-cap-sursa;
                             Rectangle { y: parent.height - 1px; height: 1px; background: P.p-linie; }
                             HorizontalLayout { padding-left: 16px; padding-right: 10px; spacing: 10px;
-                                Text { text: "Sursă"; font-size: 15px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+                                Text { text: "Sursa"; font-size: 15px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
                                 Text { text: sursa; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                                 VerticalLayout { alignment: center; Rectangle { height: 22px; width: dc.preferred-width + 16px; border-radius: 11px; background: #e3e6ec;
                                     dc := Text { text: "doar citire"; font-size: 11.5px; color: P.p-sec; } } }
@@ -147,7 +147,7 @@ export component Panza inherits Window {
                         Rectangle { width: panou; border-top-left-radius: 14px; border-top-right-radius: 14px; background: P.p-cap-baza;
                             Rectangle { y: parent.height - 1px; height: 1px; background: P.p-contur-baza; }
                             HorizontalLayout { padding-left: 16px; padding-right: 10px; spacing: 10px;
-                                Text { text: "Bază"; font-size: 15px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+                                Text { text: "Baza"; font-size: 15px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
                                 Text { text: tinta; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
                                 VerticalLayout { alignment: center; EticMediu { mediu: mediu; } }
                                 VerticalLayout { alignment: center; Rectangle { height: 22px; width: ed.preferred-width + 16px; border-radius: 11px; background: P.p-tine;
@@ -260,7 +260,7 @@ export component Panza inherits Window {
         Hud {
             width: hj.preferred-width + 12px;
             hj := HorizontalLayout { padding: 6px; spacing: 2px;
-                ButonP { eticheta: "Aplică toate"; fel: 1; }
+                ButonP { eticheta: "Aplica toate"; fel: 1; }
                 ButonP { eticheta: "Reset"; }
                 Despartitor { }
                 ButonP { eticheta: "↑"; tasta: "⇧F7"; }
@@ -269,16 +269,16 @@ export component Panza inherits Window {
                 Despartitor { }
                 ButonP { eticheta: ghidat ? "Mod ghidat pornit" : "Mod ghidat"; nota: nerezolvate; tasta: "g"; fel: ghidat ? 2 : 0; }
                 Despartitor { }
-                ButonP { eticheta: "Alăturat"; fel: 2; }
+                ButonP { eticheta: "Alaturat"; fel: 2; }
                 ButonP { eticheta: "Unificat"; tasta: "u"; }
             }
         }
         Hud {
             width: hx.preferred-width + 12px;
             hx := HorizontalLayout { padding: 6px; spacing: 2px;
-                ButonP { eticheta: "Ascunde diferențele"; }
-                ButonP { eticheta: "Re-sincronizează"; }
-                ButonP { eticheta: "Unește cursorul"; }
+                ButonP { eticheta: "Ascunde diferentele"; }
+                ButonP { eticheta: "Re-sincronizeaza"; }
+                ButonP { eticheta: "Uneste cursorul"; }
             }
         }
     }
@@ -291,10 +291,10 @@ export component Panza inherits Window {
         gc := VerticalLayout { padding: 18px; spacing: 12px;
             HorizontalLayout {
                 Text { text: ghidat-titlu; font-size: 13px; font-weight: 600; color: white; horizontal-stretch: 1; }
-                Text { text: "Sus / Jos: altă diferență"; font-size: 12px; color: #c5c9d2; } }
-            Text { text: "Ce pui în bază pentru blocul ăsta?"; font-size: 15px; color: white; }
+                Text { text: "Sus / Jos: alta diferenta"; font-size: 12px; color: #c5c9d2; } }
+            Text { text: "Ce pui in baza pentru blocul asta?"; font-size: 15px; color: white; }
             HorizontalLayout { spacing: 6px;
-                for o[i] in ["Din sursă", "Din țintă", "Editează"]: Rectangle {
+                for o[i] in ["Din sursa", "Din tinta", "Editeaza"]: Rectangle {
                     height: 34px; width: ot.preferred-width + 24px; border-radius: 9px;
                     background: i == 0 ? #ffffff26 : transparent; border-width: 1px; border-color: #ffffff33;
                     ot := Text { text: o; font-size: 13px; color: white; } }
@@ -302,7 +302,7 @@ export component Panza inherits Window {
                 Rectangle { height: 34px; width: st.preferred-width + 24px; border-radius: 9px;
                     st := Text { text: "Sari peste  Esc"; font-size: 13px; color: #c5c9d2; } }
                 Rectangle { height: 34px; width: at.preferred-width + 28px; border-radius: 9px; background: P.p-mod;
-                    at := Text { text: "Aplică  ↵"; font-size: 13px; font-weight: 600; color: P.pe-mod; } } }
+                    at := Text { text: "Aplica  ↵"; font-size: 13px; font-weight: 600; color: P.pe-mod; } } }
         }
     }
 

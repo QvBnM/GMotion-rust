@@ -21,10 +21,10 @@ etapa asta adauga ce ii lipseste ca sa fie sigur de apasat.
 - [x] amandoua accesibile din `cli` (CLAUDE.md §3), cu test pe binar
 - [ ] ecranul in Slint, fidel machetei: taburile Ordinea / Atentionari /
       Script, propozitia de rezumat, pasii numerotati in ordinea
-      dependentelor, verificarile (✓ / !), „salvează întâi versiunea actuală",
+      dependentelor, verificarile (✓ / !), „salveaza intai versiunea actuala",
       si — doar pentru PROD cu DROP — confirmarea prin tastarea numelui bazei
 - [ ] planul (ce intra, in ce ordine, ce atentionari) are teste fara fereastra
-- [ ] captura PNG langa machetă
+- [ ] captura PNG langa macheta
 - [ ] poarta verde: `unelte/verifica.sh`
 - [ ] `STARE.md` actualizat
 - [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
@@ -58,7 +58,7 @@ etapa asta adauga ce ii lipseste ca sa fie sigur de apasat.
   `JURNAL.md`): intai paritatea functionala cu v3.4. Ecranul de deploy intra
   in ordinea lipsurilor din `cercetare/lipsuri-portare.md`.
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 - **Ecranul nu s-a facut in etapa asta.** Dupa pasul 3, Mihai a schimbat
   ordinea (intai paritatea cu v3.4) si apoi designul intreg. Criteriile

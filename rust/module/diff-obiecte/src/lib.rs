@@ -8,7 +8,7 @@
 //! Modulele, fiecare cu categoria lui de bug:
 //!
 //! - [`comparare`] — clasificarea obiectelor. Se strica punand un obiect in
-//!   categoria greșita;
+//!   categoria gresita;
 //! - [`diferente`] — diff-ul unui obiect, la cerere;
 //! - [`deploy`] — generatorul de scripturi. Cea mai scumpa greseala posibila,
 //!   fiindca se vede dupa ce a rulat pe o baza;

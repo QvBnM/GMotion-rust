@@ -471,7 +471,7 @@ fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
     Ok(out)
 }
 
-/// Erorile de la deschiderea conexiunii: parola greșita, baza inaccesibila sau
+/// Erorile de la deschiderea conexiunii: parola gresita, baza inaccesibila sau
 /// server inaccesibil, fiecare cu codul ei, ca utilizatorul sa stie daca sa
 /// verifice reteaua, acreditarile sau numele bazei. Erorile de interogare nu
 /// trec pe aici (sunt `GM-DB-004`): pana la audit treceau, si o interogare
@@ -502,7 +502,7 @@ fn clasifica_conectare(server: &str, baza: &str, e: tiberius::error::Error) -> E
 /// Autentificarea integrata Windows (SSPI) exista doar pe Windows. Pe Linux
 /// `tiberius` o ofera prin Kerberos/GSSAPI, dar asta ar cere o configurare de
 /// domeniu care nu are rost in dezvoltare — deci aici se raporteaza cinstit ca
-/// nu e disponibila, in loc sa eșueze mai tarziu cu un mesaj obscur.
+/// nu e disponibila, in loc sa esueze mai tarziu cu un mesaj obscur.
 pub fn auth_integrata_disponibila() -> bool {
     cfg!(windows)
 }

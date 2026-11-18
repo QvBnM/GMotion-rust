@@ -7,7 +7,7 @@
 > Se copiaza la pornirea unei etape: `cp etape/SABLON.md etape/0N-nume.md`.
 > Exact o etapa poate fi ACTIVA — poarta verifica. Stari posibile:
 > `NEPORNITA`, `ACTIVA`, `INCHEIATA`, `ABANDONATA`.
-> La incheiere: `Stare: INCHEIATA`, data, si se completeaza ultima secțiune.
+> La incheiere: `Stare: INCHEIATA`, data, si se completeaza ultima sectiune.
 
 ## Scop
 
@@ -32,13 +32,13 @@ jurnalul de lucru de ce.
 
 ## Jurnal de lucru
 
-Append. Data, ce s-a facut, ce a ieșit altfel decat se aștepta. Scurt — e
+Append. Data, ce s-a facut, ce a iesit altfel decat se astepta. Scurt — e
 pentru cineva care reia lucrul peste doua saptamani sau de pe alt cont.
 
 - **<data>** ...
 
-## Ce a ieșit altfel decat planul
+## Ce a iesit altfel decat planul
 
 Se completeaza la incheiere. Partea cea mai utila din tot fisierul: aici se
-vede unde a fost greșita presupunerea initiala. Daca e o decizie, intra si in
+vede unde a fost gresita presupunerea initiala. Daca e o decizie, intra si in
 `JURNAL.md`.
