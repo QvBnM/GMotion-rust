@@ -123,6 +123,19 @@ fn cale_csv(referinta: &str) -> std::path::PathBuf {
         .unwrap_or_else(|_| std::path::PathBuf::from(nume))
 }
 
+/// Arata fereastra ceruta si le ascunde pe celelalte — **in ordinea asta**.
+///
+/// Slint inchide bucla de evenimente cand nu mai e nicio fereastra vizibila.
+/// „Ascunde tot, apoi arata" lasa, pentru o clipa, zero ferestre: aplicatia
+/// se inchide singura exact cand treci de pe conectare pe lista. De-aia
+/// trecerea dintre ecrane are un singur loc, aici.
+fn arata<T: ComponentHandle>(nou: &T, celelalte: [&slint::Window; 3]) {
+    let _ = nou.show();
+    for w in celelalte {
+        let _ = w.hide();
+    }
+}
+
 /// Compararile salvate, cele mai noi intai.
 fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
     let mut s = sesiuni.lista().unwrap_or_default();
@@ -280,6 +293,11 @@ fn ruleaza() -> Result<(), String> {
                 return;
             };
             if s.app.is_none() {
+                // ATENTIE la ordine: intai se arata fereastra noua, abia apoi
+                // se ascund celelalte. Slint inchide bucla cand nu mai e
+                // nicio fereastra vizibila, deci „ascunde tot, apoi arata"
+                // inchide aplicatia pe loc.
+                arata(&c_ui, [l_ui.window(), e_ui.window(), d_ui.window()]);
                 incarca_conectare(&c_ui, &s.conectare);
                 // progresul compararii, cat ruleaza pe alt fir
                 match s.rulare.as_ref() {
@@ -292,10 +310,6 @@ fn ruleaza() -> Result<(), String> {
                     None => c_ui.set_ruleaza(false),
                 }
                 incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(0).0);
-                let _ = l_ui.hide();
-                let _ = e_ui.hide();
-                let _ = d_ui.hide();
-                let _ = c_ui.show();
                 return;
             }
             // planul de deploy: se reface doar cand s-a schimbat ce e in plan
@@ -322,7 +336,6 @@ fn ruleaza() -> Result<(), String> {
                     )
                 });
             }
-            let _ = c_ui.hide();
             let referinta = s.conectare.sursa.baza.clone();
             let baze = s
                 .app
@@ -416,9 +429,7 @@ fn ruleaza() -> Result<(), String> {
                         },
                     );
                 }
-                let _ = l_ui.hide();
-                let _ = d_ui.hide();
-                let _ = e_ui.show();
+                arata(&e_ui, [l_ui.window(), d_ui.window(), c_ui.window()]);
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
                 if let Some((_, st)) = s.deploy.as_ref() {
@@ -426,13 +437,9 @@ fn ruleaza() -> Result<(), String> {
                     let e = gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier);
                     incarca_deploy(&d_ui, &e, mediu);
                 }
-                let _ = l_ui.hide();
-                let _ = e_ui.hide();
-                let _ = d_ui.show();
+                arata(&d_ui, [l_ui.window(), e_ui.window(), c_ui.window()]);
             } else {
-                let _ = e_ui.hide();
-                let _ = d_ui.hide();
-                let _ = l_ui.show();
+                arata(&l_ui, [e_ui.window(), d_ui.window(), c_ui.window()]);
             }
         }
     };

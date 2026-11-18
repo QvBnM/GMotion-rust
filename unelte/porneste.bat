@@ -43,4 +43,10 @@ echo Pornesc gmotion-ui !MOD!!ARGS!
 echo   F1 ajutor  -  F11 ecran complet  -  Ctrl+F cauta  -  Enter deschide obiectul
 echo.
 rust\target\release\gmotion-ui.exe !MOD!!ARGS!
-exit /b %ERRORLEVEL%
+set RC=!ERRORLEVEL!
+if not "!RC!"=="0" (
+  echo.
+  echo Aplicatia s-a inchis cu codul !RC!. Mesajul de mai sus spune de ce.
+  pause
+)
+exit /b !RC!

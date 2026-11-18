@@ -141,6 +141,16 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Intre doua ecrane se arata intai fereastra noua, apoi se ascund
+  celelalte.** `slint::run_event_loop()` se opreste cand nu mai e **nicio**
+  fereastra vizibila, deci „ascunde tot, apoi arata" inchide aplicatia pe loc
+  — exact la trecerea de pe conectare pe lista. Gasit de Mihai pe Windows,
+  2026-11-18; trecerea sta acum intr-un singur loc, `main::arata`.
+- **Nicio fereastra nu se probeaza pe Linux-ul meu.** Capturile randeaza
+  ecranul direct, fara bucla de evenimente, deci nu spun nimic despre
+  pornire, inchidere sau trecerea intre ecrane. Un bug de ciclu de viata se
+  vede doar rulat pe Windows.
+
 - **Cheia unui rand e `(baza, schema.nume)`, nu `schema.nume`.** De cand o
   referinta se compara cu mai multe baze, acelasi obiect apare o data pentru
   fiecare baza. Orice cautare dupa nume singur loveste randul gresit:
