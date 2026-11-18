@@ -45,6 +45,7 @@ fn main() {
         .map(|r| {
             let (schema, nume) = r.obiect.split_once('.').unwrap_or(("dbo", &r.obiect));
             model_lista::Obiect {
+                baza: r.baza.clone(),
                 schema: schema.to_string(),
                 nume: nume.to_string(),
                 tip: r.tip.clone(),
@@ -70,6 +71,7 @@ fn main() {
                 .map(|(id, o)| {
                     let (schema, nume) = id.split_once('.').unwrap_or(("dbo", id));
                     model_lista::Obiect {
+                        baza: a[3].clone(),
                         schema: schema.to_string(),
                         nume: nume.to_string(),
                         tip: o.tip.clone(),

@@ -476,6 +476,7 @@ fn cod_ordine(o: model_lista::Ordine) -> i32 {
         Ordine::DiferaIn => 4,
         Ordine::Revizuire => 5,
         Ordine::Deploy => 6,
+        Ordine::Baza => 7,
     }
 }
 
@@ -489,6 +490,7 @@ pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
         4 => Ordine::DiferaIn,
         5 => Ordine::Revizuire,
         6 => Ordine::Deploy,
+        7 => Ordine::Baza,
         _ => Ordine::Nume,
     }
 }
@@ -531,6 +533,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             RandListaUi {
                 schema: o.schema.as_str().into(),
                 nume: o.nume.as_str().into(),
+                baza: o.baza.as_str().into(),
                 tip: gmotion_core::nume_tip(&o.tip).into(),
                 litera: o.stare.litera().into(),
                 stare: cod_stare(o.stare),
@@ -598,6 +601,29 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .and_then(|t| lista.contoare_tipuri().iter().position(|(x, _)| x == t))
             .map_or(-1, |i| i as i32),
     );
+    let baze: Vec<(String, usize)> = lista.contoare_baze();
+    ui.set_baze(ModelRc::new(VecModel::from(
+        baze.iter()
+            .map(|(b, n)| TipUi {
+                nume: b.as_str().into(),
+                numar: n.to_string().into(),
+            })
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_baza_activa(
+        lista
+            .filtru()
+            .baza
+            .as_deref()
+            .and_then(|b| baze.iter().position(|(x, _)| x == b))
+            .map_or(-1, |i| i as i32),
+    );
+    ui.set_nume_baze(ModelRc::new(VecModel::from(
+        baze.iter()
+            .map(|(b, _)| SharedString::from(b.as_str()))
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_mai_multe_baze(baze.len() > 1);
     ui.set_rezumat_lista(lista.rezumat_vizibile().into());
     ui.set_coloana_sortata(cod_ordine(lista.ordine()));
     ui.set_sens_descrescator(lista.descrescator());
@@ -684,6 +710,17 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
     ui.set_previzualizare(ModelRc::new(VecModel::from(Vec::<RandUi>::new())));
 }
 
+/// Ce scrie in campul bazelor cand se pot bifa mai multe: numele, daca sunt
+/// una sau doua, altfel „N baze" — un sir lung ar iesi din camp oricum.
+fn eticheta_baze(p: &model_conectare::Parte) -> String {
+    let alese = p.baze_alese();
+    match alese.len() {
+        0 => String::new(),
+        1 | 2 => alese.join(", "),
+        n => format!("{n} baze"),
+    }
+}
+
 /// Umple ecranul de conectare din modelul lui.
 /// Umple ecranul de deploy. Numarul mare si propozitia vin din pasi
 /// (`model_deploy::rezumat`), ca sa nu poata spune altceva decat lista.
@@ -694,6 +731,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
     ui.set_mediu(mediu.cod());
     ui.set_numar(e.pasi.len().to_string().into());
     ui.set_rezumat(model_deploy::rezumat(&e.pasi).into());
+    ui.set_mai_multe_baze(e.baze.len() > 1);
     let pasi: Vec<PasDeployUi> = e
         .pasi
         .iter()
@@ -707,6 +745,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
                 nume: nume.into(),
                 tip: p.tip.as_str().into(),
                 id: p.obiect.as_str().into(),
+                baza: p.baza.as_str().into(),
             }
         })
         .collect();
@@ -908,6 +947,10 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
                 .map(|b| SharedString::from(b.as_str()))
                 .collect::<Vec<_>>(),
         )),
+        alese: ModelRc::new(VecModel::from(
+            p.baze.iter().map(|b| p.e_aleasa(b)).collect::<Vec<bool>>(),
+        )),
+        eticheta_baze: eticheta_baze(p).into(),
         stare: p.stare.text().into(),
         fel_stare: fel(&p.stare),
         servere_gasite: ModelRc::new(VecModel::from(
@@ -1413,6 +1456,7 @@ mod teste {
         let o = |nume: &str, tip: &str, stare: Stare| Obiect {
             schema: "dbo".into(),
             nume: nume.into(),
+            baza: "CharismaProd".into(),
             tip: tip.into(),
             stare,
             detalii: None,
@@ -1446,8 +1490,8 @@ mod teste {
         use model_lista::{Deploy, FiltruRevizuire, Ordine};
         let ui = fereastra_lista();
         let mut lista = lista_de_proba();
-        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
-        lista.pune_deploy("dbo.usp_Import", Deploy::VersiuneNoua);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Import", Deploy::VersiuneNoua);
         lista.sorteaza(Ordine::Scor);
         lista.filtreaza_revizuire(Some(FiltruRevizuire::Nerevizuite));
         lista.filtreaza_scor(30.0, 80.0);
@@ -1488,7 +1532,7 @@ mod teste {
         use model_lista::Deploy;
         let ui = fereastra_lista();
         let mut lista = lista_de_proba();
-        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("CharismaProd", "dbo.usp_Stoc", Deploy::Deployat);
         let p = (0..lista.vizibile().len())
             .find(|&p| lista.obiect(p).unwrap().nume == "usp_Stoc")
             .unwrap();
@@ -1674,6 +1718,7 @@ mod teste {
             stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
             auth_windows: false,
             servere_gasite: vec!["SRV-DEV\\SQL2019".into(), "SRV-PROD".into()],
+            alese: Vec::new(),
         };
         c.baza = Parte {
             server: "SRV-PROD".into(),

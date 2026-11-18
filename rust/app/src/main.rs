@@ -24,7 +24,7 @@ use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
     incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, mediu_dupa_nume,
     AntetEditor, AntetLista, EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista,
-    Mod, StareEditare,
+    Mediu, Mod, StareEditare,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -39,7 +39,7 @@ struct Stare {
     server: String,
     /// Planul de deploy deschis si obiectele din care s-a facut: cand se
     /// schimba ce e „in plan", planul se reface (si garda se pierde).
-    deploy: Option<(Vec<String>, gmotion_app::deploy::StareDeploy)>,
+    deploy: Option<(Vec<(String, String)>, gmotion_app::deploy::StareDeploy)>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
@@ -258,17 +258,14 @@ fn ruleaza() -> Result<(), String> {
                 .as_ref()
                 .map(|a| a.lista().in_plan())
                 .unwrap_or_default();
-            let facut = s.deploy.as_ref().map(|(a, _)| a.clone());
+            let facut: Option<Vec<(String, String)>> = s.deploy.as_ref().map(|(a, _)| a.clone());
             if s.app.as_ref().is_some_and(|a| a.ecran() == Ecran::Deploy)
                 && facut.as_ref() != Some(&alese)
             {
-                let (r, t) = (
-                    s.conectare.sursa.baza.clone(),
-                    s.conectare.baza.baza.clone(),
-                );
+                let r = s.conectare.sursa.baza.clone();
                 let plan = s.app.as_ref().map(|a| {
                     (
-                        a.plan(&r, &t, &gmotion_platforma::timp::acum()),
+                        a.plan(&r, &gmotion_platforma::timp::acum()),
                         a.texte_finale(),
                     )
                 });
@@ -280,11 +277,28 @@ fn ruleaza() -> Result<(), String> {
                 });
             }
             let _ = c_ui.hide();
-            let (referinta, baza) = (
-                s.conectare.sursa.baza.clone(),
-                s.conectare.baza.baza.clone(),
-            );
-            let mediu = mediu_dupa_nume(&baza);
+            let referinta = s.conectare.sursa.baza.clone();
+            let baze = s
+                .app
+                .as_ref()
+                .map(|a| a.baze())
+                .unwrap_or_else(|| vec![s.conectare.baza.baza.clone()]);
+            // antetul arata o singura tinta: cu mai multe, cate sunt
+            let baza = match baze.as_slice() {
+                [una] => una.clone(),
+                multe => format!("{} baze", multe.len()),
+            };
+            // cu mai multe baze, banda arata mediul cel mai riscant: daca
+            // una din tinte e PROD, ecranul nu are voie sa para DEV
+            let mediu = baze
+                .iter()
+                .map(|b| mediu_dupa_nume(b))
+                .max_by_key(|m| match m {
+                    Mediu::Prod => 2,
+                    Mediu::Test => 1,
+                    Mediu::Dev => 0,
+                })
+                .unwrap_or(Mediu::Dev);
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
             app.asigura_detalii(0, 60);
@@ -361,8 +375,7 @@ fn ruleaza() -> Result<(), String> {
                 let sursa = app.sursa().clone();
                 if let Some((_, st)) = s.deploy.as_ref() {
                     let director = director_deploy(&referinta).display().to_string();
-                    let e =
-                        gmotion_app::deploy::ecran(st, &sursa, &baza, &director, cate_per_fisier);
+                    let e = gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier);
                     incarca_deploy(&d_ui, &e, mediu);
                 }
                 let _ = l_ui.hide();
@@ -486,7 +499,15 @@ fn ruleaza() -> Result<(), String> {
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_baza_schimbata(move |sursa, text| {
-            s.borrow_mut().parte(sursa).baza = text.to_string();
+            let mut st = s.borrow_mut();
+            let p = st.parte(sursa);
+            if sursa {
+                p.baza = text.to_string();
+            } else {
+                // partea comparata primeste bife: acelasi clic pune si scoate
+                p.comuta_baza(&text);
+            }
+            drop(st);
             d();
         });
         let s = stare.clone();
@@ -603,7 +624,7 @@ fn ruleaza() -> Result<(), String> {
                         .unwrap_or_default();
                     st.server = r.server;
                     st.app = Some(
-                        Aplicatie::noua(r.randuri, r.sursa, r.tinta, revizuire).cu_editari(editari),
+                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
                     );
                 }
                 Err(e) => {
@@ -658,7 +679,7 @@ fn ruleaza() -> Result<(), String> {
                         .unwrap_or_default();
                     st.server = r.server;
                     st.app = Some(
-                        Aplicatie::noua(r.randuri, r.sursa, r.tinta, revizuire).cu_editari(editari),
+                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire).cu_editari(editari),
                     );
                 }
                 Err(e) => {
@@ -711,6 +732,17 @@ fn ruleaza() -> Result<(), String> {
         // clic pe un cap de coloana: sorteaza dupa ea; al doilea clic inverseaza
         lista_ui.on_sorteaza_coloana(move |cod| {
             c(Comanda::Sorteaza(gmotion_fereastra::ordine_din_cod(cod)));
+        });
+        let s = stare.clone();
+        let c = comanda.clone();
+        lista_ui.on_alege_baza(move |i| {
+            let baza = usize::try_from(i).ok().and_then(|i| {
+                s.borrow()
+                    .app
+                    .as_ref()
+                    .and_then(|a| a.lista().contoare_baze().get(i).map(|(b, _)| b.clone()))
+            });
+            c(Comanda::FiltreazaBaza(baza))
         });
         let c = comanda.clone();
         lista_ui.on_alege_starea(move |i| {
@@ -765,7 +797,9 @@ fn ruleaza() -> Result<(), String> {
         let c = comanda.clone();
         deploy_ui.on_inapoi_lista(move || c(Comanda::InapoiLaLista));
         let c = comanda.clone();
-        deploy_ui.on_scoate_din_plan(move |id| c(Comanda::ScoateDinPlan(id.to_string())));
+        deploy_ui.on_scoate_din_plan(move |baza, id| {
+            c(Comanda::ScoateDinPlan(baza.to_string(), id.to_string()))
+        });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
         deploy_ui.on_alege_tema(move |intunecat| {
@@ -782,12 +816,9 @@ fn ruleaza() -> Result<(), String> {
             let mut st = s.borrow_mut();
             if let Some((_, dep)) = st.deploy.as_mut() {
                 match recitit {
-                    Ok(r) => dep.aplica_verificarea(
-                        r.sursa,
-                        &c.baza.baza,
-                        r.tinta,
-                        &gmotion_platforma::timp::acum(),
-                    ),
+                    Ok(r) => {
+                        dep.aplica_verificarea(r.sursa, r.tinte, &gmotion_platforma::timp::acum())
+                    }
                     Err(e) => dep.verificare_esuata(e),
                 }
             }
@@ -799,11 +830,11 @@ fn ruleaza() -> Result<(), String> {
         let sv = salveaza.clone();
         deploy_ui.on_scrie_scripturile(move || {
             let mut st = s.borrow_mut();
-            let (referinta, tinta) = (st.conectare.sursa.baza.clone(), st.conectare.baza.baza.clone());
+            let referinta = st.conectare.sursa.baza.clone();
             let mut scris = None;
             if let Some((_, dep)) = st.deploy.as_mut() {
                 let dir = director_deploy(&referinta);
-                dep.scrie(&dir, &tinta, &gmotion_platforma::timp::acum());
+                dep.scrie(&dir, &gmotion_platforma::timp::acum());
                 if let Some(Ok(r)) = &dep.rezultat {
                     tracing::info!(target: "gmotion::app", director = %r.director.display(), fisiere = r.fisiere.len(), "deploy scris");
                     scris = Some(dep.plan.clone());

@@ -56,7 +56,7 @@ fn din_conectare_pana_in_editor() {
 
     // 3. compararea
     let r = pornire::compara(&c).expect("compararea merge");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
     app.asigura_detalii(0, 10);
 
     // lista are cele trei obiecte, clasificate
@@ -126,7 +126,7 @@ fn din_lista_pana_la_scripturile_de_deploy() {
     c.sursa.baza = "CharismaDev".into();
     c.baza.baza = "CharismaProd".into();
     let r = pornire::compara(&c).expect("compararea merge");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
 
     // 1. doua obiecte in plan: unul modificat, unul nou
     for nume in ["pStoc", "pNou"] {
@@ -138,18 +138,18 @@ fn din_lista_pana_la_scripturile_de_deploy() {
     }
     app.comanda(Comanda::DeschideDeploy);
     assert_eq!(app.ecran(), Ecran::Deploy);
-    let mut st = StareDeploy::nou(app.plan("CharismaDev", "CharismaProd", "2026-11-18 14:00"));
+    let mut st = StareDeploy::nou(app.plan("CharismaDev", "2026-11-18 14:00"));
     let pasi = st.pasi_in_ordine(app.sursa());
     assert_eq!(pasi.len(), 2);
 
     // 2. garda, pe ce se reciteste acum din instantaneu
     let recitit = pornire::compara(&c).expect("recitirea merge");
-    st.aplica_verificarea(recitit.sursa, "CharismaProd", recitit.tinta, "14:05");
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:05");
     assert!(matches!(st.garda, Garda::Ok { .. }), "{:?}", st.garda);
 
     // 3. scrierea: scripturile si revenirea, pe disc
     let dir = cale.parent().unwrap().join("deploy");
-    st.scrie(&dir, "CharismaProd", "2026-11-18 14:05");
+    st.scrie(&dir, "2026-11-18 14:05");
     let raport = st
         .rezultat
         .as_ref()
@@ -198,7 +198,7 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
     c.sursa.baza = "CharismaDev".into();
     c.baza.baza = "CharismaProd".into();
     let r = pornire::compara(&c).expect("compararea merge");
-    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
     let p = (0..app.lista().vizibile().len())
         .find(|&p| app.lista().obiect(p).unwrap().nume == "pStoc")
         .unwrap();
@@ -209,12 +209,12 @@ fn textul_final_din_editor_ajunge_in_scriptul_de_deploy() {
         "CREATE PROC dbo.pStoc AS\nSELECT cantitate FROM Stoc WHERE activ = 7".into()
     )));
     app.comanda(Comanda::ComutaInPlan);
-    let mut st = StareDeploy::nou(app.plan("CharismaDev", "CharismaProd", "acum"))
-        .cu_texte_finale(app.texte_finale());
+    let mut st =
+        StareDeploy::nou(app.plan("CharismaDev", "acum")).cu_texte_finale(app.texte_finale());
     let recitit = pornire::compara(&c).expect("recitirea merge");
-    st.aplica_verificarea(recitit.sursa, "CharismaProd", recitit.tinta, "acum");
+    st.aplica_verificarea(recitit.sursa, recitit.tinte, "acum");
     let dir = cale.parent().unwrap().join("deploy");
-    st.scrie(&dir, "CharismaProd", "acum");
+    st.scrie(&dir, "acum");
     let raport = st
         .rezultat
         .as_ref()

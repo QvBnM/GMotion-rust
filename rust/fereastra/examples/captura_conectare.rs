@@ -45,6 +45,7 @@ fn main() {
             "SRV-PROD\\SQL2019".into(),
             "SRV-TEST".into(),
         ],
+        alese: Vec::new(),
     };
     c.recente = vec![
         Recenta {

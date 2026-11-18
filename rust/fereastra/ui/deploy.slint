@@ -18,6 +18,8 @@ export struct PasDeployUi {
     tip: string,
     // `schema.nume`, pentru „scoate din plan"
     id: string,
+    // baza in care se scrie; randul o arata cand sunt mai multe
+    baza: string,
 }
 
 // O oprire de pe drumul spre scriere: cercul cu starea, titlul, textul.
@@ -92,7 +94,9 @@ export component FereastraDeploy inherits Window {
     callback verifica-baza();
     callback scrie-scripturile();
     callback alege-impartirea(int);
-    callback scoate-din-plan(string);
+    callback scoate-din-plan(string /* baza */, string /* schema.nume */);
+    // planul acopera mai multe baze: randurile arata in care se scriu
+    in property <bool> mai-multe-baze;
     callback alege-tema(bool);
 
     FocusScope {
@@ -187,6 +191,7 @@ export component FereastraDeploy inherits Window {
                                         Text { text: p.schema + "."; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
                                         Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                                     }
+                                    if root.mai-multe-baze: Text { width: 150px; text: p.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
                                     Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                                     VerticalLayout {
                                         alignment: center;
@@ -197,7 +202,7 @@ export component FereastraDeploy inherits Window {
                                             background: zx.has-hover ? Tema.strat : transparent;
                                             opacity: rand.has-hover ? 1 : 0;
                                             Text { text: "×"; font-family: Tema.font-ui; font-size: 16px; color: Tema.text-secundar; }
-                                            zx := TouchArea { clicked => { root.scoate-din-plan(p.id); } }
+                                            zx := TouchArea { clicked => { root.scoate-din-plan(p.baza, p.id); } }
                                         }
                                     }
                                 }

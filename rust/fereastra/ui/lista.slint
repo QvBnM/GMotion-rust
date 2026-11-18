@@ -14,6 +14,8 @@ import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jum
 export struct RandListaUi {
     schema: string,
     nume: string,
+    // baza comparata in care s-a gasit obiectul
+    baza: string,
     // numele tipului pentru utilizator („procedura")
     tip: string,
     litera: string,
@@ -79,6 +81,7 @@ global Stari {
 // Latimile coloanelor tabelului, aceleasi in cap si pe randuri.
 global Coloane {
     out property <length> stare: 34px;
+    out property <length> baza: 128px;
     out property <length> tip: 92px;
     out property <length> linii: 84px;
     out property <length> scor: 118px;
@@ -96,6 +99,7 @@ global Sortare {
     out property <int> difera: 4;
     out property <int> revizuit: 5;
     out property <int> deploy: 6;
+    out property <int> baza: 7;
 }
 
 // Un cap de coloana: clic = sorteaza; a doua oara, invers. Sageata arata
@@ -279,6 +283,8 @@ component CampProcent inherits Rectangle {
 component RandTabel inherits Rectangle {
     in property <RandListaUi> r;
     in property <bool> selectat;
+    // coloana Baza apare doar cand chiar sunt mai multe baze comparate
+    in property <bool> cu-baza;
     callback apasat();
     callback comuta-revizuit();
     height: 34px;
@@ -313,6 +319,7 @@ component RandTabel inherits Rectangle {
             Text { text: root.r.schema + "."; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
             Text { text: root.r.nume; font-family: Tema.font-mono; font-size: 12.5px; color: root.r.revizuit ? Tema.text-secundar : Tema.text; vertical-alignment: center; overflow: elide; }
         }
+        if root.cu-baza: Text { width: Coloane.baza; text: root.r.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
         Text { width: Coloane.tip; text: root.r.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
         HorizontalLayout {
             width: Coloane.linii;
@@ -410,6 +417,10 @@ export component FereastraLista inherits Window {
     in property <float> progres-fractie;      // 0..1
     in property <[CategorieUi]> categorii;
     in property <[TipUi]> tipuri;
+    in property <[TipUi]> baze;
+    in property <bool> mai-multe-baze;
+    in property <int> baza-activa: -1;
+    in property <[string]> nume-baze;
     in property <int> categorie-activa: -1;   // indice in `categorii`, -1 = toate
     in property <int> tip-activ: -1;
 
@@ -448,6 +459,7 @@ export component FereastraLista inherits Window {
     callback deschide-deploy();
     callback alege-categoria(int);
     callback alege-tipul(int);
+    callback alege-baza(int);
     callback alege-randul(int);
     callback comuta-revizuit(int);
     callback deschide-obiectul();
@@ -580,6 +592,15 @@ export component FereastraLista inherits Window {
                         font-size: 13px;
                         color: Tema.text-tert;
                         vertical-alignment: center;
+                    }
+                }
+                if root.mai-multe-baze: VerticalLayout {
+                    alignment: center;
+                    MeniuFiltru {
+                        eticheta: "Toate bazele";
+                        optiuni: root.nume-baze;
+                        ales: root.baza-activa;
+                        alege(i) => { root.alege-baza(i); }
                     }
                 }
                 for t[i] in root.tipuri: VerticalLayout {
@@ -737,6 +758,13 @@ export component FereastraLista inherits Window {
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.nume); }
                             }
+                            if root.mai-multe-baze: CapColoana {
+                                titlu: "Baza";
+                                latime: Coloane.baza;
+                                sortata: root.coloana-sortata == Sortare.baza;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.baza); }
+                            }
                             CapColoana {
                                 titlu: "Tip";
                                 latime: Coloane.tip;
@@ -786,6 +814,7 @@ export component FereastraLista inherits Window {
                         vertical-stretch: 1;
                         for r[i] in root.randuri: RandTabel {
                             r: r;
+                            cu-baza: root.mai-multe-baze;
                             selectat: i == root.selectat;
                             apasat => {
                                 root.selectat = i;

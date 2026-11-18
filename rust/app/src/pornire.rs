@@ -95,37 +95,86 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
 pub struct Comparata {
     pub randuri: Vec<modul::Rand>,
     pub sursa: modul::Baza,
-    pub tinta: modul::Baza,
+    /// Bazele comparate, in ordinea bifata. Una singura e cazul obisnuit.
+    pub tinte: Vec<(String, modul::Baza)>,
     pub server: String,
 }
 
-/// Citeste ambele baze si compara. Sincron: ecranul de conectare nu are
-/// progres in machete, iar pe instantaneu dureaza oricum sub o secunda.
-/// (Pe server real, progresul e lucru de etapa viitoare.)
-pub fn compara(c: &Conectare) -> Result<Comparata, String> {
+impl Comparata {
+    /// Prima tinta: ecranele care arata o singura baza (antetul, deploy-ul
+    /// pe o baza) au nevoie de un nume de aratat.
+    pub fn prima_tinta(&self) -> &str {
+        self.tinte.first().map_or("", |(n, _)| n.as_str())
+    }
+}
+
+/// Citeste sursa si fiecare baza bifata, si compara. `progres` primeste
+/// pasii pe rand (ce baza se citeste, a cata din cate) si intoarce `false`
+/// daca utilizatorul a apasat „Anuleaza".
+pub fn compara_cu(
+    c: &Conectare,
+    mut progres: impl FnMut(Pas) -> bool,
+) -> Result<Comparata, String> {
+    let baze = c.baza.baze_alese();
+    if baze.is_empty() {
+        return Err("nicio baza de comparat".to_string());
+    }
     let mut sursa_db = deschide(c, &c.sursa)?;
     let server = sursa_db.descriere();
+    if !progres(Pas {
+        baza: c.sursa.baza.clone(),
+        facut: 0,
+        din: baze.len() + 1,
+    }) {
+        return Err(ANULAT.to_string());
+    }
     let obiecte_sursa = sursa_db.obiecte(&c.sursa.baza).map_err(|e| e.to_string())?;
-    let obiecte_tinta = if c.instantaneu.is_some() {
-        sursa_db.obiecte(&c.baza.baza).map_err(|e| e.to_string())?
-    } else {
-        let mut tinta_db = deschide(c, &c.baza)?;
-        tinta_db.obiecte(&c.baza.baza).map_err(|e| e.to_string())?
-    };
     let sursa = modul::pregateste(&obiecte_sursa);
-    let tinta = modul::pregateste(&obiecte_tinta);
-    let comparare = modul::compara(
-        &c.sursa.baza,
-        &sursa,
-        &[(c.baza.baza.clone(), tinta.clone())],
-        |_| {},
-    );
+
+    let mut tinte: Vec<(String, modul::Baza)> = Vec::new();
+    for (i, nume) in baze.iter().enumerate() {
+        if !progres(Pas {
+            baza: nume.clone(),
+            facut: i + 1,
+            din: baze.len() + 1,
+        }) {
+            return Err(ANULAT.to_string());
+        }
+        // pe instantaneu toate bazele vin din acelasi fisier, deci nu se
+        // deschide o a doua conexiune pentru fiecare
+        let obiecte = if c.instantaneu.is_some() {
+            sursa_db.obiecte(nume).map_err(|e| e.to_string())?
+        } else {
+            let mut db = deschide(c, &c.baza)?;
+            db.obiecte(nume).map_err(|e| e.to_string())?
+        };
+        tinte.push((nume.clone(), modul::pregateste(&obiecte)));
+    }
+
+    let comparare = modul::compara(&c.sursa.baza, &sursa, &tinte, |_| {});
     Ok(Comparata {
         randuri: comparare.randuri,
         sursa,
-        tinta,
+        tinte,
         server,
     })
+}
+
+/// Unde a ajuns compararea: ce baza se citeste acum, a cata din cate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pas {
+    pub baza: String,
+    pub facut: usize,
+    pub din: usize,
+}
+
+/// Mesajul cu care se incheie o comparare oprita de utilizator. Se recunoaste
+/// dupa text in fereastra, ca sa nu se arate ca eroare.
+pub const ANULAT: &str = "comparare anulata";
+
+/// Compararea fara progres si fara anulare.
+pub fn compara(c: &Conectare) -> Result<Comparata, String> {
+    compara_cu(c, |_| true)
 }
 
 #[cfg(test)]
@@ -191,7 +240,70 @@ mod teste {
         let r = compara(&c).expect("compararea merge");
         assert_eq!(r.randuri.len(), 1);
         assert_eq!(r.randuri[0].obiect, "dbo.p");
+        assert_eq!(r.prima_tinta(), "B");
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn o_referinta_se_compara_cu_mai_multe_baze_deodata() {
+        let d = std::env::temp_dir().join(format!("gmotion-multi-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("inst.json");
+        std::fs::write(
+            &cale,
+            r#"{"versiune":1,"server":"SRV","creat":"2026-11-17T10:00:00Z","nota":"","baze":{
+                "Ref":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 1"}],
+                "C1":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 2"}],
+                "C2":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS\nSELECT 3"}],
+                "C3":[]}}"#,
+        )
+        .unwrap();
+        let mut c = Conectare::noua();
+        c.instantaneu = Some(cale.to_string_lossy().to_string());
+        c.sursa.baza = "Ref".into();
+        c.baza.comuta_baza("C1");
+        c.baza.comuta_baza("C2");
+
+        let pasi = std::cell::RefCell::new(Vec::new());
+        let r = compara_cu(&c, |p| {
+            pasi.borrow_mut().push(p.baza.clone());
+            true
+        })
+        .expect("compararea merge");
+        assert_eq!(
+            *pasi.borrow(),
+            ["Ref", "C1", "C2"],
+            "progresul spune ce baza se citeste, referinta intai"
+        );
+        assert_eq!(r.tinte.len(), 2);
+        assert_eq!(r.prima_tinta(), "C1");
+        // acelasi obiect apare o data pentru fiecare baza
+        let baze: Vec<&str> = r.randuri.iter().map(|x| x.baza.as_str()).collect();
+        assert_eq!(baze, ["C1", "C2"]);
+
+        // „Anuleaza" opreste fara sa citeasca restul
+        let citite = std::cell::Cell::new(0);
+        let e = compara_cu(&c, |_| {
+            citite.set(citite.get() + 1);
+            citite.get() < 2
+        })
+        .map(|_| ())
+        .expect_err("anulata");
+        assert_eq!(e, ANULAT);
+        assert_eq!(citite.get(), 2, "s-a oprit la a doua intrebare");
+
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn fara_nicio_baza_bifata_nu_e_nimic_de_comparat() {
+        let mut c = Conectare::noua();
+        c.instantaneu = Some("/nu/conteaza.json".into());
+        c.sursa.baza = "Ref".into();
+        assert_eq!(
+            compara(&c).map(|_| ()).expect_err("nimic de comparat"),
+            "nicio baza de comparat"
+        );
     }
 
     #[test]
