@@ -300,6 +300,40 @@ GO
 /// declansata sa nu lase `NOEXEC` pornit in fereastra SSMS.
 const SFARSIT_SCRIPT: &str = "SET NOEXEC OFF;\nGO\n";
 
+/// Liniile scrise de GMotion, cu `\r\n`.
+///
+/// Idempotenta: un `\r\n` deja acolo nu se dubleaza. **Nu se cheama pe un
+/// text care contine codul unui obiect** — acolo capetele de linie sunt ale
+/// utilizatorului si se pastreaza (vezi C5).
+fn crlf(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + text.len() / 16);
+    let mut prec_r = false;
+    for c in text.chars() {
+        if c == '\n' && !prec_r {
+            out.push('\r');
+        }
+        prec_r = c == '\r';
+        out.push(c);
+    }
+    out
+}
+
+/// Scrie un script pe disc: **cu BOM UTF-8**.
+///
+/// `sqlcmd` fara `-f 65001` citeste un fisier fara BOM in pagina de cod OEM,
+/// deci un literal `N'...'` cu caractere non-ASCII ajungea mojibake **in codul
+/// deployat**; SSMS intreaba de capetele de linie amestecate. BOM-ul rezolva
+/// amandoua (F-D2 din auditul QA).
+fn scrie_script(cale: &Path, continut: &str) -> Rezultat<()> {
+    let mut octeti = Vec::with_capacity(continut.len() + 3);
+    octeti.extend_from_slice("\u{feff}".as_bytes());
+    octeti.extend_from_slice(continut.as_bytes());
+    std::fs::write(cale, octeti).map_err(|e| Eroare::ScriereDeploy {
+        cale: cale.display().to_string(),
+        detaliu: e.to_string(),
+    })
+}
+
 /// `USE [baza]` plus verificarea ca am ajuns acolo.
 ///
 /// Daca `USE` cade (baza offline, redenumita, fara drept), eroarea 911
@@ -323,10 +357,10 @@ fn du_te_in_baza(baza: &str) -> String {
 }
 
 fn antet(baza: &str, referinta: &str, acum: &str) -> String {
-    format!(
+    crlf(&format!(
         "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\n{GARDA_VERSIUNE}{}",
         du_te_in_baza(baza)
-    )
+    ))
 }
 
 /// Un obiect in script: setarile de sesiune intr-un batch propriu, apoi codul.
@@ -346,14 +380,18 @@ fn bloc(o: &DeDeployat) -> String {
             " -- setari necunoscute (instantaneu vechi): ON, ca SSMS",
         ),
     };
-    format!(
-        "-- ═══ {} ═══\nSET ANSI_NULLS {};\nSET QUOTED_IDENTIFIER {};{}\nGO\n{}\nGO\n\n",
+    // codul obiectului se lipeste **neatins**: capetele lui de linie sunt ale
+    // utilizatorului, inclusiv in interiorul sirurilor
+    let mut text = crlf(&format!(
+        "-- ═══ {} ═══\nSET ANSI_NULLS {};\nSET QUOTED_IDENTIFIER {};{}\nGO\n",
         o.obiect,
         on(ansi),
         on(qi),
         nota,
-        o.cod
-    )
+    ));
+    text.push_str(&o.cod);
+    text.push_str(&crlf("\nGO\n\n"));
+    text
 }
 
 /// Numele (cu puncte) la care face referire codul: `dbo.f`, `[dbo].[v]`, `p`.
@@ -620,7 +658,7 @@ pub fn scrie_cu_revenire(
     let mut scrise = Vec::new();
     for (baza, pasi) in revenire {
         let cale = dir_revenire.join(nume_fisiere.unic(&slug(baza), "sql"));
-        std::fs::write(&cale, text_revenire(baza, referinta, pasi, acum)).map_err(|e| {
+        scrie_script(&cale, &text_revenire(baza, referinta, pasi, acum)).map_err(|e| {
             Eroare::ScriereDeploy {
                 cale: cale.display().to_string(),
                 detaliu: e.to_string(),
@@ -657,18 +695,18 @@ fn sterge(o: &DeDeployat) -> String {
         "TR" => "TRIGGER",
         alt => {
             // Nu se ghiceste: scriptul se opreste vizibil la rulare.
-            return format!(
-                "-- ═══ {} ═══\nRAISERROR(N'GMotion: nu stiu sa sterg un obiect de tip {}; sterge-l de mana.', 16, 1);\nGO\n\n",
+            return crlf(&format!(
+                "-- ═══ {} ═══\nRAISERROR(N'GMotion: nu stiu sa sterg un obiect de tip %s; sterge-l de mana.', 16, 1, N'{}');\nGO\n\n",
                 o.obiect,
                 alt.replace('\'', "''")
-            );
+            ));
         }
     };
-    format!(
+    crlf(&format!(
         "-- ═══ {} ═══ (creat de deploy)\nDROP {fel} IF EXISTS {};\nGO\n\n",
         o.obiect,
         nume_calificat(&o.obiect)
-    )
+    ))
 }
 
 /// Textul scriptului de revenire pentru o baza.
@@ -686,20 +724,20 @@ fn text_revenire(baza: &str, referinta: &str, pasi: &[PasRevenire], acum: &str) 
             PasRevenire::Sterge(o) => sterse.push(o.clone()),
         }
     }
-    let mut text = format!(
+    let mut text = crlf(&format!(
         "-- REVENIRE {baza} | anuleaza deploy-ul din {referinta} | salvat {acum}\n\
          -- Ruleaza-l doar ca sa anulezi deploy-ul: reface obiectele cum erau\n\
          -- inainte si sterge ce a creat deploy-ul.\n\
          {GARDA_VERSIUNE}{}",
         du_te_in_baza(baza)
-    );
+    ));
     for i in ordine_dupa_dependente(&reface) {
         text.push_str(&bloc(&reface[i]));
     }
     for i in ordine_dupa_dependente(&sterse).into_iter().rev() {
         text.push_str(&sterge(&sterse[i]));
     }
-    text.push_str(SFARSIT_SCRIPT);
+    text.push_str(&crlf(SFARSIT_SCRIPT));
     text
 }
 
@@ -729,11 +767,8 @@ fn scrie_deploy(
     let mut scrie_fisier = |baza_nume: String, continut: String| -> Rezultat<()> {
         let nume = nume_fisiere.unic(&baza_nume, "sql");
         let cale = director.join(&nume);
-        let continut = format!("{continut}{SFARSIT_SCRIPT}");
-        std::fs::write(&cale, continut).map_err(|e| Eroare::ScriereDeploy {
-            cale: cale.display().to_string(),
-            detaliu: e.to_string(),
-        })?;
+        let continut = format!("{continut}{}", crlf(SFARSIT_SCRIPT));
+        scrie_script(&cale, &continut)?;
         fisiere.push(cale);
         Ok(())
     };
@@ -780,7 +815,7 @@ fn scrie_deploy(
                 for o in obiecte {
                     text.push_str(&bloc(o));
                 }
-                text.push('\n');
+                text.push_str("\r\n");
             }
             scrie_fisier("deploy_complet".to_string(), text)?;
         }
@@ -1176,7 +1211,7 @@ mod teste {
         let r = scrie(&d, "Ref", &o_baza("B", ob), ModImpartire::Unul, 0, "t").unwrap();
         let t = std::fs::read_to_string(&r.fisiere[0]).unwrap();
         assert!(
-            t.contains("SET ANSI_NULLS OFF;\nSET QUOTED_IDENTIFIER ON;\nGO\nCREATE OR ALTER PROC dbo.pVechi"),
+            t.contains("SET ANSI_NULLS OFF;\r\nSET QUOTED_IDENTIFIER ON;\r\nGO\r\nCREATE OR ALTER PROC dbo.pVechi"),
             "{t}"
         );
         // necunoscute: ON / ON, cu explicatie
@@ -1192,7 +1227,7 @@ mod teste {
         .unwrap();
         let t = std::fs::read_to_string(&r.fisiere[0]).unwrap();
         assert!(
-            t.contains("SET ANSI_NULLS ON;\nSET QUOTED_IDENTIFIER ON; -- setari necunoscute"),
+            t.contains("SET ANSI_NULLS ON;\r\nSET QUOTED_IDENTIFIER ON; -- setari necunoscute"),
             "{t}"
         );
     }
@@ -1305,7 +1340,7 @@ mod teste {
                 .unwrap();
             assert!(garda < poz_use && poz_use < primul_create, "{t}");
             assert!(t.contains("< 4001"), "{t}");
-            assert!(t.ends_with("SET NOEXEC OFF;\nGO\n"), "{t}");
+            assert!(t.ends_with("SET NOEXEC OFF;\r\nGO\r\n"), "{t}");
         }
     }
 
@@ -1340,6 +1375,48 @@ mod teste {
         std::fs::remove_dir_all(&d).ok();
     }
 
+    /// F-D2 din `cercetare/audit-qa-2026-11-18.md`: scripturile erau UTF-8
+    /// **fara BOM**, cu capete de linie amestecate. `sqlcmd` fara
+    /// `-f 65001` citeste un fisier fara BOM in pagina de cod OEM, deci un
+    /// literal `N'...'` cu caractere non-ASCII ajunge mojibake in codul
+    /// deployat; SSMS intreaba de capetele de linie.
+    #[test]
+    fn scripturile_au_bom_si_liniile_gmotion_sunt_crlf() {
+        let d = dir("bom");
+        let cod = "CREATE OR ALTER PROC dbo.pMesaj AS\nSELECT N'cheie   \nvaloare'";
+        let (mut deploy, rev) = cu_revenire();
+        deploy.insert(
+            "Client1".to_string(),
+            vec![dd("dbo.pMesaj", "P", cod, true)],
+        );
+        let r = scrie_cu_revenire(&d, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t").unwrap();
+        for f in r.fisiere.iter().chain(r.revenire.iter()) {
+            let octeti = std::fs::read(f).unwrap();
+            assert_eq!(
+                &octeti[..3],
+                &[0xEF, 0xBB, 0xBF],
+                "BOM UTF-8 la inceputul lui {}",
+                f.display()
+            );
+            let t = String::from_utf8(octeti).unwrap();
+            // fiecare linie scrisa de GMotion se incheie cu \r\n
+            for linie in ["GO", "SET NOEXEC OFF;"] {
+                assert!(
+                    t.contains(&format!("{linie}\r\n")),
+                    "linia {linie} cu CRLF in {}:\n{t:?}",
+                    f.display()
+                );
+            }
+        }
+        // codul obiectului ramane octet cu octet, cu LF-urile lui
+        let t = std::fs::read_to_string(d.join("Client1.sql")).unwrap();
+        assert!(
+            t.contains("SELECT N'cheie   \nvaloare'"),
+            "codul utilizatorului neatins:\n{t:?}"
+        );
+        std::fs::remove_dir_all(&d).ok();
+    }
+
     #[test]
     fn mod_per_baza() {
         let d = dir("per-baza");
@@ -1355,11 +1432,14 @@ mod teste {
         assert_eq!(r.fisiere.len(), 2);
         assert_eq!(r.obiecte, 4);
         let t = std::fs::read_to_string(d.join("Client1.sql")).unwrap();
-        assert!(t.starts_with("-- DEPLOYER Client1 | referinta: Ref | 2026-11-17 10:00\n"));
-        assert!(t.contains("USE [Client1];\nGO\n"));
+        assert!(
+            t.starts_with("\u{feff}-- DEPLOYER Client1 | referinta: Ref | 2026-11-17 10:00\r\n"),
+            "{t:?}"
+        );
+        assert!(t.contains("USE [Client1];\r\nGO\r\n"));
         assert_eq!(t.matches("-- ═══").count(), 3);
         assert_eq!(
-            t.matches("\nGO\n").count(),
+            t.matches("\r\nGO\r\n").count(),
             10,
             "garda, USE, verificarea bazei, doua per obiect (setarile, apoi codul), sfarsitul"
         );
@@ -1516,7 +1596,7 @@ mod teste {
         );
         assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"));
         assert!(sql.contains("DROP FUNCTION IF EXISTS [dbo].[fNou];"));
-        assert!(sql.trim_end().ends_with("SET NOEXEC OFF;\nGO"));
+        assert!(sql.trim_end().ends_with("SET NOEXEC OFF;\r\nGO"));
         std::fs::remove_dir_all(&d).ok();
     }
 

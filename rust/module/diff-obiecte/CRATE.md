@@ -79,7 +79,15 @@ biblioteca** — fara nicio interfata.
    13.0.4001+; Azure exceptat): pe un server vechi `RAISERROR` + `SET NOEXEC
    ON`, inainte de orice `USE`. Fiecare fisier se termina cu `SET NOEXEC OFF`.
 7. **Fiecare baza isi aduce propriul `USE [...]`,** inclusiv in modul „tot
-   intr-un fisier": altfel al doilea set ar rula pe baza gresita.
+   intr-un fisier": altfel al doilea set ar rula pe baza gresita. Dupa `USE`
+   urmeaza `IF DB_NAME() <> N'...' RAISERROR + SET NOEXEC ON`: un `USE` care
+   cade opreste doar batch-ul lui, iar SSMS si `sqlcmd` fara `-b` ar rula
+   restul pe baza curenta (F-D1, auditul QA).
+7b. **Scripturile se scriu cu BOM UTF-8, iar liniile scrise de GMotion cu
+   `\r\n`** (F-D2): fara BOM, `sqlcmd` le citeste in pagina de cod OEM si un
+   literal `N'...'` non-ASCII ajunge mojibake in codul deployat. Codul
+   obiectului se lipeste **neatins**, cu capetele lui de linie — acolo sunt
+   datele utilizatorului.
 8. **Un nume de baza sau obiect nu poate forma o cale.** Separatorii devin `_`,
    punctele de la capete se taie. Numele de fisier sunt unice in cadrul unei
    rulari (fara a deosebi majusculele), numele rezervate Windows (`CON`,
