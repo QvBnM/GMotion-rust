@@ -89,11 +89,19 @@ pub struct Obiect {
     pub stare: Stare,
     pub detalii: Option<Detalii>,
     pub revizuit: bool,
+    /// Pus in planul de deploy (butonul „In plan").
+    pub in_plan: bool,
 }
 
 impl Obiect {
     pub fn id(&self) -> String {
         format!("{}.{}", self.schema, self.nume)
+    }
+
+    /// Se poate deploia: are cod in sursa care se poate citi. Un obiect doar
+    /// in baza n-are ce scrie, unul criptat n-are cod.
+    pub fn se_poate_deploia(&self) -> bool {
+        matches!(self.stare, Stare::Modificat | Stare::DoarSursa)
     }
 }
 
@@ -209,6 +217,35 @@ impl Lista {
         if let Some(&i) = self.vizibile.get(pozitie) {
             self.obiecte[i].revizuit = !self.obiecte[i].revizuit;
         }
+    }
+
+    /// Pune sau scoate obiectul vizibil din plan. Intoarce `false` (si nu
+    /// schimba nimic) pentru un obiect care nu se poate deploia.
+    pub fn comuta_in_plan(&mut self, pozitie: usize) -> bool {
+        let Some(&i) = self.vizibile.get(pozitie) else {
+            return false;
+        };
+        if !self.obiecte[i].se_poate_deploia() {
+            return false;
+        }
+        self.obiecte[i].in_plan = !self.obiecte[i].in_plan;
+        true
+    }
+
+    /// Scoate din plan obiectul cu `schema.nume` dat, vizibil sau nu.
+    pub fn scoate_din_plan(&mut self, id: &str) {
+        for o in self.obiecte.iter_mut().filter(|o| o.id() == id) {
+            o.in_plan = false;
+        }
+    }
+
+    /// Obiectele din plan, `schema.nume`, in ordinea din lista completa.
+    pub fn in_plan(&self) -> Vec<String> {
+        self.obiecte
+            .iter()
+            .filter(|o| o.in_plan)
+            .map(Obiect::id)
+            .collect()
     }
 
     /// Pune detaliile calculate pentru un obiect vizibil.
@@ -334,6 +371,7 @@ mod teste {
             stare,
             detalii: None,
             revizuit: false,
+            in_plan: false,
         }
     }
 
@@ -346,6 +384,40 @@ mod teste {
             obiect("usp_Vechi", "P", Stare::Identic),
             obiect("trg_Audit", "TR", Stare::Criptat),
         ])
+    }
+
+    #[test]
+    fn in_plan_intra_doar_ce_se_poate_deploia() {
+        let mut l = Lista::noua(vec![
+            obiect("pMod", "P", Stare::Modificat),
+            obiect("pNou", "P", Stare::DoarSursa),
+            obiect("pExtra", "P", Stare::DoarBaza),
+            obiect("pCriptat", "P", Stare::Criptat),
+        ]);
+        l.filtreaza_stare(None);
+        let poz = |l: &Lista, n: &str| {
+            (0..l.vizibile().len())
+                .find(|&p| l.obiect(p).unwrap().nume == n)
+                .unwrap()
+        };
+        for n in ["pMod", "pNou"] {
+            let p = poz(&l, n);
+            assert!(l.comuta_in_plan(p), "{n} se poate deploia");
+        }
+        for n in ["pExtra", "pCriptat"] {
+            let p = poz(&l, n);
+            assert!(!l.comuta_in_plan(p), "{n} n-are cod de deploiat");
+        }
+        assert_eq!(
+            l.in_plan(),
+            vec!["dbo.pMod".to_string(), "dbo.pNou".to_string()]
+        );
+        l.scoate_din_plan("dbo.pMod");
+        assert_eq!(l.in_plan(), vec!["dbo.pNou".to_string()]);
+        // a doua apasare scoate
+        let p = poz(&l, "pNou");
+        assert!(l.comuta_in_plan(p));
+        assert!(l.in_plan().is_empty());
     }
 
     #[test]

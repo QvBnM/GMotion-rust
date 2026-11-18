@@ -21,9 +21,9 @@ use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
 use gmotion_fereastra::model_conectare::{Conectare, Recenta, StareConexiune};
 use gmotion_fereastra::model_lista::{Ordine, Stare as StareObiect};
 use gmotion_fereastra::{
-    aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_editor, incarca_jurnal,
-    incarca_lista, incarca_previzualizare, mediu_dupa_nume, AntetEditor, AntetLista,
-    EditorDiferente, FereastraConectare, FereastraLista, Mod,
+    aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editor,
+    incarca_jurnal, incarca_lista, incarca_previzualizare, mediu_dupa_nume, AntetEditor,
+    AntetLista, EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista, Mod,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -36,6 +36,9 @@ struct Stare {
     sesiuni: gmotion_platforma::Sesiuni,
     /// Ce scrie pe ecran despre sursa (server sau cale de instantaneu).
     server: String,
+    /// Planul de deploy deschis si obiectele din care s-a facut: cand se
+    /// schimba ce e „in plan", planul se reface (si garda se pierde).
+    deploy: Option<(Vec<String>, gmotion_app::deploy::StareDeploy)>,
 }
 
 impl Stare {
@@ -65,6 +68,19 @@ fn argument(nume: &str) -> Option<String> {
         .position(|x| x == nume)
         .and_then(|i| a.get(i + 1))
         .cloned()
+}
+
+/// Unde se scrie deploy-ul: in directorul de date al aplicatiei, cu
+/// referinta si momentul in nume; langa binar, daca acela nu se poate afla.
+fn director_deploy(referinta: &str) -> std::path::PathBuf {
+    let nume = format!(
+        "{}_{}",
+        referinta.replace(|c: char| !c.is_ascii_alphanumeric(), "_"),
+        gmotion_platforma::timp::acum_compact()
+    );
+    gmotion_platforma::cai::director_date()
+        .map(|d| d.join("deploy").join(&nume))
+        .unwrap_or_else(|_| std::path::PathBuf::from(format!("deploy_{nume}")))
 }
 
 /// Compararile salvate, cele mai noi intai.
@@ -111,11 +127,13 @@ fn ruleaza() -> Result<(), String> {
         app: None,
         sesiuni,
         server: String::new(),
+        deploy: None,
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
     let lista_ui = FereastraLista::new().map_err(|e| e.to_string())?;
     let editor_ui = EditorDiferente::new().map_err(|e| e.to_string())?;
+    let deploy_ui = FereastraDeploy::new().map_err(|e| e.to_string())?;
     // configurarea: un fisier stricat nu opreste fereastra, dar se spune
     let cale_cfg = gmotion_platforma::cai::cale_configurare().ok();
     let cfg = match cale_cfg
@@ -140,13 +158,15 @@ fn ruleaza() -> Result<(), String> {
     aplica_tema(&conectare_ui, mod_ales);
     aplica_tema(&lista_ui, mod_ales);
     aplica_tema(&editor_ui, mod_ales);
+    aplica_tema(&deploy_ui, mod_ales);
 
     // butonul de tema: schimba modul pe toate ecranele si il tine minte
     let alege_tema = {
-        let (c_ui, l_ui, e_ui) = (
+        let (c_ui, l_ui, e_ui, d_ui) = (
             conectare_ui.as_weak(),
             lista_ui.as_weak(),
             editor_ui.as_weak(),
+            deploy_ui.as_weak(),
         );
         let cale_cfg = cale_cfg.clone();
         Rc::new(move |intunecat: bool| {
@@ -162,6 +182,9 @@ fn ruleaza() -> Result<(), String> {
                 aplica_tema(&u, m);
             }
             if let Some(u) = e_ui.upgrade() {
+                aplica_tema(&u, m);
+            }
+            if let Some(u) = d_ui.upgrade() {
                 aplica_tema(&u, m);
             }
             let Some(cale) = cale_cfg.as_ref() else {
@@ -183,18 +206,23 @@ fn ruleaza() -> Result<(), String> {
     };
 
     // o singura functie de redesenat: altfel un ecran ramane in urma celuilalt
+    let cate_per_fisier = cfg.obiecte_per_script;
     let deseneaza = {
         let stare = stare.clone();
-        let (c_ui, l_ui, e_ui) = (
+        let (c_ui, l_ui, e_ui, d_ui) = (
             conectare_ui.as_weak(),
             lista_ui.as_weak(),
             editor_ui.as_weak(),
+            deploy_ui.as_weak(),
         );
         move || {
             let mut s = stare.borrow_mut();
-            let (Some(c_ui), Some(l_ui), Some(e_ui)) =
-                (c_ui.upgrade(), l_ui.upgrade(), e_ui.upgrade())
-            else {
+            let (Some(c_ui), Some(l_ui), Some(e_ui), Some(d_ui)) = (
+                c_ui.upgrade(),
+                l_ui.upgrade(),
+                e_ui.upgrade(),
+                d_ui.upgrade(),
+            ) else {
                 return;
             };
             if s.app.is_none() {
@@ -202,8 +230,29 @@ fn ruleaza() -> Result<(), String> {
                 incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(0).0);
                 let _ = l_ui.hide();
                 let _ = e_ui.hide();
+                let _ = d_ui.hide();
                 let _ = c_ui.show();
                 return;
+            }
+            // planul de deploy: se reface doar cand s-a schimbat ce e in plan
+            let alese = s
+                .app
+                .as_ref()
+                .map(|a| a.lista().in_plan())
+                .unwrap_or_default();
+            let facut = s.deploy.as_ref().map(|(a, _)| a.clone());
+            if s.app.as_ref().is_some_and(|a| a.ecran() == Ecran::Deploy)
+                && facut.as_ref() != Some(&alese)
+            {
+                let (r, t) = (
+                    s.conectare.sursa.baza.clone(),
+                    s.conectare.baza.baza.clone(),
+                );
+                let plan = s
+                    .app
+                    .as_ref()
+                    .map(|a| a.plan(&r, &t, &gmotion_platforma::timp::acum()));
+                s.deploy = plan.map(|p| (alese.clone(), gmotion_app::deploy::StareDeploy::nou(p)));
             }
             let _ = c_ui.hide();
             let (referinta, baza) = (
@@ -221,12 +270,7 @@ fn ruleaza() -> Result<(), String> {
                     tinta_baza: &baza,
                     servere: &server,
                     mediu,
-                    in_plan: app
-                        .lista()
-                        .obiecte()
-                        .iter()
-                        .filter(|o| o.stare.difera())
-                        .count(),
+                    in_plan: app.lista().in_plan().len(),
                 },
                 app.lista(),
             );
@@ -254,14 +298,28 @@ fn ruleaza() -> Result<(), String> {
                             mediu,
                             stare_obiecte: &pozitie,
                             revizuit: o.revizuit,
+                            in_plan: o.in_plan,
                         },
                         &model,
                     );
                 }
                 let _ = l_ui.hide();
+                let _ = d_ui.hide();
                 let _ = e_ui.show();
+            } else if app.ecran() == Ecran::Deploy {
+                let sursa = app.sursa().clone();
+                if let Some((_, st)) = s.deploy.as_ref() {
+                    let director = director_deploy(&referinta).display().to_string();
+                    let e =
+                        gmotion_app::deploy::ecran(st, &sursa, &baza, &director, cate_per_fisier);
+                    incarca_deploy(&d_ui, &e, mediu);
+                }
+                let _ = l_ui.hide();
+                let _ = e_ui.hide();
+                let _ = d_ui.show();
             } else {
                 let _ = e_ui.hide();
+                let _ = d_ui.hide();
                 let _ = l_ui.show();
             }
         }
@@ -590,6 +648,71 @@ fn ruleaza() -> Result<(), String> {
             } else {
                 Ordine::LiniiDesc
             }))
+        });
+    }
+
+    // --- planul de deploy
+    {
+        let c = comanda.clone();
+        lista_ui.on_adauga_in_plan(move || c(Comanda::ComutaInPlan));
+        let c = comanda.clone();
+        lista_ui.on_deschide_deploy(move || c(Comanda::DeschideDeploy));
+        let c = comanda.clone();
+        editor_ui.on_adauga_in_plan(move || c(Comanda::ComutaInPlan));
+        let c = comanda.clone();
+        deploy_ui.on_inapoi_lista(move || c(Comanda::InapoiLaLista));
+        let c = comanda.clone();
+        deploy_ui.on_scoate_din_plan(move |id| c(Comanda::ScoateDinPlan(id.to_string())));
+        let a = alege_tema.clone();
+        let d = deseneaza.clone();
+        deploy_ui.on_alege_tema(move |intunecat| {
+            a(intunecat);
+            d();
+        });
+        // garda: se recitesc ambele baze si se compara amprentele
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        deploy_ui.on_verifica_baza(move || {
+            let c = s.borrow().conectare.clone();
+            tracing::info!(target: "gmotion::app", "garda: recitesc bazele");
+            let recitit = pornire::compara(&c);
+            let mut st = s.borrow_mut();
+            if let Some((_, dep)) = st.deploy.as_mut() {
+                match recitit {
+                    Ok(r) => dep.aplica_verificarea(
+                        r.sursa,
+                        &c.baza.baza,
+                        r.tinta,
+                        &gmotion_platforma::timp::acum(),
+                    ),
+                    Err(e) => dep.verificare_esuata(e),
+                }
+            }
+            drop(st);
+            d();
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        deploy_ui.on_scrie_scripturile(move || {
+            let mut st = s.borrow_mut();
+            let (referinta, tinta) = (st.conectare.sursa.baza.clone(), st.conectare.baza.baza.clone());
+            if let Some((_, dep)) = st.deploy.as_mut() {
+                let dir = director_deploy(&referinta);
+                dep.scrie(&dir, &tinta, &gmotion_platforma::timp::acum());
+                if let Some(Ok(r)) = &dep.rezultat {
+                    tracing::info!(target: "gmotion::app", director = %r.director.display(), fisiere = r.fisiere.len(), "deploy scris");
+                }
+            }
+            drop(st);
+            d();
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        deploy_ui.on_alege_impartirea(move |i| {
+            if let Some((_, dep)) = s.borrow_mut().deploy.as_mut() {
+                dep.alege_impartirea(gmotion_app::deploy::impartire_din(i, cate_per_fisier));
+            }
+            d();
         });
     }
 

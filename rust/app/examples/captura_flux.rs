@@ -130,6 +130,7 @@ fn main() {
                 app.lista().vizibile().len()
             ),
             revizuit: o.revizuit,
+            in_plan: false,
         },
         &model,
     );

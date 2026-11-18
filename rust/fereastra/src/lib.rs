@@ -12,6 +12,7 @@
 pub mod harta;
 pub mod jetoane;
 pub mod model_conectare;
+pub mod model_deploy;
 pub mod model_editor;
 pub mod model_lista;
 
@@ -302,6 +303,8 @@ pub struct AntetEditor<'a> {
     /// „obiectul 4 din 212 nerevizuite"
     pub stare_obiecte: &'a str,
     pub revizuit: bool,
+    /// Obiectul e in planul de deploy.
+    pub in_plan: bool,
 }
 
 /// „1 diferenta" / „4 diferente" / „21 de diferente".
@@ -369,6 +372,7 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_obiect_schema(antet.schema.into());
     ui.set_obiect_nume(antet.nume.into());
     ui.set_tip_obiect(antet.tip.into());
+    ui.set_in_plan(antet.in_plan);
     ui.set_rezumat(numar_diferente(model.diferente.len()).into());
     ui.set_sursa_baza(antet.sursa_baza.into());
     ui.set_sursa_detaliu(detaliu_panou(antet.sursa_server, linii(model, true)).into());
@@ -430,6 +434,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
                     .map_or("", |d| d.difera_in.as_str())
                     .into(),
                 revizuit: o.revizuit,
+                in_plan: o.in_plan,
             }
         })
         .collect();
@@ -494,6 +499,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             ui.set_obiect_schema(o.schema.as_str().into());
             ui.set_obiect_nume(o.nume.as_str().into());
             ui.set_obiect_revizuit(o.revizuit);
+            ui.set_obiect_in_plan(o.in_plan);
             ui.set_ce_difera(
                 o.detalii
                     .as_ref()
@@ -545,6 +551,66 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
 }
 
 /// Umple ecranul de conectare din modelul lui.
+/// Umple ecranul de deploy. Numarul mare si propozitia vin din pasi
+/// (`model_deploy::rezumat`), ca sa nu poata spune altceva decat lista.
+pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu: Mediu) {
+    use model_deploy::{GardaDeploy, RezultatDeploy};
+    ui.set_referinta(e.referinta.as_str().into());
+    ui.set_tinta(e.tinta.as_str().into());
+    ui.set_mediu(mediu.cod());
+    ui.set_numar(e.pasi.len().to_string().into());
+    ui.set_rezumat(model_deploy::rezumat(&e.pasi).into());
+    let pasi: Vec<PasDeployUi> = e
+        .pasi
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let (schema, nume) = p.obiect.split_once('.').unwrap_or(("dbo", &p.obiect));
+            PasDeployUi {
+                nr: (i + 1).to_string().into(),
+                creeaza: p.creeaza,
+                schema: schema.into(),
+                nume: nume.into(),
+                tip: p.tip.as_str().into(),
+                id: p.obiect.as_str().into(),
+            }
+        })
+        .collect();
+    ui.set_pasi(ModelRc::new(VecModel::from(pasi)));
+    ui.set_sarite(
+        match e.sarite {
+            0 => String::new(),
+            1 => "Un obiect ales nu intra: exista doar in baza sau e criptat.".into(),
+            n => format!("{n} obiecte alese nu intra: exista doar in baza sau sunt criptate."),
+        }
+        .into(),
+    );
+    let (fel, schimbari) = match &e.garda {
+        GardaDeploy::Neverificata => (0, Vec::new()),
+        GardaDeploy::Ok { .. } => (1, Vec::new()),
+        GardaDeploy::Schimbata(v) => (2, v.iter().take(6).cloned().collect()),
+        GardaDeploy::Eroare(_) => (3, Vec::new()),
+    };
+    ui.set_garda(fel);
+    ui.set_text_garda(model_deploy::text_garda(&e.garda, &e.tinta).into());
+    ui.set_schimbari(ModelRc::new(VecModel::from(
+        schimbari
+            .into_iter()
+            .map(SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_impartire(e.impartire);
+    ui.set_cate(e.cate.to_string().into());
+    ui.set_director(e.director.as_str().into());
+    ui.set_poate_scrie(e.poate_scrie);
+    ui.set_rezultat(match e.rezultat {
+        RezultatDeploy::Nescris => 0,
+        RezultatDeploy::Scris { .. } => 1,
+        RezultatDeploy::Eroare(_) => 2,
+    });
+    ui.set_text_rezultat(model_deploy::text_rezultat(&e.rezultat).into());
+}
+
 /// Cat de lata e harta din lista, in pixeli logici: fereastra de 1440 minus
 /// marginile cartusului. Pe o fereastra mai ingusta, ultimul grup trece pe
 /// randul urmator mai devreme; nu iese din cartus decat pe orizontala.
@@ -868,6 +934,7 @@ mod teste {
                 mediu: Mediu::Prod,
                 stare_obiecte: "obiectul 1 din 2 nerevizuite",
                 revizuit: false,
+                in_plan: false,
             },
             &model,
         );
@@ -905,6 +972,7 @@ mod teste {
             mediu: Mediu::Test,
             stare_obiecte: "",
             revizuit: false,
+            in_plan: false,
         };
         ui.set_pliaza_identicul(false);
         incarca_editor(&ui, &antet, &model);
@@ -943,6 +1011,7 @@ mod teste {
             mediu: Mediu::Dev,
             stare_obiecte: "",
             revizuit: false,
+            in_plan: false,
         };
         ui.set_pliaza_identicul(false);
         ui.set_alaturat(true);
@@ -1003,6 +1072,7 @@ mod teste {
             stare,
             detalii: None,
             revizuit: false,
+            in_plan: false,
         };
         model_lista::Lista::noua(vec![
             o("usp_Stoc", "P", Stare::Modificat),

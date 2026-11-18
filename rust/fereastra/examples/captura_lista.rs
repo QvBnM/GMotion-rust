@@ -56,6 +56,7 @@ fn main() {
                 },
                 detalii: None,
                 revizuit: false,
+                in_plan: false,
             }
         })
         .chain(
@@ -72,6 +73,7 @@ fn main() {
                         stare: model_lista::Stare::Identic,
                         detalii: None,
                         revizuit: false,
+                        in_plan: false,
                     }
                 }),
         )

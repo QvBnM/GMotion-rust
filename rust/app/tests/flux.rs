@@ -118,6 +118,60 @@ fn din_conectare_pana_in_editor() {
 }
 
 #[test]
+fn din_lista_pana_la_scripturile_de_deploy() {
+    use gmotion_app::deploy::{Garda, StareDeploy};
+    let cale = instantaneu("deploy");
+    let mut c = Conectare::noua();
+    c.instantaneu = Some(cale.to_string_lossy().to_string());
+    c.sursa.baza = "CharismaDev".into();
+    c.baza.baza = "CharismaProd".into();
+    let r = pornire::compara(&c).expect("compararea merge");
+    let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinta, modul::Revizuire::noua());
+
+    // 1. doua obiecte in plan: unul modificat, unul nou
+    for nume in ["pStoc", "pNou"] {
+        let p = (0..app.lista().vizibile().len())
+            .find(|&p| app.lista().obiect(p).unwrap().nume == nume)
+            .unwrap();
+        app.comanda(Comanda::Selecteaza(p));
+        app.comanda(Comanda::ComutaInPlan);
+    }
+    app.comanda(Comanda::DeschideDeploy);
+    assert_eq!(app.ecran(), Ecran::Deploy);
+    let mut st = StareDeploy::nou(app.plan("CharismaDev", "CharismaProd", "2026-11-18 14:00"));
+    let pasi = st.pasi_in_ordine(app.sursa());
+    assert_eq!(pasi.len(), 2);
+
+    // 2. garda, pe ce se reciteste acum din instantaneu
+    let recitit = pornire::compara(&c).expect("recitirea merge");
+    st.aplica_verificarea(recitit.sursa, "CharismaProd", recitit.tinta, "14:05");
+    assert!(matches!(st.garda, Garda::Ok { .. }), "{:?}", st.garda);
+
+    // 3. scrierea: scripturile si revenirea, pe disc
+    let dir = cale.parent().unwrap().join("deploy");
+    st.scrie(&dir, "CharismaProd", "2026-11-18 14:05");
+    let raport = st
+        .rezultat
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .expect("scrierea merge");
+    assert_eq!(raport.obiecte, 2);
+    let script: String = raport
+        .fisiere
+        .iter()
+        .map(|f| std::fs::read_to_string(f).unwrap())
+        .collect();
+    assert!(script.contains("dbo.pStoc") && script.contains("dbo.pNou"));
+    assert!(
+        !script.contains("dbo.pMesaj"),
+        "pMesaj n-a fost pus in plan"
+    );
+    assert!(!raport.revenire.is_empty(), "revenirea e scrisa");
+    std::fs::remove_dir_all(cale.parent().unwrap()).ok();
+}
+
+#[test]
 fn o_baza_lipsa_din_instantaneu_nu_duce_in_lista() {
     let cale = instantaneu("baza-lipsa");
     let mut c = Conectare::noua();

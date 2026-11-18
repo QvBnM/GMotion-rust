@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: e012a525435d079a -->
+<!-- api-hash: 302ee5560c3896f4 -->
 
 ## Rol
 
@@ -37,6 +37,9 @@ si editorul de diferente (etapa 8).
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `harta::{aseaza, picteaza, indice_la, celula_la, pozitie_randului}`, `LATIME_HARTA` | harta de deasupra tabelului: grupuri pe tip, patrate pictate in Rust, clic → rand |
 | `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | clicul si bula de pe harta; calculul e doar in `harta::indice_la` |
+| `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran, mediu)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |
+| `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra |
+| `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate, numerotate, colorate |
 | `model_editor::plieaza(model, context) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
@@ -49,7 +52,7 @@ si editorul de diferente (etapa 8).
 | `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
 | `mod_curent(ui)` | modul pus ultima data in `Tema` |
 | `tigla_hasura(mod)` | tigla hasurii de pe partea fara linii, in culorile modului |
-| `incarca_editor(ui, antet, model)`, `AntetEditor`, `Mediu` | umple editorul |
+| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `in_plan`), `Mediu` | umple editorul |
 
 ## Invariante
 

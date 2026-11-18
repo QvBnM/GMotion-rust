@@ -54,6 +54,7 @@ fn obiecte(n: usize) -> Vec<model_lista::Obiect> {
                     }
                 }),
                 revizuit: i % 13 == 0,
+                in_plan: false,
             }
         })
         .collect()

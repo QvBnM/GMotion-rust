@@ -24,6 +24,8 @@ export struct RandListaUi {
     minus: string,
     difera-in: string,
     revizuit: bool,
+    // pus in planul de deploy
+    in-plan: bool,
 }
 
 export struct CategorieUi {
@@ -86,6 +88,8 @@ component RandTabel inherits Rectangle {
     background: root.selectat ? Tema.strat : zona.has-hover ? Tema.suprafata : transparent;
     zona := TouchArea { clicked => { root.apasat(); } }
     if root.selectat: Rectangle { x: 0; width: 3px; height: 20px; border-radius: 1.5px; background: Tema.accent; }
+    // in plan: o crestatura pe marginea din dreapta
+    if root.r.in-plan: Rectangle { x: parent.width - 4px; width: 4px; height: 22px; border-radius: 2px; background: Tema.accent; }
     HorizontalLayout {
         padding-left: 10px;
         padding-right: 10px;
@@ -196,6 +200,7 @@ export component FereastraLista inherits Window {
     in property <string> obiect-nume;
     in property <string> ce-difera;           // „un singur caracter, intr-un sir: Nu → nu"
     in property <bool> obiect-revizuit;
+    in property <bool> obiect-in-plan;
     in property <[RandUi]> previzualizare;
     in property <image> tigla-hasura;
 
@@ -231,6 +236,7 @@ export component FereastraLista inherits Window {
             if (e.text == Key.UpArrow || e.text == "k") { root.muta-selectia(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
             if (e.text == "r") { root.comuta-revizuit(root.selectat); return accept; }
+            if (e.text == "i") { root.adauga-in-plan(); return accept; }
             return reject;
         }
 
@@ -473,7 +479,7 @@ export component FereastraLista inherits Window {
                                     text: root.obiect-revizuit ? "Revizuit ✓" : "Revizuit";
                                     apasat => { root.comuta-revizuit(root.selectat); }
                                 }
-                                Buton { text: "In plan"; apasat => { root.adauga-in-plan(); } }
+                                Buton { text: root.obiect-in-plan ? "In plan ✓" : "In plan"; apasat => { root.adauga-in-plan(); } }
                                 ButonPrincipal { text: "Deschide"; apasat => { root.deschide-obiectul(); } }
                             }
                         }
@@ -544,7 +550,7 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: "obiect" }, { t: "enter", e: "deschide" }, { t: "r", e: "revizuit" }]: HorizontalLayout {
+                    for k in [{ t: "j k", e: "obiect" }, { t: "enter", e: "deschide" }, { t: "r", e: "revizuit" }, { t: "i", e: "in plan" }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }

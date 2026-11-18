@@ -14,6 +14,8 @@ use gmotion_modul_diff_obiecte::{self as modul, Baza, Rand, Revizuire};
 pub enum Ecran {
     Lista,
     Editor,
+    /// Planul de deploy: ce s-a pus „in plan", garda si scrierea.
+    Deploy,
 }
 
 /// Tot ce poate cere utilizatorul, din oricare ecran.
@@ -30,6 +32,12 @@ pub enum Comanda {
     FiltreazaTip(Option<String>),
     Cauta(String),
     Sorteaza(Ordine),
+    /// Pune sau scoate obiectul selectat din plan.
+    ComutaInPlan,
+    /// Scoate din plan obiectul `schema.nume` (din ecranul de deploy).
+    ScoateDinPlan(String),
+    /// Deschide planul de deploy; ramane pe loc daca planul e gol.
+    DeschideDeploy,
 }
 
 /// Starea aplicatiei: lista, ecranul activ si progresul revizuirii.
@@ -63,6 +71,7 @@ impl Aplicatie {
                     },
                     detalii: None,
                     revizuit: revizuire.e_revizuit(r),
+                    in_plan: false,
                 }
             })
             .collect();
@@ -177,8 +186,49 @@ impl Aplicatie {
             Comanda::FiltreazaTip(t) => self.lista.filtreaza_tip(t),
             Comanda::Cauta(t) => self.lista.cauta(&t),
             Comanda::Sorteaza(o) => self.lista.sorteaza(o),
+            Comanda::ComutaInPlan => {
+                if let Some(p) = self.lista.selectat() {
+                    self.lista.comuta_in_plan(p);
+                }
+            }
+            Comanda::ScoateDinPlan(id) => {
+                self.lista.scoate_din_plan(&id);
+                // planul golit nu mai are ce arata
+                if self.ecran == Ecran::Deploy && self.lista.in_plan().is_empty() {
+                    self.ecran = Ecran::Lista;
+                }
+            }
+            Comanda::DeschideDeploy => {
+                if !self.lista.in_plan().is_empty() {
+                    self.ecran = Ecran::Deploy;
+                }
+            }
         }
         false
+    }
+
+    /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii.
+    /// `referinta` si `tinta` sunt numele bazelor; `facut_la`, momentul.
+    pub fn plan(&self, referinta: &str, tinta: &str, facut_la: &str) -> modul::Plan {
+        let alese = self.lista.in_plan();
+        let comparare = modul::Comparare {
+            referinta: referinta.to_string(),
+            baze: vec![tinta.to_string()],
+            randuri: self.randuri.clone(),
+            numaratoare: modul::Numaratoare::default(),
+        };
+        modul::Plan::din_comparare(
+            &comparare,
+            &self.sursa,
+            &[(tinta.to_string(), self.tinta.clone())],
+            |r| alese.iter().any(|a| a == &r.obiect),
+            facut_la,
+        )
+    }
+
+    /// Obiectele pregatite ale sursei: de aici se scrie codul in deploy.
+    pub fn sursa(&self) -> &Baza {
+        &self.sursa
     }
 
     /// Trece la obiectul urmator / anterior care se poate deschide, ramanand
@@ -262,6 +312,27 @@ mod teste {
             |_| {},
         );
         Aplicatie::noua(comparare.randuri, sursa, tinta, Revizuire::noua())
+    }
+
+    #[test]
+    fn planul_si_deploy_ul_urmeaza_ce_e_in_plan() {
+        let mut app = aplicatie();
+        // planul gol: deploy-ul nu se deschide
+        app.comanda(Comanda::DeschideDeploy);
+        assert_eq!(app.ecran(), Ecran::Lista);
+        app.comanda(Comanda::Selecteaza(0));
+        app.comanda(Comanda::ComutaInPlan);
+        let id = app.obiect().unwrap().id();
+        assert_eq!(app.lista().in_plan(), vec![id.clone()]);
+        app.comanda(Comanda::DeschideDeploy);
+        assert_eq!(app.ecran(), Ecran::Deploy);
+        let plan = app.plan("Ref", "Baza", "acum");
+        assert_eq!(plan.pasi.len(), 1);
+        assert_eq!(plan.pasi[0].obiect, id);
+        // scos ultimul obiect: inapoi in lista, planul e gol
+        app.comanda(Comanda::ScoateDinPlan(id));
+        assert_eq!(app.ecran(), Ecran::Lista);
+        assert!(app.lista().in_plan().is_empty());
     }
 
     #[test]

@@ -101,6 +101,7 @@ fn main() {
                     mediu: Mediu::Prod,
                     stare_obiecte: "obiectul 1 din 1 nerevizuite",
                     revizuit: false,
+                    in_plan: false,
                 },
                 &model,
             );

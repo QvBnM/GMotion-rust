@@ -1,0 +1,309 @@
+// Planul de deploy: ce pleaca spre baza tinta, in ordinea din script, si
+// cele trei opriri dinainte de scriere — garda „baza n-a mai fost atinsa",
+// revenirea salvata intai, fisierele. Se scriu doar scripturi; nu se ruleaza
+// nimic pe server.
+//
+// Se strica astfel: butonul de scriere pare activ inainte de garda, sau
+// numarul mare nu e numarul pasilor de dedesubt. Primul vine din `app`
+// (`deploy::StareDeploy::poate_scrie`), al doilea din `model_deploy::rezumat`.
+
+import { ListView } from "std-widgets.slint";
+import { Tema, Buton, Antet, ButonTema, Card } from "comune.slint";
+
+export struct PasDeployUi {
+    nr: string,
+    creeaza: bool,
+    schema: string,
+    nume: string,
+    tip: string,
+    // `schema.nume`, pentru „scoate din plan"
+    id: string,
+}
+
+// O oprire de pe drumul spre scriere: cercul cu starea, titlul, textul.
+// stare: 0 de facut, 1 trecuta, 2 oprita, 3 informatie
+component Oprire inherits HorizontalLayout {
+    in property <int> stare;
+    in property <string> titlu;
+    in property <string> text;
+    in property <bool> ultima;
+    spacing: 14px;
+    VerticalLayout {
+        width: 26px;
+        Rectangle {
+            height: 26px;
+            border-radius: 13px;
+            background: root.stare == 1 ? Tema.add-bara : root.stare == 2 ? Tema.del-bara : Tema.strat;
+            border-width: root.stare == 0 || root.stare == 3 ? 1.5px : 0;
+            border-color: Tema.text-tert;
+            if root.stare == 1: Path {
+                width: 12px; height: 12px; viewbox-width: 16; viewbox-height: 16;
+                commands: "M 3 8.5 L 6.5 12 L 13 4.5"; stroke: Tema.fundal; stroke-width: 2.4px; fill: transparent;
+            }
+            if root.stare == 2: Text { text: "!"; font-family: Tema.font-ui; font-size: 14px; font-weight: 600; color: Tema.fundal; }
+            if root.stare == 3: Text { text: "i"; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; }
+        }
+        // sina pana la oprirea urmatoare
+        if !root.ultima: HorizontalLayout {
+            alignment: center;
+            vertical-stretch: 1;
+            Rectangle { width: 2px; background: Tema.linie; }
+        }
+    }
+    VerticalLayout {
+        spacing: 4px;
+        padding-bottom: root.ultima ? 0 : 16px;
+        horizontal-stretch: 1;
+        Text { text: root.titlu; font-family: Tema.font-ui; font-size: 14px; font-weight: 600; color: Tema.text; }
+        Text { text: root.text; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; wrap: word-wrap; }
+        @children
+    }
+}
+
+export component FereastraDeploy inherits Window {
+    title: "gmotion — deploy";
+    preferred-width: 1440px;
+    preferred-height: 900px;
+    background: Tema.fundal;
+    default-font-family: Tema.font-ui;
+    default-font-size: 13px;
+
+    in property <string> referinta;
+    in property <string> tinta;
+    in property <int> mediu: 0;
+    in property <string> numar;             // „3"
+    in property <string> rezumat;           // „3 obiecte: 2 modificate, 1 nou"
+    in property <[PasDeployUi]> pasi;
+    in property <string> sarite;            // gol, sau de ce lipsesc unele
+    // garda: 0 neverificata, 1 ok, 2 schimbata, 3 eroare
+    in property <int> garda;
+    in property <string> text-garda;
+    in property <[string]> schimbari;
+    // impartirea fisierelor: 0 per baza, 1 unul, 2 per obiect, 3 cate N
+    in property <int> impartire;
+    in property <string> cate;
+    in property <string> director;
+    in property <bool> poate-scrie;
+    // rezultatul: 0 nescris, 1 scris, 2 eroare
+    in property <int> rezultat;
+    in property <string> text-rezultat;
+
+    callback inapoi-lista();
+    callback verifica-baza();
+    callback scrie-scripturile();
+    callback alege-impartirea(int);
+    callback scoate-din-plan(string);
+    callback alege-tema(bool);
+
+    FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
+            return reject;
+        }
+
+        VerticalLayout {
+            Antet {
+                sursa: root.referinta;
+                tinta: root.tinta;
+                mediu: root.mediu;
+                VerticalLayout {
+                    alignment: center;
+                    Text { text: "Se scriu doar scripturi; pe server nu se ruleaza nimic."; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                }
+                VerticalLayout { alignment: center; Buton { text: "← Inapoi la lista"; apasat => { root.inapoi-lista(); } } }
+                VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
+            }
+
+            HorizontalLayout {
+                vertical-stretch: 1;
+                padding: 28px;
+                padding-top: 24px;
+                spacing: 28px;
+
+                // ---- stanga: ce pleaca, in ordinea din script
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 4px;
+                    HorizontalLayout {
+                        spacing: 16px;
+                        alignment: start;
+                        Text { text: root.numar; font-family: Tema.font-ui; font-size: 84px; font-weight: 600; color: Tema.text; letter-spacing: -4px; vertical-alignment: bottom; }
+                        VerticalLayout {
+                            alignment: end;
+                            padding-bottom: 14px;
+                            spacing: 2px;
+                            Text { text: "pleaca spre " + root.tinta; font-family: Tema.font-ui; font-size: 22px; font-weight: 300; color: Tema.text; letter-spacing: -0.5px; }
+                            Text { text: root.rezumat + ", in ordinea din script."; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; }
+                        }
+                    }
+                    if root.sarite != "": Text { text: root.sarite; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.mod-text; }
+                    Rectangle { height: 14px; }
+                    ListView {
+                        vertical-stretch: 1;
+                        for p[i] in root.pasi: Rectangle {
+                            height: 52px;
+                            // sina care leaga pasii, cu nodul numerotat
+                            Rectangle {
+                                x: 15px;
+                                width: 2px;
+                                y: i == 0 ? parent.height / 2 : 0;
+                                height: i == 0 || i == root.pasi.length - 1 ? parent.height / 2 : parent.height;
+                                background: Tema.linie;
+                                visible: root.pasi.length > 1;
+                            }
+                            Rectangle {
+                                x: 0;
+                                width: 32px;
+                                height: 32px;
+                                border-radius: 16px;
+                                background: Tema.suprafata;
+                                border-width: 1.5px;
+                                border-color: p.creeaza ? Tema.add-bara : Tema.mod-bara;
+                                Text { text: p.nr; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
+                            }
+                            Rectangle {
+                                x: 48px;
+                                width: parent.width - 48px;
+                                height: 44px;
+                                border-radius: 10px;
+                                background: rand.has-hover ? Tema.suprafata : transparent;
+                                HorizontalLayout {
+                                    padding-left: 12px;
+                                    padding-right: 8px;
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 62px;
+                                            height: 22px;
+                                            border-radius: 6px;
+                                            background: p.creeaza ? Tema.add-fundal : Tema.mod-fundal;
+                                            Text { text: p.creeaza ? "CREATE" : "ALTER"; font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
+                                        }
+                                    }
+                                    HorizontalLayout {
+                                        horizontal-stretch: 1;
+                                        alignment: start;
+                                        Text { text: p.schema + "."; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
+                                        Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
+                                    }
+                                    Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 28px;
+                                            height: 28px;
+                                            border-radius: 8px;
+                                            background: zx.has-hover ? Tema.strat : transparent;
+                                            opacity: rand.has-hover ? 1 : 0;
+                                            Text { text: "×"; font-family: Tema.font-ui; font-size: 16px; color: Tema.text-secundar; }
+                                            zx := TouchArea { clicked => { root.scoate-din-plan(p.id); } }
+                                        }
+                                    }
+                                }
+                                rand := TouchArea { }
+                            }
+                        }
+                    }
+                }
+
+                // ---- dreapta: cele trei opriri si scrierea
+                Card {
+                    width: 440px;
+                    VerticalLayout {
+                        padding: 24px;
+                        spacing: 0px;
+                        Text { text: "Inainte de scriere"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; }
+                        Rectangle { height: 18px; }
+
+                        Oprire {
+                            stare: root.garda == 1 ? 1 : root.garda == 0 ? 0 : 2;
+                            titlu: "Baza n-a mai fost atinsa";
+                            text: root.text-garda;
+                            for s in root.schimbari: Text { text: s; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.del-text; wrap: word-wrap; }
+                            HorizontalLayout {
+                                alignment: start;
+                                padding-top: 6px;
+                                Buton { text: root.garda == 0 ? "Verifica acum" : "Verifica din nou"; apasat => { root.verifica-baza(); } }
+                            }
+                        }
+                        Oprire {
+                            stare: 3;
+                            titlu: "Versiunea actuala, salvata intai";
+                            text: "Inainte de scripturi se scrie revenirea, din ce e acum in " + root.tinta + ": obiectele schimbate se refac, cele noi se sterg.";
+                        }
+                        Oprire {
+                            stare: 3;
+                            ultima: true;
+                            titlu: "Fisierele";
+                            text: root.director;
+                            VerticalLayout {
+                                padding-top: 6px;
+                                spacing: 4px;
+                                for o[i] in ["Un fisier per baza", "Un singur fisier", "Un fisier per obiect", "Cate " + root.cate + " obiecte per fisier"]: Rectangle {
+                                    height: 30px;
+                                    border-radius: 8px;
+                                    background: root.impartire == i ? Tema.strat : zo.has-hover ? Tema.strat : transparent;
+                                    border-width: root.impartire == i ? 1px : 0;
+                                    border-color: Tema.accent;
+                                    HorizontalLayout {
+                                        padding-left: 10px;
+                                        spacing: 8px;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 14px;
+                                                height: 14px;
+                                                border-radius: 7px;
+                                                border-width: 1.5px;
+                                                border-color: root.impartire == i ? Tema.accent : Tema.text-tert;
+                                                if root.impartire == i: Rectangle { width: 6px; height: 6px; border-radius: 3px; background: Tema.accent; }
+                                            }
+                                        }
+                                        Text { text: o; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
+                                    }
+                                    zo := TouchArea { clicked => { root.alege-impartirea(i); } }
+                                }
+                            }
+                        }
+
+                        Rectangle { vertical-stretch: 1; min-height: 16px; }
+
+                        if root.rezultat != 0: HorizontalLayout {
+                            padding-bottom: 12px;
+                            spacing: 8px;
+                            Text {
+                                text: root.text-rezultat;
+                                font-family: Tema.font-ui;
+                                font-size: 12.5px;
+                                color: root.rezultat == 1 ? Tema.add-text : Tema.del-text;
+                                wrap: word-wrap;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                        // scrierea: activa doar dupa garda
+                        Rectangle {
+                            height: 54px;
+                            border-radius: 12px;
+                            background: root.poate-scrie ? Tema.accent : Tema.strat;
+                            opacity: root.poate-scrie && zs.has-hover ? 0.88 : 1;
+                            Text {
+                                text: root.poate-scrie ? "Scrie scripturile"
+                                    : root.rezultat == 1 ? "Scris"
+                                    : "Scrie scripturile, dupa verificare";
+                                font-family: Tema.font-ui;
+                                font-size: 15px;
+                                font-weight: 600;
+                                color: root.poate-scrie ? Tema.pe-accent : Tema.text-tert;
+                            }
+                            zs := TouchArea {
+                                enabled: root.poate-scrie;
+                                clicked => { root.scrie-scripturile(); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

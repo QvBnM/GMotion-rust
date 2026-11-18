@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 4f535b912dd1c894 -->
+<!-- api-hash: e85a86f0a466edfc -->
 
 ## Rol
 
@@ -29,9 +29,12 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::noua(randuri, sursa, tinta, revizuire)` | starea initiala, din randurile unei comparari |
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = starea de revizuire s-a schimbat (de salvat) |
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran |
-| `Ecran` | `Lista` sau `Editor` |
+| `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
+| `Aplicatie::plan(referinta, tinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii |
+| `deploy::StareDeploy` (`nou`, `pasi_in_ordine`, `aplica_verificarea`, `verificare_esuata`, `poate_scrie`, `scrie`, `alege_impartirea`) | ecranul de deploy: garda pe obiectele recitite, scrierea cu revenirea inainte, aceleasi functii ca `gmotion deploy --plan` |
+| `deploy::{ecran, impartire_din, pozitia_impartirii}`, `Garda`, `PasAfisat` | ce se deseneaza pe ecranul de deploy |
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
 | `pornire::compara(c) -> Comparata` | citeste ambele baze si compara |

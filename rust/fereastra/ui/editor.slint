@@ -121,6 +121,7 @@ export component EditorDiferente inherits Window {
     in property <image> tigla-hasura;
     // starea obiectului
     in property <bool> revizuit: false;
+    in property <bool> in-plan: false;
     in-out property <bool> alaturat: true;
     in-out property <bool> pliaza-identicul: true;
     in property <string> stare-obiecte;      // „obiectul 4 din 212 nerevizuite"
@@ -154,6 +155,7 @@ export component EditorDiferente inherits Window {
             if (e.text == "j") { root.obiect-urmator(); return accept; }
             if (e.text == "k") { root.obiect-anterior(); return accept; }
             if (e.text == "r") { root.comuta-revizuit(); return accept; }
+            if (e.text == "i") { root.adauga-in-plan(); return accept; }
             if (e.text == "u") { root.alaturat = !root.alaturat; root.comuta-alaturat(root.alaturat); return accept; }
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
@@ -347,7 +349,7 @@ export component EditorDiferente inherits Window {
                 padding: 6px;
                 spacing: 4px;
                 ButonInsula { text: root.revizuit ? "Revizuit ✓" : "Revizuit"; tasta: "r"; fel: root.revizuit ? 2 : 0; apasat => { root.comuta-revizuit(); } }
-                ButonInsula { text: "In plan"; fel: 1; apasat => { root.adauga-in-plan(); } }
+                ButonInsula { text: root.in-plan ? "In plan ✓" : "In plan"; tasta: "i"; fel: root.in-plan ? 2 : 1; apasat => { root.adauga-in-plan(); } }
                 Despartitor { }
                 VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
             }
