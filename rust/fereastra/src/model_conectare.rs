@@ -94,6 +94,9 @@ pub struct Parte {
     pub baze: Vec<String>,
     pub stare: StareConexiune,
     pub auth_windows: bool,
+    /// Instantele gasite in retea (SQL Browser), de ales cu un clic. Goala
+    /// pana se apasa cautarea.
+    pub servere_gasite: Vec<String>,
 }
 
 impl Parte {
@@ -222,6 +225,7 @@ mod teste {
             baze: vec![baza.into()],
             stare: StareConexiune::Conectat("conectat".into()),
             auth_windows: true,
+            servere_gasite: Vec::new(),
         }
     }
 

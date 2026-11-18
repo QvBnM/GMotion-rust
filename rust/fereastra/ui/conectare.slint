@@ -1,5 +1,7 @@
-// Ecranul de conectare: ce se compara cu ce. Macheta:
-// `cercetare/machete/Conectare.dc.html`.
+// Ecranul de conectare: ce se compara cu ce. Dupa schita aprobata
+// (`cercetare/schita-slint/ui/conectare.slint`), pe jetoanele din `Tema`:
+// cele doua parti ca doua carduri, cautarea serverelor ca iconita in camp,
+// jurnalul ca banda jos.
 //
 // Se strica astfel: butonul „Compara" pare apasabil cand lipseste ceva (si
 // omul afla abia dupa ce asteapta conectarea), sau parola ajunge unde nu
@@ -7,7 +9,7 @@
 // fereastra); al doilea tine de tipul care o pastreaza, fara `Debug` derivat.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Despartitor, Chevron, Buton, ButonPrincipal } from "comune.slint";
+import { Tema, Chevron, Buton, ButonPrincipal, Antet, ButonTema, EticMediu, Card } from "comune.slint";
 
 export struct ParteUi {
     eticheta: string,
@@ -23,6 +25,8 @@ export struct ParteUi {
     stare: string,
     // 0 neincercat, 1 se conecteaza, 2 conectat, 3 eroare
     fel-stare: int,
+    // instantele gasite in retea, de ales cu un clic
+    servere-gasite: [string],
 }
 
 export struct RecentaUi {
@@ -34,27 +38,37 @@ export struct RecentaUi {
     progres: string,
 }
 
-component Eticheta inherits Text {
-    font-size: 13px;
-    color: Tema.text-secundar;
-    vertical-alignment: center;
+// o linie din jurnalul aplicatiei; nivel: 0 info, 2 atentie, 3 eroare
+export struct LinieJurnalUi {
+    nivel: int,
+    text: string,
 }
 
+component Eticheta inherits Text {
+    font-family: Tema.font-ui;
+    font-size: 12px;
+    color: Tema.text-secundar;
+}
+
+// Camp de text, adancit in card. Cu `cauta`, are lupa in dreapta.
 component Camp inherits Rectangle {
     in property <string> text;
     in property <bool> mono: false;
     in property <bool> ascuns: false;
     in property <string> gol;
+    in property <bool> cauta: false;
     callback schimbat(string);
-    height: 30px;
-    border-radius: 3px;
+    callback la-cautare();
+    height: 36px;
+    border-radius: 8px;
     border-width: 1px;
-    border-color: intrare.has-focus ? Tema.text : Tema.linie;
-    background: Tema.cod-fundal;
+    border-color: intrare.has-focus ? Tema.accent : Tema.linie;
+    background: Tema.fundal;
     forward-focus: intrare;
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
+        padding-left: 12px;
+        padding-right: root.cauta ? 4px : 12px;
+        spacing: 6px;
         intrare := TextInput {
             text: root.text;
             font-family: root.mono ? Tema.font-mono : Tema.font-ui;
@@ -65,17 +79,40 @@ component Camp inherits Rectangle {
             input-type: root.ascuns ? InputType.password : InputType.text;
             edited => { root.schimbat(self.text); }
         }
+        if root.cauta: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 7px;
+                background: lupa.has-hover ? Tema.strat : transparent;
+                // lupa peste trei puncte: „cauta in retea"
+                Path {
+                    width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16;
+                    commands: "M 7 2 A 5 5 0 1 1 6.99 2 M 10.6 10.6 L 14.2 14.2";
+                    stroke: lupa.has-hover ? Tema.accent-text : Tema.text-secundar; stroke-width: 1.6px; fill: transparent;
+                }
+                Path {
+                    width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16;
+                    commands: "M 4.3 7 A 0.9 0.9 0 1 1 4.29 7 M 7 7 A 0.9 0.9 0 1 1 6.99 7 M 9.7 7 A 0.9 0.9 0 1 1 9.69 7";
+                    fill: lupa.has-hover ? Tema.accent-text : Tema.text-secundar;
+                }
+                lupa := TouchArea { clicked => { root.la-cautare(); } }
+            }
+        }
     }
     if root.text == "" && !intrare.has-focus && root.gol != "": Text {
-        x: 8px;
+        x: 12px;
         text: root.gol;
+        font-family: Tema.font-ui;
         font-size: 13px;
         color: Tema.text-tert;
         vertical-alignment: center;
     }
 }
 
-// Alegerea dintr-o lista scurta (bazele). Deschisa, arata optiunile sub camp.
+// Alegerea dintr-o lista scurta (bazele). Deschisa, arata optiunile sub camp,
+// peste restul ecranului.
 component Alegere inherits Rectangle {
     in property <string> ales;
     in property <[string]> optiuni;
@@ -83,19 +120,19 @@ component Alegere inherits Rectangle {
     callback schimbat(string);
     /// Lista e goala: cineva trebuie sa o umple (adica sa se conecteze).
     callback cerut();
-    property <bool> deschis: false;
-    height: 30px;
-    border-radius: 3px;
+    height: 36px;
+    border-radius: 8px;
     border-width: 1px;
     border-color: Tema.linie;
-    background: zona.has-hover ? Tema.fundal : Tema.cod-fundal;
+    background: zona.has-hover ? Tema.strat : Tema.fundal;
     HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
+        padding-left: 12px;
+        padding-right: 12px;
         spacing: 8px;
         Text {
             horizontal-stretch: 1;
             text: root.ales == "" ? root.gol : root.ales;
+            font-family: root.ales == "" ? Tema.font-ui : Tema.font-mono;
             font-size: 13px;
             color: root.ales == "" ? Tema.text-tert : Tema.text;
             vertical-alignment: center;
@@ -111,93 +148,79 @@ component Alegere inherits Rectangle {
             if (root.optiuni.length == 0) {
                 root.cerut();
             } else {
-                root.deschis = !root.deschis;
+                lista.show();
             }
         }
     }
-    if root.deschis: Rectangle {
-        y: parent.height + 2px;
-        height: Math.min(200px, root.optiuni.length * 26px + 2px);
-        border-radius: 3px;
-        border-width: 1px;
-        border-color: Tema.linie;
-        background: Tema.cod-fundal;
-        lista := ListView {
-            x: 1px;
-            y: 1px;
-            width: parent.width - 2px;
-            height: parent.height - 2px;
-            for o in root.optiuni: Rectangle {
-                height: 26px;
-                background: optiune.has-hover ? Tema.fundal : transparent;
-                HorizontalLayout {
-                    padding-left: 8px;
-                    Text {
-                        text: o;
-                        font-size: 13px;
-                        color: Tema.text;
-                        vertical-alignment: center;
-                        overflow: elide;
+    lista := PopupWindow {
+        y: root.height + 4px;
+        width: root.width;
+        height: Math.min(240px, root.optiuni.length * 32px + 10px);
+        Rectangle {
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111526;
+            ListView {
+                x: 5px;
+                y: 5px;
+                width: parent.width - 10px;
+                height: parent.height - 10px;
+                for o in root.optiuni: Rectangle {
+                    height: 32px;
+                    border-radius: 7px;
+                    background: optiune.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        Text {
+                            text: o;
+                            font-family: Tema.font-mono;
+                            font-size: 13px;
+                            color: Tema.text;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
                     }
-                }
-                optiune := TouchArea {
-                    clicked => {
-                        root.schimbat(o);
-                        root.deschis = false;
-                    }
+                    optiune := TouchArea { clicked => { root.schimbat(o); } }
                 }
             }
         }
     }
 }
 
-component Radio inherits Rectangle {
-    in property <string> text;
-    in property <bool> ales;
-    callback apasat();
-    height: 20px;
-    min-width: 14px + 6px + eticheta.preferred-width;
+// SQL Server / Windows, ca un comutator in doua.
+component Segment inherits Rectangle {
+    in property <bool> windows;
+    callback ales(bool);
+    height: 36px;
+    border-radius: 9px;
+    background: Tema.fundal;
+    border-width: 1px;
+    border-color: Tema.linie;
     HorizontalLayout {
-        spacing: 6px;
-        alignment: start;
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 13px;
-                height: 13px;
-                border-radius: 7px;
-                border-width: 1px;
-                border-color: root.ales ? Tema.text : Tema.linie;
-                background: Tema.cod-fundal;
-                if root.ales: Rectangle {
-                    width: 7px;
-                    height: 7px;
-                    border-radius: 4px;
-                    background: Tema.text;
-                }
+        padding: 3px;
+        spacing: 3px;
+        for o[i] in ["SQL Server", "Windows"]: Rectangle {
+            property <bool> pornit: (i == 1) == root.windows;
+            border-radius: 7px;
+            background: self.pornit ? Tema.strat : transparent;
+            Text {
+                text: o;
+                font-family: Tema.font-ui;
+                font-size: 13px;
+                font-weight: parent.pornit ? 600 : 400;
+                color: parent.pornit ? Tema.text : Tema.text-secundar;
             }
-        }
-        eticheta := Text {
-            text: root.text;
-            font-size: 13px;
-            color: Tema.text;
-            vertical-alignment: center;
+            TouchArea { clicked => { root.ales(i == 1); } }
         }
     }
-    TouchArea { clicked => { root.apasat(); } }
 }
 
-component Rand inherits HorizontalLayout {
-    in property <string> eticheta;
-    vertical-stretch: 0;
-    height: 30px;
-    spacing: 10px;
-    Eticheta { width: 96px; text: root.eticheta; }
-    @children
-}
-
-// O parte (Sursa sau Baza), cu campurile ei.
-component PanouParte inherits VerticalLayout {
+// O parte (Sursa sau Baza), ca un card cu campurile ei.
+component PanouParte inherits Card {
     in property <ParteUi> p;
     in property <bool> fara-servere;
     callback server-schimbat(string);
@@ -206,114 +229,109 @@ component PanouParte inherits VerticalLayout {
     callback parola-schimbata(string);
     callback baza-schimbata(string);
     callback cere-bazele();
-    spacing: 12px;
-    alignment: start;
+    callback cauta-servere();
+    callback server-ales(string);
 
-    // antetul partii
-    Rectangle {
-        height: 32px;
-        vertical-stretch: 0;
+    VerticalLayout {
+        padding: 20px;
+        spacing: 11px;
+        alignment: start;
+
         HorizontalLayout {
             spacing: 10px;
-            alignment: start;
-            Text {
-                text: p.eticheta;
-                font-size: 16px;
-                font-weight: 600;
-                color: Tema.text;
-                vertical-alignment: center;
-            }
-            Text {
-                text: p.rol;
-                font-size: 13px;
-                color: Tema.text-secundar;
-                vertical-alignment: center;
-            }
-            Rectangle { horizontal-stretch: 1; }
-            Text {
-                text: p.mediu;
-                font-family: Tema.font-mono;
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: 0.6px;
-                color: Tema.culoare-mediu(p.cod-mediu);
-                vertical-alignment: center;
-            }
+            Text { text: p.eticheta; font-family: Tema.font-ui; font-size: 18px; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.3px; }
+            Text { text: p.rol; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; }
+            VerticalLayout { alignment: center; EticMediu { mediu: p.cod-mediu; } }
         }
-        Rectangle {
-            y: parent.height - 1px;
-            height: 1px;
-            background: Tema.text;
-        }
-    }
 
-    if !root.fara-servere: Rand {
-        eticheta: "Server";
-        Camp {
-            text: p.server;
-            mono: true;
-            gol: "SRV\\INSTANTA sau srv.domeniu.local,1433";
-            schimbat(t) => { root.server-schimbat(t); }
+        if !root.fara-servere: Segment {
+            windows: p.auth-windows;
+            ales(w) => { root.auth-schimbat(w); }
         }
-    }
-    if !root.fara-servere: Rand {
-        eticheta: "Autentificare";
-        HorizontalLayout {
-            spacing: 16px;
-            alignment: start;
+        if !root.fara-servere: VerticalLayout {
+            spacing: 5px;
+            Eticheta { text: "Server SQL"; }
+            Camp {
+                text: p.server;
+                mono: true;
+                cauta: true;
+                gol: "SRV\\INSTANTA sau srv.domeniu.local,1433";
+                schimbat(t) => { root.server-schimbat(t); }
+                la-cautare => { root.cauta-servere(); }
+            }
+        }
+        // ce a gasit cautarea in retea; un clic pune serverul in camp
+        if !root.fara-servere && p.servere-gasite.length > 0: Rectangle {
+            height: gasite.preferred-height;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.fundal;
+            gasite := VerticalLayout {
+                padding: 4px;
+                for s in p.servere-gasite: Rectangle {
+                    height: 28px;
+                    border-radius: 7px;
+                    background: zs.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        Text { text: s; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; overflow: elide; }
+                    }
+                    zs := TouchArea { clicked => { root.server-ales(s); } }
+                }
+            }
+        }
+        if !root.fara-servere && !p.auth-windows: HorizontalLayout {
+            spacing: 10px;
             VerticalLayout {
-                alignment: center;
-                Radio {
-                    text: "Windows";
-                    ales: p.auth-windows;
-                    apasat => { root.auth-schimbat(true); }
+                spacing: 6px;
+                Eticheta { text: "Utilizator"; }
+                Camp {
+                    text: p.utilizator;
+                    schimbat(t) => { root.utilizator-schimbat(t); }
                 }
             }
             VerticalLayout {
-                alignment: center;
-                Radio {
-                    text: "SQL Server";
-                    ales: !p.auth-windows;
-                    apasat => { root.auth-schimbat(false); }
+                spacing: 6px;
+                Eticheta { text: "Parola"; }
+                Camp {
+                    text: p.parola;
+                    ascuns: true;
+                    schimbat(t) => { root.parola-schimbata(t); }
                 }
             }
         }
-    }
-    if !root.fara-servere && !p.auth-windows: Rand {
-        eticheta: "Utilizator";
-        Camp {
-            text: p.utilizator;
-            schimbat(t) => { root.utilizator-schimbat(t); }
+        VerticalLayout {
+            spacing: 6px;
+            Eticheta { text: "Baza"; }
+            Alegere {
+                ales: p.baza;
+                optiuni: p.baze;
+                gol: root.fara-servere ? "alege baza" : "conecteaza-te intai";
+                schimbat(t) => { root.baza-schimbata(t); }
+                cerut => { root.cere-bazele(); }
+            }
         }
-    }
-    if !root.fara-servere && !p.auth-windows: Rand {
-        eticheta: "Parola";
-        Camp {
-            text: p.parola;
-            ascuns: true;
-            schimbat(t) => { root.parola-schimbata(t); }
-        }
-    }
-    Rand {
-        eticheta: "Baza";
-        Alegere {
-            ales: p.baza;
-            optiuni: p.baze;
-            gol: root.fara-servere ? "alege baza" : "conecteaza-te intai";
-            schimbat(t) => { root.baza-schimbata(t); }
-            cerut => { root.cere-bazele(); }
-        }
-    }
-    Rand {
-        eticheta: "";
-        Text {
-            text: p.stare;
-            font-size: 12px;
-            color: p.fel-stare == 3 ? Tema.del-text
-                 : p.fel-stare == 2 ? Tema.add-text
-                 : Tema.text-secundar;
-            vertical-alignment: center;
-            overflow: elide;
+        if p.stare != "": HorizontalLayout {
+            spacing: 8px;
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: p.fel-stare == 3 ? Tema.del-bara : p.fel-stare == 2 ? Tema.add-bara : Tema.text-tert;
+                }
+            }
+            Text {
+                text: p.stare;
+                font-family: Tema.font-ui;
+                font-size: 12.5px;
+                color: p.fel-stare == 3 ? Tema.del-text : p.fel-stare == 2 ? Tema.add-text : Tema.text-secundar;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                wrap: word-wrap;
+            }
         }
     }
 }
@@ -334,6 +352,9 @@ export component FereastraConectare inherits Window {
     /// Ce lipseste ca sa se poata compara; gol = se poate.
     in property <string> ce-lipseste;
     in property <int> mediu: 0;
+    /// Ultimele linii din jurnalul aplicatiei, cea mai noua la sfarsit.
+    in property <[LinieJurnalUi]> jurnal;
+    in-out property <bool> jurnal-ascuns: false;
 
     callback server-schimbat(bool, string);
     callback auth-schimbat(bool, bool);
@@ -341,288 +362,244 @@ export component FereastraConectare inherits Window {
     callback parola-schimbata(bool, string);
     callback baza-schimbata(bool, string);
     callback cere-bazele(bool);
+    callback cauta-servere(bool);
+    callback server-ales(bool, string);
     callback inverseaza();
     callback schimba-certificatul();
     callback deschide-instantaneu();
     callback compara();
     callback reia(int);
+    callback alege-tema(bool);
 
     VerticalLayout {
-        Rectangle {
-            height: 3px;
-            background: Tema.culoare-mediu(root.mediu);
-        }
-        // antetul
-        Rectangle {
-            height: 48px;
-            background: Tema.suprafata;
-            HorizontalLayout {
-                padding-left: 16px;
-                padding-right: 16px;
-                spacing: 18px;
-                VerticalLayout {
-                    horizontal-stretch: 0;
-                    alignment: center;
-                    Text {
-                        text: "gmotion";
-                        font-family: Tema.font-mono;
+        Antet {
+            loc: "Conectare";
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 32px;
+                    width: inst.preferred-width + 24px;
+                    border-radius: 8px;
+                    background: zi.has-hover ? Tema.strat : transparent;
+                    inst := Text {
+                        text: root.instantaneu == "" ? "Deschide un instantaneu" : root.instantaneu;
+                        font-family: root.instantaneu == "" ? Tema.font-ui : Tema.font-mono;
                         font-size: 13px;
-                        font-weight: 600;
-                        letter-spacing: -0.2px;
-                        color: Tema.text;
-                        vertical-alignment: center;
+                        color: Tema.text-secundar;
+                    }
+                    zi := TouchArea { clicked => { root.deschide-instantaneu(); } }
+                }
+            }
+            VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
+        }
+
+        // corpul
+        VerticalLayout {
+            vertical-stretch: 1;
+            padding: 22px;
+            padding-bottom: 16px;
+            spacing: 14px;
+
+            // cele doua parti, cu inversarea intre ele
+            HorizontalLayout {
+                vertical-stretch: 0;
+                spacing: 0px;
+                PanouParte {
+                    horizontal-stretch: 1;
+                    p: root.sursa;
+                    fara-servere: root.instantaneu != "";
+                    server-schimbat(t) => { root.server-schimbat(true, t); }
+                    auth-schimbat(w) => { root.auth-schimbat(true, w); }
+                    utilizator-schimbat(t) => { root.utilizator-schimbat(true, t); }
+                    parola-schimbata(t) => { root.parola-schimbata(true, t); }
+                    baza-schimbata(t) => { root.baza-schimbata(true, t); }
+                    cere-bazele => { root.cere-bazele(true); }
+                    cauta-servere => { root.cauta-servere(true); }
+                    server-ales(t) => { root.server-ales(true, t); }
+                }
+                VerticalLayout {
+                    width: 56px;
+                    alignment: start;
+                    padding-top: 22px;
+                    HorizontalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 34px;
+                            height: 34px;
+                            border-radius: 17px;
+                            border-width: 1px;
+                            border-color: Tema.linie;
+                            background: inv.has-hover ? Tema.strat : Tema.suprafata;
+                            Path {
+                                width: 14px; height: 14px; viewbox-width: 16; viewbox-height: 16;
+                                commands: "M 2 5 L 13 5 M 10 2 L 13 5 L 10 8 M 14 11 L 3 11 M 6 8 L 3 11 L 6 14";
+                                stroke: Tema.text-secundar; stroke-width: 1.5px; fill: transparent;
+                            }
+                            inv := TouchArea { clicked => { root.inverseaza(); } }
+                        }
+                    }
+                }
+                PanouParte {
+                    horizontal-stretch: 1;
+                    p: root.baza;
+                    fara-servere: root.instantaneu != "";
+                    server-schimbat(t) => { root.server-schimbat(false, t); }
+                    auth-schimbat(w) => { root.auth-schimbat(false, w); }
+                    utilizator-schimbat(t) => { root.utilizator-schimbat(false, t); }
+                    parola-schimbata(t) => { root.parola-schimbata(false, t); }
+                    baza-schimbata(t) => { root.baza-schimbata(false, t); }
+                    cere-bazele => { root.cere-bazele(false); }
+                    cauta-servere => { root.cauta-servere(false); }
+                    server-ales(t) => { root.server-ales(false, t); }
+                }
+            }
+
+            // certificatul si pornirea
+            HorizontalLayout {
+                vertical-stretch: 0;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+                    Text { text: root.certificat; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+                    Rectangle {
+                        height: 24px;
+                        width: schimba.preferred-width + 12px;
+                        border-radius: 6px;
+                        background: zc.has-hover ? Tema.strat : transparent;
+                        schimba := Text { text: "Schimba"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.accent-text; }
+                        zc := TouchArea { clicked => { root.schimba-certificatul(); } }
                     }
                 }
                 Rectangle { horizontal-stretch: 1; }
                 VerticalLayout {
-                    horizontal-stretch: 0;
                     alignment: center;
-                    Rectangle {
-                        height: 20px;
-                        min-width: inst.preferred-width;
-                        inst := Text {
-                            text: root.instantaneu == ""
-                                ? "Deschide un instantaneu…"
-                                : root.instantaneu;
-                            font-size: 13px;
-                            color: Tema.selectie;
-                            vertical-alignment: center;
-                        }
-                        TouchArea { clicked => { root.deschide-instantaneu(); } }
+                    horizontal-stretch: 0;
+                    Text {
+                        text: root.ce-lipseste == "" ? "Se citeste, nu se scrie nimic." : root.ce-lipseste;
+                        font-family: Tema.font-ui;
+                        font-size: 12.5px;
+                        color: root.ce-lipseste == "" ? Tema.text-secundar : Tema.mod-text;
                     }
                 }
-            }
-            Rectangle {
-                y: parent.height - 1px;
-                height: 1px;
-                background: Tema.linie;
-            }
-        }
-
-        // corpul, centrat pe 920 px ca in macheta
-        Rectangle {
-            vertical-stretch: 1;
-            VerticalLayout {
-                x: (parent.width - 920px) / 2;
-                width: 920px;
-                padding-top: 56px;
-                spacing: 40px;
-
-                // cele doua parti
-                HorizontalLayout {
-                    vertical-stretch: 0;
-                    spacing: 0px;
-                    PanouParte {
-                        horizontal-stretch: 1;
-                        p: root.sursa;
-                        fara-servere: root.instantaneu != "";
-                        server-schimbat(t) => { root.server-schimbat(true, t); }
-                        auth-schimbat(w) => { root.auth-schimbat(true, w); }
-                        utilizator-schimbat(t) => { root.utilizator-schimbat(true, t); }
-                        parola-schimbata(t) => { root.parola-schimbata(true, t); }
-                        baza-schimbata(t) => { root.baza-schimbata(true, t); }
-                        cere-bazele => { root.cere-bazele(true); }
-                    }
-                    // butonul de inversare, intre coloane
-                    Rectangle {
-                        width: 48px;
-                        VerticalLayout {
-                            padding-top: 34px;
-                            alignment: start;
-                            Rectangle {
-                                width: 28px;
-                                height: 28px;
-                                x: 10px;
-                                border-radius: 3px;
-                                border-width: 1px;
-                                border-color: Tema.linie;
-                                background: inv.has-hover ? Tema.fundal : Tema.suprafata;
-                                Path {
-                                    width: 14px;
-                                    height: 14px;
-                                    viewbox-width: 16;
-                                    viewbox-height: 16;
-                                    commands: "M 2 5 L 13 5 M 10 2 L 13 5 L 10 8 M 14 11 L 3 11 M 6 8 L 3 11 L 6 14";
-                                    stroke: Tema.text-secundar;
-                                    stroke-width: 1.5px;
-                                    fill: transparent;
-                                }
-                                inv := TouchArea { clicked => { root.inverseaza(); } }
-                            }
-                        }
-                    }
-                    PanouParte {
-                        horizontal-stretch: 1;
-                        p: root.baza;
-                        fara-servere: root.instantaneu != "";
-                        server-schimbat(t) => { root.server-schimbat(false, t); }
-                        auth-schimbat(w) => { root.auth-schimbat(false, w); }
-                        utilizator-schimbat(t) => { root.utilizator-schimbat(false, t); }
-                        parola-schimbata(t) => { root.parola-schimbata(false, t); }
-                        baza-schimbata(t) => { root.baza-schimbata(false, t); }
-                        cere-bazele => { root.cere-bazele(false); }
-                    }
-                }
-
-                // certificatul si butonul
+                // butonul mare: activ doar cand nu lipseste nimic
                 Rectangle {
                     height: 48px;
-                    vertical-stretch: 0;
-                    Rectangle {
-                        height: 1px;
-                        background: Tema.linie;
+                    width: 220px;
+                    border-radius: 12px;
+                    background: root.ce-lipseste == "" ? Tema.accent : Tema.strat;
+                    opacity: root.ce-lipseste == "" && zp.has-hover ? 0.88 : 1;
+                    Text {
+                        text: "Compara";
+                        font-family: Tema.font-ui;
+                        font-size: 15px;
+                        font-weight: 600;
+                        color: root.ce-lipseste == "" ? Tema.pe-accent : Tema.text-tert;
                     }
-                    HorizontalLayout {
-                        padding-top: 16px;
-                        spacing: 14px;
-                        VerticalLayout {
-                            horizontal-stretch: 0;
-                            alignment: center;
-                            Text {
-                                text: root.certificat;
-                                font-size: 13px;
-                                color: Tema.text-secundar;
-                                vertical-alignment: center;
-                            }
-                        }
-                        VerticalLayout {
-                            horizontal-stretch: 0;
-                            alignment: center;
-                            Rectangle {
-                                height: 20px;
-                                min-width: schimba.preferred-width;
-                                schimba := Text {
-                                    text: "Schimba";
-                                    font-size: 13px;
-                                    color: Tema.selectie;
-                                    vertical-alignment: center;
-                                }
-                                TouchArea { clicked => { root.schimba-certificatul(); } }
-                            }
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        VerticalLayout {
-                            horizontal-stretch: 0;
-                            alignment: center;
-                            Text {
-                                text: root.ce-lipseste == ""
-                                    ? "Se citeste, nu se scrie nimic."
-                                    : root.ce-lipseste;
-                                font-size: 12px;
-                                color: root.ce-lipseste == "" ? Tema.text-secundar : Tema.mod-text;
-                                vertical-alignment: center;
-                            }
-                        }
-                        VerticalLayout {
-                            horizontal-stretch: 0;
-                            alignment: center;
-                            if root.ce-lipseste == "": ButonPrincipal {
-                                text: "Compara";
-                                height: 32px;
-                                apasat => { root.compara(); }
-                            }
-                            if root.ce-lipseste != "": Buton {
-                                text: "Compara";
-                                inalt: 32px;
-                                apasabil: false;
-                            }
-                        }
+                    zp := TouchArea {
+                        enabled: root.ce-lipseste == "";
+                        clicked => { root.compara(); }
                     }
                 }
+            }
 
-                // compararile recente
+            // compararile recente, reluabile
+            Card {
+                vertical-stretch: 1;
                 VerticalLayout {
-                    vertical-stretch: 1;
-                    spacing: 0px;
-                    Rectangle {
-                        height: 28px;
-                        Text {
-                            x: 0px;
-                            text: "Recente";
-                            font-size: 13px;
-                            font-weight: 600;
-                            color: Tema.text;
-                            vertical-alignment: center;
-                            height: parent.height;
-                        }
-                        Rectangle {
-                            y: parent.height - 1px;
-                            height: 1px;
-                            background: Tema.text;
-                        }
+                    padding: 14px;
+                    padding-left: 18px;
+                    padding-top: 12px;
+                    spacing: 4px;
+                    Text { text: "Comparari recente"; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; }
+                    if root.recente.length == 0: Text {
+                        text: "Nicio comparare salvata inca. Dupa prima, o reiei de aici cu un clic.";
+                        font-family: Tema.font-ui;
+                        font-size: 12.5px;
+                        color: Tema.text-tert;
                     }
                     ListView {
                         vertical-stretch: 1;
                         for s[i] in root.recente: Rectangle {
-                            height: 38px;
-                            background: rand.has-hover ? Tema.suprafata : transparent;
+                            height: 34px;
+                            border-radius: 8px;
+                            background: rand.has-hover ? Tema.strat : transparent;
                             HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
                                 spacing: 12px;
                                 HorizontalLayout {
                                     horizontal-stretch: 1;
-                                    spacing: 6px;
+                                    spacing: 8px;
                                     alignment: start;
-                                    Text {
-                                        text: s.sursa;
-                                        font-size: 13px;
-                                        font-weight: 500;
-                                        color: Tema.text;
-                                        vertical-alignment: center;
-                                    }
-                                    Text {
-                                        text: "→";
-                                        color: Tema.text-secundar;
-                                        vertical-alignment: center;
-                                    }
-                                    Text {
-                                        text: s.baza;
-                                        font-size: 13px;
-                                        font-weight: 500;
-                                        color: Tema.text;
-                                        vertical-alignment: center;
-                                    }
-                                    Text {
-                                        text: s.mediu;
-                                        font-family: Tema.font-mono;
-                                        font-size: 11px;
-                                        font-weight: 600;
-                                        letter-spacing: 0.6px;
-                                        color: Tema.culoare-mediu(s.cod-mediu);
-                                        vertical-alignment: center;
-                                    }
+                                    Text { text: s.sursa; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
+                                    Text { text: "→"; font-family: Tema.font-mono; color: Tema.text-tert; vertical-alignment: center; }
+                                    Text { text: s.baza; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
+                                    VerticalLayout { alignment: center; EticMediu { mediu: s.cod-mediu; } }
                                 }
-                                Text {
-                                    width: 150px;
-                                    text: s.cand;
-                                    font-size: 13px;
-                                    color: Tema.text-secundar;
-                                    vertical-alignment: center;
-                                }
-                                Text {
-                                    width: 200px;
-                                    text: s.progres;
-                                    font-size: 13px;
-                                    color: Tema.text-secundar;
-                                    vertical-alignment: center;
-                                    overflow: elide;
-                                }
-                                Text {
-                                    width: 90px;
-                                    text: "Continua";
-                                    font-size: 13px;
-                                    color: Tema.selectie;
-                                    horizontal-alignment: right;
-                                    vertical-alignment: center;
-                                }
+                                Text { width: 160px; text: s.cand; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                                Text { width: 220px; text: s.progres; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
+                                Text { width: 80px; text: "Continua"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.accent-text; horizontal-alignment: right; vertical-alignment: center; }
                             }
+                            rand := TouchArea { clicked => { root.reia(i); } }
+                        }
+                    }
+                }
+            }
+        }
+
+        // jurnalul: o banda jos, pe toata latimea, din jurnalul aplicatiei
+        Rectangle {
+            height: root.jurnal-ascuns ? 40px : 132px;
+            background: Tema.suprafata;
+            Rectangle { y: 0; height: 1px; background: Tema.linie; }
+            VerticalLayout {
+                padding-left: 24px;
+                padding-right: 16px;
+                padding-top: 6px;
+                padding-bottom: 10px;
+                spacing: 6px;
+                HorizontalLayout {
+                    height: 28px;
+                    spacing: 12px;
+                    Text { text: "Jurnal"; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+                    Text { text: "ce face aplicatia, pas cu pas"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; horizontal-stretch: 1; }
+                    Rectangle {
+                        width: ta.preferred-width + 20px;
+                        border-radius: 7px;
+                        background: zj.has-hover ? Tema.strat : transparent;
+                        ta := Text { text: root.jurnal-ascuns ? "Arata" : "Ascunde"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                        zj := TouchArea { clicked => { root.jurnal-ascuns = !root.jurnal-ascuns; } }
+                    }
+                }
+                if !root.jurnal-ascuns: VerticalLayout {
+                    spacing: 2px;
+                    alignment: start;
+                    if root.jurnal.length == 0: Text { text: "Inca nimic."; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; }
+                    for l in root.jurnal: HorizontalLayout {
+                        height: 18px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
                             Rectangle {
-                                y: parent.height - 1px;
-                                height: 1px;
-                                background: Tema.linie-slaba;
+                                width: 6px;
+                                height: 6px;
+                                border-radius: 3px;
+                                background: l.nivel == 3 ? Tema.del-bara : l.nivel == 2 ? Tema.mod-bara : Tema.text-tert;
                             }
-                            rand := TouchArea {
-                                clicked => { root.reia(i); }
-                            }
+                        }
+                        Text {
+                            text: l.text;
+                            font-family: Tema.font-mono;
+                            font-size: 11.5px;
+                            color: l.nivel == 3 ? Tema.del-text : l.nivel == 2 ? Tema.mod-text : Tema.text-secundar;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                            overflow: elide;
                         }
                     }
                 }

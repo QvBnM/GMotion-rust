@@ -28,6 +28,9 @@ pub struct Configurare {
     pub obiecte_per_script: usize,
     /// Uneste ciclul de cursor la segmentare (comutatorul din interfata).
     pub uneste_cursor: bool,
+    /// Modul ferestrei ales ultima data: `intunecat`, `luminos`, sau gol
+    /// (implicitul aplicatiei). Il scrie butonul de tema din fereastra.
+    pub tema: String,
 }
 
 impl Default for Configurare {
@@ -41,6 +44,7 @@ impl Default for Configurare {
             prag_similaritate: 95.0,
             obiecte_per_script: 10,
             uneste_cursor: false,
+            tema: String::new(),
         }
     }
 }
@@ -88,6 +92,8 @@ impl Configurare {
             Some("prag_similaritate trebuie intre 0 si 100")
         } else if self.obiecte_per_script == 0 || self.obiecte_per_script > 10_000 {
             Some("obiecte_per_script trebuie intre 1 si 10000")
+        } else if !matches!(self.tema.as_str(), "" | "intunecat" | "luminos") {
+            Some("tema trebuie sa fie intunecat, luminos sau goala")
         } else {
             None
         };
@@ -209,6 +215,22 @@ mod teste {
                 "{text} ar trebui refuzat"
             );
         }
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn tema_se_tine_minte_si_una_necunoscuta_e_refuzata() {
+        let d = dir("tema");
+        let cale = d.join("configurare.json");
+        assert_eq!(Configurare::default().tema, "", "implicit: alege aplicatia");
+        let c = Configurare {
+            tema: "intunecat".into(),
+            ..Configurare::default()
+        };
+        c.scrie(&cale).unwrap();
+        assert_eq!(Configurare::citeste(&cale).unwrap().tema, "intunecat");
+        std::fs::write(&cale, r#"{"tema": "verde"}"#).unwrap();
+        assert!(Configurare::citeste(&cale).is_err());
         std::fs::remove_dir_all(&d).ok();
     }
 

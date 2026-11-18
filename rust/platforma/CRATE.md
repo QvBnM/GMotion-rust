@@ -1,6 +1,6 @@
 # gmotion-platforma
 
-<!-- api-hash: b24a73deb566964b -->
+<!-- api-hash: b7b7c0b5ddca1f73 -->
 
 ## Rol
 
@@ -26,7 +26,7 @@ unei unelte sta in crate-ul uneltei.
 | `cai` | `director_date`, `director_sesiuni(modul)`, `cale_configurare`, `director_jurnale` |
 | `protejare` | `protejeaza`, `deprotejeaza`, `e_criptat` |
 | `sesiune` | `Sesiune`, `Sesiuni::pentru_modul(m)` cu `salveaza/incarca/sterge/lista`, `slug` |
-| `configurare` | `Configurare::citeste/scrie`, cu implicite in cod |
+| `configurare` | `Configurare::citeste/scrie`, cu implicite in cod; `tema` tine modul ferestrei ales cu butonul (`intunecat` / `luminos` / gol) |
 | `jurnal` | `porneste`, `linii(de_la)`, `adauga_linie` |
 | `modul` | `Modul`, `CerinteBaze`, `Ecran`, `Registru`, `Ruta`, `METODE_PLATFORMA` |
 

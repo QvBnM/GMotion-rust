@@ -543,6 +543,44 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
 }
 
 /// Umple ecranul de conectare din modelul lui.
+/// Cate linii de jurnal arata banda de jos a ecranului de conectare.
+pub const LINII_JURNAL: usize = 4;
+
+/// O linie din jurnalul aplicatiei (`[NIVEL] mesaj camp=valoare`), pentru
+/// banda de jos: nivelul devine culoare (0 info, 2 atentie, 3 eroare), iar
+/// prefixul dispare din text.
+pub fn linie_jurnal(linie: &str) -> (i32, String) {
+    // doar nivelurile lui `tracing` sunt prefix; `[GM-DB-001]` e parte din mesaj
+    for (prefix, nivel) in [
+        ("[ERROR] ", 3),
+        ("[WARN] ", 2),
+        ("[INFO] ", 0),
+        ("[DEBUG] ", 0),
+        ("[TRACE] ", 0),
+    ] {
+        if let Some(rest) = linie.strip_prefix(prefix) {
+            return (nivel, rest.to_string());
+        }
+    }
+    (0, linie.to_string())
+}
+
+/// Pune ultimele [`LINII_JURNAL`] linii din jurnal in banda de jos.
+pub fn incarca_jurnal(ui: &FereastraConectare, linii: &[String]) {
+    let de_la = linii.len().saturating_sub(LINII_JURNAL);
+    let v: Vec<LinieJurnalUi> = linii[de_la..]
+        .iter()
+        .map(|l| {
+            let (nivel, text) = linie_jurnal(l);
+            LinieJurnalUi {
+                nivel,
+                text: text.into(),
+            }
+        })
+        .collect();
+    ui.set_jurnal(ModelRc::new(VecModel::from(v)));
+}
+
 pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare) {
     use model_conectare::StareConexiune;
     let fel = |s: &StareConexiune| match s {
@@ -572,6 +610,12 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         )),
         stare: p.stare.text().into(),
         fel_stare: fel(&p.stare),
+        servere_gasite: ModelRc::new(VecModel::from(
+            p.servere_gasite
+                .iter()
+                .map(|s| SharedString::from(s.as_str()))
+                .collect::<Vec<_>>(),
+        )),
     };
     let recente: Vec<RecentaUi> = c
         .recente
@@ -989,6 +1033,41 @@ mod teste {
         assert_eq!(r.difera_in, "un sir");
     }
 
+    #[test]
+    fn linia_de_jurnal_isi_pierde_prefixul_si_da_nivelul() {
+        assert_eq!(
+            linie_jurnal("[INFO] deschid conexiunea server=X"),
+            (0, "deschid conexiunea server=X".into())
+        );
+        assert_eq!(
+            linie_jurnal("[WARN] certificat neverificat"),
+            (2, "certificat neverificat".into())
+        );
+        assert_eq!(
+            linie_jurnal("[ERROR] [GM-DB-001] nu raspunde"),
+            (3, "[GM-DB-001] nu raspunde".into())
+        );
+        // fara prefix: ramane cum e, ca informatie
+        assert_eq!(linie_jurnal("fara nivel"), (0, "fara nivel".into()));
+        assert_eq!(
+            linie_jurnal("[GM-DB-001] cod, nu nivel"),
+            (0, "[GM-DB-001] cod, nu nivel".into())
+        );
+    }
+
+    #[test]
+    fn banda_de_jurnal_arata_doar_ultimele_linii() {
+        let ui = fereastra_conectare();
+        let linii: Vec<String> = (1..=8).map(|i| format!("[INFO] pasul {i}")).collect();
+        incarca_jurnal(&ui, &linii);
+        let j = ui.get_jurnal();
+        assert_eq!(j.row_count(), LINII_JURNAL);
+        assert_eq!(j.row_data(0).unwrap().text, "pasul 5");
+        assert_eq!(j.row_data(LINII_JURNAL - 1).unwrap().text, "pasul 8");
+        incarca_jurnal(&ui, &[]);
+        assert_eq!(ui.get_jurnal().row_count(), 0);
+    }
+
     fn fereastra_conectare() -> FereastraConectare {
         let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
         let _ = slint::platform::set_platform(Box::new(Platforma(w)));
@@ -1012,6 +1091,7 @@ mod teste {
             baze: vec!["CharismaDev".into(), "Altceva".into()],
             stare: StareConexiune::Conectat("conectat · 21.204 obiecte".into()),
             auth_windows: false,
+            servere_gasite: vec!["SRV-DEV\\SQL2019".into(), "SRV-PROD".into()],
         };
         c.baza = Parte {
             server: "SRV-PROD".into(),
@@ -1029,6 +1109,9 @@ mod teste {
             "parola nu ajunge in fereastra"
         );
         assert_eq!(ui.get_sursa().fel_stare, 2);
+        // ce a gasit cautarea in retea ajunge in lista de sub camp
+        assert_eq!(ui.get_sursa().servere_gasite.row_count(), 2);
+        assert_eq!(ui.get_baza().servere_gasite.row_count(), 0);
         assert_eq!(ui.get_baza().baza, "CharismaProd");
         // mediul tintei da banda si eticheta
         assert_eq!(ui.get_mediu(), 2);

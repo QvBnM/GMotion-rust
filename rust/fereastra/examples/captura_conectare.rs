@@ -1,11 +1,11 @@
 //! Randeaza ecranul de conectare fara ecran, intr-un PNG, cu datele din
 //! macheta (`cercetare/machete/Conectare.dc.html`), ca sa se poata compara.
 //!
-//!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png
+//!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png [--tema intunecat|luminos]
 use std::rc::Rc;
 
 use gmotion_fereastra::model_conectare::{Acreditari, Conectare, Parte, Recenta, StareConexiune};
-use gmotion_fereastra::{aplica_tema, incarca_conectare, FereastraConectare};
+use gmotion_fereastra::{aplica_tema, incarca_conectare, incarca_jurnal, FereastraConectare, Mod};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
@@ -40,6 +40,11 @@ fn main() {
         baze: vec!["CharismaProd".into()],
         stare: StareConexiune::Conectat("conectat · SQL Server 2016 SP2 · 21.183 obiecte".into()),
         auth_windows: false,
+        servere_gasite: vec![
+            "srv-prod.firma.local,1433".into(),
+            "SRV-PROD\\SQL2019".into(),
+            "SRV-TEST".into(),
+        ],
     };
     c.recente = vec![
         Recenta {
@@ -69,8 +74,24 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraConectare::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui, gmotion_fereastra::Mod::default());
+    let tema = a
+        .iter()
+        .position(|x| x == "--tema")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| Mod::din_nume(n))
+        .unwrap_or_default();
+    aplica_tema(&ui, tema);
     incarca_conectare(&ui, &c);
+    incarca_jurnal(
+        &ui,
+        &[
+            "[INFO] caut instante in retea timeout_ms=2000".into(),
+            "[INFO] 3 instante gasite".into(),
+            "[INFO] deschid conexiunea server=SRV-DEV\\SQL2019 baza=master".into(),
+            "[WARN] certificatul serverului nu se verifica".into(),
+            "[INFO] conectat la srv-prod.firma.local,1433: 21.183 obiecte".into(),
+        ],
+    );
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

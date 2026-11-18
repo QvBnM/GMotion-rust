@@ -109,18 +109,19 @@ export component Chevron inherits Path {
     fill: transparent;
 }
 
-// Buton cu contur, ca in macheta: 1 px `linie`, colt de 3 px, fara umbra.
+// Buton secundar: pe `strat`, contur de 1 px, colturi de 8 px.
 export component Buton inherits Rectangle {
     in property <string> text;
-    in property <length> inalt: 28px;
+    in property <length> inalt: 32px;
     in property <bool> apasabil: true;
     callback apasat();
     height: inalt;
-    border-radius: 3px;
+    border-radius: 8px;
     border-width: 1px;
     border-color: Tema.linie;
-    background: zona.has-hover ? Tema.fundal : Tema.cod-fundal;
-    min-width: eticheta.preferred-width + 20px;
+    background: zona.has-hover && root.apasabil ? Tema.linie : Tema.strat;
+    opacity: root.apasabil ? 1 : 0.5;
+    min-width: eticheta.preferred-width + 26px;
     eticheta := Text {
         text: root.text;
         font-family: Tema.font-ui;
@@ -135,20 +136,21 @@ export component Buton inherits Rectangle {
     }
 }
 
-// Butonul principal: fundal `text`, scris cu `suprafata`.
+// Butonul principal: chihlimbar (`accent`), scris cu `pe-accent`.
 export component ButonPrincipal inherits Rectangle {
     in property <string> text;
     callback apasat();
-    height: 28px;
-    border-radius: 3px;
-    background: zona.has-hover ? Tema.selectie : Tema.text;
-    min-width: eticheta.preferred-width + 24px;
+    height: 32px;
+    border-radius: 8px;
+    background: Tema.accent;
+    opacity: zona.has-hover ? 0.88 : 1;
+    min-width: eticheta.preferred-width + 28px;
     eticheta := Text {
         text: root.text;
         font-family: Tema.font-ui;
         font-size: 13px;
-        font-weight: 500;
-        color: Tema.suprafata;
+        font-weight: 600;
+        color: Tema.pe-accent;
         vertical-alignment: center;
         horizontal-alignment: center;
     }
@@ -173,7 +175,7 @@ export component Tab inherits Rectangle {
     Rectangle {
         y: parent.height - 2px;
         height: 2px;
-        background: root.activ ? Tema.text : transparent;
+        background: root.activ ? Tema.accent : transparent;
     }
     TouchArea { clicked => { root.apasat(); } }
 }
@@ -192,17 +194,17 @@ export component Bifa inherits Rectangle {
             Rectangle {
                 width: 13px;
                 height: 13px;
-                border-radius: 2px;
+                border-radius: 4px;
                 border-width: 1px;
-                border-color: root.bifat ? Tema.text : Tema.linie;
-                background: root.bifat ? Tema.text : Tema.cod-fundal;
+                border-color: root.bifat ? Tema.accent : Tema.text-tert;
+                background: root.bifat ? Tema.accent : transparent;
                 if root.bifat: Path {
                     width: 9px;
                     height: 9px;
                     viewbox-width: 16;
                     viewbox-height: 16;
                     commands: "M 3 8.5 L 6 11.5 L 13 4.5";
-                    stroke: Tema.suprafata;
+                    stroke: Tema.pe-accent;
                     stroke-width: 2px;
                     fill: transparent;
                 }
@@ -222,6 +224,148 @@ export component Bifa inherits Rectangle {
             root.schimbat(root.bifat);
         }
     }
+}
+
+// --- piesele care tin ecranele impreuna: semnul, antetul, mediul, tema
+
+// Semnul g•motion: acelasi pe toate ecranele.
+export component Semn inherits HorizontalLayout {
+    in property <length> marime: 18px;
+    alignment: start;
+    spacing: 0px;
+    horizontal-stretch: 0;
+    Text { text: "g"; font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+    Rectangle {
+        width: root.marime * 0.47;
+        Rectangle {
+            width: root.marime * 0.37;
+            height: self.width;
+            y: parent.height / 2 - 1px;
+            border-radius: self.width / 2;
+            background: Tema.accent;
+        }
+    }
+    Text { text: "motion"; font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.4px; }
+}
+
+// Eticheta de mediu: DEV / TEST / PROD, plina, cu text alb.
+export component EticMediu inherits Rectangle {
+    // 0 dev, 1 test, 2 prod
+    in property <int> mediu;
+    height: 20px;
+    width: et.preferred-width + 14px;
+    border-radius: 4px;
+    background: Tema.culoare-mediu(root.mediu);
+    et := Text {
+        text: root.mediu == 2 ? "PROD" : root.mediu == 1 ? "TEST" : "DEV";
+        font-family: Tema.font-ui;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: Tema.pe-mediu;
+    }
+}
+
+// Butonul dedicat temei: o iconita (luna / soare); la clic arata cele doua
+// moduri si le alegi de acolo. Modul se schimba in Rust (`aplica_tema`).
+export component ButonTema inherits Rectangle {
+    callback alege(bool /* intunecat */);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: zona.has-hover ? Tema.strat : transparent;
+    // luna in modul intunecat, soare in cel luminos
+    if Tema.intunecat: Path {
+        width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16;
+        commands: "M 12.5 10.2 A 5.6 5.6 0 1 1 6.3 3 A 4.6 4.6 0 0 0 12.5 10.2 Z";
+        stroke: Tema.text-secundar; stroke-width: 1.5px; fill: transparent;
+    }
+    if !Tema.intunecat: Path {
+        width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16;
+        commands: "M 8 5 A 3 3 0 1 1 7.99 5 M 8 1 L 8 2.5 M 8 13.5 L 8 15 M 1 8 L 2.5 8 M 13.5 8 L 15 8 M 3 3 L 4 4 M 12 12 L 13 13 M 13 3 L 12 4 M 4 12 L 3 13";
+        stroke: Tema.text-secundar; stroke-width: 1.5px; fill: transparent;
+    }
+    zona := TouchArea { clicked => { meniu.show(); } }
+    // fereastra mica de alegere: deasupra a tot ce e pe ecran
+    meniu := PopupWindow {
+        x: root.width - 180px;
+        y: root.height + 6px;
+        width: 180px;
+        Rectangle {
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111526;
+            VerticalLayout {
+                padding: 6px;
+                HorizontalLayout {
+                    padding-left: 8px;
+                    height: 26px;
+                    Text { text: "Tema"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                }
+                for o in [{ t: "Intunecat", intunecat: true }, { t: "Luminos", intunecat: false }]: Rectangle {
+                    height: 32px;
+                    border-radius: 7px;
+                    background: z.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 8px;
+                        Text { text: o.t; font-family: Tema.font-ui; font-size: 13px; color: Tema.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        if o.intunecat == Tema.intunecat: VerticalLayout {
+                            alignment: center;
+                            Path {
+                                width: 12px; height: 12px; viewbox-width: 16; viewbox-height: 16;
+                                commands: "M 3 8.5 L 6 11.5 L 13 4.5"; stroke: Tema.accent-text; stroke-width: 2px; fill: transparent;
+                            }
+                        }
+                    }
+                    z := TouchArea { clicked => { root.alege(o.intunecat); } }
+                }
+            }
+        }
+    }
+}
+
+// Antetul ecranelor: semnul, locul (sau drumul sursa → baza cu mediul) si,
+// in dreapta, ce pune ecranul (copiii). Acelasi pe conectare, lista, deploy.
+export component Antet inherits Rectangle {
+    in property <string> loc;
+    in property <string> sursa;
+    in property <string> tinta;
+    in property <int> mediu: -1;
+    height: 60px;
+    background: Tema.fundal;
+    HorizontalLayout {
+        padding-left: 24px;
+        padding-right: 16px;
+        spacing: 22px;
+        VerticalLayout { alignment: center; Semn { } }
+        if root.loc != "": Text { text: root.loc; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; vertical-alignment: center; }
+        if root.sursa != "": HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            horizontal-stretch: 0;
+            Text { text: root.sursa; font-family: Tema.font-ui; font-size: 13px; font-weight: 500; color: Tema.text; vertical-alignment: center; }
+            Text { text: "→"; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
+            Text { text: root.tinta; font-family: Tema.font-ui; font-size: 13px; font-weight: 500; color: Tema.text; vertical-alignment: center; }
+            if root.mediu >= 0: VerticalLayout { alignment: center; EticMediu { mediu: root.mediu; } }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        @children
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+}
+
+// Card: suprafata ridicata, colturi de 14 px.
+export component Card inherits Rectangle {
+    background: Tema.suprafata;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: Tema.linie;
 }
 
 // --- randurile unui diff: aceleasi in editor si in previzualizarea din lista

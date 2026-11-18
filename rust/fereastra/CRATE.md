@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: c6b4a923425f6a9f -->
+<!-- api-hash: 8a66cf13d1e37f00 -->
 
 ## Rol
 
@@ -29,7 +29,8 @@ si editorul de diferente (etapa 8).
 |---|---|
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari, stari, comparari recente |
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta}` | modelul lui; `Acreditari` **nu are `Debug` derivat** |
-| `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare |
+| `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
+| `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `mediu_dupa_nume(baza) -> Mediu` | mediul ghicit din numele bazei (PROD / TEST / DEV) |
 | `model_lista::Lista` | lista: filtre, cautare, sortare, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru}` | modelul listei |

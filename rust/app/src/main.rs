@@ -21,9 +21,9 @@ use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
 use gmotion_fereastra::model_conectare::{Conectare, Recenta, StareConexiune};
 use gmotion_fereastra::model_lista::{Ordine, Stare as StareObiect};
 use gmotion_fereastra::{
-    aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_editor, incarca_lista,
-    incarca_previzualizare, mediu_dupa_nume, AntetEditor, AntetLista, EditorDiferente,
-    FereastraConectare, FereastraLista, Mod,
+    aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_editor, incarca_jurnal,
+    incarca_lista, incarca_previzualizare, mediu_dupa_nume, AntetEditor, AntetLista,
+    EditorDiferente, FereastraConectare, FereastraLista, Mod,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -116,15 +116,71 @@ fn ruleaza() -> Result<(), String> {
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
     let lista_ui = FereastraLista::new().map_err(|e| e.to_string())?;
     let editor_ui = EditorDiferente::new().map_err(|e| e.to_string())?;
-    // modul (intunecat / luminos), acelasi pe toate ecranele
+    // configurarea: un fisier stricat nu opreste fereastra, dar se spune
+    let cale_cfg = gmotion_platforma::cai::cale_configurare().ok();
+    let cfg = match cale_cfg
+        .as_ref()
+        .map(gmotion_platforma::Configurare::citeste)
+    {
+        Some(Ok(c)) => c,
+        Some(Err(e)) => {
+            tracing::warn!(target: "gmotion::app", eroare = %e, "configurarea nu se citeste; folosesc implicitele");
+            gmotion_platforma::Configurare::default()
+        }
+        None => gmotion_platforma::Configurare::default(),
+    };
+
+    // modul (intunecat / luminos), acelasi pe toate ecranele: argumentul,
+    // altfel ce s-a ales ultima data cu butonul de tema, altfel implicitul
     let mod_ales = match argument("--tema") {
-        None => Mod::default(),
         Some(n) => Mod::din_nume(&n)
             .ok_or_else(|| format!("tema necunoscuta: „{n}”; alege intunecat sau luminos"))?,
+        None => Mod::din_nume(&cfg.tema).unwrap_or_default(),
     };
     aplica_tema(&conectare_ui, mod_ales);
     aplica_tema(&lista_ui, mod_ales);
     aplica_tema(&editor_ui, mod_ales);
+
+    // butonul de tema: schimba modul pe toate ecranele si il tine minte
+    let alege_tema = {
+        let (c_ui, l_ui, e_ui) = (
+            conectare_ui.as_weak(),
+            lista_ui.as_weak(),
+            editor_ui.as_weak(),
+        );
+        let cale_cfg = cale_cfg.clone();
+        Rc::new(move |intunecat: bool| {
+            let m = if intunecat {
+                Mod::Intunecat
+            } else {
+                Mod::Luminos
+            };
+            if let Some(u) = c_ui.upgrade() {
+                aplica_tema(&u, m);
+            }
+            if let Some(u) = l_ui.upgrade() {
+                aplica_tema(&u, m);
+            }
+            if let Some(u) = e_ui.upgrade() {
+                aplica_tema(&u, m);
+            }
+            let Some(cale) = cale_cfg.as_ref() else {
+                return;
+            };
+            // se reciteste: altfel ar suprascrie ce s-a schimbat de mana intre timp
+            match gmotion_platforma::Configurare::citeste(cale) {
+                Ok(mut c) => {
+                    c.tema = m.nume().to_string();
+                    if let Err(e) = c.scrie(cale) {
+                        tracing::warn!(target: "gmotion::app", eroare = %e, "tema nu s-a salvat");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "tema nu s-a salvat: configurarea e stricata");
+                }
+            }
+        })
+    };
 
     // o singura functie de redesenat: altfel un ecran ramane in urma celuilalt
     let deseneaza = {
@@ -143,6 +199,7 @@ fn ruleaza() -> Result<(), String> {
             };
             if s.app.is_none() {
                 incarca_conectare(&c_ui, &s.conectare);
+                incarca_jurnal(&c_ui, &gmotion_platforma::jurnal::linii(0).0);
                 let _ = l_ui.hide();
                 let _ = e_ui.hide();
                 let _ = c_ui.show();
@@ -327,6 +384,49 @@ fn ruleaza() -> Result<(), String> {
             drop(st);
             d();
         });
+        // cautarea serverelor in retea (SQL Browser), ca `gmotion servere`
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        let timeout = std::time::Duration::from_millis(cfg.timeout_descoperire_ms);
+        conectare_ui.on_cauta_servere(move |sursa| {
+            tracing::info!(target: "gmotion::app", "caut servere in retea");
+            let gasite = gmotion_db::cauta_instante(timeout);
+            let mut st = s.borrow_mut();
+            let p = st.parte(sursa);
+            match gasite {
+                Ok(v) if v.is_empty() => {
+                    p.servere_gasite.clear();
+                    p.stare = StareConexiune::Eroare(
+                        "niciun server nu a raspuns in retea; scrie-l de mana".into(),
+                    );
+                }
+                Ok(v) => {
+                    tracing::info!(target: "gmotion::app", gasite = v.len(), "servere gasite");
+                    p.servere_gasite = v.into_iter().map(|i| i.server).collect();
+                }
+                Err(e) => {
+                    p.servere_gasite.clear();
+                    p.stare = StareConexiune::Eroare(e.to_string());
+                }
+            }
+            drop(st);
+            d();
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_server_ales(move |sursa, server| {
+            let mut st = s.borrow_mut();
+            let p = st.parte(sursa);
+            p.server = server.to_string();
+            p.servere_gasite.clear();
+            p.baze.clear();
+            p.baza.clear();
+            p.stare = StareConexiune::Neincercat;
+            drop(st);
+            d();
+        });
+        let a = alege_tema.clone();
+        conectare_ui.on_alege_tema(move |intunecat| a(intunecat));
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_inverseaza(move || {
