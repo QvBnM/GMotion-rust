@@ -426,7 +426,11 @@ fn ruleaza() -> Result<(), String> {
             d();
         });
         let a = alege_tema.clone();
-        conectare_ui.on_alege_tema(move |intunecat| a(intunecat));
+        let d = deseneaza.clone();
+        conectare_ui.on_alege_tema(move |intunecat| {
+            a(intunecat);
+            d();
+        });
         let s = stare.clone();
         let d = deseneaza.clone();
         conectare_ui.on_inverseaza(move || {
@@ -508,6 +512,47 @@ fn ruleaza() -> Result<(), String> {
         lista_ui.on_alege_randul(move |i| c(Comanda::Selecteaza(i.max(0) as usize)));
         let c = comanda.clone();
         lista_ui.on_deschide_obiectul(move || c(Comanda::Deschide));
+        gmotion_fereastra::leaga_harta(&lista_ui);
+        // recompararea: aceeasi conectare, revizuirea de pana acum ramane
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        lista_ui.on_recompara(move || {
+            let c = s.borrow().conectare.clone();
+            tracing::info!(target: "gmotion::app", "recompar");
+            match pornire::compara(&c) {
+                Ok(r) => {
+                    let mut st = s.borrow_mut();
+                    let revizuire = st
+                        .app
+                        .as_mut()
+                        .map(|a| a.revizuire_de_salvat().clone())
+                        .unwrap_or_default();
+                    st.server = r.server;
+                    st.app = Some(Aplicatie::noua(r.randuri, r.sursa, r.tinta, revizuire));
+                }
+                Err(e) => {
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "recompararea a esuat");
+                }
+            }
+            d();
+        });
+        let c = comanda.clone();
+        let l = lista_ui.as_weak();
+        lista_ui.on_clic_harta(move |grup, x, y| {
+            let rand = l
+                .upgrade()
+                .and_then(|ui| gmotion_fereastra::rand_din_harta(&ui, grup, x, y));
+            if let Some(r) = rand {
+                c(Comanda::Selecteaza(r));
+            }
+        });
+        let a = alege_tema.clone();
+        let d = deseneaza.clone();
+        lista_ui.on_alege_tema(move |intunecat| {
+            a(intunecat);
+            // harta e pictata in culorile modului: se repicteaza
+            d();
+        });
         let c = comanda.clone();
         lista_ui.on_comuta_revizuit(move |_| c(Comanda::ComutaRevizuit));
         let c = comanda.clone();

@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-fereastra --example captura_lista -- \
-//!       instantaneu.json SURSA BAZA iesire.png [schema.obiect-selectat]
+//!       instantaneu.json SURSA BAZA iesire.png [schema.obiect-selectat] [--tema intunecat|luminos]
 use std::rc::Rc;
 
 use gmotion_db::SursaObiecte;
@@ -101,7 +101,7 @@ fn main() {
     }
     // un obiect revizuit, ca sa se vada bifa si progresul
     lista.comuta_revizuit(1);
-    if let Some(cerut) = a.get(5) {
+    if let Some(cerut) = a.get(5).filter(|x| !x.starts_with("--")) {
         if let Some(p) = (0..lista.vizibile().len()).find(|&p| {
             lista
                 .obiect(p)
@@ -117,7 +117,14 @@ fn main() {
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra nu se creeaza");
-    aplica_tema(&ui, gmotion_fereastra::Mod::default());
+    let tema = a
+        .iter()
+        .position(|x| x == "--tema")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_fereastra::Mod::din_nume(n))
+        .unwrap_or_default();
+    aplica_tema(&ui, tema);
+    gmotion_fereastra::leaga_harta(&ui);
     incarca_lista(
         &ui,
         &AntetLista {
@@ -136,6 +143,8 @@ fn main() {
             incarca_previzualizare(&ui, &s.afisare, &t.afisare, &setari);
         }
     }
+    // bula de pe harta, ca sa se vada in captura
+    ui.invoke_peste_harta(0, 2.0 * 15.0 + 6.0, 6.0);
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

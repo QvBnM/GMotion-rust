@@ -9,6 +9,7 @@
 //! Culorile si fonturile vin din `jetoane` (designul aprobat) si se pun in
 //! globalul `Tema` cu [`aplica_tema`] — in `.slint` nu se scrie nicio culoare.
 
+pub mod harta;
 pub mod jetoane;
 pub mod model_conectare;
 pub mod model_editor;
@@ -483,6 +484,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     ui.set_rezumat_lista(lista.rezumat_vizibile().into());
     ui.set_sortat_dupa_linii(lista.ordine() == model_lista::Ordine::LiniiDesc);
     ui.set_selectat(lista.selectat().map_or(0, |p| p as i32));
+    incarca_harta(ui, &randuri, lista.selectat());
     ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
     ui.set_categorii(ModelRc::new(VecModel::from(categorii)));
     ui.set_tipuri(ModelRc::new(VecModel::from(tipuri)));
@@ -543,6 +545,104 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
 }
 
 /// Umple ecranul de conectare din modelul lui.
+/// Cat de lata e harta din lista, in pixeli logici: fereastra de 1440 minus
+/// marginile cartusului. Pe o fereastra mai ingusta, ultimul grup trece pe
+/// randul urmator mai devreme; nu iese din cartus decat pe orizontala.
+pub const LATIME_HARTA: f32 = 1372.0;
+
+/// Harta de deasupra tabelului: obiectele afisate, pe tipuri, pictate in
+/// culorile modului curent; conturul pe patratul randului selectat.
+fn incarca_harta(ui: &FereastraLista, randuri: &[RandListaUi], selectat: Option<usize>) {
+    // grupurile, in ordinea tipurilor dupa cate obiecte au
+    let mut pe_tip: Vec<(String, Vec<harta::Celula>)> = Vec::new();
+    for (i, r) in randuri.iter().enumerate() {
+        let c = harta::Celula {
+            rand: i,
+            stare: r.stare,
+            revizuit: r.revizuit,
+        };
+        match pe_tip
+            .iter_mut()
+            .find(|(t, _)| t.as_str() == r.tip.as_str())
+        {
+            Some((_, v)) => v.push(c),
+            None => pe_tip.push((r.tip.to_string(), vec![c])),
+        }
+    }
+    pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
+    let (grupuri, inaltime) = harta::aseaza(pe_tip, LATIME_HARTA);
+    let paleta = mod_curent(ui).paleta();
+    let ui_grupuri: Vec<GrupHartaUi> = grupuri
+        .iter()
+        .map(|g| {
+            let (w, h, px) = harta::picteaza(g, paleta);
+            let mut buf = SharedPixelBuffer::<slint::Rgba8Pixel>::new(w, h);
+            for (d, s) in buf.make_mut_slice().iter_mut().zip(&px) {
+                *d = slint::Rgba8Pixel {
+                    r: s[0],
+                    g: s[1],
+                    b: s[2],
+                    a: s[3],
+                };
+            }
+            GrupHartaUi {
+                titlu: g.titlu.as_str().into(),
+                numar: g.celule.len().to_string().into(),
+                x: g.x,
+                y: g.y,
+                latime: g.latime,
+                imagine: Image::from_rgba8(buf),
+                randuri: ModelRc::new(VecModel::from(
+                    g.celule.iter().map(|c| c.rand as i32).collect::<Vec<_>>(),
+                )),
+            }
+        })
+        .collect();
+    let sel = selectat.and_then(|s| harta::pozitie_randului(&grupuri, s));
+    ui.set_sel_pe_harta(sel.is_some());
+    if let Some((x, y)) = sel {
+        ui.set_sel_x(x);
+        ui.set_sel_y(y);
+    }
+    ui.set_harta(ModelRc::new(VecModel::from(ui_grupuri)));
+    ui.set_harta_inaltime(inaltime);
+}
+
+/// Randul din tabel al patratului de la (x, y) din grupul `grup` al hartii,
+/// in coordonatele imaginii grupului. Calculul e in `harta::indice_la`.
+pub fn rand_din_harta(ui: &FereastraLista, grup: i32, x: f32, y: f32) -> Option<usize> {
+    use slint::Model;
+    let g = ui.get_harta().row_data(usize::try_from(grup).ok()?)?;
+    let k = harta::indice_la(x, y)?;
+    usize::try_from(g.randuri.row_data(k)?).ok()
+}
+
+/// Leaga bula de pe harta: numele patratului de sub mouse. Nu tine de starea
+/// aplicatiei, deci se leaga aici, o data, dupa crearea ferestrei.
+pub fn leaga_harta(ui: &FereastraLista) {
+    let slab = ui.as_weak();
+    ui.on_peste_harta(move |grup, x, y| {
+        use slint::Model;
+        let Some(ui) = slab.upgrade() else { return };
+        let r = rand_din_harta(&ui, grup, x, y).and_then(|i| ui.get_randuri().row_data(i));
+        let Some(r) = r else {
+            ui.set_bula("".into());
+            return;
+        };
+        let Some(g) = usize::try_from(grup)
+            .ok()
+            .and_then(|i| ui.get_harta().row_data(i))
+        else {
+            return;
+        };
+        // originea zonei hartii in fereastra: antetul (60) + filtrele (56) +
+        // marginea cartusului (14) pe verticala, 16 + 18 pe orizontala
+        ui.set_bula(format!("{}.{}", r.schema, r.nume).into());
+        ui.set_bula_x(34.0 + g.x + x);
+        ui.set_bula_y(130.0 + g.y + 20.0 + y);
+    });
+}
+
 /// Cate linii de jurnal arata banda de jos a ecranului de conectare.
 pub const LINII_JURNAL: usize = 4;
 
