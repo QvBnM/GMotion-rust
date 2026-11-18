@@ -59,7 +59,7 @@ component Despartitor inherits VerticalLayout {
 component Punct inherits HorizontalLayout {
     in property <color> c;
     in property <string> t;
-    spacing: 5px; alignment: start;
+    spacing: 5px; alignment: start; horizontal-stretch: 0;
     VerticalLayout { alignment: center; Rectangle { width: 8px; height: 8px; border-radius: 4px; background: c; } }
     Text { text: t; font-family: P.ui; font-size: 12px; color: P.p-sec; vertical-alignment: center; }
 }
@@ -106,75 +106,101 @@ export component Panza inherits Window {
             VerticalLayout {
                 width: latime-cod;
                 spacing: 0;
-                Text { text: tip; font-size: 13px; color: P.p-sec; }
+                HorizontalLayout {
+                    Text { text: tip; font-size: 13px; color: P.p-sec; horizontal-stretch: 1; }
+                    Text { text: salvat; font-size: 12px; color: P.p-tert; } }
                 HorizontalLayout { alignment: start; padding-top: 2px; padding-bottom: 6px;
                     Text { text: schema; font-size: 44px; font-weight: 300; color: P.p-stins; letter-spacing: -1.8px; }
                     Text { text: nume; font-size: 44px; font-weight: 600; color: P.p-text; letter-spacing: -1.8px; overflow: elide; horizontal-stretch: 1; } }
-                HorizontalLayout { spacing: 16px;
+                HorizontalLayout { spacing: 14px;
                     Text { text: fraza; font-size: 16px; color: P.p-sec; horizontal-stretch: 1; vertical-alignment: center; }
-                    Text { text: salvat; font-size: 12px; color: P.p-tert; vertical-alignment: center; } }
-                // capetele coloanelor: ce e fiecare parte, legenda, Copiaza
-                HorizontalLayout { padding-top: 20px; padding-bottom: 8px; spacing: jgheab;
-                    HorizontalLayout { horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; spacing: 10px;
-                        Text { text: "Sursă"; font-size: 12px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
-                        Text { text: sursa; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; horizontal-stretch: 1; }
-                        Copiaza { } }
-                    HorizontalLayout { horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; spacing: 10px;
-                        Text { text: "Bază"; font-size: 12px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
-                        Text { text: tinta; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; }
-                        VerticalLayout { alignment: center; EticMediu { mediu: mediu; } }
-                        Text { text: "editabil"; font-size: 12px; color: P.p-tine; vertical-alignment: center; horizontal-stretch: 1; }
-                        Punct { c: P.p-mod; t: "modificat"; }
-                        Punct { c: P.p-add; t: "adus"; }
-                        Punct { c: P.p-tine; t: "scris de tine"; }
-                        Copiaza { } } }
+                    // legenda culorilor, o data, pentru ambele panouri
+                    Punct { c: P.p-mod; t: "modificat"; }
+                    Punct { c: P.p-add; t: "adus din sursă"; }
+                    Punct { c: P.p-del; t: "doar în bază"; }
+                    Punct { c: P.p-tine; t: "scris de tine"; } }
             }
         }
+        // ---- doua panouri, unul langa altul: sursa (doar citire) si baza
+        // (editabila). Fiecare cu fundalul si capul lui, iar intre ele canalul
+        // in care stau sagetile de aplicare.
         HorizontalLayout {
             alignment: center;
             vertical-stretch: 1;
-            ListView {
+            padding-top: 18px;
+            Rectangle {
                 width: latime-cod;
-                content-y <=> derulare;
-                for l in linii: Rectangle {
-                    height: l.pliu != "" ? 38px : 24px;
-                    if l.pliu != "": Rectangle {
-                        Rectangle { y: 6px; height: 1px; background: P.p-linie; }
-                        Rectangle { y: parent.height - 7px; height: 1px; background: P.p-linie; }
-                        Text { text: l.pliu; font-size: 12px; color: P.p-tert; }
+                property <length> panou: (self.width - jgheab) / 2;
+                Rectangle { x: 0; width: panou; border-radius: 14px; background: P.p-panou-sursa; border-width: 1px; border-color: P.p-linie; }
+                Rectangle { x: panou + jgheab; width: panou; border-radius: 14px; background: P.p-fond; border-width: 1.5px; border-color: P.p-contur-baza; }
+                VerticalLayout {
+                    // capetele panourilor
+                    HorizontalLayout { spacing: jgheab; height: 50px;
+                        Rectangle { width: panou; border-top-left-radius: 14px; border-top-right-radius: 14px; background: P.p-cap-sursa;
+                            Rectangle { y: parent.height - 1px; height: 1px; background: P.p-linie; }
+                            HorizontalLayout { padding-left: 16px; padding-right: 10px; spacing: 10px;
+                                Text { text: "Sursă"; font-size: 15px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+                                Text { text: sursa; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                                VerticalLayout { alignment: center; Rectangle { height: 22px; width: dc.preferred-width + 16px; border-radius: 11px; background: #e3e6ec;
+                                    dc := Text { text: "doar citire"; font-size: 11.5px; color: P.p-sec; } } }
+                                VerticalLayout { alignment: center; Copiaza { } } } }
+                        Rectangle { width: panou; border-top-left-radius: 14px; border-top-right-radius: 14px; background: P.p-cap-baza;
+                            Rectangle { y: parent.height - 1px; height: 1px; background: P.p-contur-baza; }
+                            HorizontalLayout { padding-left: 16px; padding-right: 10px; spacing: 10px;
+                                Text { text: "Bază"; font-size: 15px; font-weight: 600; color: P.p-text; vertical-alignment: center; }
+                                Text { text: tinta; font-family: P.mono; font-size: 12px; color: P.p-sec; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                VerticalLayout { alignment: center; EticMediu { mediu: mediu; } }
+                                VerticalLayout { alignment: center; Rectangle { height: 22px; width: ed.preferred-width + 16px; border-radius: 11px; background: P.p-tine;
+                                    ed := Text { text: "editabil"; font-size: 11.5px; font-weight: 500; color: white; } } }
+                                VerticalLayout { alignment: center; Copiaza { } } } }
                     }
-                    if l.pliu == "": HorizontalLayout {
-                        spacing: 0;
-                        for parte[j] in [{ nr: l.nr-st, b: l.st }, { nr: l.nr-dr, b: l.dr }]: HorizontalLayout {
-                            horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
-                            // jgheabul dintre coloane, cu sageata de aplicare a blocului
-                            if j == 1: Rectangle {
-                                width: jgheab;
-                                if l.inceput && !l.aplicat: Rectangle {
-                                    width: 26px; height: 22px; border-radius: 11px;
-                                    background: l.curent ? P.p-text : P.p-fond; border-width: l.curent ? 0 : 1.5px; border-color: P.p-mod;
-                                    Text { text: "→"; font-family: P.mono; font-size: 13px; font-weight: 500; color: l.curent ? white : P.p-nr-mod; } }
-                                if l.inceput && l.aplicat: Rectangle {
-                                    width: 26px; height: 22px; border-radius: 11px; background: #e3f8ec;
-                                    Text { text: "✓"; font-family: P.ui; font-size: 12px; color: P.p-nr-add; } }
-                            }
-                            Rectangle {
-                                horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
-                                border-radius: 6px; clip: true;
-                                // k: 1 modificat, 2 doar in sursa, 3 doar in baza; adus = blocul aplicat in baza
-                                background: (j == 1 && l.aplicat) ? @linear-gradient(90deg, #17c96433 0%, #17c9640d 100%)
-                                    : (l.k == 1) ? @linear-gradient(90deg, #f5a52429 0%, #f5a5240a 100%)
-                                    : (l.k == 2 && j == 0) ? @linear-gradient(90deg, #17c96429 0%, #17c9640a 100%)
-                                    : (l.k == 3 && j == 1) ? @linear-gradient(90deg, #f3126024 0%, #f312600a 100%)
-                                    : transparent;
-                                if l.curent && !(j == 1 && l.aplicat): Rectangle { x: 0; width: 3px; background: P.p-mod; }
-                                HorizontalLayout {
-                                    Text { width: 40px; text: parte.nr; font-family: P.mono; font-size: 13px; horizontal-alignment: right; vertical-alignment: center;
-                                        color: (j == 1 && l.aplicat) ? P.p-nr-add : (l.k == 1) ? P.p-nr-mod : (l.k == 2 && j == 0) ? P.p-nr-add : (l.k == 3 && j == 1) ? P.p-nr-del : P.p-nr;
-                                        font-weight: l.k == 0 ? 400 : 500; }
-                                    Rectangle { width: 12px; }
-                                    BucatiP { bucati: parte.b; }
-                                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle { height: 8px; }
+                    ListView {
+                        vertical-stretch: 1;
+                        content-y <=> derulare;
+                        for l in linii: Rectangle {
+                            height: l.pliu != "" ? 34px : 24px;
+                            if l.pliu != "": HorizontalLayout { spacing: jgheab;
+                                for k in 2: Rectangle { width: panou;
+                                    Rectangle { x: 10px; width: parent.width - 20px; y: 16px; height: 1px; background: P.p-linie; }
+                                    Rectangle { width: tp.preferred-width + 16px; height: 20px; background: k == 0 ? P.p-panou-sursa : P.p-fond;
+                                        tp := Text { text: l.pliu; font-size: 12px; color: P.p-tert; } } } }
+                            if l.pliu == "": HorizontalLayout {
+                                spacing: 0;
+                                for parte[j] in [{ nr: l.nr-st, b: l.st }, { nr: l.nr-dr, b: l.dr }]: HorizontalLayout {
+                                    width: j == 0 ? panou : panou + jgheab;
+                                    // canalul dintre panouri, cu sageata de aplicare a blocului
+                                    if j == 1: Rectangle {
+                                        width: jgheab;
+                                        if l.inceput && !l.aplicat: Rectangle {
+                                            width: 28px; height: 22px; border-radius: 11px;
+                                            background: l.curent ? P.p-text : P.p-fond; border-width: l.curent ? 0 : 1.5px; border-color: P.p-mod;
+                                            Text { text: "→"; font-family: P.mono; font-size: 13px; font-weight: 500; color: l.curent ? white : P.p-nr-mod; } }
+                                        if l.inceput && l.aplicat: Rectangle {
+                                            width: 28px; height: 22px; border-radius: 11px; background: #e3f8ec;
+                                            Text { text: "✓"; font-family: P.ui; font-size: 12px; color: P.p-nr-add; } }
+                                    }
+                                    HorizontalLayout { padding-left: 6px; padding-right: 6px;
+                                    Rectangle {
+                                        horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
+                                        border-radius: 6px; clip: true;
+                                        // k: 1 modificat, 2 doar in sursa, 3 doar in baza; adus = blocul aplicat in baza
+                                        background: (j == 1 && l.aplicat) ? @linear-gradient(90deg, #17c96433 0%, #17c9640d 100%)
+                                            : (l.k == 1) ? @linear-gradient(90deg, #f5a52429 0%, #f5a5240a 100%)
+                                            : (l.k == 2 && j == 0) ? @linear-gradient(90deg, #17c96429 0%, #17c9640a 100%)
+                                            : (l.k == 3 && j == 1) ? @linear-gradient(90deg, #f3126024 0%, #f312600a 100%)
+                                            : transparent;
+                                        if l.curent && !(j == 1 && l.aplicat): Rectangle { x: 0; width: 3px; background: P.p-mod; }
+                                        HorizontalLayout {
+                                            Text { width: 40px; text: parte.nr; font-family: P.mono; font-size: 13px; horizontal-alignment: right; vertical-alignment: center;
+                                                color: (j == 1 && l.aplicat) ? P.p-nr-add : (l.k == 1) ? P.p-nr-mod : (l.k == 2 && j == 0) ? P.p-nr-add : (l.k == 3 && j == 1) ? P.p-nr-del : P.p-nr;
+                                                font-weight: l.k == 0 ? 400 : 500; }
+                                            Rectangle { width: 12px; }
+                                            BucatiP { bucati: parte.b; }
+                                            Rectangle { horizontal-stretch: 1; }
+                                        }
+                                    }
+                                    }
                                 }
                             }
                         }

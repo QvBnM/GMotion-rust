@@ -9,7 +9,8 @@ import { P, Antet, ButonH, CampH, EticMediu } from "comune.slint";
 
 export struct ServerUi { nume: string, eticheta: string }
 export struct BazaUi { nume: string, mediu: string, referinta: bool, bifata: bool }
-export struct LogUi { ora: string, nivel: int /* 0 info 1 ok 2 atentie 3 eroare */, text: string }
+// etapa: pasul din formular la care se refera randul (Retea, Conexiune, Baze, Citire)
+export struct LogUi { ora: string, nivel: int /* 0 info 1 ok 2 atentie 3 eroare */, etapa: string, text: string }
 export struct SesiuneUi { referinta: string, server: string, progres: string, cand: string }
 
 component Card inherits Rectangle {
@@ -69,13 +70,13 @@ export component Conectare inherits Window {
             VerticalLayout { alignment: center; ButonH { eticheta: "Ajutor"; tasta: "F1"; fel: 3; } }
         }
         HorizontalLayout {
-            padding: 24px; spacing: 20px;
+            padding: 24px; padding-bottom: 16px; spacing: 20px;
 
             // ---------- serverul
             Card {
                 width: 380px;
                 VerticalLayout {
-                    padding: 22px; spacing: 16px; alignment: start;
+                    padding: 22px; spacing: 13px; alignment: start;
                     HorizontalLayout { spacing: 22px; alignment: start;
                         Tab { eticheta: "Conectare"; activ: true; }
                         Tab { eticheta: "Sesiuni"; insigna: nr-sesiuni; } }
@@ -85,14 +86,13 @@ export component Conectare inherits Window {
                         Rectangle { x: 0; width: 3px; border-radius: 1.5px; background: P.mod; }
                         sb := HorizontalLayout { padding: 12px; padding-left: 16px; spacing: 10px;
                             VerticalLayout { spacing: 2px; horizontal-stretch: 1;
-                                Text { text: "Sesiune găsită: " + sesiune-gasita.referinta; font-size: 13px; font-weight: 600; color: P.h-text; }
+                                Text { text: "Sesiune găsită"; font-size: 13px; font-weight: 600; color: P.h-text; }
+                                Text { text: sesiune-gasita.referinta; font-family: P.mono; font-size: 12px; color: P.h-text; overflow: elide; }
                                 Text { text: sesiune-gasita.progres + ", " + sesiune-gasita.cand; font-size: 12px; color: P.h-sec; wrap: word-wrap; } }
                             VerticalLayout { alignment: center; ButonH { eticheta: "Anulează"; fel: 0; inalt: 28px; } } }
                     }
                     Segment { optiuni: ["SQL Server", "Windows"]; ales: windows-auth ? 1 : 0; }
-                    HorizontalLayout { spacing: 8px; alignment: stretch;
-                        CampH { eticheta: "Server SQL"; valoare: server; indiciu: "SERVER\\INSTANȚĂ"; mono: true; horizontal-stretch: 1; }
-                        VerticalLayout { alignment: end; ButonH { eticheta: "Caută în rețea"; inalt: 38px; } } }
+                    CampH { eticheta: "Server SQL"; valoare: server; indiciu: "SERVER\\INSTANȚĂ"; mono: true; cauta: true; }
                     // rezultatul cautarii in retea (SQL Browser, UDP 1434)
                     if servere-gasite.length > 0: Rectangle {
                         height: sg.preferred-height; border-radius: 10px; background: P.h-fond; border-width: 1px; border-color: P.h-linie;
@@ -175,23 +175,32 @@ export component Conectare inherits Window {
                             Text { text: "Deconectează"; font-size: 12px; color: P.mod; } } }
                 }
             }
+        }
 
-            // ---------- jurnalul
-            Card {
-                width: 340px;
-                VerticalLayout {
-                    padding: 22px; spacing: 12px;
-                    HorizontalLayout {
-                        Text { text: "Jurnal"; font-size: 13px; font-weight: 600; color: P.h-text; vertical-alignment: center; horizontal-stretch: 1; }
-                        ButonH { eticheta: "Șterge"; fel: 3; inalt: 26px; } }
-                    Rectangle {
-                        vertical-stretch: 1; border-radius: 10px; background: P.h-fond; clip: true;
-                        VerticalLayout { padding: 12px; spacing: 6px; alignment: start;
-                            for l in jurnal: HorizontalLayout { spacing: 10px;
-                                Text { text: l.ora; font-family: P.mono; font-size: 11.5px; color: P.h-tert; }
-                                Text { text: l.text; font-family: P.mono; font-size: 11.5px; wrap: word-wrap; horizontal-stretch: 1;
-                                    color: l.nivel == 1 ? P.add : l.nivel == 2 ? P.mod : l.nivel == 3 ? P.del : P.h-sec; } } } }
-                }
+        // ---------- jurnalul: o banda jos, pe toata latimea, ca parte din ecran.
+        // Fiecare rand spune la ce pas din formular se refera, cu aceeasi
+        // culoare de stare ca butoanele si bifele de deasupra.
+        Rectangle {
+            height: 176px;
+            background: P.h-strat;
+            Rectangle { y: 0; height: 1px; background: P.h-linie; }
+            VerticalLayout {
+                padding-left: 24px; padding-right: 24px; padding-top: 12px; padding-bottom: 12px; spacing: 8px;
+                HorizontalLayout { spacing: 14px;
+                    Text { text: "Jurnal"; font-size: 13px; font-weight: 600; color: P.h-text; vertical-alignment: center; }
+                    Text { text: "ce face aplicația, pas cu pas"; font-size: 12px; color: P.h-tert; vertical-alignment: center; horizontal-stretch: 1; }
+                    ButonH { eticheta: "Șterge"; fel: 3; inalt: 26px; }
+                    ButonH { eticheta: "Ascunde"; tasta: "Ctrl J"; fel: 3; inalt: 26px; } }
+                Rectangle { vertical-stretch: 1; clip: true;
+                    VerticalLayout { spacing: 2px; alignment: start;
+                        for l in jurnal: HorizontalLayout { spacing: 14px; height: 18px;
+                            Text { width: 64px; text: l.ora; font-family: P.mono; font-size: 11.5px; color: P.h-tert; vertical-alignment: center; }
+                            HorizontalLayout { width: 96px; spacing: 7px;
+                                VerticalLayout { alignment: center; Rectangle { width: 6px; height: 6px; border-radius: 3px;
+                                    background: l.nivel == 1 ? P.add : l.nivel == 2 ? P.mod : l.nivel == 3 ? P.del : P.h-tert; } }
+                                Text { text: l.etapa; font-size: 12px; color: P.h-sec; vertical-alignment: center; } }
+                            Text { text: l.text; font-family: P.mono; font-size: 11.5px; vertical-alignment: center; horizontal-stretch: 1; overflow: elide;
+                                color: l.nivel == 1 ? P.add : l.nivel == 2 ? P.mod : l.nivel == 3 ? P.del : P.h-text; } } } }
             }
         }
     }

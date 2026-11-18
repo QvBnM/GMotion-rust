@@ -55,7 +55,7 @@ descris aici, dar schita nu-l deseneaza inca.
 | Functie v3.4 | Unde | Stare |
 |---|---|---|
 | SQL Auth / Windows | comutatorul din coloana serverului | desenat |
-| Server SQL + cautarea in retea | camp + „Cauta in retea"; rezultatele dedesubt | desenat |
+| Server SQL + cautarea in retea | iconita (lupa) in dreapta campului; rezultatele dedesubt | desenat |
 | Etichetele CLUSTER / IMPLICITA | pe fiecare server gasit | desenat |
 | Utilizator, Parola | sub server; dispar la Windows | desenat |
 | Testeaza conexiunea + detaliile serverului (editie, OS, uptime, nr. baze) | buton + starea dedesubt | desenat |
@@ -64,7 +64,7 @@ descris aici, dar schita nu-l deseneaza inca.
 | Comparare offline (copy/paste) | buton langa pornire | desenat; fereastra cu cele doua campuri si „Lipeste": locul stabilit |
 | Progres, timp, mesaj, **Anuleaza** | in locul butoanelor, cat ruleaza | desenat (`--progres`) |
 | Conexiune activa → Deconecteaza | sub progres | desenat |
-| Jurnalul (Output backend) + Sterge log | coloana din dreapta | desenat |
+| Jurnalul (Output backend) + Sterge log | banda de jos, pe toata latimea: ora, pasul din formular (Retea, Conexiune, Baze, Citire), mesajul; Sterge, Ascunde (Ctrl J) | desenat |
 | Tab Sesiuni, cu insigna | tab langa Conectare | desenat (tabul); lista cu progres, Reia / Ignora: locul stabilit |
 | Banner „Sesiune gasita" + Anuleaza | sus in coloana serverului | desenat |
 | Legenda / Ajutor | „Ajutor F1" in antet | locul stabilit |
@@ -108,8 +108,9 @@ descris aici, dar schita nu-l deseneaza inca.
 | Ascunde diferentele | a doua insula de jos | desenat |
 | Re-sincronizeaza | a doua insula de jos | desenat |
 | Uneste ciclul de cursor | a doua insula de jos | desenat |
-| Copiaza sursa / Copiaza rezultatul | capul fiecarei coloane | desenat |
-| Legenda: modificat / adus / scris de tine | capul coloanei Baza | desenat |
+| Side-by-side, vizibil ca atare | doua panouri separate: Sursa (gri, „doar citire") si Baza (contur violet, „editabil"), fiecare cu capul lui; intre ele canalul cu sagetile | desenat |
+| Copiaza sursa / Copiaza rezultatul | capul fiecarui panou | desenat |
+| Legenda: modificat / adus / doar in baza / scris de tine | sub titlu, o data pentru ambele panouri | desenat |
 | Baza editabila | coloana dreapta, marcata „editabil" | desenat (marcajul); editarea textului: locul stabilit |
 | Aplicarea unui bloc + liniile de legatura | sageata `→` intre coloane, la fiecare bloc; `✓` dupa aplicare | desenat |
 | Fereastra modului ghidat: Din sursa / Din tinta / Editeaza / Aplica / Sari peste | sub cod, deasupra barei, cand modul ghidat e pornit | desenat (`--ghidat`) |

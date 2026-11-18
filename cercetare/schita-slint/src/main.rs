@@ -181,37 +181,53 @@ fn conectare(cale: &str, progres: bool) {
         (
             "14:31:02",
             0,
+            "Rețea",
             "Se caută servere în rețea (SQL Browser, UDP 1434)",
         ),
-        ("14:31:03", 1, "3 servere găsite"),
+        (
+            "14:31:03",
+            1,
+            "Rețea",
+            "3 servere găsite: srv-dev\\SQL2019, srv-prod\\SQL2019, srv-test",
+        ),
         (
             "14:31:09",
             0,
+            "Conexiune",
             "Conectare la srv-dev\\SQL2019 cu utilizatorul gmotion",
         ),
         (
             "14:31:09",
             2,
+            "Conexiune",
             "Certificatul serverului nu e verificat (TrustServerCertificate)",
         ),
         (
             "14:31:10",
             1,
-            "Conectat: SQL Server 2019 Enterprise, 8 baze",
+            "Conexiune",
+            "Conectat: SQL Server 2019 Enterprise (15.0.4345), 8 baze",
         ),
         (
             "14:31:22",
             0,
-            "Referință: CharismaERP_GetsBet; de comparat: 2 baze",
+            "Baze",
+            "Referință CharismaERP_GetsBet; de comparat: CharismaERP_GetsBet_Copy, CharismaProd",
         ),
     ];
     if progres {
         jurnal.extend([
-            ("14:31:25", 0, "Se citesc obiectele din CharismaERP_GetsBet"),
-            ("14:31:29", 1, "21.183 de obiecte citite în 4,1 s"),
+            (
+                "14:31:25",
+                0,
+                "Citire",
+                "Se citesc obiectele din CharismaERP_GetsBet",
+            ),
+            ("14:31:29", 1, "Citire", "21.183 de obiecte citite în 4,1 s"),
             (
                 "14:31:29",
                 0,
+                "Citire",
                 "Se citesc obiectele din CharismaERP_GetsBet_Copy",
             ),
         ]);
@@ -222,12 +238,16 @@ fn conectare(cale: &str, progres: bool) {
         );
         ui.set_progres_timp("7,4 s".into());
     }
+    // banda arata ultimele randuri; tot jurnalul ramane in fisier
+    let de_la = jurnal.len().saturating_sub(5);
     ui.set_jurnal(model_din(
         jurnal
             .into_iter()
-            .map(|(o, n, t)| LogUi {
+            .skip(de_la)
+            .map(|(o, n, e, t)| LogUi {
                 ora: o.into(),
                 nivel: n,
+                etapa: e.into(),
                 text: t.into(),
             })
             .collect(),
@@ -731,7 +751,7 @@ fn panza(cale: &str, ghidat: bool, paleta: bool) {
         for r in &afisat {
             match r {
                 RandAfisat::Linie(i) if bloc_rand[*i] == Some(curent) => break,
-                RandAfisat::Pliere { .. } => y += 38.0,
+                RandAfisat::Pliere { .. } => y += 34.0,
                 RandAfisat::Linie(_) => y += 24.0,
             }
         }

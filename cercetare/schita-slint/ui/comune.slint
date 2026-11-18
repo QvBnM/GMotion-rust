@@ -53,6 +53,11 @@ export global P {
     out property <color> p-add: #17c964;
     out property <color> p-del: #c40e4a;
     out property <color> p-tine: #7828c8;
+    // cele doua panouri ale editorului: sursa (doar citire) si baza (editabila)
+    out property <color> p-panou-sursa: #f4f5f8;
+    out property <color> p-cap-sursa: #eceef3;
+    out property <color> p-cap-baza: #f6f0fd;
+    out property <color> p-contur-baza: #d9c6f3;
     // numerele de linie: textul trebuie sa treaca 4,5:1 si pe fundalul colorat
     out property <color> p-nr: #5f6572;
     out property <color> p-nr-mod: #9a6200;
@@ -142,17 +147,30 @@ export component CampH inherits VerticalLayout {
     in property <string> indiciu;
     in property <bool> parola;
     in property <bool> mono;
+    // iconita din dreapta campului (cautarea serverelor in retea)
+    in property <bool> cauta;
+    callback la-cautare;
     spacing: 6px;
     Text { text: eticheta; font-family: P.ui; font-size: 12px; color: P.h-sec; }
     Rectangle {
         height: 38px; border-radius: 8px; background: P.h-fond; border-width: 1px;
         border-color: ti.has-focus ? P.mod : P.h-linie;
         ti := TextInput {
-            x: 12px; width: parent.width - 24px;
+            x: 12px; width: parent.width - 24px - (cauta ? 34px : 0px);
             text: valoare; input-type: parola ? InputType.password : InputType.text;
             font-family: mono ? P.mono : P.ui; font-size: 13px; color: P.h-text; vertical-alignment: center;
         }
         if valoare == "": Text { x: 12px; text: indiciu; font-family: P.ui; font-size: 13px; color: P.h-tert; vertical-alignment: center; }
+        if cauta: Rectangle {
+            x: parent.width - self.width - 5px; width: 28px; height: 28px; border-radius: 7px;
+            background: zc.has-hover ? P.h-strat-2 : transparent;
+            // lupa peste trei puncte: „cauta in retea"
+            Path { width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16; stroke: zc.has-hover ? P.mod : P.h-sec; stroke-width: 1.6px;
+                commands: "M 7 2 A 5 5 0 1 1 6.99 2 M 10.6 10.6 L 14.2 14.2"; }
+            Path { width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16; fill: zc.has-hover ? P.mod : P.h-sec;
+                commands: "M 4.3 7 A 0.9 0.9 0 1 1 4.29 7 M 7 7 A 0.9 0.9 0 1 1 6.99 7 M 9.7 7 A 0.9 0.9 0 1 1 9.69 7"; }
+            zc := TouchArea { clicked => { la-cautare(); } }
+        }
     }
 }
 
