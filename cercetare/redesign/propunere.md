@@ -1,7 +1,7 @@
 # Propunere de redesign: „Banda"
 
-**Stare:** propunere, neaprobata. Nu inlocuieste `cercetare/design-aprobat.md`
-pana nu o aproba Mihai; pana atunci nu se atinge nimic in `rust/fereastra`.
+**Stare:** respinsa de Mihai pe 2026-11-18 („pare vechi si anost"); vezi `directii.md`.
+Ramane ca istoric.
 Prototipul interactiv: `cercetare/redesign/Banda.html` (se deschide in browser,
 fara server).
 

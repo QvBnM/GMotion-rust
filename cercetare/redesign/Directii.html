@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GMotion Directii</title>
+<!--
+  Trei directii vizuale, radical diferite, pentru acelasi ecran principal.
+  Se comuta cu 1 / 2 / 3 sau din bara de jos. Specificatie, nu cod de aplicatie.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=DM+Mono:wght@400;500&family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{overflow:hidden;background:#000}
+button,input{font:inherit;color:inherit}
+.dir{position:fixed;inset:0;display:none;overflow:hidden}
+.dir.activ{display:block}
+:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+/* comutatorul de directii (nu face parte din design) */
+.alege{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:100;display:flex;gap:2px;padding:3px;border-radius:999px;
+  background:rgba(20,20,20,.86);font:500 12px/1 'Geist',sans-serif;color:#fff}
+.alege button{border:0;background:none;padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.alege button[aria-pressed=true]{background:#fff;color:#111}
+
+/* =====================================================================
+   1. HARTA — toata baza dintr-o privire. Intunecat, viu, spatial.
+   ===================================================================== */
+#d1{
+  --fond:#0d1120; --strat:#151a2e; --strat-2:#1d2440; --linie:#2a3255;
+  --text:#eef1ff; --text-sec:#9aa3c7; --text-tert:#6f789f;
+  --mod:#ffb547; --add:#3ddc97; --del:#ff6b81; --set:#8f9bff; --ident:#1b2138;
+  --prod:#ff4d4d;
+  background:var(--fond);color:var(--text);font:14px/1.45 'Sora',sans-serif;
+  display:none;grid-template-columns:minmax(0,1fr) 520px;grid-template-rows:72px minmax(0,1fr)
+}
+#d1.activ{display:grid}
+#d1 .sus{grid-column:1/3;display:flex;align-items:center;gap:28px;padding:0 28px;border-bottom:1px solid var(--linie)}
+#d1 .logo{font-weight:700;font-size:18px;letter-spacing:-.5px}
+#d1 .logo i{font-style:normal;color:var(--mod)}
+#d1 .traseu{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-sec)}
+#d1 .traseu b{color:var(--text);font-weight:600}
+#d1 .prod{padding:3px 8px;border-radius:4px;background:var(--prod);color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px}
+#d1 .cifre{margin-left:auto;display:flex;gap:28px}
+#d1 .cifra{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+#d1 .cifra b{font-size:22px;font-weight:600;letter-spacing:-.5px}
+#d1 .cifra span{font-size:11.5px;color:var(--text-sec)}
+#d1 .harta{position:relative;padding:22px 28px 70px;overflow:auto}
+#d1 .harta h2{margin:0 0 4px;font-size:28px;font-weight:300;letter-spacing:-.8px}
+#d1 .harta h2 b{font-weight:600}
+#d1 .harta p{margin:0 0 18px;color:var(--text-sec);font-size:13px}
+#d1 .grupuri{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:22px}
+#d1 .grup h3{display:flex;justify-content:space-between;margin:0 0 8px;font-size:12px;font-weight:600;color:var(--text-sec)}
+#d1 .celule{display:grid;grid-template-columns:repeat(auto-fill,14px);gap:3px}
+#d1 .cel{width:14px;height:14px;border-radius:3px;background:var(--ident);border:0;padding:0;cursor:pointer}
+#d1 .cel.m{background:var(--mod)} #d1 .cel.a{background:var(--add)} #d1 .cel.d{background:var(--del)} #d1 .cel.s{background:var(--set)}
+#d1 .cel.rev{opacity:.35}
+#d1 .cel.sel{outline:2px solid #fff;outline-offset:2px}
+#d1 .cel:hover{transform:scale(1.35)}
+#d1 .legenda{display:flex;gap:18px;margin-top:22px;font-size:12px;color:var(--text-sec)}
+#d1 .legenda i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+#d1 .bula{position:fixed;pointer-events:none;padding:6px 10px;border-radius:6px;background:#fff;color:#0d1120;font:500 12px 'Geist Mono',monospace;display:none;z-index:5}
+#d1 .panou{background:var(--strat);border-left:1px solid var(--linie);display:flex;flex-direction:column;min-height:0}
+#d1 .p-cap{padding:24px 26px 18px}
+#d1 .p-stare{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
+#d1 .p-stare i{width:8px;height:8px;border-radius:50%}
+#d1 .p-nume{margin:8px 0 6px;font:500 22px/1.2 'Geist Mono',monospace;letter-spacing:-.6px;word-break:break-all}
+#d1 .p-nume span{color:var(--text-tert)}
+#d1 .p-fraza{color:var(--text-sec);font-size:13.5px}
+#d1 .p-fraza b{color:var(--text);font-weight:600}
+#d1 .p-act{display:flex;gap:8px;margin-top:16px}
+#d1 .b1{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--linie);background:var(--strat-2);cursor:pointer;font-size:13px}
+#d1 .b1.prim{background:var(--mod);border-color:var(--mod);color:#1a1200;font-weight:600}
+#d1 .b1 kbd{font:11px 'Geist Mono',monospace;opacity:.6;margin-left:6px}
+#d1 .cod{flex:1;overflow:auto;margin:0 16px 16px;border-radius:10px;background:var(--fond);border:1px solid var(--linie);font:12px/21px 'Geist Mono',monospace;padding:10px 0}
+#d1 .cl{display:grid;grid-template-columns:40px 18px 1fr;white-space:pre;padding-right:12px}
+#d1 .cl .n{color:var(--text-tert);text-align:right;padding-right:10px}
+#d1 .cl .g{color:var(--text-tert)}
+#d1 .cl.minus{background:rgba(255,107,129,.13)} #d1 .cl.minus .g{color:var(--del)}
+#d1 .cl.plus{background:rgba(61,220,151,.13)} #d1 .cl.plus .g{color:var(--add)}
+#d1 .cl x{background:rgba(255,181,71,.35);border-radius:2px;color:#fff}
+#d1 .cl .k{color:#8fb4ff} #d1 .cl .s{color:#ffcf8a} #d1 .cl .v{color:#d6a8ff} #d1 .cl .c{color:#6f789f;font-style:italic}
+#d1 .pliu{color:var(--text-tert);font:12px 'Sora',sans-serif;padding:4px 0 4px 58px}
+#d1 .plan-bara{display:flex;align-items:center;gap:12px;margin:0 16px 70px;padding:14px 16px;border-radius:10px;background:var(--strat-2)}
+#d1 .plan-bara b{font-size:20px}
+#d1 .plan-bara span{color:var(--text-sec);font-size:12.5px;flex:1}
+#d1 .plan-bara button{height:34px;padding:0 14px;border:0;border-radius:8px;background:var(--prod);color:#fff;font-weight:600;cursor:pointer}
+
+/* =====================================================================
+   2. TEANCUL — un obiect pe ecran, decizii dintr-o tasta. Luminos, curajos.
+   ===================================================================== */
+#d2{
+  --fond:#e9e4ff; --carte:#ffffff; --cerneala:#17123b; --sec:#5b5680; --tert:#6c678f;
+  --albastru:#3b2bff; --mod:#ff7a1a; --add:#00a868; --del:#e8304f;
+  --mod-f:#fff1e6; --add-f:#e3f7ee; --del-f:#ffe7eb;
+  background:var(--fond);color:var(--cerneala);font:15px/1.45 'Bricolage Grotesque',sans-serif;
+}
+#d2 .sus{display:flex;align-items:center;gap:18px;height:68px;padding:0 32px}
+#d2 .logo{font-weight:800;font-size:20px;letter-spacing:-.6px}
+#d2 .traseu{font-size:14px;color:var(--sec)}
+#d2 .traseu b{color:var(--cerneala)}
+#d2 .prod{background:var(--del);color:#fff;font-weight:800;font-size:12px;padding:3px 9px;border-radius:999px}
+#d2 .progres{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:13px;color:var(--sec)}
+#d2 .progres .pista{width:220px;height:8px;border-radius:999px;background:rgba(23,18,59,.1);overflow:hidden}
+#d2 .progres .pista i{display:block;height:100%;background:var(--albastru);border-radius:999px;transition:width .3s}
+#d2 .scena{position:absolute;inset:68px 0 0 0;display:grid;grid-template-columns:240px minmax(0,1fr) 280px;gap:28px;padding:8px 32px 80px}
+#d2 .urmeaza h4,#d2 .cos h4{margin:0 0 12px;font-size:13px;font-weight:600;color:var(--sec)}
+#d2 .urmeaza ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+#d2 .urmeaza li{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.55);font:13px 'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#d2 .urmeaza li:first-child{background:#fff}
+#d2 .urmeaza li i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px}
+#d2 .teanc{position:relative;min-height:0}
+#d2 .carte{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--carte);border-radius:22px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(23,18,59,.08),0 20px 50px -20px rgba(59,43,255,.35);transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .32s}
+#d2 .carte.umbra1{transform:translate(0,14px) scale(.96);opacity:.6;z-index:-1}
+#d2 .carte.umbra2{transform:translate(0,28px) scale(.92);opacity:.3;z-index:-2}
+#d2 .carte.pleaca-dr{transform:translate(60%,-4%) rotate(6deg);opacity:0}
+#d2 .carte.pleaca-st{transform:translate(-60%,-4%) rotate(-6deg);opacity:0}
+#d2 .carte.pleaca-sus{transform:translate(0,-40%);opacity:0}
+#d2 .c-cap{padding:28px 32px 20px}
+#d2 .eticheta{display:inline-block;padding:4px 12px;border-radius:999px;font-weight:600;font-size:13px}
+#d2 .c-nume{margin:14px 0 8px;font-weight:800;font-size:clamp(28px,3.4vw,48px);line-height:1;letter-spacing:-1.5px;word-break:break-word}
+#d2 .c-nume span{color:var(--tert);font-weight:400}
+#d2 .c-fraza{font-size:18px;color:var(--sec);max-width:60ch}
+#d2 .c-fraza b{color:var(--cerneala)}
+#d2 .c-cod{flex:1;overflow:auto;margin:0 20px;border-radius:14px;background:#f7f6fc;font:13px/23px 'DM Mono',monospace;padding:12px 0}
+#d2 .cl{display:grid;grid-template-columns:44px 22px 1fr;white-space:pre}
+#d2 .cl .n{color:var(--tert);text-align:right;padding-right:10px}
+#d2 .cl.minus{background:var(--del-f)} #d2 .cl.minus .g{color:var(--del);font-weight:700}
+#d2 .cl.plus{background:var(--add-f)} #d2 .cl.plus .g{color:var(--add);font-weight:700}
+#d2 .cl x{background:#ffd8b8;border-radius:3px}
+#d2 .cl .k{color:var(--albastru)} #d2 .cl .s{color:#b3470a} #d2 .cl .v{color:#9b2bb3} #d2 .cl .c{color:var(--tert);font-style:italic}
+#d2 .pliu{padding:2px 0 2px 66px;color:var(--tert);font:13px 'Bricolage Grotesque',sans-serif}
+#d2 .decizii{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:18px 20px 20px}
+#d2 .dec{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px;border-radius:14px;border:0;cursor:pointer;font-weight:600;font-size:15px}
+#d2 .dec small{font:12px 'DM Mono',monospace;opacity:.7;font-weight:400}
+#d2 .dec.omite{background:#f1effa} #d2 .dec.rev{background:#e7e4ff;color:var(--albastru)} #d2 .dec.plan{background:var(--albastru);color:#fff}
+#d2 .dec:hover{filter:brightness(.96)}
+#d2 .cos{display:flex;flex-direction:column;min-height:0}
+#d2 .cos-carte{flex:1;display:flex;flex-direction:column;border-radius:22px;background:var(--cerneala);color:#fff;padding:22px;min-height:0}
+#d2 .cos-nr{font-weight:800;font-size:64px;line-height:.9;letter-spacing:-3px}
+#d2 .cos-sub{color:#b9b4e0;font-size:14px;margin:6px 0 16px}
+#d2 .cos ul{list-style:none;margin:0;padding:0;flex:1;overflow:auto;display:flex;flex-direction:column;gap:6px}
+#d2 .cos li{display:flex;gap:10px;font:12.5px 'DM Mono',monospace;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.07)}
+#d2 .cos li b{font-weight:500;min-width:54px}
+#d2 .cos li.nou{animation:intra .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes intra{from{transform:translateX(-30px);opacity:0}}
+#d2 .cos .trimite{margin-top:14px;height:48px;border:0;border-radius:14px;background:var(--del);color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+
+/* =====================================================================
+   3. PANZA — codul ocupa tot; restul pluteste si apare cand il chemi.
+   ===================================================================== */
+#d3{
+  --fond:#ffffff; --hud:#ffffff; --text:#0f1115; --sec:#5d6370; --tert:#6b7180; --linie:#e8eaee;
+  --mod:#f5a524; --add:#17c964; --del:#f31260; --violet:#7828c8;
+  background:var(--fond);color:var(--text);font:14px/1.5 'Geist',sans-serif;
+}
+#d3 .panza{position:absolute;inset:0;overflow:auto;padding:120px 0 140px}
+#d3 .titlu{max-width:1180px;margin:0 auto 26px;padding:0 40px}
+#d3 .titlu .tip{font-size:13px;color:var(--sec)}
+#d3 .titlu h1{margin:4px 0 6px;font:600 clamp(30px,4.2vw,64px)/1 'Geist',sans-serif;letter-spacing:-2.5px}
+#d3 .titlu h1 span{color:#c5c9d2;font-weight:300}
+#d3 .titlu p{margin:0;font-size:17px;color:var(--sec);max-width:62ch}
+#d3 .titlu p b{color:var(--text);font-weight:500}
+#d3 .diff{max-width:1180px;margin:0 auto;padding:0 40px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;font:13px/24px 'Geist Mono',monospace}
+#d3 .col h5{margin:0 0 8px;font:500 12px 'Geist',sans-serif;color:var(--tert)}
+#d3 .cl{display:grid;grid-template-columns:36px 1fr;white-space:pre;overflow:hidden;border-radius:6px}
+#d3 .cl .n{color:#b3b8c3;text-align:right;padding-right:12px}
+#d3 .cl.ch{background:linear-gradient(90deg,rgba(245,165,36,.16),rgba(245,165,36,.04))}
+#d3 .cl.ch .n{color:var(--mod);font-weight:500}
+#d3 .cl x{background:rgba(245,165,36,.45);border-radius:3px;padding:0 1px}
+#d3 .cl .k{color:var(--violet)} #d3 .cl .s{color:#c4410c} #d3 .cl .v{color:#006fee} #d3 .cl .c{color:var(--tert);font-style:italic}
+#d3 .pliu{grid-column:1/3;margin:6px 0;padding:6px 0;text-align:center;font:12px 'Geist',sans-serif;color:var(--tert);border-top:1px dashed var(--linie);border-bottom:1px dashed var(--linie)}
+#d3 .hud{position:fixed;display:flex;align-items:center;gap:10px;background:var(--hud);border:1px solid var(--linie);border-radius:14px;
+  box-shadow:0 8px 30px -10px rgba(15,17,21,.18);padding:6px;z-index:3}
+#d3 .hud-st{top:18px;left:18px;padding:6px 14px 6px 8px}
+#d3 .bulina{width:30px;height:30px;border-radius:9px;background:var(--text);color:#fff;display:grid;place-items:center;font-weight:600}
+#d3 .hud-st .t{font-size:13px} #d3 .hud-st .t b{font-weight:600}
+#d3 .prod{color:#fff;background:var(--del);border-radius:6px;padding:2px 7px;font:600 11px 'Geist Mono',monospace}
+#d3 .hud-dr{top:18px;right:18px}
+#d3 .hud-dr .inel{position:relative;width:34px;height:34px}
+#d3 .hud-dr .t{font-size:12.5px;color:var(--sec);padding-right:8px}
+#d3 .hud-dr .t b{color:var(--text);font-weight:600}
+#d3 .hud-jos{bottom:64px;left:50%;transform:translateX(-50%)}
+#d3 .hud-jos button{height:38px;padding:0 14px;border:0;border-radius:10px;background:none;cursor:pointer;display:flex;align-items:center;gap:8px;white-space:nowrap}
+#d3 .hud-jos button:hover{background:#f3f4f6}
+#d3 .hud-jos button.prim{background:var(--text);color:#fff}
+#d3 kbd{font:11px 'Geist Mono',monospace;padding:1px 5px;border-radius:5px;background:#f0f1f4;color:var(--sec)}
+#d3 .prim kbd{background:#2a2d35;color:#c5c9d2}
+#d3 .sep{width:1px;height:22px;background:var(--linie)}
+#d3 .rigla{position:fixed;left:18px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;z-index:2}
+#d3 .rigla i{width:22px;height:4px;border-radius:2px;background:#e3e5ea}
+#d3 .rigla i.m{background:var(--mod)} #d3 .rigla i.a{background:var(--add)} #d3 .rigla i.d{background:var(--del)} #d3 .rigla i.cur{width:34px;background:var(--text)}
+#d3 .cmd-fundal{position:fixed;inset:0;background:rgba(255,255,255,.7);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:10}
+#d3 .cmd-fundal.deschis{display:flex}
+#d3 .cmd{width:min(640px,calc(100vw - 32px));background:#fff;border:1px solid var(--linie);border-radius:18px;box-shadow:0 30px 80px -20px rgba(15,17,21,.35);overflow:hidden}
+#d3 .cmd input{width:100%;height:58px;border:0;border-bottom:1px solid var(--linie);padding:0 20px;font-size:18px;outline:0}
+#d3 .cmd ul{list-style:none;margin:0;padding:8px;max-height:360px;overflow:auto}
+#d3 .cmd li{display:grid;grid-template-columns:14px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;cursor:pointer}
+#d3 .cmd li.activ{background:#f3f4f6}
+#d3 .cmd li i{width:8px;height:8px;border-radius:50%}
+#d3 .cmd li .m2{font-family:'Geist Mono',monospace;font-size:13px}
+#d3 .cmd li small{color:var(--tert)}
+#d3 .cmd .gr{padding:8px 12px 4px;font-size:12px;color:var(--tert)}
+
+@media (prefers-reduced-motion:reduce){#d2 .carte,#d2 .cos li.nou{transition:none;animation:none}}
+@media (max-width:1100px){
+  #d1{grid-template-columns:minmax(0,1fr);grid-template-rows:72px auto auto;overflow:auto}
+  #d1 .harta{overflow:visible} #d1 .harta h2{font-size:22px}
+  #d1 .cifre{display:none}
+  #d1 .sus{grid-column:1}
+  #d1 .harta{padding:22px 16px 30px}
+  #d1 .panou{min-height:640px}
+  #d2 .scena{grid-template-columns:1fr;overflow:auto;padding:8px 16px 80px}
+  #d2 .urmeaza{display:none}
+  #d2 .teanc{min-height:640px}
+  #d2 .cos{min-height:360px}
+  #d2 .progres .pista{width:100px}
+  #d3 .diff{grid-template-columns:1fr;padding:0 16px}
+  #d3 .col:first-child{display:none}
+  #d3 .pliu{grid-column:1}
+  #d3 .titlu{padding:0 16px}
+  #d3 .rigla{display:none}
+}
+@media (max-width:640px){
+  #d1 .sus,#d2 .sus{padding:0 16px;gap:10px} #d1 .traseu,#d2 .traseu{display:none}
+  #d3 .hud-dr .t{display:none} #d3 .hud-jos{bottom:62px} #d3 .hud-jos .opt{display:none}
+  #d3 .hud-jos{max-width:calc(100vw - 24px);gap:2px} #d3 .hud-jos kbd{display:none}
+  #d3 .hud-st{left:12px;right:64px} #d3 .hud-dr{right:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================ 1. HARTA ============================ -->
+<section class="dir activ" id="d1" aria-label="Directia 1: Harta">
+  <header class="sus">
+    <span class="logo">g<i>●</i>motion</span>
+    <span class="traseu"><b>CharismaDev</b> → <b>CharismaProd</b> <span class="prod">PROD</span></span>
+    <div class="cifre">
+      <div class="cifra"><b style="color:var(--mod)">312</b><span>modificate</span></div>
+      <div class="cifra"><b style="color:var(--add)">18</b><span>doar în sursă</span></div>
+      <div class="cifra"><b style="color:var(--del)">6</b><span>doar în bază</span></div>
+      <div class="cifra"><b>37%</b><span>revizuit</span></div>
+    </div>
+  </header>
+  <div class="harta">
+    <h2><b>21.183</b> obiecte, dintr-o privire</h2>
+    <p>Fiecare pătrat e un obiect, grupat pe schemă și tip. Cele colorate diferă. Click pe unul ca să-l deschizi.</p>
+    <div class="grupuri" id="h-grupuri"></div>
+    <div class="legenda">
+      <span><i style="background:var(--mod)"></i>modificat</span><span><i style="background:var(--add)"></i>doar în sursă</span>
+      <span><i style="background:var(--del)"></i>doar în bază</span><span><i style="background:var(--set)"></i>doar setări SET</span>
+      <span><i style="background:var(--ident)"></i>identic</span><span><i style="background:var(--mod);opacity:.35"></i>revizuit</span>
+    </div>
+  </div>
+  <aside class="panou" id="h-panou"></aside>
+  <div class="bula" id="h-bula"></div>
+</section>
+
+<!-- ============================ 2. TEANCUL ============================ -->
+<section class="dir" id="d2" aria-label="Directia 2: Teancul">
+  <header class="sus">
+    <span class="logo">gmotion</span>
+    <span class="traseu"><b>CharismaDev</b> → <b>CharismaProd</b></span>
+    <span class="prod">PROD</span>
+    <div class="progres"><span id="t-progres"></span><span class="pista"><i id="t-pista"></i></span></div>
+  </header>
+  <div class="scena">
+    <div class="urmeaza"><h4>Urmează</h4><ol id="t-urm"></ol></div>
+    <div class="teanc" id="t-teanc"></div>
+    <div class="cos">
+      <div class="cos-carte">
+        <div class="cos-nr" id="t-nr">0</div>
+        <div class="cos-sub">obiecte pleacă spre CharismaProd</div>
+        <ul id="t-cos"></ul>
+        <button class="trimite">Pregătește deploy-ul</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 3. PANZA ============================ -->
+<section class="dir" id="d3" aria-label="Directia 3: Panza">
+  <div class="panza">
+    <div class="titlu">
+      <div class="tip">Procedură, diferă într-un șir</div>
+      <h1><span>dbo.</span>GenerateOrderBy<wbr>RecommendedOrder</h1>
+      <p>Un singur caracter s-a schimbat: <b>N → n</b> în mesajul de eroare. Restul celor 67 de linii e identic.</p>
+    </div>
+    <div class="diff" id="p-diff"></div>
+  </div>
+  <div class="hud hud-st"><span class="bulina">g</span><span class="t"><b>CharismaDev</b> → <b>CharismaProd</b></span><span class="prod">PROD</span></div>
+  <div class="hud hud-dr">
+    <svg class="inel" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" fill="none" stroke="#eceef2" stroke-width="4"/>
+      <circle cx="18" cy="18" r="15" fill="none" stroke="#0f1115" stroke-width="4" stroke-linecap="round" stroke-dasharray="35 95" transform="rotate(-90 18 18)"/></svg>
+    <span class="t"><b>124</b> din 336 revizuite</span>
+  </div>
+  <div class="rigla" aria-hidden="true" id="p-rigla"></div>
+  <div class="hud hud-jos">
+    <button class="opt">← <kbd>k</kbd></button>
+    <button>Obiecte <kbd>Ctrl K</kbd></button>
+    <span class="sep"></span>
+    <button>Revizuit <kbd>r</kbd></button>
+    <button class="prim">Pune în plan <kbd>p</kbd></button>
+    <span class="sep opt"></span>
+    <button class="opt">Plan · 7</button>
+    <button class="opt"><kbd>j</kbd> →</button>
+  </div>
+  <div class="cmd-fundal" id="p-cmd">
+    <div class="cmd" role="dialog" aria-label="Obiecte și comenzi">
+      <input id="p-q" placeholder="Caută un obiect sau o comandă" autocomplete="off" spellcheck="false">
+      <ul id="p-lista"></ul>
+    </div>
+  </div>
+</section>
+
+<nav class="alege" aria-label="Alege direcția">
+  <button data-d="1" aria-pressed="true">1  Harta</button>
+  <button data-d="2" aria-pressed="false">2  Teancul</button>
+  <button data-d="3" aria-pressed="false">3  Pânza</button>
+</nav>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (t) => t.replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const KW = /\b(CREATE|OR|ALTER|PROCEDURE|FUNCTION|AS|BEGIN|END|SET|NOCOUNT|ON|SELECT|FROM|WHERE|INSERT|INTO|IF|NOT|EXISTS|RETURN|RETURNS|INT|DATE|DECIMAL|NULL|ISNULL|GETDATE|RAISERROR|ROUND)\b/g;
+function sx(t) {
+  return t.split(/(⟦[^⟧]*⟧)/).map((b) => b.startsWith('⟦') ? `<x>${sx1(b.slice(1, -1))}</x>` : sx1(b)).join('');
+}
+function sx1(t) {
+  if (/^\s*--/.test(t)) return `<span class="c">${esc(t)}</span>`;
+  return t.split(/('[^']*'?)/).map((p) => p.startsWith("'") ? `<span class="s">${esc(p)}</span>`
+    : esc(p).replace(KW, '<span class="k">$1</span>').replace(/(@\w+)/g, '<span class="v">$1</span>')).join('');
+}
+
+const OB = [
+  {s:'dbo', n:'GenerateOrderByRecommendedOrder', tip:'procedură', k:'m', fr:'Un singur caracter, într-un șir: <b>N → n</b>.',
+   cod:[[41,'    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari WHERE IdPartener = @IdPartener)'],[42,'    BEGIN'],
+        [43,"        RAISERROR('⟦N⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);","        RAISERROR('⟦n⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);"],[44,'        RETURN;'],[45,'    END']]},
+  {s:'dbo', n:'fn_PretCuTva', tip:'funcție', k:'m', fr:'Cota de TVA nu mai e scrisă în cod: <b>19 → @CotaTva</b>.',
+   cod:[[1,'CREATE OR ALTER FUNCTION dbo.fn_PretCuTva'],[2,'(@Pret DECIMAL(18, 4))','(@Pret DECIMAL(18, 4)⟦, @CotaTva DECIMAL(5, 2)⟧)'],[3,'RETURNS DECIMAL(18, 4)'],
+        [14,'    RETURN ROUND(@Pret * (1 + ⟦19⟧ / 100.0), 2);','    RETURN ROUND(@Pret * (1 + ⟦@CotaTva⟧ / 100.0), 2);'],[15,'END']]},
+  {s:'dbo', n:'usp_ImportClienti', tip:'procedură', k:'a', fr:'Nu există în <b>CharismaProd</b>. Se creează, 96 de linii.',
+   cod:[[1,'','CREATE OR ALTER PROCEDURE dbo.usp_ImportClienti'],[2,'','    @Fisier NVARCHAR(260)'],[3,'','AS'],[4,'','BEGIN'],[5,'','    SET NOCOUNT ON;']]},
+  {s:'dbo', n:'fn_CursVechi', tip:'funcție', k:'d', fr:'Nu mai e în sursă. <b>Se șterge</b>; nimic din bază n-o mai folosește.',
+   cod:[[1,'CREATE FUNCTION dbo.fn_CursVechi','',],[2,'(@Data DATE)',''],[3,'RETURNS DECIMAL(18, 4)',''],[4,'AS','']]},
+  {s:'dbo', n:'usp_InchideLuna', tip:'procedură', k:'m', fr:'Se verifică acum și <b>luna deja închisă</b>.',
+   cod:[[18,'    IF @Luna IS NULL','    IF @Luna IS NULL'],[19,'','    IF EXISTS (SELECT 1 FROM dbo.Luni WHERE Luna = @Luna AND Inchisa = 1)'],[20,'','        RETURN 2;'],[21,'    UPDATE dbo.Luni SET Inchisa = 1']]},
+  {s:'rpt', n:'usp_TopClienti', tip:'procedură', k:'m', fr:'TOP 10 devine <b>TOP (@Numar)</b>.',
+   cod:[[3,'    SELECT ⟦TOP 10⟧ c.IdPartener, SUM(c.Total)','    SELECT ⟦TOP (@Numar)⟧ c.IdPartener, SUM(c.Total)'],[4,'    FROM dbo.Comenzi c']]},
+];
+const COL = {m:'var(--mod)', a:'var(--add)', d:'var(--del)', s:'var(--set)'};
+const NUME_K = {m:'Modificat', a:'Doar în sursă', d:'Doar în bază', s:'Doar setări SET'};
+// unificat: [nr, stanga, dreapta?] ; dreapta lipsa = identic; '' = linie lipsa
+function unificat(cod, cls) {
+  let h = '';
+  cod.forEach(([n, a, b], i) => {
+    if (i && n - cod[i - 1][0] > 1) h += `<div class="pliu">${n - cod[i - 1][0] - 1} linii identice</div>`;
+    if (b === undefined) { h += `<div class="cl"><span class="n">${n}</span><span class="g"></span><span>${sx(a)}</span></div>`; return; }
+    if (a) h += `<div class="cl minus"><span class="n">${n}</span><span class="g">−</span><span>${sx(a)}</span></div>`;
+    if (b) h += `<div class="cl plus"><span class="n">${n}</span><span class="g">+</span><span>${sx(b)}</span></div>`;
+  });
+  return h;
+}
+
+/* ---------------- 1. Harta ---------------- */
+(function harta() {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const GR = [['dbo', 'Proceduri', 190], ['dbo', 'Funcții', 70], ['dbo', 'View-uri', 60], ['rpt', 'Proceduri', 80], ['dbo', 'Triggere', 30], ['imp', 'Proceduri', 50], ['anaf', 'Proceduri', 40], ['dbo', 'Tipuri', 24]];
+  let idx = 0;
+  const celule = GR.map(([sch, tip, n]) => {
+    const c = Array.from({length:n}, () => {
+      const r = rnd();
+      const k = r < .55 ? 'i' : r < .86 ? 'm' : r < .92 ? 'a' : r < .95 ? 'd' : r < .97 ? 's' : 'i';
+      return {k, rev: k !== 'i' && rnd() < .37, ob: k === 'i' ? null : OB[idx++ % OB.length]};
+    });
+    return {sch, tip, c};
+  });
+  const gEl = $('#h-grupuri'), bula = $('#h-bula');
+  let sel = null;
+  gEl.innerHTML = celule.map((g, gi) => {
+    const dif = g.c.filter((x) => x.k !== 'i').length;
+    return `<div class="grup"><h3><span>${g.sch} · ${g.tip}</span><span>${dif} diferă</span></h3><div class="celule">${
+      g.c.map((x, ci) => `<button class="cel ${x.k === 'i' ? '' : x.k} ${x.rev ? 'rev' : ''}" data-g="${gi}" data-c="${ci}" aria-label="${x.ob ? x.ob.s + '.' + x.ob.n : 'identic'}"></button>`).join('')}</div></div>`;
+  }).join('');
+  gEl.addEventListener('mousemove', (e) => {
+    const b = e.target.closest('.cel');
+    if (!b) { bula.style.display = 'none'; return; }
+    const x = celule[b.dataset.g].c[b.dataset.c];
+    bula.textContent = x.ob ? `${x.ob.s}.${x.ob.n}` : 'identic';
+    bula.style.display = 'block'; bula.style.left = e.clientX + 14 + 'px'; bula.style.top = e.clientY + 14 + 'px';
+  });
+  gEl.addEventListener('mouseleave', () => (bula.style.display = 'none'));
+  gEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.cel'); if (!b) return;
+    const x = celule[b.dataset.g].c[b.dataset.c]; if (!x.ob) return;
+    sel?.classList.remove('sel'); sel = b; b.classList.add('sel');
+    arata(x.ob, x.k);
+  });
+  function arata(o, k) {
+    $('#h-panou').innerHTML = `<div class="p-cap">
+        <span class="p-stare" style="color:${COL[k]}"><i style="background:${COL[k]}"></i>${NUME_K[k]}, ${o.tip}</span>
+        <div class="p-nume"><span>${o.s}.</span>${o.n}</div>
+        <div class="p-fraza">${o.fr}</div>
+        <div class="p-act"><button class="b1">Revizuit<kbd>r</kbd></button><button class="b1 prim">Pune în plan<kbd>p</kbd></button><button class="b1">Deschide<kbd>↵</kbd></button></div>
+      </div>
+      <div class="cod">${unificat(o.cod)}</div>
+      <div class="plan-bara"><b>7</b><span>obiecte în plan, ordonate după dependențe</span><button>Deploy</button></div>`;
+  }
+  const prim = gEl.querySelector('.cel.m'); prim.classList.add('sel'); sel = prim;
+  arata(OB[0], 'm');
+})();
+
+/* ---------------- 2. Teancul ---------------- */
+(function teanc() {
+  let i = 0, rev = 124;
+  const cos = [];
+  const ET = {m:['Modificat','#fff1e6','#b34f00'], a:['Doar în sursă','#e3f7ee','#007a4b'], d:['Doar în bază','#ffe7eb','#c01d3c']};
+  const OPS = {m:'ALTER', a:'CREATE', d:'DROP'};
+  const carte = (o, cls) => {
+    const [et, f, c] = ET[o.k];
+    return `<article class="carte ${cls}">
+      <div class="c-cap"><span class="eticheta" style="background:${f};color:${c}">${et}, ${o.tip}</span>
+        <div class="c-nume"><span>${o.s}.</span>${o.n.replace(/([a-z])([A-Z])/g, '$1&shy;$2')}</div>
+        <div class="c-fraza">${o.fr}</div></div>
+      <div class="c-cod">${unificat(o.cod)}</div>
+      <div class="decizii">
+        <button class="dec omite" data-d="st">Omite<small>←</small></button>
+        <button class="dec rev" data-d="sus">Revizuit, fără plan<small>↑</small></button>
+        <button class="dec plan" data-d="dr">Pune în plan<small>→</small></button>
+      </div></article>`;
+  };
+  function randeaza() {
+    const o = (j) => OB[(i + j) % OB.length];
+    $('#t-teanc').innerHTML = carte(o(2), 'umbra2') + carte(o(1), 'umbra1') + carte(o(0), '');
+    $('#t-urm').innerHTML = [1, 2, 3, 4, 5].map((j) => `<li><i style="background:${{m:'#ff7a1a',a:'#00a868',d:'#e8304f'}[o(j).k]}"></i>${o(j).s}.${o(j).n}</li>`).join('');
+    $('#t-progres').textContent = `${rev} din 336`;
+    $('#t-pista').style.width = (rev / 336 * 100) + '%';
+    $('#t-nr').textContent = cos.length;
+    $('#t-cos').innerHTML = cos.map((x, j) => `<li class="${j === 0 ? 'nou' : ''}"><b>${OPS[x.k]}</b>${x.s}.${x.n}</li>`).join('');
+  }
+  function decide(d) {
+    const sus = $('#t-teanc .carte:last-child');
+    if (!sus || sus.dataset.pleaca) return;
+    sus.dataset.pleaca = 1;
+    sus.classList.add('pleaca-' + d);
+    const o = OB[i % OB.length];
+    setTimeout(() => {
+      if (d === 'dr') cos.unshift(o);
+      rev++; i++; randeaza();
+    }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280);
+  }
+  $('#t-teanc').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (b) decide(b.dataset.d); });
+  document.addEventListener('keydown', (e) => {
+    if (!$('#d2').classList.contains('activ')) return;
+    const m = {ArrowRight:'dr', ArrowLeft:'st', ArrowUp:'sus'}[e.key];
+    if (m) { e.preventDefault(); decide(m); }
+  });
+  cos.push(OB[1], OB[5]);
+  randeaza();
+})();
+
+/* ---------------- 3. Panza ---------------- */
+(function panza() {
+  const st = [], dr = [];
+  const ctx = ['CREATE OR ALTER PROCEDURE dbo.GenerateOrderByRecommendedOrder', '    @IdPartener INT,', '    @DataComanda DATE = NULL', 'AS', 'BEGIN', '    SET NOCOUNT ON;'];
+  let h = '<div class="col"><h5>CharismaProd, acum</h5>', h2 = '<div class="col"><h5>CharismaDev, după deploy</h5>';
+  const linie = (n, t, ch) => `<div class="cl ${ch ? 'ch' : ''}"><span class="n">${n}</span><span>${sx(t)}</span></div>`;
+  ctx.forEach((t, i) => { h += linie(i + 1, t); h2 += linie(i + 1, t); });
+  const corp = [[41,'    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari','    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari'],[42,'        WHERE IdPartener = @IdPartener)'],[43,'    BEGIN'],
+    [44,"        RAISERROR('⟦N⟧u s-au gasit recomandari', 16, 1);","        RAISERROR('⟦n⟧u s-au gasit recomandari', 16, 1);"],[45,'        RETURN;'],[46,'    END'],[47,''],[48,'    INSERT INTO dbo.Comenzi (IdPartener, DataComanda, Stare)'],[49,'    SELECT @IdPartener, ISNULL(@DataComanda, GETDATE()), 0;']];
+  let a = '', b = '';
+  corp.forEach(([n, x, y]) => { const ch = y !== undefined && y !== x; a += linie(n, x, ch); b += linie(n, y ?? x, ch); });
+  $('#p-diff').innerHTML = h + '</div>' + h2 + '</div>' + '<div class="pliu">34 de linii identice</div>' + `<div class="col">${a}</div><div class="col">${b}</div>` + '<div class="pliu">18 linii identice</div>';
+  $('#p-rigla').innerHTML = Array.from({length:24}, (_, i) => `<i class="${i === 7 ? 'cur' : [2, 5, 11, 16].includes(i) ? 'm' : i === 13 ? 'a' : i === 19 ? 'd' : ''}"></i>`).join('');
+
+  const CMD = [
+    ...OB.map((o) => ({g:'Obiecte', t:`${o.s}.${o.n}`, sub:o.tip, c:{m:'var(--mod)', a:'var(--add)', d:'var(--del)'}[o.k]})),
+    {g:'Comenzi', t:'Arată doar ce diferă în cod', sub:''}, {g:'Comenzi', t:'Deschide planul de deploy', sub:'7 obiecte'},
+    {g:'Comenzi', t:'Recompară', sub:'Ctrl R'}, {g:'Comenzi', t:'Exportă lista în CSV', sub:''},
+  ];
+  let act = 0, vis = [];
+  function lista() {
+    const q = $('#p-q').value.toLowerCase();
+    vis = CMD.filter((c) => c.t.toLowerCase().includes(q));
+    act = Math.min(act, Math.max(0, vis.length - 1));
+    let g = '';
+    $('#p-lista').innerHTML = vis.map((c, i) => {
+      const cap = c.g !== g ? `<div class="gr">${(g = c.g)}</div>` : '';
+      return cap + `<li class="${i === act ? 'activ' : ''}"><i style="background:${c.c || 'transparent'}"></i><span class="${c.c ? 'm2' : ''}">${esc(c.t)}</span><small>${c.sub}</small></li>`;
+    }).join('') || '<div class="gr">Nimic găsit. Încearcă alt nume.</div>';
+  }
+  const deschide = () => { $('#p-cmd').classList.add('deschis'); $('#p-q').value = ''; act = 0; lista(); $('#p-q').focus(); };
+  const inchide = () => $('#p-cmd').classList.remove('deschis');
+  $('#p-q').addEventListener('input', () => { act = 0; lista(); });
+  $('#p-cmd').addEventListener('click', (e) => { if (e.target.id === 'p-cmd') inchide(); });
+  $('.hud-jos button:nth-child(2)', $('#d3')).addEventListener('click', deschide);
+  document.addEventListener('keydown', (e) => {
+    if (!$('#d3').classList.contains('activ')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#p-cmd').classList.contains('deschis') ? inchide() : deschide(); }
+    if (!$('#p-cmd').classList.contains('deschis')) return;
+    if (e.key === 'Escape') inchide();
+    if (e.key === 'ArrowDown') { e.preventDefault(); act = Math.min(vis.length - 1, act + 1); lista(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); act = Math.max(0, act - 1); lista(); }
+  });
+})();
+
+/* ---------------- comutatorul ---------------- */
+function alege(d) {
+  document.querySelectorAll('.dir').forEach((x) => x.classList.toggle('activ', x.id === 'd' + d));
+  document.querySelectorAll('.alege button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.d === String(d)));
+}
+document.querySelector('.alege').addEventListener('click', (e) => { const b = e.target.closest('[data-d]'); if (b) alege(b.dataset.d); });
+document.addEventListener('keydown', (e) => { if (e.target.tagName !== 'INPUT' && ['1', '2', '3'].includes(e.key)) alege(e.key); });
+const h = location.hash.slice(1); if (['1', '2', '3'].includes(h)) alege(h);
+</script>
+</body>
+</html>

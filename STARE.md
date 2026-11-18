@@ -77,15 +77,11 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce aștept de la Mihai
 
-**Propunerea de redesign „Banda"** (2026-11-18, ceruta de Mihai):
-`cercetare/redesign/propunere.md` si prototipul `cercetare/redesign/Banda.html`.
-Lista, editorul si planul ajung pe un singur ecran, cu planul ca placa
-inchisa la culoare, semnatura diferentei in coada si filtru scris. **Intrebarea:**
-o adoptam (inlocuieste `design-aprobat.md` si schimba criteriul
-ecranului de deploy din etapa 12, acum pe pauza), o adoptam partial, sau
-ramane designul aprobat? Propunerea arata si unde incape fiecare lipsa din
-`lipsuri-portare.md`; nu schimba ordinea „intai paritatea, apoi aspectul".
-Pana la raspuns nu se atinge `rust/fereastra`.
+**Directia vizuala** (2026-11-18): „Banda" a fost respinsa („pare vechi si
+anost"). Acum sunt trei directii pe acelasi ecran: `cercetare/redesign/Directii.html`
+(Harta / Teancul / Panza), descrise in `cercetare/redesign/directii.md`.
+**Intrebarea:** care dintre ele, sau ce combinatie? Nu schimba ordinea „intai
+paritatea, apoi aspectul". Pana la raspuns nu se atinge `rust/fereastra`.
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.
