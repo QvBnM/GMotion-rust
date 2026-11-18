@@ -19,7 +19,7 @@ use std::rc::Rc;
 use gmotion_app::pornire;
 use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
 use gmotion_fereastra::model_conectare::{Conectare, Recenta, StareConexiune};
-use gmotion_fereastra::model_lista::{Ordine, Stare as StareObiect};
+use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
     incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, mediu_dupa_nume,
@@ -85,6 +85,19 @@ fn director_deploy(referinta: &str) -> std::path::PathBuf {
     gmotion_platforma::cai::director_date()
         .map(|d| d.join("deploy").join(&nume))
         .unwrap_or_else(|_| std::path::PathBuf::from(format!("deploy_{nume}")))
+}
+
+/// Unde se scrie exportul CSV: in directorul de date, langa deploy-uri.
+/// Ca la deploy, numele are momentul in el, ca doua exporturi sa nu se calce.
+fn cale_csv(referinta: &str) -> std::path::PathBuf {
+    let nume = format!(
+        "{}_{}.csv",
+        referinta.replace(|c: char| !c.is_ascii_alphanumeric(), "_"),
+        gmotion_platforma::timp::acum_compact()
+    );
+    gmotion_platforma::cai::director_date()
+        .map(|d| d.join("export").join(&nume))
+        .unwrap_or_else(|_| std::path::PathBuf::from(nume))
 }
 
 /// Compararile salvate, cele mai noi intai.
@@ -695,8 +708,48 @@ fn ruleaza() -> Result<(), String> {
             c(Comanda::FiltreazaTip(tip))
         });
         let c = comanda.clone();
-        // clic pe „Linii": sorteaza dupa linii; al doilea clic inverseaza sensul
-        lista_ui.on_sorteaza_dupa_linii(move || c(Comanda::Sorteaza(Ordine::Linii)));
+        // clic pe un cap de coloana: sorteaza dupa ea; al doilea clic inverseaza
+        lista_ui.on_sorteaza_coloana(move |cod| {
+            c(Comanda::Sorteaza(gmotion_fereastra::ordine_din_cod(cod)));
+        });
+        let c = comanda.clone();
+        lista_ui.on_alege_starea(move |i| {
+            let f = usize::try_from(i)
+                .ok()
+                .and_then(|i| FiltruRevizuire::TOATE.get(i).copied());
+            c(Comanda::FiltreazaRevizuire(f));
+        });
+        let c = comanda.clone();
+        lista_ui.on_schimba_scorul(move |min, max| {
+            // campurile sunt numerice, dar pot fi goale cat se scrie in ele
+            let n = |t: &str, implicit: f64| t.trim().parse::<f64>().unwrap_or(implicit);
+            c(Comanda::FiltreazaScor(n(&min, 0.0), n(&max, 100.0)));
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        let l = lista_ui.as_weak();
+        lista_ui.on_exporta_csv(move || {
+            let st = s.borrow();
+            let Some(app) = st.app.as_ref() else {
+                return;
+            };
+            let cale = cale_csv(&st.conectare.sursa.baza);
+            let mesaj = match cale.parent().map(std::fs::create_dir_all) {
+                Some(Err(e)) => format!("nu pot scrie: {e}"),
+                _ => match app.exporta_csv(&cale) {
+                    Ok(n) => {
+                        tracing::info!(target: "gmotion::app", cale = %cale.display(), randuri = n, "CSV scris");
+                        format!("{n} randuri in {}", cale.display())
+                    }
+                    Err(e) => e,
+                },
+            };
+            drop(st);
+            if let Some(l) = l.upgrade() {
+                l.set_mesaj_csv(mesaj.into());
+            }
+            d();
+        });
     }
 
     // --- planul de deploy

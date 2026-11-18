@@ -58,7 +58,7 @@ fn main() {
                 revizuit: false,
                 in_plan: false,
                 omis: false,
-                scor: None,
+                scor: r.scor,
                 deploy: Default::default(),
             }
         })

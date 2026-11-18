@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: a315f5e63ec6fb52 -->
+<!-- api-hash: 761b41a5c2ced100 -->
 
 ## Rol
 
@@ -35,6 +35,7 @@ si editorul de diferente (etapa 8).
 | `model_lista::Lista` | lista: filtre, cautare, sortare, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru}` | modelul listei |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
+| `ordine_din_cod(cod)` | ce coloana a apasat utilizatorul; inversul codurilor din `global Sortare` (`lista.slint`) |
 | `harta::{aseaza, picteaza, indice_la, celula_la, pozitie_randului}`, `LATIME_HARTA` | harta de deasupra tabelului: grupuri pe tip, patrate pictate in Rust, clic → rand |
 | `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | clicul si bula de pe harta; calculul e doar in `harta::indice_la` |
 | `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran, mediu)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |

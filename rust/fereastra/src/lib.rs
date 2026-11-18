@@ -463,6 +463,51 @@ pub struct AntetLista<'a> {
     pub in_plan: usize,
 }
 
+/// Coloana sortata, ca numar pentru `.slint` (`global Sortare`). Ordinea e
+/// aceeasi cu cea din `model_lista::Ordine`; daca una se muta, se muta in
+/// ambele locuri — testul `codurile_de_sortare_se_potrivesc` cade altfel.
+fn cod_ordine(o: model_lista::Ordine) -> i32 {
+    use model_lista::Ordine;
+    match o {
+        Ordine::Nume => 0,
+        Ordine::Tip => 1,
+        Ordine::Linii => 2,
+        Ordine::Scor => 3,
+        Ordine::DiferaIn => 4,
+        Ordine::Revizuire => 5,
+        Ordine::Deploy => 6,
+    }
+}
+
+/// Inversul lui `cod_ordine`: ce coloana a apasat utilizatorul.
+pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
+    use model_lista::Ordine;
+    match c {
+        1 => Ordine::Tip,
+        2 => Ordine::Linii,
+        3 => Ordine::Scor,
+        4 => Ordine::DiferaIn,
+        5 => Ordine::Revizuire,
+        6 => Ordine::Deploy,
+        _ => Ordine::Nume,
+    }
+}
+
+/// Coloana „Deploy" din v3.4: omis bate orice (obiectul e lasat deoparte
+/// deliberat), apoi ce s-a trimis, apoi ce e pregatit.
+fn cod_deploy(o: &model_lista::Obiect) -> i32 {
+    use model_lista::Deploy;
+    if o.omis {
+        return 4;
+    }
+    match o.deploy {
+        Deploy::Deployat => 2,
+        Deploy::VersiuneNoua => 3,
+        Deploy::Nu if o.in_plan => 1,
+        Deploy::Nu => 0,
+    }
+}
+
 /// Umple ecranul listei din modelul ei. Nu calculeaza nimic: filtrele,
 /// contoarele si selectia sunt deja decise in `model_lista`.
 pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_lista::Lista) {
@@ -498,6 +543,10 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
                     .into(),
                 revizuit: o.revizuit,
                 in_plan: o.in_plan,
+                omis: o.omis,
+                scor: o.scor.unwrap_or(0.0) as f32 / 100.0,
+                scor_text: o.scor.map_or(String::new(), |x| format!("{x:.0}%")).into(),
+                deploy: cod_deploy(o),
             }
         })
         .collect();
@@ -550,7 +599,29 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .map_or(-1, |i| i as i32),
     );
     ui.set_rezumat_lista(lista.rezumat_vizibile().into());
-    ui.set_sortat_dupa_linii(lista.ordine() == model_lista::Ordine::Linii);
+    ui.set_coloana_sortata(cod_ordine(lista.ordine()));
+    ui.set_sens_descrescator(lista.descrescator());
+    ui.set_stari(ModelRc::new(VecModel::from(
+        model_lista::FiltruRevizuire::TOATE
+            .iter()
+            .map(|f| SharedString::from(f.eticheta()))
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_stare_activa(lista.filtru().revizuire.map_or(-1, |f| {
+        model_lista::FiltruRevizuire::TOATE
+            .iter()
+            .position(|&x| x == f)
+            .map_or(-1, |i| i as i32)
+    }));
+    ui.set_scor_min(format!("{:.0}", lista.filtru().scor_min).into());
+    ui.set_scor_max(format!("{:.0}", lista.filtru().scor_max).into());
+    let (deployate, total_deploy) = lista.progres_deploy();
+    ui.set_progres_deployate(format!("{deployate}/{total_deploy}").into());
+    ui.set_progres_deploy(if total_deploy == 0 {
+        0.0
+    } else {
+        deployate as f32 / total_deploy as f32
+    });
     ui.set_selectat(lista.selectat().map_or(0, |p| p as i32));
     incarca_harta(ui, &randuri, lista.selectat());
     ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
@@ -981,6 +1052,87 @@ mod teste {
         );
     }
 
+    /// Capetele de coloana, filtrul pe stare, intervalul de similaritate si
+    /// Export CSV cheama fiecare actiunea lui. Un buton desenat si nelegat
+    /// arata perfect in captura — asa au trecut etapele 8-11 cu 7 butoane
+    /// moarte.
+    #[test]
+    fn butoanele_listei_cheama_actiunile() {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w)));
+        let ui = FereastraLista::new().expect("fereastra de test");
+        aplica_tema(&ui, Mod::Luminos);
+        let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
+        let a = apeluri.clone();
+        ui.on_sorteaza_coloana(move |c| a.borrow_mut().push(format!("sort{c}")));
+        let a = apeluri.clone();
+        ui.on_alege_starea(move |i| a.borrow_mut().push(format!("stare{i}")));
+        let a = apeluri.clone();
+        ui.on_schimba_scorul(move |min, max| a.borrow_mut().push(format!("scor{min}-{max}")));
+        let a = apeluri.clone();
+        ui.on_exporta_csv(move || a.borrow_mut().push("csv".into()));
+        let a = apeluri.clone();
+        ui.on_cauta(move |t| a.borrow_mut().push(format!("cauta{t}")));
+
+        ui.invoke_sorteaza_coloana(cod_ordine(model_lista::Ordine::Scor));
+        ui.invoke_alege_starea(2);
+        ui.invoke_schimba_scorul("40".into(), "90".into());
+        ui.invoke_exporta_csv();
+        assert_eq!(
+            *apeluri.borrow(),
+            ["sort3", "stare2", "scor40-90", "csv"],
+            "fiecare element nou din bara de filtre are actiune"
+        );
+
+        // Ctrl+F duce cursorul in cautare: proba e ca ce tastezi dupa aia
+        // ajunge acolo, nu ca scurtatura „a fost apasata"
+        ui.show().expect("fereastra se arata");
+        use slint::platform::{Key, WindowEvent};
+        let tasta = |t: SharedString| {
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: t });
+        };
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Control.into(),
+        });
+        tasta("f".into());
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Control.into(),
+        });
+        tasta("p".into());
+        assert_eq!(ui.get_cautare(), "p", "textul merge in campul de cautare");
+        assert!(
+            apeluri.borrow().iter().any(|a| a == "cautap"),
+            "si anunta modelul: {:?}",
+            apeluri.borrow()
+        );
+    }
+
+    /// Codurile de sortare din `.slint` (`global Sortare`) si `Ordine` sunt
+    /// aceeasi lista. Daca una se muta si cealalta nu, clicul pe „Tip" ar
+    /// sorta dupa linii, fara ca nimic sa cada.
+    #[test]
+    fn codurile_de_sortare_se_potrivesc() {
+        use model_lista::Ordine;
+        for o in [
+            Ordine::Nume,
+            Ordine::Tip,
+            Ordine::Linii,
+            Ordine::Scor,
+            Ordine::DiferaIn,
+            Ordine::Revizuire,
+            Ordine::Deploy,
+        ] {
+            assert_eq!(ordine_din_cod(cod_ordine(o)), o, "dus-intors pentru {o:?}");
+        }
+        // un cod necunoscut nu da panica: cade pe sortarea implicita
+        assert_eq!(ordine_din_cod(99), Ordine::Nume);
+    }
+
     #[test]
     fn starea_editarii_ajunge_in_fereastra() {
         let ui = fereastra();
@@ -1282,6 +1434,70 @@ mod teste {
             mediu: Mediu::Prod,
             in_plan: 2,
         }
+    }
+
+    /// Coloanele noi din lista (Similar, Deploy) si starea barei de filtre
+    /// vin din model, nu din desen.
+    #[test]
+    fn coloanele_de_scor_si_deploy_vin_din_model() {
+        use model_lista::{Deploy, FiltruRevizuire, Ordine};
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
+        lista.pune_deploy("dbo.usp_Import", Deploy::VersiuneNoua);
+        lista.sorteaza(Ordine::Scor);
+        lista.filtreaza_revizuire(Some(FiltruRevizuire::Nerevizuite));
+        lista.filtreaza_scor(30.0, 80.0);
+        incarca_lista(&ui, &antet_lista(), &lista);
+
+        assert_eq!(ui.get_coloana_sortata(), 3, "coloana Similar");
+        assert!(!ui.get_sens_descrescator(), "scorul incepe crescator");
+        assert_eq!(ui.get_stare_activa(), 0, "Nerevizuite e prima optiune");
+        assert_eq!(ui.get_stari().row_count(), 6);
+        assert_eq!(ui.get_scor_min(), "30");
+        assert_eq!(ui.get_scor_max(), "80");
+        // filtrul de scor e activ, deci obiectele fara scor nu se mai vad
+        assert_eq!(ui.get_randuri().row_count(), 0);
+
+        // fara filtrul de scor: coloanele randurilor
+        lista.filtreaza_scor(0.0, 100.0);
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let rand = |n: &str| {
+            ui.get_randuri()
+                .iter()
+                .find(|r| r.nume == n)
+                .unwrap_or_else(|| panic!("randul {n}"))
+        };
+        assert_eq!(rand("usp_Stoc").deploy, 2, "trimis");
+        assert_eq!(rand("usp_Import").deploy, 3, "versiune noua");
+        assert_eq!(rand("vw_Facturi").deploy, 0, "neintrodus");
+        assert_eq!(
+            rand("usp_Stoc").scor_text,
+            "",
+            "fara scor calculat, coloana ramane goala, nu „0%”"
+        );
+        // „% deploy" numara doar ce difera si e neschimbat
+        assert_eq!(ui.get_progres_deployate(), "1/2");
+    }
+
+    #[test]
+    fn omisul_bate_starea_de_deploy_in_coloana() {
+        use model_lista::Deploy;
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        lista.pune_deploy("dbo.usp_Stoc", Deploy::Deployat);
+        let p = (0..lista.vizibile().len())
+            .find(|&p| lista.obiect(p).unwrap().nume == "usp_Stoc")
+            .unwrap();
+        lista.pune_revizuirea(p, false, true);
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let r = ui
+            .get_randuri()
+            .iter()
+            .find(|r| r.nume == "usp_Stoc")
+            .expect("randul");
+        assert_eq!(r.deploy, 4, "omis: lasat deoparte deliberat");
+        assert!(r.omis);
     }
 
     #[test]

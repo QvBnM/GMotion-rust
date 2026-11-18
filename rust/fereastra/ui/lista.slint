@@ -9,7 +9,7 @@
 // clicul pe harta, din `src/harta.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Jumatate, RandUi } from "comune.slint";
+import { Tema, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi } from "comune.slint";
 
 export struct RandListaUi {
     schema: string,
@@ -26,6 +26,13 @@ export struct RandListaUi {
     revizuit: bool,
     // pus in planul de deploy
     in-plan: bool,
+    // omis: analizat, lasat in afara deploy-ului
+    omis: bool,
+    // similaritatea, 0..1; `scor-text` e gol cand obiectul n-are scor
+    scor: float,
+    scor-text: string,
+    // 0 neintrodus, 1 pregatit (in plan), 2 trimis, 3 versiune noua, 4 omis
+    deploy: int,
 }
 
 export struct CategorieUi {
@@ -72,10 +79,152 @@ global Stari {
 // Latimile coloanelor tabelului, aceleasi in cap si pe randuri.
 global Coloane {
     out property <length> stare: 34px;
-    out property <length> tip: 110px;
-    out property <length> linii: 104px;
-    out property <length> difera: 170px;
-    out property <length> revizuit: 76px;
+    out property <length> tip: 92px;
+    out property <length> linii: 84px;
+    out property <length> scor: 118px;
+    out property <length> difera: 124px;
+    out property <length> revizuit: 62px;
+    out property <length> deploy: 100px;
+}
+
+// Codurile coloanelor sortabile; aceeasi ordine ca `model_lista::Ordine`.
+global Sortare {
+    out property <int> nume: 0;
+    out property <int> tip: 1;
+    out property <int> linii: 2;
+    out property <int> scor: 3;
+    out property <int> difera: 4;
+    out property <int> revizuit: 5;
+    out property <int> deploy: 6;
+}
+
+// Un cap de coloana: clic = sorteaza; a doua oara, invers. Sageata arata
+// sensul, ca in v3.4.
+component CapColoana inherits Rectangle {
+    in property <string> titlu;
+    // 0 = stretch (coloana „Obiect")
+    in property <length> latime;
+    in property <bool> sortata;
+    in property <bool> descrescator;
+    callback apasat();
+    // latime 0 = coloana care se intinde (Obiect); `width` ar strivi-o la zero
+    min-width: root.latime;
+    max-width: root.latime == 0px ? 100000px : root.latime;
+    horizontal-stretch: root.latime == 0px ? 1 : 0;
+    HorizontalLayout {
+        spacing: 4px;
+        alignment: start;
+        Text {
+            text: root.titlu;
+            font-family: Tema.font-ui;
+            font-size: 12px;
+            font-weight: 600;
+            color: root.sortata ? Tema.text : Tema.text-tert;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if root.sortata: Text {
+            text: root.descrescator ? "↓" : "↑";
+            font-family: Tema.font-mono;
+            font-size: 12px;
+            color: Tema.accent-text;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea { clicked => { root.apasat(); } }
+}
+
+// Filtru cu meniu derulant (v3.4: „Stare"). `-1` = fara filtru.
+component MeniuFiltru inherits Rectangle {
+    in property <string> eticheta;
+    in property <[string]> optiuni;
+    in property <int> ales: -1;
+    callback alege(int);
+    height: 30px;
+    width: rand.preferred-width + 22px;
+    border-radius: 15px;
+    border-width: 1px;
+    border-color: root.ales >= 0 ? Tema.accent : Tema.linie;
+    background: root.ales >= 0 || zona.has-hover ? Tema.strat : transparent;
+    rand := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        Text {
+            text: root.ales >= 0 ? root.optiuni[root.ales] : root.eticheta;
+            font-family: Tema.font-ui;
+            font-size: 12.5px;
+            color: root.ales >= 0 ? Tema.text : Tema.text-secundar;
+            vertical-alignment: center;
+        }
+        VerticalLayout { alignment: center; Chevron { drum: "M 3 6 L 8 11 L 13 6"; culoare: Tema.text-tert; } }
+    }
+    zona := TouchArea { clicked => { meniu.show(); } }
+    meniu := PopupWindow {
+        y: root.height + 6px;
+        width: 190px;
+        Rectangle {
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111526;
+            VerticalLayout {
+                padding: 6px;
+                Rectangle {
+                    height: 30px;
+                    border-radius: 7px;
+                    background: zt.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        Text { text: root.eticheta; font-family: Tema.font-ui; font-size: 13px; color: root.ales < 0 ? Tema.text : Tema.text-secundar; vertical-alignment: center; }
+                    }
+                    zt := TouchArea { clicked => { root.alege(-1); } }
+                }
+                for o[i] in root.optiuni: Rectangle {
+                    height: 30px;
+                    border-radius: 7px;
+                    background: z.has-hover ? Tema.strat : transparent;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 8px;
+                        Text { text: o; font-family: Tema.font-ui; font-size: 13px; color: Tema.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        if i == root.ales: VerticalLayout {
+                            alignment: center;
+                            Path {
+                                width: 12px; height: 12px; viewbox-width: 16; viewbox-height: 16;
+                                commands: "M 3 8.5 L 6 11.5 L 13 4.5"; stroke: Tema.accent-text; stroke-width: 2px; fill: transparent;
+                            }
+                        }
+                    }
+                    z := TouchArea { clicked => { root.alege(i); } }
+                }
+            }
+        }
+    }
+}
+
+// Un capat al intervalului de similaritate.
+component CampProcent inherits Rectangle {
+    in-out property <string> valoare;
+    callback schimbat(string);
+    width: 38px;
+    height: 22px;
+    border-radius: 6px;
+    background: Tema.strat;
+    camp := TextInput {
+        text <=> root.valoare;
+        font-family: Tema.font-mono;
+        font-size: 12px;
+        color: Tema.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        single-line: true;
+        input-type: number;
+        edited => { root.schimbat(self.text); }
+    }
 }
 
 component RandTabel inherits Rectangle {
@@ -123,6 +272,28 @@ component RandTabel inherits Rectangle {
             Text { text: root.r.minus; font-family: Tema.font-mono; font-size: 12px; color: Tema.del-text; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
         }
+        // similaritatea: bara + procent; gol pentru obiectele fara scor
+        HorizontalLayout {
+            width: Coloane.scor;
+            spacing: 8px;
+            padding-right: 12px;
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+                Rectangle {
+                    height: 4px;
+                    border-radius: 2px;
+                    background: Tema.ident;
+                    Rectangle {
+                        x: 0;
+                        width: parent.width * root.r.scor;
+                        border-radius: 2px;
+                        background: Stari.bara(root.r.stare);
+                    }
+                }
+            }
+            Text { width: 38px; text: root.r.scor-text; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; horizontal-alignment: right; vertical-alignment: center; }
+        }
         Text { width: Coloane.difera; text: root.r.difera-in; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
         HorizontalLayout {
             width: Coloane.revizuit;
@@ -135,6 +306,15 @@ component RandTabel inherits Rectangle {
                     schimbat => { root.comuta-revizuit(); }
                 }
             }
+        }
+        Text {
+            width: Coloane.deploy;
+            text: root.r.deploy == 1 ? "Pregatit" : root.r.deploy == 2 ? "Trimis" : root.r.deploy == 3 ? "Versiune noua" : root.r.deploy == 4 ? "Omis" : "Neintrodus";
+            color: root.r.deploy == 1 ? Tema.accent-text : root.r.deploy == 2 ? Tema.add-text : root.r.deploy == 3 ? Tema.mod-text : Tema.text-tert;
+            font-family: Tema.font-ui;
+            font-size: 12.5px;
+            vertical-alignment: center;
+            overflow: elide;
         }
     }
 }
@@ -185,7 +365,18 @@ export component FereastraLista inherits Window {
     in property <int> tip-activ: -1;
 
     in property <string> rezumat-lista;       // „212 nerevizuite din 312"
-    in property <bool> sortat-dupa-linii;
+    // coloana sortata (`Sortare`) si sensul ei
+    in property <int> coloana-sortata;
+    in property <bool> sens-descrescator;
+    // filtrul pe stare: indice in `stari`, -1 = toate
+    in property <[string]> stari;
+    in property <int> stare-activa: -1;
+    in-out property <string> scor-min: "0";
+    in-out property <string> scor-max: "100";
+    in property <string> progres-deployate;   // „8/336"
+    // unde s-a scris ultimul CSV, sau de ce n-a mers
+    in property <string> mesaj-csv;
+    in property <float> progres-deploy;       // 0..1
     in property <[RandListaUi]> randuri;
     in-out property <int> selectat: 0;
 
@@ -213,7 +404,10 @@ export component FereastraLista inherits Window {
     callback deschide-obiectul();
     callback adauga-in-plan();
     callback cauta(string);
-    callback sorteaza-dupa-linii();
+    callback sorteaza-coloana(int);
+    callback alege-starea(int);
+    callback schimba-scorul(string, string);
+    callback exporta-csv();
     callback alege-tema(bool);
 
     // bula de pe harta: numele patratului de sub mouse, pusa din Rust
@@ -237,6 +431,8 @@ export component FereastraLista inherits Window {
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
             if (e.text == "r") { root.comuta-revizuit(root.selectat); return accept; }
             if (e.text == "i") { root.adauga-in-plan(); return accept; }
+            // Ctrl+F: cursorul in cautare, ca in v3.4
+            if (e.text == "f" && e.modifiers.control) { camp.focus(); return accept; }
             return reject;
         }
 
@@ -273,6 +469,21 @@ export component FereastraLista inherits Window {
                         border-radius: 1.5px;
                         background: Tema.strat;
                         Rectangle { x: 0; width: parent.width * Math.max(0.02, root.progres-fractie); border-radius: 1.5px; background: Tema.add-bara; }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 5px;
+                    width: 110px;
+                    HorizontalLayout {
+                        Text { text: root.progres-deployate; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
+                        Text { text: "deploy"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; horizontal-alignment: right; horizontal-stretch: 1; }
+                    }
+                    Rectangle {
+                        height: 3px;
+                        border-radius: 1.5px;
+                        background: Tema.strat;
+                        Rectangle { x: 0; width: parent.width * Math.max(0.02, root.progres-deploy); border-radius: 1.5px; background: Tema.accent; }
                     }
                 }
                 VerticalLayout { alignment: center; Buton { text: "Recompara"; apasat => { root.recompara(); } } }
@@ -329,6 +540,54 @@ export component FereastraLista inherits Window {
                         activ: root.tip-activ == i;
                         apasat => { root.alege-tipul(root.tip-activ == i ? -1 : i); }
                     }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    MeniuFiltru {
+                        eticheta: "Toate starile";
+                        optiuni: root.stari;
+                        ales: root.stare-activa;
+                        alege(i) => { root.alege-starea(i); }
+                    }
+                }
+                // intervalul de similaritate (v3.4: min–max %)
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        height: 30px;
+                        width: sm.preferred-width + 22px;
+                        border-radius: 15px;
+                        border-width: 1px;
+                        border-color: root.scor-min != "0" || root.scor-max != "100" ? Tema.accent : Tema.linie;
+                        background: Tema.suprafata;
+                        sm := HorizontalLayout {
+                            padding-left: 11px;
+                            padding-right: 11px;
+                            spacing: 6px;
+                            Text { text: "Similar"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                            VerticalLayout {
+                                alignment: center;
+                                CampProcent {
+                                    valoare <=> root.scor-min;
+                                    schimbat(v) => { root.schimba-scorul(v, root.scor-max); }
+                                }
+                            }
+                            Text { text: "–"; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                            VerticalLayout {
+                                alignment: center;
+                                CampProcent {
+                                    valoare <=> root.scor-max;
+                                    schimbat(v) => { root.schimba-scorul(root.scor-min, v); }
+                                }
+                            }
+                            Text { text: "%"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
+                        }
+                    }
+                }
+                VerticalLayout { alignment: center; Buton { text: "Export CSV"; apasat => { root.exporta-csv(); } } }
+                if root.mesaj-csv != "": VerticalLayout {
+                    alignment: center;
+                    Text { text: root.mesaj-csv; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; overflow: elide; }
                 }
                 Rectangle { horizontal-stretch: 1; }
                 VerticalLayout {
@@ -417,20 +676,55 @@ export component FereastraLista inherits Window {
                             padding-left: 10px;
                             padding-right: 10px;
                             Text { width: Coloane.stare; text: ""; }
-                            Text { horizontal-stretch: 1; text: "Obiect  " + root.rezumat-lista; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text-tert; vertical-alignment: center; overflow: elide; }
-                            Text { width: Coloane.tip; text: "Tip"; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text-tert; vertical-alignment: center; }
-                            Rectangle {
-                                width: Coloane.linii;
-                                HorizontalLayout {
-                                    spacing: 4px;
-                                    alignment: start;
-                                    Text { text: "Linii"; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: root.sortat-dupa-linii ? Tema.text : Tema.text-tert; vertical-alignment: center; }
-                                    if root.sortat-dupa-linii: Text { text: "↓"; font-family: Tema.font-mono; font-size: 12px; color: Tema.accent-text; vertical-alignment: center; }
-                                }
-                                TouchArea { clicked => { root.sorteaza-dupa-linii(); } }
+                            CapColoana {
+                                titlu: "Obiect  " + root.rezumat-lista;
+                                latime: 0px;
+                                sortata: root.coloana-sortata == Sortare.nume;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.nume); }
                             }
-                            Text { width: Coloane.difera; text: "Difera in"; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text-tert; vertical-alignment: center; }
-                            Text { width: Coloane.revizuit; text: "Revizuit"; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text-tert; vertical-alignment: center; horizontal-alignment: center; }
+                            CapColoana {
+                                titlu: "Tip";
+                                latime: Coloane.tip;
+                                sortata: root.coloana-sortata == Sortare.tip;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.tip); }
+                            }
+                            CapColoana {
+                                titlu: "Linii";
+                                latime: Coloane.linii;
+                                sortata: root.coloana-sortata == Sortare.linii;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.linii); }
+                            }
+                            CapColoana {
+                                titlu: "Similar";
+                                latime: Coloane.scor;
+                                sortata: root.coloana-sortata == Sortare.scor;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.scor); }
+                            }
+                            CapColoana {
+                                titlu: "Difera in";
+                                latime: Coloane.difera;
+                                sortata: root.coloana-sortata == Sortare.difera;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.difera); }
+                            }
+                            CapColoana {
+                                titlu: "Revizuit";
+                                latime: Coloane.revizuit;
+                                sortata: root.coloana-sortata == Sortare.revizuit;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.revizuit); }
+                            }
+                            CapColoana {
+                                titlu: "Deploy";
+                                latime: Coloane.deploy;
+                                sortata: root.coloana-sortata == Sortare.deploy;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.deploy); }
+                            }
                         }
                         Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
                     }
@@ -458,7 +752,7 @@ export component FereastraLista inherits Window {
 
                 // previzualizarea obiectului selectat
                 Card {
-                    width: 540px;
+                    width: 460px;
                     clip: true;
                     VerticalLayout {
                         VerticalLayout {
@@ -550,7 +844,7 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: "obiect" }, { t: "enter", e: "deschide" }, { t: "r", e: "revizuit" }, { t: "i", e: "in plan" }]: HorizontalLayout {
+                    for k in [{ t: "j k", e: "obiect" }, { t: "enter", e: "deschide" }, { t: "r", e: "revizuit" }, { t: "i", e: "in plan" }, { t: "ctrl f", e: "cauta" }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
