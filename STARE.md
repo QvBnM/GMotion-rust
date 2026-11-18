@@ -23,8 +23,8 @@ interfata grafica: binarul `gmotion`.
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
 | `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
 | `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
-| `rust/fereastra` | editorul si lista: gata (etapele 8-9), 32 teste; conectarea, deploy-ul si paleta, de scris |
-| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea (etapele 10-11), 14 teste |
+| `rust/fereastra` | editorul, lista, conectarea se deseneaza; **7 butoane/comutatoare nelegate** (vezi `cercetare/lipsuri-portare.md`, sectiunea 0) |
+| `rust/app` | `gmotion-ui`: conectare → lista ↔ editor, revizuirea; **nu e la paritate cu v3.4** |
 
 ```
 cd rust && cargo build --release -p gmotion-cli
@@ -49,18 +49,23 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 
 ## Urmatorul pas concret
 
-**Etapa 12, pasul 4: modelul planului in `fereastra`, apoi ecranul.** Garda,
-revenirea si `cli` sunt gata (`gmotion plan`, `gmotion deploy --plan`). Ce
-lipseste din model inainte de Slint: **atentionarile** (setari `OFF` care se
-pastreaza, cicluri de dependente, versiunea serverului) — calculate in
-`diff-obiecte/src/plan.rs`, testate fara fereastra, apoi afisate. Ecranul
-dupa `cercetare/machete/Deploy.dc.html`, apoi captura. Criteriile:
-`etape/12-plan-de-deploy.md`.
+**Directia s-a schimbat pe 2026-11-18 (Mihai): intai functionalitatile, apoi
+aspectul.** Lista completa a ce lipseste fata de v3.4:
+`cercetare/lipsuri-portare.md`. Mihai alege ordinea; pana atunci, nu se
+incepe nimic din ea.
 
-**Neclar din macheta, de intrebat inainte de ecran:** macheta arata `DROP`
-(„nu mai e in sursa") si butonul „Rulează". Azi deploy-ul **nu sterge**
-obiecte `extra` si **nu ruleaza** nimic pe server — doar scrie scripturi.
-Amandoua ar fi comportament nou, cu risc mare; nu le fac fara decizie.
+- Ecranul de deploy din etapa 12 e **pus pe pauza**: deploy-ul din fereastra
+  e una dintre lipsuri si intra in ordinea aleasa de Mihai. Garda, revenirea
+  si `cli` (pasii 1-3) sunt facute.
+- **Aspectul vizual se discuta intr-o alta sesiune.** Nu se schimba nimic
+  vizual pana atunci.
+- **Platforma cu module:** deocamdata ramane un singur modul, „comparare
+  obiecte" (`diff-obiecte`). Celelalte module, inclusiv `upgrade`, le decide
+  Mihai mai tarziu.
+
+Candidatul firesc pentru primul pas, daca Mihai nu decide altfel: sectiunea 0
+din `lipsuri-portare.md` (butoanele moarte si cele doua bug-uri de pe
+instantaneu). E mic si nu atinge aspectul.
 
 Rulari pe Windows: nimic de cerut acum.
 
@@ -81,7 +86,10 @@ unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
 filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
 nefolosit.
 
-**Doua intrebari noi din etapa 12** (blocheaza ecranul, nu modelul):
+**Ordinea lipsurilor** din `cercetare/lipsuri-portare.md` — asta blocheaza
+urmatorul pas.
+
+**Doua intrebari din etapa 12** (pastrate ca idei, 2026-11-18) (blocheaza ecranul, nu modelul):
 
 4. **Deploy-ul sterge obiectele care nu mai sunt in sursa?** Macheta are un
    pas `DROP`. Acum obiectele `extra` se sar, ca in v3.4.
@@ -176,6 +184,11 @@ Lucruri care te-ar face sa greșești chiar acum, daca nu le stii:
   in model. Incrucisarea e doar in `cod_stare` din `fereastra/src/lib.rs`.
   Daca o muti sau o dublezi, culorile se inverseaza fara ca vreun test de
   motor sa cada.
+- **O captura nu dovedeste ca un buton merge.** Uneltele de captura pornesc
+  ecranul direct in starea ceruta; un comutator nelegat arata perfect in
+  captura. Asa s-au declarat „gata" etapele 8-11 cu 7 butoane moarte. Un
+  buton se probeaza prin handler-ul lui (`on_*` in `app/src/main.rs`) si
+  printr-un test care il apasa.
 - **Directorul de deploy are acum si subdirectorul `revenire/`.** Un test sau
   un script care ia „primul fisier" sau numara intrarile din director
   greseste. Revenirea sta separat tocmai ca `*.sql` din director sa nu o

@@ -54,6 +54,10 @@ etapa asta adauga ce ii lipseste ca sa fie sigur de apasat.
   OFF`, cicluri) inca nu exista ca model — criteriul „planul are teste fara
   fereastra" e doar pe jumatate.
 
+- **2026-11-18** Etapa pusa pe pauza dupa pasul 3 (decizia lui Mihai, in
+  `JURNAL.md`): intai paritatea functionala cu v3.4. Ecranul de deploy intra
+  in ordinea lipsurilor din `cercetare/lipsuri-portare.md`.
+
 ## Ce a ieșit altfel decat planul
 
 (se completeaza la incheiere)

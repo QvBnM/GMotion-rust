@@ -650,6 +650,27 @@ tine partile separat); o schema cu punct in nume ar iesi gresit.
 
 ---
 
+## 2026-11-18 — Intai paritatea functionala cu v3.4, apoi aspectul
+
+**Context.** Mihai a rulat `gmotion-ui` pe Windows: nu e multumit vizual si
+simte ca s-au pierdut functii (exemplul lui: cautarea serverelor). Inventarul
+(`cercetare/lipsuri-portare.md`) i-a dat dreptate: editarea tintei, modul
+ghidat, cautarea serverelor, compararea cu mai multe baze, progresul, starea
+„Omis", exportul din fereastra si altele au disparut odata cu machetele noi,
+**fara nicio decizie scrisa**. In plus, 7 butoane din fereastra nu erau legate
+la nimic, desi etapele 8-11 au fost declarate incheiate.
+
+**Decizie (Mihai).** Intai toate functionalitatile, abia apoi aspectul
+vizual, intr-o sesiune separata. Deocamdata un singur modul, „comparare
+obiecte"; platforma cu mai multe module ramane in arhitectura, dar celelalte
+module se decid mai tarziu. Ecranul de deploy din etapa 12 se opreste pana
+cand Mihai stabileste ordinea lipsurilor.
+
+**Consecinta pentru proces.** O functie din v3.4 nu se mai scoate tacit: sau
+se porteaza, sau se scrie aici de ce nu.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa rămână
