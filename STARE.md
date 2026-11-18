@@ -47,8 +47,18 @@ cargo run --release -p gmotion-app -- --sursa ../referinta/instantanee/testsimil
 ## Urmatorul pas concret
 
 **Etapa 14 s-a incheiat.** `gmotion-ui` face acum tot ce facea v3.4, pe
-aspectul din etapa 13. Nu e deschisa nicio etapa noua — urmatoarea se alege
-impreuna cu Mihai. Candidatii, in ordinea in care i-as lua:
+aspectul din etapa 13.
+
+**Dar inainte de orice altceva: `cercetare/audit-qa-2026-11-18.md`.** Un audit
+facut in paralel (alta sesiune, pe aceeasi etapa, la commit `aec038a`) a gasit
+probleme blocante: cod gresit ajuns in PROD pe mai multe drumuri, pierdere de
+revizuire la schimbarea setului de baze, o cadere pe comparari mari si ecrane
+care nu incap sub 1440 px. **Nimic din ele nu e reparat.** Auditul a fost
+scris pe cealalta implementare a pachetului D; la merge a ramas implementarea
+din linia asta, deci **fiecare constatare trebuie intai reprodusa aici**,
+apoi reparata. Asta e urmatoarea etapa, nu o functie noua.
+
+Dupa audit, candidatii urmatori:
 
 1. **Proba pe Windows, pe o baza adevarata.** Tot ce s-a facut la etapa 14 e
    verificat pe Linux, pe instantanee. Compararea pe mai multe baze, progresul
