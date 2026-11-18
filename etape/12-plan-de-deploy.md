@@ -1,8 +1,8 @@
 # Etapa 12 — planul de deploy
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-17 · **Incheiata:** —
+**Deschisa:** 2026-11-17 · **Incheiata:** 2026-11-18
 
 ## Scop
 
@@ -60,4 +60,10 @@ etapa asta adauga ce ii lipseste ca sa fie sigur de apasat.
 
 ## Ce a ieșit altfel decat planul
 
-(se completeaza la incheiere)
+- **Ecranul nu s-a facut in etapa asta.** Dupa pasul 3, Mihai a schimbat
+  ordinea (intai paritatea cu v3.4) si apoi designul intreg. Criteriile
+  neterminate (ecranul, atentionarile planului ca model, captura) nu sunt
+  bifate: ecranul de deploy se face in noul aspect, dupa etapa 13; atentionarile
+  raman in `cercetare/lipsuri-portare.md`, sectiunea 5.
+- Ce s-a livrat (garda, revenirea, `gmotion plan`, `deploy --plan`) e complet
+  si testat pe binar.
