@@ -47,15 +47,19 @@ export struct TipUi {
     numar: string,
 }
 
-// Un grup de pe harta: titlul, pozitia, imaginea pictata in Rust si, pentru
-// fiecare patrat (pe coloane), randul lui din tabel.
+// Un grup de pe harta: titlul, pozitia, imaginea pictata in Rust, cate
+// patrate are pe rand si, pentru fiecare patrat (pe randuri), randul lui din tabel.
 export struct GrupHartaUi {
     titlu: string,
     numar: string,
     x: length,
     y: length,
     latime: length,
+    inaltime: length,
+    desparte: bool,
+    coloane: int,
     imagine: image,
+    bara: image,
     randuri: [int],
 }
 
@@ -66,6 +70,14 @@ global Stari {
              : stare == 1 ? Tema.add-text
              : stare == 2 ? Tema.del-text
              : Tema.text-secundar;
+    }
+    // patratul de pe harta (si punctul din bula lui)
+    public pure function harta(stare: int) -> color {
+        return stare == 0 ? Tema.harta-mod
+             : stare == 1 ? Tema.harta-add
+             : stare == 2 ? Tema.harta-del
+             : stare == 3 ? Tema.harta-gol
+             : Tema.text-tert;
     }
     public pure function bara(stare: int) -> color {
         return stare == 0 ? Tema.mod-bara
@@ -301,7 +313,7 @@ component RandTabel inherits Rectangle {
                     width: 10px;
                     height: 10px;
                     border-radius: 2.5px;
-                    background: Stari.bara(root.r.stare);
+                    background: Stari.harta(root.r.stare);
                     opacity: root.r.revizuit ? 0.4 : 1;
                 }
             }
@@ -337,7 +349,7 @@ component RandTabel inherits Rectangle {
                         x: 0;
                         width: parent.width * root.r.scor;
                         border-radius: 2px;
-                        background: Stari.bara(root.r.stare);
+                        background: Stari.harta(root.r.stare);
                     }
                 }
             }
@@ -460,12 +472,21 @@ export component FereastraLista inherits Window {
     callback pune-vizibilele-in-plan(bool);
     callback alege-tema(bool);
 
-    // bula de pe harta: numele patratului de sub mouse, pusa din Rust
+    // bula de pe harta: numele si starea patratului de sub mouse, si coltul
+    // lui in coordonatele hartii; toate puse din Rust
     in-out property <string> bula;
-    in-out property <length> bula-x;
-    in-out property <length> bula-y;
+    in-out property <int> bula-stare;
+    in-out property <length> hover-x;
+    in-out property <length> hover-y;
+    // latura unui patrat, la treapta de zoom aleasa in Rust (`harta::SCARI`),
+    // si cat de inalta poate fi harta inainte de derulare
+    in property <length> patrat: 14px;
+    in property <length> harta-max: 260px;
     callback peste-harta(int, length, length);
     callback clic-harta(int, length, length);
+    // latimea ferestrei s-a schimbat: Rust reaseaza grupurile
+    callback harta-redimensionata();
+    changed width => { root.harta-redimensionata(); }
 
     public function muta-selectia(pas: int) {
         if (root.randuri.length == 0) { return; }
@@ -653,9 +674,10 @@ export component FereastraLista inherits Window {
                 }
             }
 
-            // ---- harta: ansamblul obiectelor afisate, pe tipuri
+            // ---- harta: cate o coloana pe tip, despartite prin linii; asezarea
+            // si pictura sunt in Rust (`src/harta.rs`)
             if root.harta.length > 0: Rectangle {
-                height: Math.min(root.harta-inaltime, 160px) + 28px;
+                height: Math.min(root.harta-inaltime, root.harta-max) + 32px;
                 Rectangle {
                     x: 16px;
                     width: parent.width - 32px;
@@ -664,27 +686,44 @@ export component FereastraLista inherits Window {
                     border-width: 1px;
                     border-color: Tema.linie;
                     clip: true;
-                    Flickable {
+                    flick := Flickable {
                         x: 18px;
-                        y: 14px;
+                        y: 16px;
                         width: parent.width - 36px;
-                        height: parent.height - 28px;
+                        height: parent.height - 32px;
                         content-height: root.harta-inaltime;
                         for g[gi] in root.harta: Rectangle {
                             x: g.x;
                             y: g.y;
                             width: g.latime;
-                            height: 20px + img.height;
+                            height: g.inaltime;
+                            // linia despartitoare, la mijlocul spatiului dintre coloane
+                            // (`harta::SPATIU_X` / 2)
+                            if g.desparte: Rectangle {
+                                x: -20px;
+                                width: 1px;
+                                height: parent.height;
+                                background: Tema.linie;
+                            }
                             HorizontalLayout {
                                 y: 0;
-                                height: 16px;
-                                spacing: 6px;
-                                Text { text: g.titlu; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text-secundar; overflow: elide; }
-                                Text { text: g.numar; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-tert; horizontal-alignment: right; horizontal-stretch: 1; }
+                                height: 20px;
+                                Text { text: g.titlu; font-family: Tema.font-ui; font-size: 14px; font-weight: 500; color: Tema.text; vertical-alignment: center; horizontal-stretch: 0; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text { text: g.numar; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 0; }
                             }
+                            // bara cu proportia starilor (`harta::Y_BARA`)
+                            Image {
+                                x: 0;
+                                y: 28px;
+                                width: g.latime;
+                                source: g.bara;
+                                image-rendering: pixelated;
+                            }
+                            // grila (`harta::CAP`)
                             img := Image {
                                 x: 0;
-                                y: 20px;
+                                y: 44px;
                                 source: g.imagine;
                                 image-rendering: pixelated;
                             }
@@ -699,15 +738,56 @@ export component FereastraLista inherits Window {
                                 clicked => { root.clic-harta(gi, self.mouse-x, self.mouse-y); }
                             }
                         }
+                        // conturul patratului de sub mouse
+                        if root.bula != "": Rectangle {
+                            x: root.hover-x - 3px;
+                            y: root.hover-y - 3px;
+                            width: root.patrat + 6px;
+                            height: root.patrat + 6px;
+                            border-radius: root.patrat / 2;
+                            border-width: 1.5px;
+                            border-color: Tema.text-secundar;
+                        }
                         // conturul patratului selectat
                         if root.sel-pe-harta: Rectangle {
                             x: root.sel-x - 3px;
                             y: root.sel-y - 3px;
-                            width: 18px;
-                            height: 18px;
-                            border-radius: 5px;
+                            width: root.patrat + 6px;
+                            height: root.patrat + 6px;
+                            border-radius: root.patrat / 2;
                             border-width: 2px;
                             border-color: Tema.text;
+                            drop-shadow-blur: 8px;
+                            drop-shadow-color: Tema.text.with-alpha(0.35);
+                        }
+                    }
+                    // bula: punctul starii si numele, langa patratul de sub mouse;
+                    // la dreapta lui, sau la stanga daca acolo nu incape
+                    if root.bula != "": Rectangle {
+                        property <length> dreapta: flick.x + flick.content-x + root.hover-x + root.patrat + 10px;
+                        x: self.dreapta + self.width > parent.width - 8px
+                            ? flick.x + flick.content-x + root.hover-x - 10px - self.width
+                            : self.dreapta;
+                        y: flick.y + flick.content-y + root.hover-y + root.patrat / 2 - 14px;
+                        width: bl.preferred-width + 20px;
+                        height: 28px;
+                        border-radius: 7px;
+                        background: Tema.strat;
+                        border-width: 1px;
+                        border-color: Tema.linie;
+                        drop-shadow-blur: 10px;
+                        drop-shadow-offset-y: 2px;
+                        drop-shadow-color: Tema.fundal.with-alpha(0.5);
+                        bl := HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            spacing: 7px;
+                            alignment: start;
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Stari.harta(root.bula-stare); }
+                            }
+                            Text { text: root.bula; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
                         }
                     }
                 }
@@ -907,16 +987,6 @@ export component FereastraLista inherits Window {
                     Text { text: root.servere; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
                 }
             }
-        }
-
-        if root.bula != "": Rectangle {
-            x: root.bula-x + 14px;
-            y: root.bula-y + 14px;
-            width: bt.preferred-width + 20px;
-            height: 26px;
-            border-radius: 6px;
-            background: Tema.text;
-            bt := Text { text: root.bula; font-family: Tema.font-mono; font-size: 12px; font-weight: 500; color: Tema.fundal; }
         }
     }
 

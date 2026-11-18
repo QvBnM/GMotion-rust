@@ -780,6 +780,29 @@ deploy. Ramas in `lipsuri-portare.md`.
 **Modul implicit** devine intunecat (stilul hartii, ales primul), acum ca
 toate ecranele sunt rescrise; butonul de tema il schimba si il tine minte.
 
+## 2026-11-18 — Harta din lista, refacuta dupa modelul lui Mihai
+
+Harta veche avea grupuri fixe de 4 randuri, asezate pe o latime constanta
+(1372 px): pe putine obiecte statea ingramadita la stanga, cu restul
+cartusului gol. Mihai a dat modelul corect (o imagine): cate o coloana pe tip,
+despartite prin linii, care umplu impreuna cartusul; titlul cu numarul la
+dreapta; o bara cu proportia starilor; patrate pe blocuri de cate 5 randuri;
+bula langa patrat, cu punctul starii.
+
+Decis pe drum: (1) patratele stau **in ordinea din tabel**, nu sortate dupa
+stare — bara de proportie da rezumatul, iar harta urmeaza sortarea listei.
+(2) Toate coloanele de pe un rand primesc cel mai mic numar de randuri care
+incape, apoi latimea ramasa se imparte pe masura lor si grila se lateste
+cat coloana: banda ramane cat mai joasa deasupra tabelului. (3) Latimea e a
+ferestrei, nu o constanta; la redimensionare harta se reaseaza. (4) Culori
+proprii pentru harta (`harta_mod/add/del/gol`), mai stinse decat barele din
+editor, ca sute de patrate alaturi sa nu orbeasca; patratele din tabel le
+folosesc pe aceleasi, ca sa se potriveasca cu harta. (5) Zoom automat,
+cerut de Mihai: cand obiectele nu intra in 260 px, patratele coboara pe
+trepte fixe (14, 11, 8, 6, 4 px); o singura marime pe toata harta. Abia la
+ultima treapta apare derularea. Treptele sunt fixe, nu continue, ca
+patratele sa ramana pe pixeli intregi si clicul sa nimereasca exact.
+
 ---
 
 ## Coduri de eroare — registru

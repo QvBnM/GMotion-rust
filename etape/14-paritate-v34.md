@@ -134,6 +134,12 @@ se scrie de ce in `JURNAL.md`, nu dispare tacit)
   `pune_vizibilele_in_plan(cu_deployate)`; `Revizuire` tine deployatele cu
   amprenta. Sesiunea s-a oprit aici, la cererea lui Mihai.
 
+- **2026-11-18** Harta din lista refacuta dupa modelul dat de Mihai (in
+  afara pachetelor, cerut explicit): coloane pe tip care umplu cartusul,
+  bara de proportie, blocuri de 5 randuri, culori proprii, reasezare la
+  redimensionare, zoom automat cand sunt prea multe obiecte. Capturi: `cercetare/capturi/harta-*.png` (`harta-zoom-*` pe 2980 de obiecte). Decizia in
+  `JURNAL.md`.
+
 ## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

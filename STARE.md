@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-18 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (412 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (421 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -138,6 +138,13 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   in acelasi pas, cu test.
 - **Ce patrat de pe harta e sub mouse se decide doar in `harta::indice_la`.**
   Slint trimite coordonatele. Nu repeta calculul in `.slint`.
+- **Cateva masuri ale hartii sunt scrise de doua ori:** `harta::CAP` (44),
+  `Y_BARA` (28) si `SPATIU_X / 2` (linia la -20 px) apar si in `lista.slint`.
+  Treapta de zoom ajunge in fereastra doar ca latura (`patrat`); clicul o
+  reface prin `Scara::cu_latura`, deci doua trepte cu aceeasi latura ar
+  strica clicul.
+  Daca muti una doar intr-o parte, clicul nimereste patratul de sub cel
+  aratat. Testele din `harta.rs` nu vad `.slint`.
 - **Fara diacritice nicaieri** (poarta cade). Datele de test care verifica
   nume cu diacritice raman, marcate cu `diacritice-permise` pe aceeasi linie;
   `cargo fmt` poate muta comentariul pe randul urmator, si atunci poarta cade.

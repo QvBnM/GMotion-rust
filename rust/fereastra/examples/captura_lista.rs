@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-fereastra --example captura_lista -- \
-//!       instantaneu.json SURSA BAZA iesire.png [schema.obiect-selectat] [--tema intunecat|luminos]
+//!       instantaneu.json SURSA BAZA iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--toate]
 use std::rc::Rc;
 
 use gmotion_db::SursaObiecte;
@@ -86,7 +86,11 @@ fn main() {
         .collect();
 
     let mut lista = model_lista::Lista::noua(obiecte);
-    lista.filtreaza_stare(Some(model_lista::Stare::Modificat));
+    // implicit doar modificatele, ca la pornirea aplicatiei; `--toate` arata
+    // toate starile (harta cu toate culorile)
+    if !a.iter().any(|x| x == "--toate") {
+        lista.filtreaza_stare(Some(model_lista::Stare::Modificat));
+    }
 
     // detaliile se calculeaza doar pentru randurile de pe ecran, ca in
     // aplicatie: aici incap ~10
@@ -152,7 +156,10 @@ fn main() {
         }
     }
     // bula de pe harta, ca sa se vada in captura
-    ui.invoke_peste_harta(0, 2.0 * 15.0 + 6.0, 6.0);
+    let pas = gmotion_fereastra::harta::Scara::cu_latura(ui.get_patrat() as u32)
+        .unwrap_or(gmotion_fereastra::harta::SCARI[0])
+        .pas as f32;
+    ui.invoke_peste_harta(0, 2.0 * pas + 2.0, 2.0);
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

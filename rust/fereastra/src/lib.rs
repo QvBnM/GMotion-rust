@@ -101,6 +101,10 @@ macro_rules! cu_jetoanele {
         del_inlinie set_del_inlinie get_del_inlinie,
         set_bara set_set_bara get_set_bara,
         ident set_ident get_ident,
+        harta_mod set_harta_mod get_harta_mod,
+        harta_add set_harta_add get_harta_add,
+        harta_del set_harta_del get_harta_del,
+        harta_gol set_harta_gol get_harta_gol,
         hasura_a set_hasura_a get_hasura_a,
         hasura_b set_hasura_b get_hasura_b,
         s_cuvant set_s_cuvant get_s_cuvant,
@@ -745,10 +749,23 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy, mediu
     ui.set_text_rezultat(model_deploy::text_rezultat(&e.rezultat).into());
 }
 
-/// Cat de lata e harta din lista, in pixeli logici: fereastra de 1440 minus
-/// marginile cartusului. Pe o fereastra mai ingusta, ultimul grup trece pe
-/// randul urmator mai devreme; nu iese din cartus decat pe orizontala.
+/// Cat de lata e harta din lista cand fereastra inca n-are marime (inainte
+/// de prima afisare): fereastra de 1440 minus `MARGINI_HARTA`.
 pub const LATIME_HARTA: f32 = 1372.0;
+/// Cat ia cartusul hartii din latimea ferestrei: 16 + 16 in afara, 18 + 18
+/// inauntru (vezi `lista.slint`).
+const MARGINI_HARTA: f32 = 68.0;
+
+/// Latimea in care se aseaza harta: a ferestrei, cand e afisata.
+fn latime_harta(ui: &FereastraLista) -> f32 {
+    let w = ui.window();
+    let latime = w.size().to_logical(w.scale_factor()).width;
+    if latime > MARGINI_HARTA {
+        latime - MARGINI_HARTA
+    } else {
+        LATIME_HARTA
+    }
+}
 
 /// Harta de deasupra tabelului: obiectele afisate, pe tipuri, pictate in
 /// culorile modului curent; conturul pe patratul randului selectat.
@@ -770,32 +787,24 @@ fn incarca_harta(ui: &FereastraLista, randuri: &[RandListaUi], selectat: Option<
         }
     }
     pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
-    let (grupuri, inaltime) = harta::aseaza(pe_tip, LATIME_HARTA);
+    let (grupuri, inaltime) = harta::aseaza(pe_tip, latime_harta(ui), harta::INALTIME_MAXIMA);
     let paleta = mod_curent(ui).paleta();
     let ui_grupuri: Vec<GrupHartaUi> = grupuri
         .iter()
-        .map(|g| {
-            let (w, h, px) = harta::picteaza(g, paleta);
-            let mut buf = SharedPixelBuffer::<slint::Rgba8Pixel>::new(w, h);
-            for (d, s) in buf.make_mut_slice().iter_mut().zip(&px) {
-                *d = slint::Rgba8Pixel {
-                    r: s[0],
-                    g: s[1],
-                    b: s[2],
-                    a: s[3],
-                };
-            }
-            GrupHartaUi {
-                titlu: g.titlu.as_str().into(),
-                numar: g.celule.len().to_string().into(),
-                x: g.x,
-                y: g.y,
-                latime: g.latime,
-                imagine: Image::from_rgba8(buf),
-                randuri: ModelRc::new(VecModel::from(
-                    g.celule.iter().map(|c| c.rand as i32).collect::<Vec<_>>(),
-                )),
-            }
+        .map(|g| GrupHartaUi {
+            titlu: g.titlu.as_str().into(),
+            numar: g.celule.len().to_string().into(),
+            x: g.x,
+            y: g.y,
+            latime: g.latime,
+            inaltime: g.inaltime,
+            desparte: g.x > 0.0,
+            coloane: g.coloane as i32,
+            imagine: imagine(harta::picteaza(g, paleta)),
+            bara: imagine(harta::picteaza_bara(g, paleta)),
+            randuri: ModelRc::new(VecModel::from(
+                g.celule.iter().map(|c| c.rand as i32).collect::<Vec<_>>(),
+            )),
         })
         .collect();
     let sel = selectat.and_then(|s| harta::pozitie_randului(&grupuri, s));
@@ -804,8 +813,26 @@ fn incarca_harta(ui: &FereastraLista, randuri: &[RandListaUi], selectat: Option<
         ui.set_sel_x(x);
         ui.set_sel_y(y);
     }
+    // o singura treapta pe toata harta: fereastra tine doar latura ei
+    let scara = grupuri.first().map_or(harta::SCARI[0], |g| g.scara);
+    ui.set_patrat(scara.latura as f32);
+    ui.set_harta_max(harta::INALTIME_MAXIMA);
     ui.set_harta(ModelRc::new(VecModel::from(ui_grupuri)));
     ui.set_harta_inaltime(inaltime);
+}
+
+/// O imagine Slint din pixelii pictati de `harta`.
+fn imagine((w, h, px): (u32, u32, Vec<[u8; 4]>)) -> Image {
+    let mut buf = SharedPixelBuffer::<slint::Rgba8Pixel>::new(w, h);
+    for (d, s) in buf.make_mut_slice().iter_mut().zip(&px) {
+        *d = slint::Rgba8Pixel {
+            r: s[0],
+            g: s[1],
+            b: s[2],
+            a: s[3],
+        };
+    }
+    Image::from_rgba8(buf)
 }
 
 /// Randul din tabel al patratului de la (x, y) din grupul `grup` al hartii,
@@ -813,34 +840,58 @@ fn incarca_harta(ui: &FereastraLista, randuri: &[RandListaUi], selectat: Option<
 pub fn rand_din_harta(ui: &FereastraLista, grup: i32, x: f32, y: f32) -> Option<usize> {
     use slint::Model;
     let g = ui.get_harta().row_data(usize::try_from(grup).ok()?)?;
-    let k = harta::indice_la(x, y)?;
+    let k = harta::indice_la(scara_hartii(ui)?, u32::try_from(g.coloane).ok()?, x, y)?;
     usize::try_from(g.randuri.row_data(k)?).ok()
 }
 
 /// Leaga bula de pe harta: numele patratului de sub mouse. Nu tine de starea
 /// aplicatiei, deci se leaga aici, o data, dupa crearea ferestrei.
 pub fn leaga_harta(ui: &FereastraLista) {
+    // fereastra si-a schimbat latimea: grupurile se reaseaza in cea noua
+    let slab = ui.as_weak();
+    ui.on_harta_redimensionata(move || {
+        use slint::Model;
+        let Some(ui) = slab.upgrade() else { return };
+        let randuri: Vec<RandListaUi> = ui.get_randuri().iter().collect();
+        let sel = usize::try_from(ui.get_selectat())
+            .ok()
+            .filter(|&s| s < randuri.len());
+        incarca_harta(&ui, &randuri, sel);
+    });
     let slab = ui.as_weak();
     ui.on_peste_harta(move |grup, x, y| {
         use slint::Model;
         let Some(ui) = slab.upgrade() else { return };
-        let r = rand_din_harta(&ui, grup, x, y).and_then(|i| ui.get_randuri().row_data(i));
-        let Some(r) = r else {
+        let gasit = usize::try_from(grup).ok().and_then(|gi| {
+            let g = ui.get_harta().row_data(gi)?;
+            let col = u32::try_from(g.coloane).ok()?;
+            let k = harta::indice_la(scara_hartii(&ui)?, col, x, y)?;
+            let rand = ui
+                .get_randuri()
+                .row_data(usize::try_from(g.randuri.row_data(k)?).ok()?)?;
+            Some((g, col, k, rand))
+        });
+        let Some((g, col, k, r)) = gasit else {
             ui.set_bula("".into());
             return;
         };
-        let Some(g) = usize::try_from(grup)
-            .ok()
-            .and_then(|i| ui.get_harta().row_data(i))
-        else {
+        // coltul patratului, in coordonatele hartii; bula sta alaturi, la dreapta
+        // (sau la stanga, daca nu incape — alege Slint, care ii stie latimea)
+        let Some(scara) = scara_hartii(&ui) else {
             return;
         };
-        // originea zonei hartii in fereastra: antetul (60) + filtrele (56) +
-        // marginea cartusului (14) pe verticala, 16 + 18 pe orizontala
+        let (cx, cy) = harta::coltul_in_grila(scara, col, k);
+        let (px, py) = (g.x + cx as f32, g.y + harta::CAP + cy as f32);
         ui.set_bula(format!("{}.{}", r.schema, r.nume).into());
-        ui.set_bula_x(34.0 + g.x + x);
-        ui.set_bula_y(130.0 + g.y + 20.0 + y);
+        ui.set_bula_stare(r.stare);
+        ui.set_hover_x(px);
+        ui.set_hover_y(py);
     });
+}
+
+/// Treapta de zoom a hartii afisate, din latura pusa in fereastra.
+fn scara_hartii(ui: &FereastraLista) -> Option<harta::Scara> {
+    harta::Scara::cu_latura(ui.get_patrat().round() as u32)
 }
 
 /// Cate linii de jurnal arata banda de jos a ecranului de conectare.
