@@ -68,6 +68,9 @@ jurnalul dedesubt; o singura scara pentru tot ecranul.
   fiecare redimensionare; probat si pe backend-ul adevarat (winit, X11 pe
   Xvfb): 1920x1080 -> 1,2, 1280x720 -> 0,85. „Scund" il pune Rust: calculat
   in `.slint` din `height` era bucla de layout.
+- **2026-11-19** Mihai: „lasam cum este macheta" — butonul ⇄ si „Ascunde"
+  din jurnal raman scoase. `Conectare::inverseaza`, callback-ul si
+  handler-ul lui s-au scos odata cu ele (erau cod mort).
 - Abateri fata de macheta, de vazut cu Mihai: textele sunt cele din aplicatie
   (Martor / Modificata, „Continua" in loc de „Reia"); butonul de inversare
   (⇄) nu e in macheta, deci a disparut de pe ecran (callback-ul a ramas);

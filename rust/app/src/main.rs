@@ -1029,15 +1029,6 @@ fn ruleaza() -> Result<(), String> {
         });
         let s = stare.clone();
         let d = deseneaza.clone();
-        conectare_ui.on_inverseaza(move || {
-            actiune("conectare", "inverseaza", "", false);
-            {
-                s.borrow_mut().conectare.inverseaza();
-                d();
-            }
-        });
-        let s = stare.clone();
-        let d = deseneaza.clone();
         conectare_ui.on_schimba_certificatul(move || {
             actiune("conectare", "schimba_certificatul", "", false);
             {

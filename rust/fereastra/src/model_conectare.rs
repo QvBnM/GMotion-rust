@@ -334,15 +334,6 @@ impl Conectare {
         }
     }
 
-    /// Inverseaza cele doua parti, cu tot cu acreditari si baze citite: altfel
-    /// ar trebui tastate din nou, exact cand omul a observat ca a pus invers.
-    /// Cu „Aceeasi conexiune", conexiunea e una singura: se schimba doar
-    /// bazele alese.
-    pub fn inverseaza(&mut self) {
-        std::mem::swap(&mut self.sursa, &mut self.baza);
-        self.sincronizeaza();
-    }
-
     /// Pune sau scoate bifa „Aceeasi conexiune". Scoasa, modificata isi
     /// pastreaza ce a primit de la martor, ca sa nu se tasteze din nou.
     pub fn pune_aceeasi_conexiune(&mut self, da: bool) {
@@ -581,20 +572,6 @@ mod teste {
     }
 
     #[test]
-    fn inversarea_cu_aceeasi_conexiune_schimba_doar_bazele() {
-        let mut c = martor_conectat();
-        c.pune_aceeasi_conexiune(true);
-        c.alege_baza_modificata("Prod");
-        c.inverseaza();
-        assert_eq!(
-            (c.sursa.baza.as_str(), c.baza.baza.as_str()),
-            ("Prod", "Dev")
-        );
-        assert_eq!(c.baza.server, c.sursa.server);
-        assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
-    }
-
-    #[test]
     fn parola_nu_apare_in_debug() {
         let a = Acreditari::noi("deploy_ro", "parola-secreta");
         let text = format!("{a:?}");
@@ -699,25 +676,6 @@ mod teste {
         );
         // alt server, acelasi nume de baza: e o comparare buna
         c.baza.server = "ALT-SRV".into();
-        assert!(c.poate_compara());
-    }
-
-    #[test]
-    fn inversarea_muta_tot_inclusiv_acreditarile_si_bazele_citite() {
-        let mut c = Conectare::noua();
-        c.aceeasi_conexiune = false;
-        c.sursa = parte_gata("SRV-DEV", "Dev");
-        c.baza = Parte {
-            auth_windows: false,
-            acreditari: Acreditari::noi("deploy_ro", "x"),
-            ..parte_gata("SRV-PROD", "Prod")
-        };
-        c.inverseaza();
-        assert_eq!(c.sursa.server, "SRV-PROD");
-        assert_eq!(c.sursa.acreditari.utilizator, "deploy_ro");
-        assert!(c.sursa.acreditari.are_parola(), "parola nu se pierde");
-        assert_eq!(c.baza.server, "SRV-DEV");
-        assert_eq!(c.baza.baze, ["Dev"]);
         assert!(c.poate_compara());
     }
 

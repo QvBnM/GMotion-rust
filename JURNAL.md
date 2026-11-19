@@ -1298,7 +1298,8 @@ singurul caz era un server). Modificata ramane o parte completa: conexiunea
 martorului se copiaza in ea inainte de fiecare desenare (`sincronizeaza`),
 deci restul aplicatiei nu stie de bifa. (3) **Certificatul serverului se
 schimba din Setari**, nu de pe ecran. (4) **Fara etichete de mediu** si fara
-banda de sus. (5) **Scara unica:** ecranul gandit la 1440x900, marit sau
+banda de sus; fara butonul de inversare a partilor si fara „Ascunde" la
+jurnal („lasam cum este macheta"). (5) **Scara unica:** ecranul gandit la 1440x900, marit sau
 micsorat cu `min(latime/1440, inaltime/900)`, intre 0,85 si 1,3; cand
 Windows e deja marit la 125%+ nu se mai micsoreaza.
 
