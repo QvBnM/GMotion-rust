@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-19 · commit `dac8b08` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (482 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-19 · commit `3955c7a` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (485 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -71,8 +71,8 @@ pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
 test care cade, abia apoi se repara. Verdictele intra in sectiunea
 „Verdicte" de la finalul auditului.
 
-**H1, H2 si H3 sunt gata**, cate un commit per constatare (sau per grup
-strans legat), cu poarta verde inainte de fiecare. Din cele 21, trei nu se
+**H1-H4 sunt gata**, cate un commit per constatare (sau per grup
+strans legat), cu poarta verde inainte de fiecare. Din cele 25, trei nu se
 mai reproduceau (C9, V1, V2 — refacerea hartii si a antetului de la etapa 15
 le scosese), si fiecare are acum testul sau captura care o tine asa. Ramase,
 notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi mai jos) si
@@ -83,7 +83,7 @@ notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi mai jos) si
 1. ~~**H1** siguranta deploy-ului~~ — gata (2026-11-18).
 2. ~~**H2** pierdere de date~~ — gata (2026-11-18).
 3. ~~**H3** cadere si ecrane~~ — gata (2026-11-19).
-4. **H4** inghetari: P4, P1, P2, P3.
+4. ~~**H4** inghetari~~ — gata (2026-11-19).
 5. **H5** restul auditului: verdict pe fiecare constatare (reparat / nu se
    mai reproduce / amanat cu motiv).
 6. **15 E** ce a ramas: „Martor" / „Modificata" si in `cli` si in documente;
@@ -188,6 +188,23 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Modelul editorului se tine minte pe o cheie** (obiect + amprenta textului
+  final + unirea cursorului), si `model_editor()` da un `Ref`, nu o copie. Daca
+  adaugi o stare noua de care depinde modelul si n-o pui in `CheieModel`,
+  editorul arata ceva vechi. `refaceri_model()` spune de cate ori s-a
+  construit: asa se probeaza ca desenarea nu-l reface.
+- **Un `Ref` tinut peste o chemare `&mut self` da panica.** De-aia desenarea
+  din `main.rs` ia `salvat` inainte si face `drop(model)` dupa `incarca_editor`.
+- **Nu mai exista al doilea lexer in `segmentare`.** Linia curatata vine din
+  `lexer::segmente`. Daca scrii acolo inca o scanare de caractere, intorci
+  P3: `[Case]` inghite tot obiectul.
+- **Lucrurile lungi nu se mai fac pe firul ferestrei.** `fir::Lucru<T>` plus un
+  slot in `Stare` si o bucata in ceas. Un apel nou care atinge serverul (sau o
+  baza mare) merge la fel, altfel fereastra ingheata iar.
+- **Spatiul pe disc al containerului se termina.** `rust/target` creste peste
+  30 GB, mai ales `debug/incremental` si `debug/examples`. Daca un `cargo`
+  cade cu „No space left on device": sterge-le, se refac singure.
 
 - **Capturile se fac si la 1366x768 si la 1024x768**, nu doar la 1440x900.
   Toate erau la 1440 pana la auditul QA, si de aceea butoane iesite din ecran

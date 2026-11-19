@@ -93,7 +93,7 @@ de la Mihai" din `STARE.md`.
       (campul de parola din F-A2 ramane partial: vezi „Verdicte")
 - [x] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
       intra in setul standard (si la 1024x768, unde se vedea V3)
-- [ ] H4 inghetari: P4, P1, P2, P3
+- [x] H4 inghetari: P4, P1, P2, P3
 - [ ] H5 restul: fiecare constatare din audit are verdict in sectiunea
       „Verdicte" de la finalul auditului — reparat (commit), nu se mai
       reproduce (test), sau amanat (motiv si unde e urmarit)
@@ -225,6 +225,21 @@ de la Mihai" din `STARE.md`.
   - **Capturile erau toate la 1440x900** — de aceea V1-V3 n-au fost vazute
     niciodata. Acum fiecare exemplu primeste `--latime` / `--inaltime`, si
     setul standard are 1366x768 si 1024x768.
+
+- **2026-11-19** H4 (inghetari) gata. Toate patru s-au reprodus, trei dintre
+  ele masurat:
+  - `linii_start_blocuri` pe 20.000 de blocuri: **2,12 s** (auditul spunea
+    3,15 s), acum **1,6 ms**; `aliniaza` 4,05 s -> 129 ms.
+  - `[Case]` pe 5.000 de linii: **1 bloc** in loc de 5.000. `@case` la fel,
+    `[O'Brien]` dadea jumatate.
+  - P1 nu se poate masura intr-un test fara sa iasa instabil, deci
+    `Aplicatie` numara de cate ori construieste modelul, si testul se uita la
+    numarul ala.
+  - **Al doilea lexer din `segmentare` a disparut**, nu a fost carpit: linia
+    curatata vine din `lexer::segmente`, ca orice regula pe text. Asta
+    inchide si P3 si clasa lui.
+  - P4 a cerut un mecanism, nu o reparatie punctuala: `fir::Lucru<T>`, acelasi
+    pentru toate lucrurile lungi, plus o stare vizibila pe ecran cat lucreaza.
 
 ## Ce a iesit altfel decat planul
 

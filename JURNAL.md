@@ -1053,6 +1053,41 @@ codului si se vad toate. La 1440 raman pe un rand, ca pana acum.
 
 ---
 
+## 2026-11-19 — Auditul QA, H4: ce s-a decis pe inghetari
+
+**1. Un mecanism, nu patru reparatii.** P4 insemna patru locuri care tineau
+fereastra (citirea bazelor, „Testeaza conexiunea", cautarea de servere, garda
+de deploy). Fiecare mutata de mana pe un fir ar fi insemnat patru feluri de a
+astepta. Deci `fir::Lucru<T>`: porneste o functie pe alt fir, se intreaba la
+aceeasi bataie de ceas ca si compararea, si are o stare vizibila cat lucreaza
+(`SeConecteaza` pe partea de conectare, `GardaDeploy::SeVerifica` pe deploy).
+Garda a primit si `pornire::reciteste`: ii trebuie obiectele de acum, nu o
+comparare intreaga.
+
+**2. Ce nu se poate masura intr-un test se numara.** P1 (modelul editorului
+refacut la fiecare desenare) nu se poate proba cu timpi: un test care
+masoara secunde e instabil pe orice masina de CI. Deci `Aplicatie` numara de
+cate ori construieste modelul (`refaceri_model`), iar testul se uita la
+numarul ala. Cheia modelului e `(obiect, amprenta textului final, unirea
+cursorului)` — restul (bifa, „in plan", filtrele) nu-l mai atinge.
+
+**3. Al doilea lexer din `segmentare` a fost scos, nu carpit.** P3 era o
+consecinta: scanarea proprie de caractere nu stia de `[...]`, `"..."` si `@`,
+deci `SELECT [Case]` deschidea un `CASE` care nu se mai inchidea si tot
+obiectul devenea un singur bloc. Se putea adauga `[` si `"` in scanarea aia;
+atunci am fi avut doua lexere care trebuie tinute la fel. Linia „curatata"
+vine acum din `lexer::segmente`, ca orice regula pe text (regula din
+`STARE.md`), iar starea „linia asta incepe intr-un sir deschis mai sus" se
+citeste tot din segmente. Divergenta fata de v3.4 si de JS e deliberata:
+acolo bug-ul exista, iar paritatea pe fixture n-a cazut.
+
+**4. Masuratorile intra in `bench`, nu raman in capul nostru.** P2 si P3 s-au
+masurat pe obiecte construite anume (corpusul n-are obiecte de 20.000 de
+instructiuni). Cazurile au ramas in `cargo run --release --example bench`:
+2,12 s -> 1,6 ms pe `linii_start_blocuri`, 4,05 s -> 129 ms pe `aliniaza`.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
