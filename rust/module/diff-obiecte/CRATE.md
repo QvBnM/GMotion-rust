@@ -90,6 +90,11 @@ biblioteca** — fara nicio interfata.
    literal `N'...'` non-ASCII ajunge mojibake in codul deployat. Codul
    obiectului se lipeste **neatins**, cu capetele lui de linie — acolo sunt
    datele utilizatorului.
+7c. **Deploy-ul se scrie in `<director>.tmp` si se muta la final.** O eroare
+   la al optulea fisier lasa altfel sapte fisiere si o revenire pe disc, iar
+   reluarea cade cu `GM-MOD-010` (F-D6). Numele de fisier sunt plafonate la
+   100 de caractere, cu hash scurt cand se taie: pe Windows calea intreaga nu
+   poate trece de 260.
 8. **Un nume de baza sau obiect nu poate forma o cale.** Separatorii devin `_`,
    punctele de la capete se taie. Numele de fisier sunt unice in cadrul unei
    rulari (fara a deosebi majusculele), numele rezervate Windows (`CON`,

@@ -110,13 +110,32 @@ struct NumeFisiere {
     folosite: std::collections::HashSet<String>,
 }
 
+/// Cat de lung poate fi numele unui fisier, fara extensie.
+///
+/// Pe Windows, calea intreaga nu poate trece de 260 de caractere, iar numele
+/// per obiect ajungea la ~400 (`NNN_<baza>_<TIP>_<schema>.<nume>`): deploy-ul
+/// cadea cu `GM-MOD-003` **dupa** ce revenirea si cateva fisiere erau deja
+/// scrise (F-D6 din auditul QA). Ce se taie primeste un hash scurt, ca doua
+/// nume lungi care incep la fel sa nu ajunga acelasi fisier.
+const LUNGIME_MAXIMA_NUME: usize = 100;
+
+/// Numele taiat la `LUNGIME_MAXIMA_NUME`, cu hash scurt cand s-a taiat.
+fn plafoneaza(nume: &str) -> String {
+    if nume.chars().count() <= LUNGIME_MAXIMA_NUME {
+        return nume.to_string();
+    }
+    let h = gmotion_core::calc_hash(nume);
+    let pastrat: String = nume.chars().take(LUNGIME_MAXIMA_NUME - 9).collect();
+    format!("{pastrat}_{}", &h[..8])
+}
+
 impl NumeFisiere {
     /// `baza` e partea dinaintea extensiei, deja trecuta prin `slug`.
     fn unic(&mut self, baza: &str, extensie: &str) -> String {
         let mut baza = if baza.is_empty() {
             "fara_nume".to_string()
         } else {
-            baza.to_string()
+            plafoneaza(baza)
         };
         let tulpina = baza.split('.').next().unwrap_or("").to_ascii_uppercase();
         if NUME_REZERVATE_WINDOWS.contains(&tulpina.as_str()) {
@@ -620,7 +639,54 @@ pub fn scrie(
     }
     verifica_inainte(referinta, pe_baza)?;
     pregateste_director(director)?;
-    scrie_deploy(director, referinta, pe_baza, mod_impartire, sarite, acum)
+    in_director_temporar(director, |lucru| {
+        scrie_deploy(lucru, referinta, pe_baza, mod_impartire, sarite, acum)
+    })
+}
+
+/// Scrie intr-un `<director>.tmp` si il muta la final, cu tot ce are in el.
+///
+/// O eroare la al optulea fisier lasa in urma sapte fisiere si o revenire,
+/// iar reluarea cade cu `GM-MOD-010` („directorul nu e gol") — adica omul
+/// ramane cu un deploy pe jumatate si fara drum inapoi (F-D6 din auditul QA).
+/// Asa, ori apare directorul intreg, ori nu apare deloc.
+fn in_director_temporar(
+    director: &Path,
+    f: impl FnOnce(&Path) -> Rezultat<Raport>,
+) -> Rezultat<Raport> {
+    let eroare = |cale: &Path, e: std::io::Error| Eroare::ScriereDeploy {
+        cale: cale.display().to_string(),
+        detaliu: e.to_string(),
+    };
+    let lucru = director.with_extension("tmp");
+    std::fs::remove_dir_all(&lucru).ok();
+    std::fs::create_dir_all(&lucru).map_err(|e| eroare(&lucru, e))?;
+    let raport = match f(&lucru) {
+        Ok(r) => r,
+        Err(e) => {
+            std::fs::remove_dir_all(&lucru).ok();
+            return Err(e);
+        }
+    };
+    // `pregateste_director` l-a creat gol (sau era gol): pe Windows
+    // redenumirea peste un director existent cade, deci se scoate intai
+    std::fs::remove_dir(director).ok();
+    if let Err(e) = std::fs::rename(&lucru, director) {
+        std::fs::remove_dir_all(&lucru).ok();
+        return Err(eroare(director, e));
+    }
+    // caile din raport au fost scrise in directorul de lucru
+    let muta = |c: &Path| -> std::path::PathBuf {
+        c.strip_prefix(&lucru)
+            .map(|rest| director.join(rest))
+            .unwrap_or_else(|_| c.to_path_buf())
+    };
+    Ok(Raport {
+        director: director.to_path_buf(),
+        fisiere: raport.fisiere.iter().map(|c| muta(c)).collect(),
+        revenire: raport.revenire.iter().map(|c| muta(c)).collect(),
+        ..raport
+    })
 }
 
 /// Ca [`scrie`], dar **intai** scriptul de revenire, in
@@ -667,7 +733,30 @@ pub fn scrie_cu_revenire(
         }
     }
     pregateste_director(director)?;
+    in_director_temporar(director, |lucru| {
+        scrie_totul(
+            lucru,
+            referinta,
+            pe_baza,
+            revenire,
+            mod_impartire,
+            sarite,
+            acum,
+        )
+    })
+}
 
+/// Revenirea si deploy-ul, in directorul dat (de lucru).
+#[allow(clippy::too_many_arguments)]
+fn scrie_totul(
+    director: &Path,
+    referinta: &str,
+    pe_baza: &BTreeMap<String, Vec<DeDeployat>>,
+    revenire: &BTreeMap<String, Vec<PasRevenire>>,
+    mod_impartire: ModImpartire,
+    sarite: usize,
+    acum: &str,
+) -> Rezultat<Raport> {
     let dir_revenire = director.join("revenire");
     std::fs::create_dir_all(&dir_revenire).map_err(|e| Eroare::ScriereDeploy {
         cale: dir_revenire.display().to_string(),
@@ -1704,5 +1793,85 @@ mod teste {
         .unwrap_err();
         assert_eq!(e.cod(), "GM-MOD-008", "{e}");
         assert!(!d.exists());
+    }
+
+    /// F-D6 din `cercetare/audit-qa-2026-11-18.md`: numele per obiect
+    /// (`NNN_<baza>_<TIP>_<schema>.<nume>`) ajungea la ~400 de caractere, iar
+    /// pe Windows calea intreaga nu poate trece de 260: deploy-ul cadea
+    /// **dupa** ce revenirea si cateva fisiere erau deja scrise, iar reluarea
+    /// cadea cu `GM-MOD-010`.
+    #[test]
+    fn numele_lungi_se_plafoneaza_si_raman_distincte() {
+        let d = dir("nume-lungi");
+        let lung = |sufix: &str| format!("dbo.{}{sufix}", "N".repeat(220));
+        let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
+        pe_baza.insert(
+            "BazaCuNumeFoarteLungPentruProba".to_string(),
+            vec![
+                o(&lung("_unu"), "CREATE OR ALTER PROC dbo.a AS SELECT 1"),
+                o(&lung("_doi"), "CREATE OR ALTER PROC dbo.b AS SELECT 2"),
+            ],
+        );
+        let r = scrie(&d, "Ref", &pe_baza, ModImpartire::PerObiect, 0, "t").unwrap();
+        assert_eq!(r.fisiere.len(), 2);
+        let nume: Vec<String> = r
+            .fisiere
+            .iter()
+            .map(|f| f.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        for n in &nume {
+            assert!(n.chars().count() <= 110, "{n} ({})", n.chars().count());
+        }
+        assert_ne!(nume[0], nume[1], "doua obiecte, doua fisiere");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-D6, partea a doua: ori apare directorul intreg, ori nu apare deloc.
+    /// Scrierea se face intr-un `<director>.tmp`, mutat la final.
+    #[test]
+    fn un_deploy_esuat_nu_lasa_director_pe_jumatate() {
+        let d = dir("tmp-mutat");
+        let (deploy, rev) = cu_revenire();
+        let r = scrie_cu_revenire(&d, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t").unwrap();
+        assert!(d.join("revenire").is_dir(), "revenirea e in director");
+        assert!(
+            !d.with_extension("tmp").exists(),
+            "directorul de lucru nu ramane in urma"
+        );
+        assert!(
+            r.fisiere.iter().all(|f| f.starts_with(&d)),
+            "caile din raport sunt cele finale: {:?}",
+            r.fisiere
+        );
+        assert!(r.revenire.iter().all(|f| f.starts_with(&d)));
+        std::fs::remove_dir_all(&d).ok();
+
+        // un `<director>.tmp` ramas de la o rulare oprita brusc nu
+        // blocheaza urmatoarea si nu-si amesteca fisierele
+        let d3 = dir("tmp-vechi");
+        std::fs::create_dir_all(d3.with_extension("tmp")).unwrap();
+        std::fs::write(d3.with_extension("tmp").join("vechi.sql"), b"-- vechi").unwrap();
+        let r =
+            scrie_cu_revenire(&d3, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t").unwrap();
+        assert!(
+            !d3.join("vechi.sql").exists(),
+            "fisierul vechi nu intra in deploy"
+        );
+        assert!(!r.fisiere.is_empty());
+        std::fs::remove_dir_all(&d3).ok();
+
+        // mutarea finala cade (in locul directorului e un fisier): nu ramane
+        // nici directorul de lucru
+        let d2 = dir("tmp-cade");
+        std::fs::remove_dir_all(&d2).ok();
+        std::fs::write(&d2, b"sunt un fisier").unwrap();
+        let e = scrie_cu_revenire(&d2, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t")
+            .unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-003", "{e}");
+        assert!(
+            !d2.with_extension("tmp").exists(),
+            "directorul de lucru s-a sters"
+        );
+        std::fs::remove_file(&d2).ok();
     }
 }
