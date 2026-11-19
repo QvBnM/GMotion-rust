@@ -1,8 +1,8 @@
 # Etapa 16 — lista de obiecte in editor si taburile
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-19 · **Incheiata:** —
+**Deschisa:** 2026-11-19 · **Incheiata:** 2026-11-19
 
 > Porneste dupa etapa 15, sau inainte daca Mihai cere. Extinde 15 B (lista
 > ramane in stanga, coloana de 300 px, clic = alt obiect pe loc): aici
@@ -56,19 +56,21 @@ care lucrezi in paralel. `j` / `k` raman calea principala de parcurgere.
 
 ## Criterii de terminare
 
-- [ ] logica taburilor intr-un singur loc, in Rust, fara Slint, cu teste pe
+- [x] logica taburilor intr-un singur loc, in Rust, fara Slint, cu teste pe
       fiecare regula de mai sus (inclusiv `j` cu toate obiectele urmatoare
       fixate, al noulea tab cu toate 8 editate, filtru care scoate obiectul
-      activ)
-- [ ] taierea pe mijloc a numelui: functie Rust, testata (latime, unicode)
-- [ ] testul care apasa tastele acopera `j`, `k`, `[`, `Ctrl+W`, dublu clic
-- [ ] fiecare buton nou (pin, ascunde, muta, inchide tab, `+N ▾`) are handler
-      si test care il apasa
-- [ ] starea listei si a taburilor in sesiune, testata la reincarcare
-- [ ] capturi in ambele moduri in `cercetare/capturi/`
-- [ ] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
+      activ) — `fereastra::model_taburi`, legat in `app::rutare`
+- [x] taierea pe mijloc a numelui: functie Rust, testata (latime, unicode)
+- [x] testul care apasa tastele acopera `j`, `k`, `[`, `Ctrl+W`, dublu clic
+- [x] fiecare buton nou (pin, ascunde, muta, inchide tab, `+N ▾`) are handler
+      si test care il apasa (pin / muta / banda cu mouse-ul; tabul si
+      meniul `+N` prin callback-uri)
+- [x] starea listei si a taburilor in sesiune, testata la reincarcare
+- [x] capturi in ambele moduri in `cercetare/capturi/` (`editor-taburi-*`,
+      `editor-coloana-*`)
+- [x] poarta verde: `unelte/verifica.sh`
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat, daca s-a luat vreo decizie
 
 ## Pasi
 
@@ -82,6 +84,22 @@ care lucrezi in paralel. `j` / `k` raman calea principala de parcurgere.
 - **2026-11-18** Etapa scrisa, nepornita. Regulile vin din discutia cu Mihai
   pe macheta.
 
+- **2026-11-19** Etapa facuta intr-o zi, in patru commit-uri: modelul
+  taburilor (pur), legarea in `rutare` (obiectul din tabul activ e mereu
+  selectia listei), bara de taburi si tastele, coloana (grupe, pin, banda,
+  mutare, sesiune). Pe drum, testul de anulare (F-A4) s-a dovedit ca nu
+  testa ce spunea: avea un singur obiect, deci „alt obiect" nu exista; acum
+  are doua. Doua asteptari de taiere pe mijloc numarate gresit in test.
+
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+- **Un singur „obiect curent" a ramas regula.** Planul nu spunea cum stau
+  taburile fata de selectia listei; a doua stare ar fi dublat toate comenzile.
+  Activarea unui tab muta selectia (golind filtrul, daca il ascunde).
+- **Hover-ul pe rand nu e o bula**: intr-un `ListView`, o bula se taie la
+  marginea listei. Detaliile apar jos in coloana.
+- **Pin, muta si banda sunt simboluri (◆ ⇄ «)**, nu cuvinte: nu cer texte
+  in doua limbi si incap in 300 px.
+- **Discul mediului cloud s-a umplut de trei ori** (`target` la ~30 GB);
+  `~/.cargo/config.toml` fara debuginfo si fara incremental il tine la ~2 GB.
+  Nu e o setare a repo-ului.
