@@ -1287,6 +1287,31 @@ cateva sute de obiecte patratele de 14 px lasau jumatate din el gol.
 acoperea titlul coloanei. (4) Bula se leaga de `changed mouse-x/y`, nu de
 `moved`, care vine doar cu butonul apasat.
 
+## 2026-11-19 — Conectarea noua: o baza de fiecare parte, Setari, scara unica
+
+**Decizii (Mihai, pe macheta `cercetare/machete/conectare-noua/`).**
+(1) **O singura baza la modificata**, aleasa cu cerc: compararea unei surse
+cu mai multe baze deodata (din v3.4) nu mai e pe ecran. Modelul o mai stie
+(`Parte::alese`, `baze_alese`), dar nimic din fereastra nu o mai umple.
+(2) **Bifa „Aceeasi conexiune"** pe modificata, pusa implicit (in v3.4
+singurul caz era un server). Modificata ramane o parte completa: conexiunea
+martorului se copiaza in ea inainte de fiecare desenare (`sincronizeaza`),
+deci restul aplicatiei nu stie de bifa. (3) **Certificatul serverului se
+schimba din Setari**, nu de pe ecran. (4) **Fara etichete de mediu** si fara
+banda de sus. (5) **Scara unica:** ecranul gandit la 1440x900, marit sau
+micsorat cu `min(latime/1440, inaltime/900)`, intre 0,85 si 1,3; cand
+Windows e deja marit la 125%+ nu se mai micsoreaza.
+
+**Cum s-a facut scara, si de ce asa.** Slint n-are zoom pe fereastra; are
+factorul de scala, pe care il da sistemul. Se pune altul
+(`WindowEvent::ScaleFactorChanged`, apoi `Resized` cu marimea logica noua),
+recalculat la fiecare redimensionare (`scara::ScaraFereastra`). Un factor
+care nu e cel pus de noi inseamna ca l-a schimbat sistemul (alt monitor):
+de la el se recalculeaza. Alternativa, fiecare dimensiune din `.slint`
+inmultita cu o proprietate, ar fi atins sute de linii si ar fi uitat
+componentele comune. Doar ecranul de conectare are scara; restul ferestrelor
+raman ca pana acum.
+
 ---
 
 ## Coduri de eroare — registru

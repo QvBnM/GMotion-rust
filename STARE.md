@@ -33,7 +33,9 @@ cd rust && cargo build --release -p gmotion-cli
 
 **Etapa activa:** `etape/19-lista-ca-object-explorer.md`. Lista e acum un
 arbore ca Object Explorer, cu martor | modificata in dreapta; urmeaza wrap-ul
-si proba lui Mihai. Apoi conectarea noua (etapa 17, cand macheta e in repo).
+si proba lui Mihai. In paralel, etapa 17 (conectarea dupa
+`cercetare/machete/conectare-noua/`) e facuta, NEPORNITA doar ca stare
+(poarta cere o singura etapa ACTIVA): asteapta „da"-ul lui Mihai pe perechi.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -60,14 +62,13 @@ Previzualizarea sintetica doar cu `--previzualizare`.
 
 **Etapele 15 si 16 sunt incheiate.** Ramane:
 
-1. **Design-ul nou al conectarii.** Macheta (HTML, 8 rezolutii, scara unica
-   0,85-1,3 de la 1440x900) e facuta in sesiunea „Prima pagina GMotion
-   Connect" (`session_01FH9EWVHVrrpH7Qfopnidbk`), dar sta doar in scratchpad-ul
-   ei. I s-a cerut sa o urce in `cercetare/machete/conectare-noua/`; asteapta
-   „da" de la Mihai, plus raspunsul la intrebarea ei (la Windows 125%+ nu se
-   mai micsoreaza peste — recomandat). Cand macheta e in repo: etapa 17 din
-   `etape/SABLON.md`, cu criteriile scrise inainte de cod; intra acolo si
-   conectarea la 1366x768 (ramasa din 15 C). Logica din 15 F ramane.
+1. **Conectarea noua (etapa 17): facuta, asteapta „da"-ul lui Mihai** pe
+   `cercetare/machete/conectare-noua/capturi/pereche-*.png` (macheta |
+   aplicatia, 1440x900, ambele teme). Abaterile, listate in etapa: textele
+   aplicatiei (Martor / Modificata, „Continua"), butonul ⇄ si „Ascunde" din
+   jurnal au disparut (nu erau in macheta). De cerut pe Windows: aceeasi
+   fereastra pe un laptop la 150% si pe un monitor mare, si mutata intre
+   ele — scara trebuie sa se recalculeze la mutare.
 2. **Editorul ca in macheta:** `etape/18-editorul-ca-in-macheta.md`
    (NEPORNITA). Etapa 16 a facut functiile, dar Mihai a gasit ca editorul nu
    seamana cu `cercetare/machete/sina-si-taburi/macheta.png`. Se bifeaza doar
