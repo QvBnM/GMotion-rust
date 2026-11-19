@@ -31,9 +31,8 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 15 s-a incheiat pe 2026-11-19. Urmeaza
-design-ul nou al conectarii (macheta de la Mihai), apoi etapa 16
-(`etape/16-lista-si-taburi.md`, NEPORNITA).
+**Etapa activa:** niciuna. Etapele 15 si 16 s-au incheiat pe 2026-11-19.
+Urmeaza design-ul nou al conectarii (etapa 17, cand macheta e in repo).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare
@@ -46,19 +45,19 @@ unelte\porneste.bat --server         # ecranul de conectare, gol
 
 ## Urmatorul pas concret
 
-**Etapa 15 e incheiata.** Ordinea hotarata cu Mihai (2026-11-19):
+**Etapele 15 si 16 sunt incheiate.** Ramane:
 
-1. **Design-ul nou al conectarii.** Mihai are macheta; cand o da, se deschide
-   etapa 17 din `etape/SABLON.md`, cu criteriile scrise inainte de cod. Intra
-   acolo si ce a ramas din 15 C: la 1366x768 banda de jurnal din conectare
-   iese jos. Logica din 15 F (`aceeasi_instanta`, starea `SeCauta`) ramane;
-   doar desenul se reaseaza.
-2. **Etapa 16** (`etape/16-lista-si-taburi.md`): lista din stanga cu pin /
-   ascundere / mutare; taburi (previzualizare + maxim 8 fixate). Macheta:
-   `cercetare/machete/sina-si-taburi/`.
-3. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
-   (singurul rand ramas in `cercetare/lipsuri-portare.md`). De probat intai
-   daca se poate in Slint (`TextInput` nu are culori pe bucati).
+1. **Design-ul nou al conectarii.** Macheta (HTML, 8 rezolutii, scara unica
+   0,85-1,3 de la 1440x900) e facuta in sesiunea „Prima pagina GMotion
+   Connect" (`session_01FH9EWVHVrrpH7Qfopnidbk`), dar sta doar in scratchpad-ul
+   ei. I s-a cerut sa o urce in `cercetare/machete/conectare-noua/`; asteapta
+   „da" de la Mihai, plus raspunsul la intrebarea ei (la Windows 125%+ nu se
+   mai micsoreaza peste — recomandat). Cand macheta e in repo: etapa 17 din
+   `etape/SABLON.md`, cu criteriile scrise inainte de cod; intra acolo si
+   conectarea la 1366x768 (ramasa din 15 C). Logica din 15 F ramane.
+2. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
+   (singurul rand din `cercetare/lipsuri-portare.md`). De probat intai daca se
+   poate in Slint (`TextInput` nu are culori pe bucati).
 
 La pornire: `python3 -I unelte/harta-cod.py`, apoi cauti in `HARTA-COD.md`
 si citesti doar intervalul (CLAUDE.md §0).
@@ -117,6 +116,15 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Obiectul din tabul activ e mereu selectia listei** (`Lista::selecteaza_cheie`).
+  O comanda noua pe „obiectul curent" lucreaza pe selectie, ca toate celelalte;
+  nu tine un al doilea „curent" in taburi.
+- **Pozitia editorului vine din `ocupat` / `stanga`** in `editor.slint`, nu
+  din `latime-lista`: coloana poate fi fara pin (peste editor), banda sau pe
+  dreapta. Un element nou asezat cu `latime-lista` iese sub coloana.
+- **Mediul cloud: `~/.cargo/config.toml` fara debuginfo si incremental.**
+  Altfel `target` creste la ~30 GB si linkerul cade cu „Bus error" (disc plin).
 
 - **Harta se picteaza la pixelii fizici** (`picteaza_la(.., factor)`), iar in
   `lista.slint` imaginea are `width = source.width / factor-harta`. O imagine
