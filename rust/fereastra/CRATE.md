@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: b60519683f966b16 -->
+<!-- api-hash: 3226c695fed8fa1d -->
 
 ## Rol
 
@@ -27,7 +27,7 @@ si editorul de diferente (etapa 8).
 
 | Element | Ce face |
 |---|---|
-| `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie |
+| `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie; `aceeasi_instanta()` (15 F) recunoaste acelasi server sub alte nume; `StareConexiune::SeCauta` = cautarea in retea ruleaza |
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta, ServerGasit}` | modelul lui; `Acreditari` **nu are `Debug` derivat**; `Parte::{comuta_baza, baze_alese, e_aleasa}` tin bifele cand se compara mai multe baze; `Recenta::server` nu se deseneaza, dar e jumatatea cheii de sesiune |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare: doua carduri (sursa, baza), cautarea serverelor ca iconita, comparari recente, butonul de tema |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |

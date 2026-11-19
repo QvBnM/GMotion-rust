@@ -62,8 +62,8 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
       in `JURNAL.md`, 2026-11-19); nu blocheaza incheierea etapei
 
 **F. Conectare**
-- [ ] cautarea de servere arata ca lucreaza (nu ingheata pana la raspuns)
-- [ ] se marcheaza cand referinta si baza comparata sunt pe **aceeasi
+- [x] cautarea de servere arata ca lucreaza (nu ingheata pana la raspuns)
+- [x] se marcheaza cand referinta si baza comparata sunt pe **aceeasi
       instanta** de SQL Server
 
 **G. Panoul de detalii din lista** (cerut de Mihai pe 2026-11-18, dupa o
@@ -305,6 +305,14 @@ de la Mihai" din `STARE.md`.
   | 50.000 | 0,8 ms | 3,2 ms | 10,1 ms | 4 px | 1.121 px (se deruleaza) |
 
   Captura la 4.000 (1.778 modificate, 1366x768): trei coloane curate.
+
+- **2026-11-19** F gata, pe ecranul de acum (design-ul nou al conectarii il
+  va reaseza, logica ramane): cautarea rula deja pe alt fir (H4), dar ecranul
+  scria „se conecteaza…"; acum are starea ei, „se cauta servere in retea…".
+  „Aceeasi instanta" e `Conectare::aceeasi_instanta`: recunoaste `.` /
+  `localhost` / `127.0.0.1`, numele scurt fata de cel cu domeniu, instanta
+  implicita si portul 1433 scrise sau nu; alt port sau alta instanta pe
+  aceeasi masina nu se socotesc la fel.
 
 ## Ce a iesit altfel decat planul
 

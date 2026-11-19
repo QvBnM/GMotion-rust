@@ -97,7 +97,7 @@ vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
    (merge cu design-ul nou). Era: incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
    comutatorul Alaturat / Unificat, liniile lungi.
 9. ~~**15 D**~~ — gata (2026-11-19).
-10. **15 F** cautarea de servere vizibila; marcajul „aceeasi instanta".
+10. ~~**15 F**~~ — gata (2026-11-19).
 11. ~~Deciziile din audit (F-M3, F-A18, F-B5)~~ — gata (2026-11-19).
 12. Incheierea etapei 15: capturi, poarta completa, `STARE.md`, `JURNAL.md`.
 13. Design-ul nou al conectarii (macheta de la Mihai).

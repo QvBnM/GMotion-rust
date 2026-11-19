@@ -84,6 +84,9 @@ pub enum StareConexiune {
     #[default]
     Neincercat,
     SeConecteaza,
+    /// Cautarea serverelor in retea ruleaza (pe alt fir): fereastra nu
+    /// ingheata, iar starea spune ce se intampla (15 F).
+    SeCauta,
     /// „conectat · SQL Server 2019 · 21.204 obiecte"
     Conectat(String),
     /// Mesajul exact, cu codul lui. Niciodata parola.
@@ -100,6 +103,10 @@ impl StareConexiune {
         match self {
             StareConexiune::Neincercat => "",
             StareConexiune::SeConecteaza => l.alege("se conecteaza…", "connecting…"),
+            StareConexiune::SeCauta => l.alege(
+                "se cauta servere in retea…",
+                "searching the network for servers…",
+            ),
             StareConexiune::Conectat(t) => t,
             StareConexiune::Eroare(t) => t,
         }
@@ -182,6 +189,35 @@ impl Parte {
         }
         None
     }
+}
+
+/// (gazda, instanta, port) pentru comparat: litere mici, gazda locala sub un
+/// singur nume, domeniul taiat (`srv.firma.local` = `srv`), instanta implicita
+/// si portul implicit (1433) scrise la fel ca lipsa lor.
+fn identitate_instanta(server: &str) -> (String, String, u16) {
+    let s = server.trim().to_lowercase();
+    let (fara_port, port) = match s.rsplit_once(',') {
+        Some((a, p)) => match p.trim().parse::<u16>() {
+            Ok(n) => (a.trim().to_string(), n),
+            Err(_) => (s.clone(), 1433),
+        },
+        None => (s.clone(), 1433),
+    };
+    let (gazda, instanta) = match fara_port.split_once('\\') {
+        Some((g, i)) => (g.to_string(), i.to_string()),
+        None => (fara_port, String::new()),
+    };
+    let instanta = if instanta == "mssqlserver" {
+        String::new()
+    } else {
+        instanta
+    };
+    let gazda = match gazda.as_str() {
+        "." | "(local)" | "localhost" | "127.0.0.1" | "::1" => "localhost".to_string(),
+        g if g.parse::<std::net::Ipv4Addr>().is_ok() => g.to_string(),
+        g => g.split('.').next().unwrap_or(g).to_string(),
+    };
+    (gazda, instanta, port)
 }
 
 /// Numele campului lipsa (`Parte::ce_lipseste`) in limba data.
@@ -371,6 +407,20 @@ impl Conectare {
             );
         }
         None
+    }
+
+    /// Martorul si modificata stau pe **aceeasi instanta** de SQL Server
+    /// (15 F): alt nume pentru acelasi server (`.` / `localhost` /
+    /// `127.0.0.1`, numele scurt fata de cel cu domeniu, portul implicit
+    /// scris sau nu) se recunoaste. Pe instantaneu nu se spune nimic.
+    pub fn aceeasi_instanta(&self) -> bool {
+        if self.instantaneu.is_some()
+            || self.sursa.server.trim().is_empty()
+            || self.baza.server.trim().is_empty()
+        {
+            return false;
+        }
+        identitate_instanta(&self.sursa.server) == identitate_instanta(&self.baza.server)
     }
 
     pub fn poate_compara(&self) -> bool {
@@ -594,6 +644,38 @@ mod teste {
         assert_eq!(
             c.ce_lipseste_in(e).as_deref(),
             Some("choose the witness database from the snapshot")
+        );
+    }
+
+    #[test]
+    fn aceeasi_instanta_se_recunoaste_sub_alte_nume() {
+        let cu = |a: &str, b: &str| {
+            let mut c = Conectare::noua();
+            c.sursa.server = a.into();
+            c.baza.server = b.into();
+            c.aceeasi_instanta()
+        };
+        assert!(cu("SRV-PROD", "srv-prod"));
+        assert!(cu("srv-prod.firma.local,1433", "SRV-PROD"));
+        assert!(cu(".", "localhost"));
+        assert!(cu("(local)\\MSSQLSERVER", "127.0.0.1"));
+        assert!(cu("SRV\\SQL2019", "srv.firma.local\\sql2019"));
+        assert!(
+            !cu("SRV\\SQL2019", "SRV"),
+            "alta instanta pe aceeasi masina"
+        );
+        assert!(!cu("SRV,1433", "SRV,1434"), "alt port");
+        assert!(!cu("10.0.0.1", "10.0.0.2"));
+        assert!(!cu("SRV-DEV", "SRV-PROD"));
+        assert!(!cu("SRV", ""), "fara server, nu se spune nimic");
+        let mut c = Conectare::noua();
+        c.instantaneu = Some("/tmp/i.json".into());
+        c.sursa.server = "A".into();
+        c.baza.server = "A".into();
+        assert!(!c.aceeasi_instanta(), "pe instantaneu nu exista instanta");
+        assert_eq!(
+            StareConexiune::SeCauta.text_in(Limba::Engleza),
+            "searching the network for servers…"
         );
     }
 }

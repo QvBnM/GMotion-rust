@@ -732,7 +732,7 @@ fn ruleaza() -> Result<(), String> {
                 return;
             }
             if let Some(p) = st.parte(sursa) {
-                p.stare = StareConexiune::SeConecteaza;
+                p.stare = StareConexiune::SeCauta;
             }
             st.cautare_servere = Some((
                 sursa,

@@ -1287,7 +1287,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
     use model_conectare::StareConexiune;
     let fel = |s: &StareConexiune| match s {
         StareConexiune::Neincercat => 0,
-        StareConexiune::SeConecteaza => 1,
+        StareConexiune::SeConecteaza | StareConexiune::SeCauta => 1,
         StareConexiune::Conectat(_) => 2,
         StareConexiune::Eroare(_) => 3,
     };
@@ -1344,6 +1344,17 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         &t.get_modificata_explicatie(),
     ));
     ui.set_certificat(c.text_certificat_in(limba_curenta(ui)).into());
+    ui.set_nota_instanta(
+        if c.aceeasi_instanta() {
+            limba_curenta(ui).alege(
+                "Martorul si modificata sunt pe aceeasi instanta",
+                "The witness and the modified database are on the same instance",
+            )
+        } else {
+            ""
+        }
+        .into(),
+    );
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
     ui.set_ce_lipseste(
@@ -2467,6 +2478,25 @@ mod teste {
         aplica_tema(&ui, Mod::Luminos);
         aplica_limba(&ui, texte::Limba::default());
         ui
+    }
+
+    /// 15 F: ecranul spune cand martorul si modificata sunt pe aceeasi
+    /// instanta, si cand cautarea in retea inca ruleaza.
+    #[test]
+    fn conectarea_spune_aceeasi_instanta_si_cautarea_in_curs() {
+        use model_conectare::{Conectare, StareConexiune};
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        c.sursa.server = "srv-prod.firma.local".into();
+        c.baza.server = "SRV-PROD,1433".into();
+        incarca_conectare(&ui, &c);
+        assert!(ui.get_nota_instanta().contains("aceeasi instanta"));
+        c.baza.server = "SRV-TEST".into();
+        c.sursa.stare = StareConexiune::SeCauta;
+        incarca_conectare(&ui, &c);
+        assert_eq!(ui.get_nota_instanta(), "");
+        assert_eq!(ui.get_sursa().stare, "se cauta servere in retea…");
+        assert_eq!(ui.get_sursa().fel_stare, 1, "ca o operatie in curs");
     }
 
     #[test]

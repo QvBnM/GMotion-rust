@@ -452,6 +452,8 @@ export component FereastraConectare inherits Window {
     in property <ParteUi> sursa;
     in property <ParteUi> baza;
     in property <string> certificat;
+    // gol, sau ca martorul si modificata sunt pe aceeasi instanta (15 F)
+    in property <string> nota-instanta;
     in property <string> instantaneu;
     in property <[RecentaUi]> recente;
     /// Ce lipseste ca sa se poata compara; gol = se poate.
@@ -616,6 +618,17 @@ export component FereastraConectare inherits Window {
                     alignment: center;
                     horizontal-stretch: 0;
                     Text { text: root.certificat; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                }
+                if root.nota-instanta != "": VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+                    Rectangle {
+                        height: 24px;
+                        width: nota.preferred-width + 16px;
+                        border-radius: 6px;
+                        background: Tema.mod-fundal;
+                        nota := Text { text: root.nota-instanta; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.mod-text; }
+                    }
                 }
                 VerticalLayout {
                     alignment: center;
