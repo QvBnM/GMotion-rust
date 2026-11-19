@@ -1815,7 +1815,8 @@ fn ruleaza() -> Result<(), String> {
         let c = comanda.clone();
         editor_ui.on_cauta(move |t| {
             actiune("editor", "cauta", &format!("{:?}", (&t,)), false);
-            c(Comanda::Cauta(t.to_string()))
+            // doar arborele din coloana: obiectul deschis ramane
+            c(Comanda::CautaInArbore(t.to_string()))
         });
         let e = editor_ui.as_weak();
         let d = deseneaza.clone();

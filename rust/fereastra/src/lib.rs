@@ -444,6 +444,10 @@ fn randuri_ui(
             randuri.push(r);
         }
     };
+    // un obiect fara nicio diferenta se arata intreg: pliat, ramanea un
+    // singur rand („5 linii identice") si nu se vedea codul deloc (Mihai,
+    // 2026-11-19: „vreau sa vad indiferent")
+    let pliat = pliat && !model.diferente.is_empty();
     let afisate = if pliat {
         model_editor::plieaza(model, 3, limba)
     } else {
@@ -3370,6 +3374,27 @@ mod teste {
     /// Etapa 19: linia se rupe dupa un spatiu, iar o bucata care trece de
     /// margine se taie cu culoarea ei;
     /// tabul ocupa 4 coloane; fara wrap linia ramane intreaga.
+    /// Proba pe Windows: un obiect identic se plia intr-un singur rand si nu
+    /// i se vedea codul. Fara diferente nu se pliaza nimic.
+    #[test]
+    fn obiectul_identic_isi_arata_tot_codul() {
+        let t = "CREATE PROC dbo.p AS\nSELECT 1\nSELECT 2\nSELECT 3\nSELECT 4";
+        let model = model_editor::construieste(t, t);
+        let (randuri, _) = randuri_ui(&model, true, false, texte::Limba::Romana, None);
+        assert_eq!(randuri.len(), 5, "toate liniile, nu o pliere");
+        assert!(randuri.iter().all(|r| r.fel == 0 && !r.st_nr.is_empty()));
+        // cu o diferenta, plierea ramane (destule linii identice cat sa
+        // treaca de cele 3 de context)
+        let lung: String = (1..=12).map(|i| format!("\nSELECT {i}")).collect();
+        let a = format!("CREATE PROC dbo.p AS{lung}");
+        let model = model_editor::construieste(&a, &a.replace("SELECT 12", "SELECT 99"));
+        let (randuri, _) = randuri_ui(&model, true, false, texte::Limba::Romana, None);
+        assert!(
+            randuri.iter().any(|r| r.fel == 1),
+            "contextul identic se pliaza"
+        );
+    }
+
     #[test]
     fn linia_se_rupe_la_margine_cu_bucatile_ei() {
         let b = |t: &str, schimbat: bool| Bucata {

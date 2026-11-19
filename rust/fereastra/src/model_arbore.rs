@@ -73,6 +73,11 @@ type DosarCuPozitii = (Dosar, Vec<usize>);
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Arbore {
     inchise: BTreeSet<String>,
+    /// Cautarea din capul coloanei editorului: filtreaza doar arborele, nu
+    /// si lista. Altfel obiectul deschis se schimba la fiecare tasta (proba
+    /// pe Windows, 2026-11-19: cu o cautare fara rezultat, editorul ramanea
+    /// fara obiect).
+    cautare: String,
 }
 
 fn cheie_baza(baza: &str) -> String {
@@ -91,8 +96,19 @@ impl Arbore {
         }
     }
 
+    /// Nodul se arata deschis. Cat timp se cauta, toate sunt deschise: ce
+    /// s-a gasit trebuie sa se vada, oricat de adanc ar fi.
     pub fn deschis(&self, cheie: &str) -> bool {
-        !self.inchise.contains(cheie)
+        !self.cautare.is_empty() || !self.inchise.contains(cheie)
+    }
+
+    /// Textul cautat in arbore (fara majuscule, in `schema.nume` si in baza).
+    pub fn cauta(&mut self, text: &str) {
+        self.cautare = text.trim().to_lowercase();
+    }
+
+    pub fn cautare(&self) -> &str {
+        &self.cautare
     }
 
     /// Deschide baza si dosarul obiectului de pe `pozitie` (selectat cu
@@ -112,6 +128,12 @@ impl Arbore {
         let mut baze: Vec<(String, Vec<DosarCuPozitii>)> = Vec::new();
         for (p, &i) in lista.vizibile().iter().enumerate() {
             let o = &lista.obiecte()[i];
+            if !self.cautare.is_empty()
+                && !o.id().to_lowercase().contains(&self.cautare)
+                && !o.baza.to_lowercase().contains(&self.cautare)
+            {
+                continue;
+            }
             let b = match baze.iter().position(|(n, _)| *n == o.baza) {
                 Some(b) => b,
                 None => {
@@ -276,6 +298,28 @@ mod teste {
                 "  Proceduri 1",
                 "    dbo.usp_c 0"
             ]
+        );
+    }
+
+    #[test]
+    fn cautarea_filtreaza_doar_arborele_si_deschide_tot() {
+        let l = lista();
+        let mut a = Arbore::default();
+        a.comuta("b:B2");
+        a.cauta("TRG");
+        let n = a.noduri(&l, Limba::Romana);
+        assert_eq!(
+            rezumat(&n),
+            ["B2 1", "  Triggere 1", "    dbo.trg_a 0"],
+            "gasit si in baza inchisa"
+        );
+        assert_eq!(l.vizibile().len(), 6, "lista nu se atinge");
+        a.cauta("nu-exista");
+        assert!(a.noduri(&l, Limba::Romana).is_empty());
+        a.cauta("");
+        assert!(
+            !a.deschis("b:B2"),
+            "dupa cautare, nodul inchis ramane inchis"
         );
     }
 

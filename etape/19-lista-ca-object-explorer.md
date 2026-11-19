@@ -105,5 +105,10 @@ previzualizare exista un buton de wrap.
   separat), arborele in coloana editorului, wrap-ul in editor, detaliile pe
   alt fir. `MutaInArbore` a iesit; `j` / `k` din lista merg iar pe tabel.
 
+- **2026-11-19** Proba: cautarea din coloana editorului filtra lista, deci
+  schimba obiectul deschis la fiecare tasta (si il pierdea la o cautare fara
+  rezultat). Acum filtreaza doar arborele (`CautaInArbore`). Obiectele fara
+  diferente nu se mai pliaza: se vede tot codul.
+
 ## Ce a iesit altfel decat planul
 

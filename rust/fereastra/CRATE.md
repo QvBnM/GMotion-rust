@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: acc1fbcd85094adb -->
+<!-- api-hash: 3df0607a743e900b -->
 
 ## Rol
 
@@ -42,7 +42,7 @@ si editorul de diferente (etapa 8).
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `model_lista::Lista::{selecteaza_cheie, chei_vizibile}` | selectia dupa cheie (tabul activat; goleste filtrul daca il ascunde) si ordinea curenta pentru `j` / `k` |
 | `RandUi::{continuare, st_lipsa, dr_lipsa}`; in `.slint`, `impacheteaza` si `coloane-wrap` (editor) | wrap: linia lunga continua pe randuri fara numar, rupta la cuvant; partea mai scurta primeste randuri goale, deci stanga si dreapta raman aliniate |
-| `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_coloana_lista(ui, lista, arbore)`, `NodUi` | arborele ca Object Explorer, in coloana din stanga editorului: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari |
+| `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_coloana_lista(ui, lista, arbore)`, `NodUi` | arborele ca Object Explorer, in coloana din stanga editorului: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari; `Arbore::cauta` filtreaza doar arborele (cautarea din coloana), cu toate nodurile deschise cat se cauta |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_la, picteaza_bara, picteaza_bara_la, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}` | harta (`h` din lista, ecran separat): o coloana pe tip, latimi apropiate (`n^0,25`), bara de proportie, patrate pe blocuri de 5 randuri pictate la pixelii fizici, zoom pe trepte ca sa intre in ecran; clic → rand |
 | `incarca_harta(ui, selectat)`, `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | harta in fereastra: deschiderea, reasezarea la redimensionare, bula; calculul patratului e doar in `harta::indice_la` |
 | `model_lista::Lista::{pune_detalii_cheie, chei_fara_detalii}` | detaliile calculate pe alt fir, puse dupa cheie (filtrul se poate schimba intre timp) |

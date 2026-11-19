@@ -29,6 +29,9 @@ pub enum Ecran {
 pub enum Comanda {
     /// Deschide / inchide un nod din arborele listei (cheia din `Nod`).
     ComutaNod(String),
+    /// Cautarea din coloana editorului: filtreaza doar arborele; obiectul
+    /// deschis si lista raman cum sunt.
+    CautaInArbore(String),
     MutaSelectia(i32),
     Selecteaza(usize),
     /// Clic pe un rand (sau pe patratul lui de pe harta): il selecteaza si
@@ -740,6 +743,10 @@ impl Aplicatie {
             self.arbore.comuta(cheie);
             return false;
         }
+        if let Comanda::CautaInArbore(text) = &c {
+            self.arbore.cauta(text);
+            return false;
+        }
         let inainte = self.lista.selectat();
         let rez = self.executa(c);
         // obiectul selectat (j / k, tab, alt ecran) nu sta intr-un dosar inchis
@@ -972,7 +979,7 @@ impl Aplicatie {
             }
             Comanda::GhidatSari => self.sari_ghidat(),
             // tratata in `comanda`, inainte
-            Comanda::ComutaNod(_) => {}
+            Comanda::ComutaNod(_) | Comanda::CautaInArbore(_) => {}
         }
         false
     }
@@ -1393,6 +1400,38 @@ mod teste {
                 .collect()
         };
         assert_eq!(detalii(&app), detalii(&pe_loc));
+    }
+
+    /// Proba pe Windows (2026-11-19): cautarea din coloana editorului
+    /// schimba obiectul deschis la fiecare tasta, iar una fara rezultat il
+    /// pierdea. Acum filtreaza doar arborele.
+    #[test]
+    fn cautarea_din_editor_nu_schimba_obiectul_deschis() {
+        use gmotion_fereastra::texte::Limba;
+        let mut a = aplicatie();
+        a.comanda(Comanda::Selecteaza(0));
+        a.comanda(Comanda::Deschide);
+        let deschis = a.cheia_curenta();
+        let vizibile = a.lista().vizibile().len();
+        for t in ["pB", "zzz", "das\\", ""] {
+            a.comanda(Comanda::CautaInArbore(t.into()));
+            assert_eq!(a.cheia_curenta(), deschis, "cautand {t:?}");
+            assert_eq!(a.taburi().cheie_activa(), deschis.as_ref());
+            assert_eq!(
+                a.lista().vizibile().len(),
+                vizibile,
+                "lista nu se filtreaza"
+            );
+        }
+        a.comanda(Comanda::CautaInArbore("pB".into()));
+        let obiecte: Vec<String> = a
+            .arbore()
+            .noduri(a.lista(), Limba::Romana)
+            .iter()
+            .filter(|n| n.pozitie.is_some())
+            .map(|n| n.eticheta.clone())
+            .collect();
+        assert_eq!(obiecte, ["dbo.pB"]);
     }
 
     #[test]
