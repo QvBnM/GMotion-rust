@@ -82,11 +82,26 @@ impl ArgumenteSursa {
                     },
                     auth,
                 )
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| e.to_string())?
+                .cu_timeout_conectare(std::time::Duration::from_secs(timeout_conectare_s()));
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc de pe server");
                 Ok(Box::new(s))
             }
             (None, None) => Err("da ori --server <SERVER>, ori --sursa <instantaneu.json>".into()),
+        }
+    }
+}
+
+/// `timeout_conectare_s` din configurare (F-B5). O configurare care nu se
+/// citeste nu opreste comanda: se spune in jurnal si ramane implicitul.
+fn timeout_conectare_s() -> u64 {
+    match gmotion_platforma::cai::cale_configurare()
+        .and_then(gmotion_platforma::Configurare::citeste)
+    {
+        Ok(c) => c.timeout_conectare_s,
+        Err(e) => {
+            tracing::warn!(target: "gmotion::cli", eroare = %e, "configurarea nu se citeste; timeout de conectare implicit");
+            gmotion_platforma::Configurare::default().timeout_conectare_s
         }
     }
 }

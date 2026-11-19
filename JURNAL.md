@@ -1142,7 +1142,8 @@ unde se citeste, nu una dintre parti.
   „Cate N obiecte per fisier" se schimba din ecran; „In plan" refuzat (obiect
   nedeployabil) spune de ce.
 - **F-B5, setarile moarte:** `timeout_conectare_s` si `prag_similaritate` se
-  leaga; `uneste_cursor` se scoate (ciclul de cursor se uneste mereu).
+  leaga; `uneste_cursor` se scoate. **Corectat la implementare** (vezi mai
+  jos).
 - **`DROP`:** deploy-ul nu sterge obiecte; `extra` se sar, ca in v3.4.
 - **„Ruleaza":** GMotion doar scrie `.sql`; rularea ramane in SSMS / sqlcmd.
 - **Ordinea:** se incheie etapa 15, apoi design-ul nou al conectarii, apoi
@@ -1160,6 +1161,31 @@ tip; ca sa urmeze limba ar trebui duse tipate pana in ecran, prin `db`,
 `platforma`, modul si `app` — o schimbare mare pentru texte care se citesc
 rar si se cauta dupa cod. Codul ramane stabil, deci un mesaj in romana se
 gaseste oricum. Jurnalul e pentru depanare, nu pentru utilizator.
+
+---
+
+## 2026-11-19 — F-B5 si F-M3, cum s-au facut
+
+**F-B5, abatere de la decizie, cu motiv.** Configurarea are
+`deny_unknown_fields`, iar butoanele de tema si limba rescriu fisierul cu toate
+campurile, deci aproape orice `configurare.json` existent contine
+`uneste_cursor` si `prag_similaritate`. Scos din structura, oricare din ele
+ar fi facut fisierul „stricat" la prima pornire. Deci:
+`uneste_cursor` **se leaga** (cum porneste comutatorul din editor la fiecare
+comparare), iar `prag_similaritate` **ramane citit, dar fara efect si nu se
+mai scrie** (`skip_serializing`): n-a avut corespondent in v3.4, deci n-avea
+ce comportament sa reia. `timeout_conectare_s` merge in `cli` si in
+fereastra.
+
+**F-M3.** Doua parti. (1) Bug: hinturile se stergeau oriunde apareau ca
+cuvant (`@nolock` -> `@`, `SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`
+disparea); acum doar in pozitie de hint (`WITH (...)`, `tabela (...)`).
+Conformitatea cu JS nu s-a miscat: fixture-ul nu avea astfel de cazuri.
+(2) Decizia: semnatura hinturilor (`core::hinturi`) se compara separat; un
+obiect egal la normalizare dar cu alte hinturi iese `Diferit`, cu „difera in:
+hinturi". In editor diferenta nu se vede ca bloc (normalizarea o uneste),
+dar obiectul se poate pune in plan, si deploy-ul duce textul exact.
+Paritatea cu v3.4 are o asteptare noua (`hint_lock_cosmetic`).
 
 ---
 

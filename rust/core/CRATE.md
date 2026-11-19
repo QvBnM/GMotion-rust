@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 68b8cde52ddd893e -->
+<!-- api-hash: f97b1d2a5de1c22f -->
 
 ## Rol
 
@@ -36,6 +36,7 @@ proiectul.
 | `pregateste_afisare(cod)` | forma pentru afisare, pastreaza structura |
 | `unifica_linii(cod)` | normalizeaza terminatorii de linie |
 | `calc_hash(normalizat)` | SHA-256 hex al formei normalizate |
+| `hinturi(cod)` | hinturile de blocare din pozitia de hint, in ordine; normalizarea le sterge, asta le deosebeste (F-M3) |
 | `scor_similaritate(ref, cur)` | procent 0-100 |
 | `scor_pe_tokeni(a, b)` | acelasi scor, pe token-uri deja calculate |
 | `tokeni_scor(text)` | token-izare folosita de scor |

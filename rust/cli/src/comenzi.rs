@@ -322,7 +322,7 @@ fn detalii_randuri(r: &Rulare) -> afisare::Detalii {
         ) else {
             continue;
         };
-        let setari = modul::setari_diferite(a.setari, b.setari);
+        let setari = modul::diferente_ascunse(a, b);
         rez.insert(
             rand.id,
             modul::detalii_obiect(&a.afisare, &b.afisare, &setari),

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 8e0065e8db67e1ac -->
+<!-- api-hash: ec4cba4a2d1d7a2a -->
 
 ## Rol
 
@@ -49,7 +49,7 @@ si editorul de diferente (etapa 8).
 | `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
 | `latime_autofit(lista, coloana)` | latimea ceruta de o coloana la dublu clic pe marginea capului |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente |
-| `model_editor::plieaza(model, context) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
+| `model_editor::plieaza(model, context, limba) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
 | `model_lista`: `Deploy`, `FiltruRevizuire`, `filtreaza_revizuire`, `filtreaza_scor`, `pune_vizibilele_in_plan`, `pune_deploy`, `progres_deploy`; `Ordine` pe orice coloana, sensul in `descrescator()` | lista la paritate cu v3.4 (etapa 14, C — modelul; ecranul inca nu) |
 | `model_editor::marcheaza_textul_final(model, baza, final, manual)`, `Marcaj` | liniile din baza aduse din sursa sau scrise de tine |
 | `incarca_editarea(ui, &StareEditare)` | starea editarii in editor: omis, text final, Ctrl+Z, modul ghidat, ce copiaza „Copiaza" |

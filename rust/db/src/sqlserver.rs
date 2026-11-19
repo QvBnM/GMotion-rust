@@ -124,6 +124,13 @@ impl SursaSqlServer {
         })
     }
 
+    /// Cat se asteapta deschiderea conexiunii; implicit 30 s, ca in v3.4.
+    /// Vine din `timeout_conectare_s` din configurare (F-B5).
+    pub fn cu_timeout_conectare(mut self, d: Duration) -> Self {
+        self.timeout_conectare = d;
+        self
+    }
+
     fn configuratie(&self, baza: &str, gazda: &str, port: u16) -> Rezultat<Config> {
         valideaza_baza(baza)?;
         let mut c = Config::new();
@@ -828,8 +835,8 @@ mod teste {
             let _c = listener.accept();
             std::thread::sleep(Duration::from_secs(10));
         });
-        let mut s = sql("127.0.0.1", Some(port));
-        s.timeout_conectare = Duration::from_secs(1);
+        // prin `cu_timeout_conectare`, ca din configurare (F-B5)
+        let mut s = sql("127.0.0.1", Some(port)).cu_timeout_conectare(Duration::from_secs(1));
         let start = std::time::Instant::now();
         let e = s.baze().unwrap_err();
         assert!(

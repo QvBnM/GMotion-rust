@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 87ceb1c6820ea7f2 -->
+<!-- api-hash: fa663677e1c8893e -->
 
 ## Rol
 
@@ -39,6 +39,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul (calculat lenes, o data per comparare) si nota (`PuneNota`) |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
 | `Aplicatie::plan(referinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii; acopera toate bazele comparate |
+| `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |
 | `deploy::StareDeploy` (`nou`, `pasi_in_ordine`, `aplica_verificarea(referinta, tinte, la)`, `verificare_esuata`, `poate_scrie`, `scrie(director, acum, texte_finale)`, `alege_impartirea`) | ecranul de deploy: garda pe obiectele recitite, scrierea cu revenirea inainte, aceleasi functii ca `gmotion deploy --plan`; textele finale se dau **la scriere** |

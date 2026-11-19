@@ -90,15 +90,14 @@ vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
 3. ~~**H3** cadere si ecrane~~ — gata (2026-11-19).
 4. ~~**H4** inghetari~~ — gata (2026-11-19).
 5. ~~**H5** restul auditului~~ — gata (2026-11-19).
-6. **15 E** ce a ramas: textele facute in Rust in afara ferestrei
-   (`core::nume_tip`, `core::clasificare`, rezumatele de deploy, erorile) si
-   in engleza. („Martor" / „Modificata" in `cli` si `README.md`: gata.)
+6. ~~**15 E**~~ — gata (2026-11-19); erorile si jurnalul raman in romana,
+   deliberat (`JURNAL.md`).
 7. **15 B** marginea dintre lista si editor trasa cu mouse-ul.
 8. **15 C** incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
    comutatorul Alaturat / Unificat, liniile lungi.
 9. **15 D** harta: desen curat, 4.000 de obiecte, timpii masurati.
 10. **15 F** cautarea de servere vizibila; marcajul „aceeasi instanta".
-11. Deciziile din audit (F-M3, F-A18, F-B5), cum s-au decis in `JURNAL.md`.
+11. ~~Deciziile din audit (F-M3, F-A18, F-B5)~~ — gata (2026-11-19).
 12. Incheierea etapei 15: capturi, poarta completa, `STARE.md`, `JURNAL.md`.
 13. Design-ul nou al conectarii (macheta de la Mihai).
 14. **Etapa 16** (`etape/16-lista-si-taburi.md`, NEPORNITA): lista din

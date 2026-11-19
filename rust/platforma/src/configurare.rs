@@ -19,14 +19,19 @@ use crate::eroare::{Eroare, Rezultat};
 pub struct Configurare {
     /// Cat se asteapta raspunsurile la descoperirea instantelor, in milisecunde.
     pub timeout_descoperire_ms: u64,
-    /// Cat se asteapta deschiderea unei conexiuni, in secunde.
+    /// Cat se asteapta deschiderea unei conexiuni, in secunde. Il folosesc
+    /// `cli` si fereastra la fiecare conexiune (F-B5).
     pub timeout_conectare_s: u64,
-    /// Sub ce procent de similaritate un obiect se considera „modificat
-    /// substantial". Doar pentru prezentare; nu schimba clasificarea.
+    /// **Fara efect** (F-B5): nu avea corespondent in v3.4 si nimic nu-l
+    /// citea. Ramane doar ca fisierele scrise de versiunile vechi, care il
+    /// contin, sa se citeasca in continuare (`deny_unknown_fields`); nu se
+    /// mai scrie.
+    #[serde(skip_serializing)]
     pub prag_similaritate: f64,
     /// Cate obiecte intr-un script de deploy, inainte de a-l imparti.
     pub obiecte_per_script: usize,
-    /// Uneste ciclul de cursor la segmentare (comutatorul din interfata).
+    /// Cum porneste comutatorul „Uneste ciclul cursor" din editor, la fiecare
+    /// comparare (F-B5).
     pub uneste_cursor: bool,
     /// Modul ferestrei ales ultima data: `intunecat`, `luminos`, sau gol
     /// (implicitul aplicatiei). Il scrie butonul de tema din fereastra.
@@ -273,6 +278,27 @@ mod teste {
         let c = Configurare::citeste(&cale).unwrap();
         assert_eq!(c.obiecte_per_script, 50);
         assert_eq!(c.timeout_conectare_s, 30, "restul ramane implicit");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-B5: `prag_similaritate` nu mai are efect si nu se mai scrie, dar un
+    /// fisier vechi care il contine se citeste in continuare.
+    #[test]
+    fn pragul_vechi_se_citeste_dar_nu_se_mai_scrie() {
+        let d = std::env::temp_dir().join(format!("gmotion-cfg-prag-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("configurare.json");
+        std::fs::write(
+            &cale,
+            r#"{"prag_similaritate": 80.0, "uneste_cursor": true}"#,
+        )
+        .unwrap();
+        let c = Configurare::citeste(&cale).expect("fisierul vechi se citeste");
+        assert!(c.uneste_cursor);
+        c.scrie(&cale).unwrap();
+        let text = std::fs::read_to_string(&cale).unwrap();
+        assert!(!text.contains("prag_similaritate"), "{text}");
+        assert!(text.contains("uneste_cursor"), "{text}");
         std::fs::remove_dir_all(&d).ok();
     }
 }

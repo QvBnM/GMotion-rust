@@ -185,7 +185,10 @@ pub fn eticheta_in(c: Clasificare, setari: &[&str], l: Limba) -> String {
             .to_string(),
         );
     }
-    parti.extend(setari.iter().map(|s| s.to_string()));
+    parti.extend(setari.iter().map(|s| match *s {
+        "hinturi" => l.alege("hinturi", "hints").to_string(),
+        alt => alt.to_string(),
+    }));
     if parti.is_empty() {
         "—".to_string()
     } else {
@@ -217,6 +220,7 @@ pub fn traduce_eticheta(ro: &str, l: Limba) -> String {
             "siruri" => "strings",
             "comentariu" => "comment",
             "comentarii" => "comments",
+            "hinturi" => "hints",
             alt => alt,
         })
         .collect::<Vec<_>>()
@@ -487,7 +491,7 @@ mod teste {
                         siruri,
                         comentarii,
                     };
-                    for setari in [&[][..], &["QUOTED_IDENTIFIER"][..]] {
+                    for setari in [&[][..], &["QUOTED_IDENTIFIER"][..], &["hinturi"][..]] {
                         assert_eq!(
                             traduce_eticheta(&eticheta(c, setari), Limba::Engleza),
                             eticheta_in(c, setari, Limba::Engleza),

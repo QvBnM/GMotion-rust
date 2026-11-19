@@ -38,8 +38,16 @@ pub fn deschide(c: &Conectare, p: &Parte) -> Result<Box<dyn SursaObiecte>, Strin
         },
         auth,
     )
-    .map(|s| Box::new(s) as Box<dyn SursaObiecte>)
+    .map(|s| Box::new(cu_timeout(c, s)) as Box<dyn SursaObiecte>)
     .map_err(|e| e.to_string())
+}
+
+/// `timeout_conectare_s` din configurare, daca e dat (F-B5).
+fn cu_timeout(c: &Conectare, s: SursaSqlServer) -> SursaSqlServer {
+    match c.timeout_conectare_s {
+        Some(n) => s.cu_timeout_conectare(std::time::Duration::from_secs(n)),
+        None => s,
+    }
 }
 
 /// Ce alege ecranul ajunge in conexiune. Pana la 2026-11-18 aici era mereu
@@ -176,6 +184,7 @@ pub fn testeaza(c: &Conectare, p: &Parte) -> Result<String, String> {
         },
         auth,
     )
+    .map(|s| cu_timeout(c, s))
     .map_err(|e| e.to_string())?;
     // `master` exista pe orice server si nu cere drepturi pe bazele
     // utilizatorului: altfel „Testeaza" ar cadea acolo unde conectarea merge

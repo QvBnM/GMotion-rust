@@ -11,7 +11,9 @@
 
 use std::collections::BTreeMap;
 
-use gmotion_core::{calc_hash, normalizeaza, pregateste_afisare, rezumat_rapid, scor_similaritate};
+use gmotion_core::{
+    calc_hash, hinturi, normalizeaza, pregateste_afisare, rezumat_rapid, scor_similaritate,
+};
 use gmotion_db::{Obiect, Setari};
 use serde::{Deserialize, Serialize};
 
@@ -99,6 +101,9 @@ pub struct ObiectPregatit {
     pub setari: Option<Setari>,
     pub afisare: String,
     pub hash: String,
+    /// Hinturile de blocare (`gmotion_core::hinturi`): normalizarea le sterge,
+    /// deci un obiect care difera doar prin ele ar iesi identic (F-M3).
+    pub hinturi: String,
 }
 
 impl ObiectPregatit {
@@ -110,6 +115,7 @@ impl ObiectPregatit {
             setari: o.setari,
             afisare: pregateste_afisare(&o.definitie),
             hash: calc_hash(&normalizat),
+            hinturi: hinturi(&o.definitie),
         }
     }
 }
@@ -130,6 +136,17 @@ pub fn setari_diferite(a: Option<Setari>, b: Option<Setari>) -> Vec<&'static str
     }
     if a.ansi_nulls != b.ansi_nulls {
         v.push("ANSI_NULLS");
+    }
+    v
+}
+
+/// Ce difera intre doua versiuni fara sa se vada in textul normalizat: setarile
+/// de creare si hinturile de blocare (`hinturi`). Apare in „Difera in" ca o
+/// eticheta proprie, ca setarile.
+pub fn diferente_ascunse(a: &ObiectPregatit, b: &ObiectPregatit) -> Vec<&'static str> {
+    let mut v = setari_diferite(a.setari, b.setari);
+    if a.hinturi != b.hinturi {
+        v.push("hinturi");
     }
     v
 }
@@ -260,7 +277,7 @@ pub fn compara(
                 // `QUOTED_IDENTIFIER OFF` un `"a"` e sir, cu ON e coloana.
                 // Nu se vede in text, deci pana la auditul QA (C6) obiectul
                 // era numarat identic si nu se putea deploia.
-                let setari = setari_diferite(r.setari, c.setari);
+                let setari = diferente_ascunse(r, c);
                 if setari.is_empty() {
                     n.identice += 1;
                     continue;
@@ -272,7 +289,7 @@ pub fn compara(
                     baza: baza.clone(),
                     // textul e acelasi: un procent de similaritate ar minti
                     scor: None,
-                    rezumat: format!("difera doar setarile: {}", setari.join(", ")),
+                    rezumat: format!("difera doar in: {}", setari.join(", ")),
                     tip: r.tip.clone(),
                     categorie: Categorie::Diferit,
                     hash_referinta: Some(r.hash.clone()),
@@ -537,6 +554,34 @@ mod teste {
     /// C6 din `cercetare/audit-qa-2026-11-18.md`: acelasi text cu alt
     /// `QUOTED_IDENTIFIER` se numara „identic", deci nu apare in lista si nu
     /// se poate deploia. Cu QI OFF, `"a"` e un sir; cu ON, o coloana — alt
+    /// F-M3 (decizia lui Mihai): hinturile raman zgomot la comparare, dar un
+    /// obiect care difera **doar** prin ele nu mai iese identic: o reparatie
+    /// de concurenta (`UPDLOCK, HOLDLOCK`) nu s-ar fi deployat niciodata.
+    #[test]
+    fn diferenta_doar_in_hinturi_nu_e_identic() {
+        let o = |def: &str| {
+            pregateste(&[Obiect {
+                schema: "dbo".into(),
+                nume: "pH".into(),
+                tip: "P".into(),
+                definitie: def.into(),
+                setari: None,
+            }])
+        };
+        let r = o("CREATE PROC dbo.pH AS SELECT a FROM t WITH (NOLOCK)");
+        let t = o("CREATE PROC dbo.pH AS SELECT a FROM t WITH (UPDLOCK, HOLDLOCK)");
+        assert_eq!(r["dbo.pH"].hash, t["dbo.pH"].hash, "la normalizare, zgomot");
+        let c = compara("Ref", &r, &[("Tinta".to_string(), t.clone())], |_| {});
+        assert_eq!(c.numaratoare.identice, 0);
+        assert_eq!(c.randuri[0].categorie, Categorie::Diferit);
+        assert_eq!(c.randuri[0].rezumat, "difera doar in: hinturi");
+        assert_eq!(diferente_ascunse(&r["dbo.pH"], &t["dbo.pH"]), ["hinturi"]);
+        // acelasi hint, scris altfel: tot identic
+        let t2 = o("create proc dbo.pH as select a from t with ( nolock )");
+        let c = compara("Ref", &r, &[("Tinta".to_string(), t2)], |_| {});
+        assert_eq!(c.numaratoare.identice, 1);
+    }
+
     /// comportament la executie, pe ~21% din obiectele serverului real.
     #[test]
     fn acelasi_text_cu_alte_setari_e_diferit_nu_identic() {

@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: c041df46a21e7ea0 -->
+<!-- api-hash: ee493aef25f3f781 -->
 
 ## Rol
 
@@ -47,6 +47,7 @@ se testeaza fara SQL Server.
 | Tip | Ce e |
 |---|---|
 | `SursaSqlServer::nou(tinta, auth)` | baza reala. Nu se conecteaza la construire, doar valideaza |
+| `SursaSqlServer::cu_timeout_conectare(durata)` | cat se asteapta conexiunea (implicit 30 s); din `timeout_conectare_s` (F-B5) |
 | `SursaSqlServer::verifica(baza)` | test de conexiune, intoarce `InfoServer` |
 | `SursaFixture::din_fisier(cale)` / `din_instantaneu(i)` | instantaneu |
 | `Instantaneu::nou/scrie/citeste` | formatul de instantaneu, versiune `1` |

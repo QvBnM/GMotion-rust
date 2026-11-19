@@ -35,8 +35,17 @@ static RE_WITH_HINTURI: Lazy<Regex> = Lazy::new(|| {
     ))
     .unwrap()
 });
-static RE_HINTURI: Lazy<Regex> =
-    Lazy::new(|| Regex::new(&format!(r"(?i)\b(?:{h})\b", h = HINTURI)).unwrap());
+// Doar in pozitie de hint: `tabela (NOLOCK)`, `(UPDLOCK, HOLDLOCK)`. Inainte
+// se stergea orice cuvant din lista, oriunde: `@nolock` devenea `@`, `#nowait`
+// devenea `#`, iar `SET TRANSACTION ISOLATION LEVEL SERIALIZABLE` disparea
+// (F-M3 din auditul QA).
+static RE_HINTURI: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(&format!(
+        r"(?i)\(\s*(?:{h})(?:\s*,\s*(?:{h}))*\s*\)",
+        h = HINTURI
+    ))
+    .unwrap()
+});
 // `dbo.` se sterge doar cand e prima parte a numelui: in `Sales.dbo.Orders`
 // (baza.schema.tabel) nu e prefix, si stergerea il facea egal cu
 // `Sales.Orders` (schema.tabel). Crate-ul `regex` nu are lookbehind, deci
@@ -125,6 +134,42 @@ pub fn norm(s: &str) -> String {
     }
     rez.push_str(rest);
     rez
+}
+
+/// Hinturile de blocare din cod, in ordine, fara spatii si cu majuscule:
+/// `WITH(UPDLOCK,HOLDLOCK);(NOLOCK)`. Normalizarea le sterge (sunt zgomot la
+/// comparare), deci doua obiecte care difera **doar** prin ele au acelasi
+/// hash; asta le deosebeste, ca sa nu iasa „identice" (F-M3: o reparatie de
+/// concurenta nu se deployeaza niciodata). Ce e in siruri si comentarii nu
+/// conteaza.
+pub fn hinturi(s: &str) -> String {
+    let mut cod = String::with_capacity(s.len());
+    for seg in crate::lexer::segmente(s) {
+        match seg.fel {
+            Fel::Cod => cod.push_str(&s[seg.start..seg.sfarsit]),
+            _ => cod.push(' '),
+        }
+    }
+    let mut gasite: Vec<(usize, String)> = Vec::new();
+    let curat = |t: &str| -> String {
+        t.chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>()
+            .to_uppercase()
+    };
+    for m in RE_WITH_HINTURI.find_iter(&cod) {
+        gasite.push((m.start(), curat(m.as_str())));
+    }
+    let fara_with = RE_WITH_HINTURI.replace_all(&cod, |c: &regex::Captures| " ".repeat(c[0].len()));
+    for m in RE_HINTURI.find_iter(&fara_with) {
+        gasite.push((m.start(), curat(m.as_str())));
+    }
+    gasite.sort();
+    gasite
+        .into_iter()
+        .map(|(_, t)| t)
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 /// Unifica terminatoarele de linie, apoi normalizeaza.
@@ -469,5 +514,44 @@ mod teste {
             scor_similaritate("SELECT a FROM t", "SELECT a FROM t"),
             100.0
         );
+    }
+
+    /// F-M3: hinturile se scot doar din pozitia de hint. Inainte, `@nolock`
+    /// devenea `@`, iar o schimbare de nivel de izolare iesea „identica".
+    #[test]
+    fn hinturile_se_scot_doar_din_pozitia_de_hint() {
+        assert_eq!(
+            normalizeaza("SELECT a FROM t WITH (NOLOCK) JOIN u (NOLOCK) ON 1=1"),
+            normalizeaza("SELECT a FROM t JOIN u ON 1=1")
+        );
+        assert!(normalizeaza("DECLARE @nolock INT").contains("@nolock"));
+        assert!(normalizeaza("SELECT * INTO #nowait FROM t").contains("#nowait"));
+        assert_ne!(
+            normalizeaza("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"),
+            normalizeaza("SET TRANSACTION ISOLATION LEVEL")
+        );
+    }
+
+    #[test]
+    fn semnatura_hinturilor_deosebeste_ce_normalizarea_uneste() {
+        let a = "SELECT a FROM t WITH (NOLOCK)";
+        let b = "SELECT a FROM t WITH (UPDLOCK, HOLDLOCK)";
+        assert_eq!(
+            normalizeaza(a),
+            normalizeaza(b),
+            "la comparare raman zgomot"
+        );
+        assert_eq!(hinturi(a), "WITH(NOLOCK)");
+        assert_eq!(hinturi(b), "WITH(UPDLOCK,HOLDLOCK)");
+        assert_eq!(
+            hinturi("SELECT 1 FROM t (nolock) -- WITH (UPDLOCK)"),
+            "(NOLOCK)"
+        );
+        assert_eq!(
+            hinturi("SELECT 'WITH (NOLOCK)'"),
+            "",
+            "sirurile nu conteaza"
+        );
+        assert_eq!(hinturi("SELECT a FROM t"), "");
     }
 }

@@ -36,7 +36,8 @@ pub mod plan;
 pub mod revizuire;
 
 pub use comparare::{
-    compara, pregateste, setari_diferite, Baza, Categorie, Comparare, Numaratoare, Progres, Rand,
+    compara, diferente_ascunse, pregateste, setari_diferite, Baza, Categorie, Comparare,
+    Numaratoare, Progres, Rand,
 };
 pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, PasRevenire, Raport};
 pub use diferente::{detalii_obiect, diferente_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj};

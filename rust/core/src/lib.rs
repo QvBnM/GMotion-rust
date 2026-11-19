@@ -39,7 +39,7 @@ pub use diff::{
     TipDiferenta,
 };
 pub use normalizare::{
-    calc_hash, norm, normalizeaza, pregateste_afisare, round_py, scor_similaritate,
+    calc_hash, hinturi, norm, normalizeaza, pregateste_afisare, round_py, scor_similaritate,
 };
 pub use segmentare::{are_cursor, cheie_bloc, linii_start_blocuri, split_statements};
 

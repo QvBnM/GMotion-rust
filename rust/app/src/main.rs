@@ -245,6 +245,9 @@ fn ruleaza() -> Result<(), String> {
         }
         None => gmotion_platforma::Configurare::default(),
     };
+    // setarile din configurare care schimba comportamentul (F-B5)
+    stare.borrow_mut().conectare.timeout_conectare_s = Some(cfg.timeout_conectare_s);
+    let uneste_implicit = cfg.uneste_cursor;
 
     // modul (intunecat / luminos), acelasi pe toate ecranele: argumentul,
     // altfel ce s-a ales ultima data cu butonul de tema, altfel implicitul
@@ -373,9 +376,11 @@ fn ruleaza() -> Result<(), String> {
     };
 
     // o singura functie de redesenat: altfel un ecran ramane in urma celuilalt
-    let cate_per_fisier = cfg.obiecte_per_script;
+    // N din „Cate N obiecte per fisier": din configurare, schimbabil din ecran
+    let cate_per_fisier = Rc::new(std::cell::Cell::new(cfg.obiecte_per_script.max(1)));
     let deseneaza = {
         let stare = stare.clone();
+        let cate_per_fisier = cate_per_fisier.clone();
         let (c_ui, l_ui, e_ui, d_ui) = (
             conectare_ui.as_weak(),
             lista_ui.as_weak(),
@@ -458,6 +463,16 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
+            if app.refuzat_in_plan() {
+                l_ui.set_mesaj_csv(
+                    limba
+                        .alege(
+                            "Nu intra in plan: obiectul n-are cod de deploiat (exista doar in baza modificata sau e criptat).",
+                            "Not added to the plan: the object has no code to deploy (it exists only in the modified database or is encrypted).",
+                        )
+                        .into(),
+                );
+            }
             match app.texte_obiect() {
                 Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
                 None => goleste_previzualizarea(&l_ui),
@@ -531,7 +546,8 @@ fn ruleaza() -> Result<(), String> {
                 let sursa = app.sursa().clone();
                 if let Some(st) = s.deploy.as_ref().map(|d| &d.stare) {
                     let director = director_deploy(&referinta).display().to_string();
-                    let e = gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier);
+                    let e =
+                        gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier.get());
                     incarca_deploy(&d_ui, &e);
                 }
                 arata(&d_ui, [l_ui.window(), e_ui.window(), c_ui.window()]);
@@ -897,12 +913,11 @@ fn ruleaza() -> Result<(), String> {
                     let mut st = s.borrow_mut();
                     st.server = r.server;
                     st.referinta = r.referinta.clone();
-                    st.app = Some(Aplicatie::noua(
-                        r.randuri,
-                        r.sursa,
-                        r.tinte,
-                        modul::Revizuire::noua(),
-                    ));
+                    let mut app =
+                        Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
+                    // „Uneste ciclul cursor" porneste cum spune configurarea (F-B5)
+                    app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
+                    st.app = Some(app);
                     // numele bazelor din antet: offline nu vine de pe server
                     st.conectare.sursa.baza = st.referinta.clone();
                     st.conectare.baza.baza = "Lipit".into();
@@ -1240,9 +1255,24 @@ fn ruleaza() -> Result<(), String> {
         });
         let s = stare.clone();
         let d = deseneaza.clone();
+        let cate = cate_per_fisier.clone();
         deploy_ui.on_alege_impartirea(move |i| {
             if let Some(dep) = s.borrow_mut().deploy.as_mut().map(|d| &mut d.stare) {
-                dep.alege_impartirea(gmotion_app::deploy::impartire_din(i, cate_per_fisier));
+                dep.alege_impartirea(gmotion_app::deploy::impartire_din(i, cate.get()));
+            }
+            d();
+        });
+        // N scris in camp: un numar invalid sau 0 se ignora, cat se scrie
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        let cate = cate_per_fisier.clone();
+        deploy_ui.on_schimba_cate(move |t| {
+            let Some(n) = t.trim().parse::<usize>().ok().filter(|&n| n > 0) else {
+                return;
+            };
+            cate.set(n);
+            if let Some(dep) = s.borrow_mut().deploy.as_mut().map(|d| &mut d.stare) {
+                dep.alege_impartirea(gmotion_app::deploy::impartire_din(3, n));
             }
             d();
         });
@@ -1484,10 +1514,12 @@ fn ruleaza() -> Result<(), String> {
                                 };
                                 st.server = r.server;
                                 st.referinta = referinta;
-                                st.app = Some(
+                                let mut app =
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
-                                        .cu_editari(editari),
-                                );
+                                        .cu_editari(editari);
+                                // ca la offline: comutatorul porneste din configurare
+                                app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
+                                st.app = Some(app);
                             }
                             Err(e) if e == pornire::ANULAT => {
                                 tracing::info!(target: "gmotion::app", "compararea a fost anulata");

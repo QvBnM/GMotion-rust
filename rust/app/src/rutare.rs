@@ -189,6 +189,9 @@ pub struct Aplicatie {
     /// calculat pe o comparare (planul de deploy, garda lui) nu se poate
     /// refolosi dupa o recomparare, si uitarea era bug-ul C2 din auditul QA.
     id_comparare: u64,
+    /// Ultima comanda „In plan" a fost refuzata (obiectul nu are cod de
+    /// deploiat). Ecranul spune de ce; se sterge la urmatoarea comanda (F-A18).
+    refuzat_in_plan: bool,
 }
 
 /// Numaratorul compararilor din sesiunea asta.
@@ -286,6 +289,7 @@ impl Aplicatie {
             model: std::cell::RefCell::default(),
             refaceri_model: std::cell::Cell::new(0),
             id_comparare: urmatorul_id_comparare(),
+            refuzat_in_plan: false,
         }
     }
 
@@ -555,7 +559,7 @@ impl Aplicatie {
             self.sursa.get(&id),
             self.tinta(&baza).and_then(|t| t.get(&id)),
         ) {
-            (Some(x), Some(y)) => modul::setari_diferite(x.setari, y.setari),
+            (Some(x), Some(y)) => modul::diferente_ascunse(x, y),
             _ => Vec::new(),
         };
         Some((a, b, setari))
@@ -575,7 +579,7 @@ impl Aplicatie {
             ) else {
                 continue;
             };
-            let setari = modul::setari_diferite(a.setari, b.setari);
+            let setari = modul::diferente_ascunse(a, b);
             let d = modul::detalii_obiect(&a.afisare, &b.afisare, &setari);
             self.lista.pune_detalii(
                 p,
@@ -591,6 +595,7 @@ impl Aplicatie {
     /// Executa o comanda. Intoarce `true` daca starea de revizuire s-a
     /// schimbat, deci sesiunea trebuie salvata.
     pub fn comanda(&mut self, c: Comanda) -> bool {
+        self.refuzat_in_plan = false;
         match c {
             Comanda::MutaSelectia(pas) => self.lista.muta_selectia(pas),
             Comanda::Selecteaza(p) => self.lista.selecteaza(p),
@@ -659,7 +664,9 @@ impl Aplicatie {
             }
             Comanda::ComutaInPlan => {
                 if let Some(p) = self.lista.selectat() {
-                    self.lista.comuta_in_plan(p);
+                    // ca in v3.4: un obiect fara cod de deploiat (doar in baza
+                    // modificata, criptat) nu intra, dar se spune de ce
+                    self.refuzat_in_plan = !self.lista.comuta_in_plan(p);
                 }
             }
             Comanda::ScoateDinPlan(baza, id) => {
@@ -679,7 +686,13 @@ impl Aplicatie {
                 return self.aplica(k);
             }
             Comanda::AplicaToate => {
-                return self.schimba_textul(|e, r, sursa, _| e.aplica_toate(r, sursa));
+                let schimbat = self.schimba_textul(|e, r, sursa, _| e.aplica_toate(r, sursa));
+                // ca in v3.4: „Aplica toate" inseamna ca obiectul a fost
+                // revizuit (F-A18); o bifa pusa deja ramane
+                if schimbat && !self.obiect().is_some_and(|o| o.revizuit) {
+                    self.comuta_revizuit();
+                }
+                return schimbat;
             }
             Comanda::Reset => {
                 return self.schimba_textul(|e, r, _, _| {
@@ -970,6 +983,11 @@ impl Aplicatie {
         // revizuit scoate omis (se exclud)
         self.lista.pune_revizuirea(p, !era, false);
         true
+    }
+
+    /// Ultimul „In plan" a fost refuzat: obiectul n-are cod de deploiat.
+    pub fn refuzat_in_plan(&self) -> bool {
+        self.refuzat_in_plan
     }
 
     /// Starea de revizuire, curatata de bifele care nu mai corespund, gata de
@@ -1784,5 +1802,43 @@ mod teste {
             vec![("Client1".to_string(), tinta)],
             Revizuire::noua(),
         )
+    }
+
+    /// F-A18: ca in v3.4, „Aplica toate" marcheaza obiectul revizuit, iar
+    /// „In plan" pe un obiect fara cod spune ca a fost refuzat.
+    #[test]
+    fn aplica_toate_bifeaza_si_in_plan_refuzat_se_spune() {
+        let (mut a, _, _) = aplicatie_editare();
+        assert!(!a.obiect().unwrap().revizuit);
+        assert!(a.comanda(Comanda::AplicaToate));
+        assert!(a.obiect().unwrap().revizuit, "Aplica toate = revizuit");
+        assert_eq!(a.revizuire().numar(), 1, "si in starea salvata");
+
+        let mut b = aplicatie();
+        let p = (0..b.lista().vizibile().len())
+            .find(|&p| b.lista().obiect(p).unwrap().nume == "pA")
+            .unwrap();
+        b.comanda(Comanda::Selecteaza(p));
+        b.comanda(Comanda::ComutaInPlan);
+        assert!(!b.refuzat_in_plan(), "pA se poate deploia");
+
+        // un obiect doar in baza modificata n-are cod de deploiat
+        let sursa = modul::pregateste(&[obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1")]);
+        let tinta = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1"),
+            obiect_db("pExtra", "CREATE PROC dbo.pExtra AS\nSELECT 2"),
+        ]);
+        let t = vec![("Client1".to_string(), tinta)];
+        let c = modul::compara("Ref", &sursa, &t, |_| {});
+        let mut x = Aplicatie::noua(c.randuri, sursa, t, Revizuire::noua());
+        let p = (0..x.lista().vizibile().len())
+            .find(|&p| x.lista().obiect(p).unwrap().nume == "pExtra")
+            .expect("pExtra e in lista");
+        x.comanda(Comanda::Selecteaza(p));
+        x.comanda(Comanda::ComutaInPlan);
+        assert!(x.refuzat_in_plan(), "refuzul se spune");
+        assert!(x.lista().in_plan().is_empty());
+        x.comanda(Comanda::MutaSelectia(0));
+        assert!(!x.refuzat_in_plan(), "si dispare la urmatoarea comanda");
     }
 }

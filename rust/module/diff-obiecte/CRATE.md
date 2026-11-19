@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 0298bb9adb4b9103 -->
+<!-- api-hash: 102a400c11ea5650 -->
 
 ## Rol
 
@@ -24,7 +24,7 @@ biblioteca** — fara nicio interfata.
 
 | Zona | Ce ofera |
 |---|---|
-| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `setari_diferite(a, b)`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
+| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
 | `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `Fel`, `Bucata`, `Marcaj` |
 | `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |

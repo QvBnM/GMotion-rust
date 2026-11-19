@@ -235,6 +235,8 @@ pub struct Conectare {
     /// Limba mesajelor facute in Rust pentru ecranul asta (stari, erori de
     /// validare); o tine la zi comutatorul de limba.
     pub limba: Limba,
+    /// `timeout_conectare_s` din configurare; `None` = implicitul din `db`.
+    pub timeout_conectare_s: Option<u64>,
 }
 
 impl Conectare {
