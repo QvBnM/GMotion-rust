@@ -31,11 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/19-lista-ca-object-explorer.md`. Arborele ca
-Object Explorer e in coloana din stanga a editorului; lista e tabelul de
-dinainte, cu harta pe `h`. Asteapta proba lui Mihai. In paralel, etapa 17 (conectarea dupa
-`cercetare/machete/conectare-noua/`) e facuta, NEPORNITA doar ca stare
-(poarta cere o singura etapa ACTIVA): asteapta „da"-ul lui Mihai pe perechi.
+**Etapa activa:** niciuna. Etapa 19 e incheiata; urmatoarele, pregatite:
+17 (conectarea dupa `cercetare/machete/conectare-noua/`, facuta, asteapta
+„da"-ul lui Mihai pe perechi) si 20 (motorul: aliniere pe linii si plasare).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -52,11 +50,10 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 Mihai, 2026-11-19): de aratat lui Mihai capturile
 `cercetare/capturi/harta-*.png` si de luat „da"-ul pe ele.
 
-**Proba pe Windows, runda 4 (etapa 19).** Object Explorer e in coloana din
-stanga a editorului (nu in lista); lista e iar tabelul de dinainte, cu harta
-pe `h`. Reparata caderea „RefCell already borrowed" (Unificat cu wrap
-pornit). Se cere: proba pe GetsBet → CEAAS, jurnalul nou, „da"-ul lui Mihai
-pe `cercetare/capturi/editor-arbore.png`.
+**Etapa 19 incheiata** (Object Explorer in coloana editorului, lista
+tabel, harta pe `h`, wrap in editor). Mihai trimite sesizari daca apare ceva.
+Ramase de confirmat pe Windows: ca filtrul nu mai trece de 100 ms (detaliile
+sunt acum pe alt fir) si ca nu mai cade la Unificat cu wrap.
 
 **Etapele 15 si 16 sunt incheiate.** Ramane:
 

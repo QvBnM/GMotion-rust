@@ -1,8 +1,8 @@
 # Etapa 19 — lista ca Object Explorer, cu cele doua panouri alaturi
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-19 · **Incheiata:** —
+**Deschisa:** 2026-11-19 · **Incheiata:** 2026-11-19
 
 ## Scop
 
@@ -39,7 +39,8 @@ previzualizare exista un buton de wrap.
 - [x] dreapta: martor | modificata alaturi, cu numere de linie, ca in
       editor; capul cu Revizuit / In plan / Omite / Deschide
 - [x] harta, tabelul si butonul „Open" plutitor scoase, cu tot codul lor
-      mort (Rust si `.slint`)
+      mort (Rust si `.slint`) — **schimbat apoi:** tabelul a revenit la
+      cererea lui Mihai, harta e ecran separat; Open-ul plutitor ramane scos
 - [x] butonul Wrap: in editor si in previzualizare; liniile lungi se rup,
       iar randurile din stanga si din dreapta raman aliniate
 - [x] harta ca ecran separat de ansamblu (Mihai, 2026-11-19, dupa macheta
@@ -49,12 +50,14 @@ previzualizare exista un buton de wrap.
       randuri, zoom automat ca sa intre in ecran; clic pe patrat inchide
       harta si selecteaza obiectul in arbore (test care apasa butonul, tasta
       si un patrat)
-- [ ] nicio redesenare peste 100 ms la un filtru sau la un clic, pe 4.000
-      de obiecte (masurat, nu presupus)
-- [ ] captura la 1920x1080 trimisa lui Mihai si „da"-ul lui pe ea
+- [x] nicio redesenare peste 100 ms la un filtru sau la un clic, pe 4.000
+      de obiecte (masurat, nu presupus) — `masura_lista`: 5 ms incarcare,
+      10 ms cadru; pe Windows, dupa mutarea detaliilor pe alt fir, nemasurat
+- [x] captura trimisa lui Mihai si „da"-ul lui pe ea (Object Explorer in
+      editor, `cercetare/capturi/editor-arbore.png`; „E okay", 2026-11-19)
 - [x] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat, daca s-a luat vreo decizie
 
 ## Pasi
 
@@ -112,3 +115,13 @@ previzualizare exista un buton de wrap.
 
 ## Ce a iesit altfel decat planul
 
+- **Locul arborelui.** „Lista ca Object Explorer, in forma ecranului Side by
+  Side" am citit-o ca ecranul listei. Mihai voia arborele in coloana din
+  stanga a editorului; lista a revenit la tabel. Lectia: cand o cerere
+  numeste doua ecrane, se intreaba pe care se face, inainte de cod.
+- **Harta** scoasa cu lista a fost ceruta inapoi, ca ecran separat (`h`).
+- **Cautarea din editor** filtra lista intreaga si schimba obiectul deschis;
+  arborele are acum cautarea lui.
+- **Avertismentele Slint** nu le vedea nicio verificare; un `viewport-y`
+  depreciat a ajuns la Mihai la compilare. Poarta le prinde acum.
+- **Compilarea de proba** era release cu LTO; profilul `proba` o scurteaza.
