@@ -9,6 +9,17 @@
 
 import { ListView } from "std-widgets.slint";
 import { RandListaUi, Stari } from "lista.slint";
+
+// Un tab din bara editorului (etapa 16). `cod`: -1 previzualizarea, altfel
+// al catelea fixat; asa il intoarce fereastra in Rust.
+export struct TabUi {
+    cod: int,
+    nume: string,       // taiat pe mijloc
+    complet: string,    // la hover: baza / schema.nume
+    activ: bool,
+    previzualizare: bool,
+    editat: bool,
+}
 import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi } from "comune.slint";
 
 // Insula care pluteste peste panza.
@@ -224,6 +235,17 @@ export component EditorDiferente inherits Window {
     callback alege-randul(int);
     callback cauta(string);
     callback ascunde-lista();
+    // ---- taburile (etapa 16): logica e in `model_taburi`, aici doar desenul
+    in property <[TabUi]> taburi;
+    callback activeaza-tab(int);
+    callback inchide-tab(int);
+    callback fixeaza-previzualizarea();
+    callback inchide-tab-activ();
+    // dublu clic pe un rand din coloana listei: obiectul se fixeaza in tab
+    callback fixeaza-randul(int);
+    property <bool> are-taburi: root.taburi.length > 0;
+    // cate taburi incap pe rand; restul, in meniul „+N"
+    property <int> taburi-incap: Math.max(1, Math.floor((root.width - root.latime-lista - 120px) / 176px));
     /// „Uneste ciclul cursor": `DECLARE ... CURSOR` pana la `DEALLOCATE`
     /// intr-un singur bloc. Taierea e in `core`, aici doar comutatorul.
     in property <bool> are-cursor;
@@ -294,6 +316,8 @@ export component EditorDiferente inherits Window {
                 if (e.text == Key.DownArrow) { root.navigheaza(root.diferenta-curenta + 1); return accept; }
             }
             if (e.modifiers.control && (e.text == "z" || e.text == "Z")) { root.anuleaza(); return accept; }
+            if (e.modifiers.control && (e.text == "w" || e.text == "W")) { root.inchide-tab-activ(); return accept; }
+            if (e.text == "[") { root.ascunde-lista(); return accept; }
             if (e.text == "n" || (e.text == Key.F7 && !e.modifiers.shift)) { root.navigheaza(root.diferenta-curenta + 1); return accept; }
             if (e.text == "p" || (e.text == Key.F7 && e.modifiers.shift)) { root.navigheaza(root.diferenta-curenta - 1); return accept; }
             if (e.text == "j" || e.text == Key.PageDown) { root.obiect-urmator(); return accept; }
@@ -320,7 +344,99 @@ export component EditorDiferente inherits Window {
             y: 0;
             width: root.width - root.latime-lista;
             height: root.height;
-            padding-top: 84px;
+            padding-top: root.are-taburi ? 72px : 84px;
+            // bara de taburi, deasupra titlului (etapa 16)
+            if root.are-taburi: HorizontalLayout {
+                height: 34px;
+                // aliniata cu titlul si cu codul, nu cu marginea ferestrei
+                padding-left: Math.max(18px, (root.width - root.latime-lista - root.latime-cod) / 2);
+                padding-right: 18px;
+                spacing: 4px;
+                alignment: start;
+                for t[i] in root.taburi: Rectangle {
+                    visible: i < root.taburi-incap;
+                    width: i < root.taburi-incap ? 172px : 0px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background: t.activ ? Tema.strat : zt.has-hover ? Tema.suprafata : transparent;
+                    border-width: t.activ ? 1px : 0px;
+                    border-color: Tema.linie;
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 6px;
+                        spacing: 6px;
+                        if t.editat: VerticalLayout { alignment: center; Rectangle { width: 6px; height: 6px; border-radius: 3px; background: Tema.accent; } }
+                        Text {
+                            horizontal-stretch: 1;
+                            text: t.nume;
+                            font-family: Tema.font-ui;
+                            font-size: 12.5px;
+                            font-italic: t.previzualizare;
+                            color: t.activ ? Tema.text : Tema.text-secundar;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                        Rectangle {
+                            width: 18px;
+                            Text { text: "×"; font-size: 14px; color: zx-tab.has-hover ? Tema.text : Tema.text-tert; }
+                            zx-tab := TouchArea { clicked => { root.inchide-tab(t.cod); } }
+                        }
+                    }
+                    zt := TouchArea {
+                        width: parent.width - 24px;
+                        x: 0;
+                        clicked => { root.activeaza-tab(t.cod); }
+                        double-clicked => { if (t.previzualizare) { root.fixeaza-previzualizarea(); } }
+                    }
+                    if zt.has-hover: Rectangle {
+                        y: parent.height + 4px;
+                        x: 0;
+                        width: bula-tab.preferred-width + 16px;
+                        height: 24px;
+                        border-radius: 6px;
+                        background: Tema.suprafata;
+                        border-width: 1px;
+                        border-color: Tema.linie;
+                        bula-tab := Text { text: t.complet; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
+                    }
+                }
+                // „+N": taburile care nu mai incap, intr-un meniu
+                if root.taburi.length > root.taburi-incap: Rectangle {
+                    width: plus.preferred-width + 18px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background: zp.has-hover ? Tema.strat : transparent;
+                    border-width: 1px;
+                    border-color: Tema.linie;
+                    plus := Text { text: "+" + (root.taburi.length - root.taburi-incap) + " ▾"; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                    zp := TouchArea { clicked => { meniu-taburi.show(); } }
+                    meniu-taburi := PopupWindow {
+                        y: parent.height + 4px;
+                        x: parent.width - 240px;
+                        width: 240px;
+                        Rectangle {
+                            border-radius: 10px;
+                            border-width: 1px;
+                            border-color: Tema.linie;
+                            background: Tema.suprafata;
+                            VerticalLayout {
+                                padding: 6px;
+                                for t[i] in root.taburi: Rectangle {
+                                    visible: i >= root.taburi-incap;
+                                    height: i >= root.taburi-incap ? 30px : 0px;
+                                    border-radius: 7px;
+                                    background: zm.has-hover ? Tema.strat : transparent;
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        Text { text: t.nume; font-family: Tema.font-ui; font-size: 12.5px; font-italic: t.previzualizare; color: Tema.text; vertical-alignment: center; }
+                                    }
+                                    zm := TouchArea { clicked => { root.activeaza-tab(t.cod); } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // modul ghidat isi are locul lui sub cod, nu peste el
             // insulele de jos pot sta pe doua randuri: codul le lasa loc
             padding-bottom: (root.ghidat ? 86px + 150px : 86px)
@@ -805,7 +921,10 @@ export component EditorDiferente inherits Window {
                                 }
                             }
                         }
-                        zr := TouchArea { clicked => { root.alege-randul(i); } }
+                        zr := TouchArea {
+                            clicked => { root.alege-randul(i); }
+                            double-clicked => { root.fixeaza-randul(i); }
+                        }
                     }
                 }
                 Rectangle { height: 1px; background: Tema.linie-slaba; }

@@ -1023,6 +1023,46 @@ fn eticheta_baze(p: &model_conectare::Parte, l: texte::Limba) -> String {
 }
 
 /// Umple ecranul de conectare din modelul lui.
+/// Taburile editorului, cum se deseneaza: fixatele in ordine, apoi
+/// previzualizarea (inclinata), ca in macheta. `editat` spune care au text
+/// final (punctul de pe tab).
+pub fn taburi_ui(
+    t: &model_taburi::Taburi,
+    editat: impl Fn(&model_taburi::Cheie) -> bool,
+) -> Vec<TabUi> {
+    use model_taburi::Activ;
+    let ui = |c: &model_taburi::Cheie, cod: i32, activ: bool, prev: bool| {
+        let scurt = c.1.split_once('.').map_or(c.1.as_str(), |(_, n)| n);
+        TabUi {
+            cod,
+            nume: model_taburi::taie_pe_mijloc(scurt, 22).into(),
+            complet: format!("{} / {}", c.0, c.1).into(),
+            activ,
+            previzualizare: prev,
+            editat: editat(c),
+        }
+    };
+    let mut v: Vec<TabUi> = t
+        .fixate()
+        .into_iter()
+        .enumerate()
+        .map(|(i, c)| ui(c, i as i32, t.activ() == Activ::Fixat(i), false))
+        .collect();
+    if let Some(c) = t.previzualizare() {
+        v.push(ui(c, -1, t.activ() == Activ::Previzualizare, true));
+    }
+    v
+}
+
+/// Pune taburile in editor.
+pub fn incarca_taburi(
+    ui: &EditorDiferente,
+    t: &model_taburi::Taburi,
+    editat: impl Fn(&model_taburi::Cheie) -> bool,
+) {
+    ui.set_taburi(ModelRc::new(VecModel::from(taburi_ui(t, editat))));
+}
+
 /// Umple ecranul de deploy. Numarul mare si propozitia vin din pasi
 /// (`model_deploy::rezumat`), ca sa nu poata spune altceva decat lista.
 pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
@@ -1436,6 +1476,32 @@ mod teste {
         let _ = ui.hide();
     }
 
+    /// Etapa 16: fixatele intai, previzualizarea la urma; numele scurt,
+    /// taiat pe mijloc; codul care se intoarce in Rust la clic.
+    #[test]
+    fn taburile_se_deseneaza_din_model() {
+        use model_taburi::Taburi;
+        let mut t = Taburi::noi();
+        let k = |n: &str| ("Client1".to_string(), format!("dbo.{n}"));
+        t.deschide(k("uspFoarteFoarteFoarteLungCaNumeDeProcedura"));
+        t.fixeaza(k("a"), |_| false).unwrap();
+        t.deschide(k("p"));
+        let v = taburi_ui(&t, |c| c.1 == "dbo.a");
+        assert_eq!(v.len(), 2);
+        assert_eq!((v[0].cod, v[0].nume.as_str(), v[0].editat), (0, "a", true));
+        assert!(v[1].previzualizare && v[1].activ && v[1].cod == -1);
+        assert_eq!(v[1].complet, "Client1 / dbo.p");
+        let ui = fereastra();
+        incarca_taburi(&ui, &t, |_| false);
+        assert_eq!(ui.get_taburi().row_count(), 2);
+        // un nume lung se taie pe mijloc, la 22 de caractere
+        let mut t = Taburi::noi();
+        t.deschide(k("uspFoarteFoarteFoarteLungCaNumeDeProcedura"));
+        let v = taburi_ui(&t, |_| false);
+        assert_eq!(v[0].nume.chars().count(), 22);
+        assert!(v[0].nume.ends_with("umeDeProcedura"), "{}", v[0].nume);
+    }
+
     /// Apasa o tasta in fereastra, ca un utilizator (apasat si eliberat).
     fn apasa(ui: &EditorDiferente, tasta: &str) {
         use slint::platform::WindowEvent;
@@ -1471,7 +1537,34 @@ mod teste {
             on_anuleaza => "anuleaza",
             on_editeaza_textul_final => "editeaza",
             on_inapoi_lista => "lista",
+            on_obiect_urmator => "j",
+            on_obiect_anterior => "k",
+            on_ascunde_lista => "[",
+            on_inchide_tab_activ => "ctrl+w",
+            on_fixeaza_previzualizarea => "fixeaza-prev",
         );
+        // taburile: clic, X, dublu clic pe un rand din coloana (etapa 16)
+        let a = apeluri.clone();
+        ui.on_activeaza_tab(move |c| {
+            a.borrow_mut()
+                .push(if c == -1 { "tab-prev" } else { "tab?" })
+        });
+        let a = apeluri.clone();
+        ui.on_inchide_tab(move |c| a.borrow_mut().push(if c == 2 { "x-tab2" } else { "x?" }));
+        let a = apeluri.clone();
+        ui.on_fixeaza_randul(move |i| {
+            a.borrow_mut()
+                .push(if i == 1 { "fixeaza-rand1" } else { "f?" })
+        });
+        ui.invoke_activeaza_tab(-1);
+        ui.invoke_inchide_tab(2);
+        ui.invoke_fixeaza_randul(1);
+        ui.invoke_fixeaza_previzualizarea();
+        assert_eq!(
+            *apeluri.borrow(),
+            ["tab-prev", "x-tab2", "fixeaza-rand1", "fixeaza-prev"]
+        );
+        apeluri.borrow_mut().clear();
         // butoanele noi din insula de jos: unirea cursorului si tragerea
         // unui bloc peste panoul din dreapta
         let a = apeluri.clone();
@@ -1516,6 +1609,17 @@ mod teste {
         ui.window().dispatch_event(WindowEvent::KeyReleased {
             text: Key::Control.into(),
         });
+        // j / k / [ si Ctrl+W (etapa 16)
+        apasa(&ui, "j");
+        apasa(&ui, "k");
+        apasa(&ui, "[");
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Control.into(),
+        });
+        apasa(&ui, "w");
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Control.into(),
+        });
         // in modul ghidat, Enter aplica si Esc sare (nu te intoarce in lista)
         ui.set_ghidat(true);
         apasa(&ui, &SharedString::from(Key::Return));
@@ -1528,7 +1632,10 @@ mod teste {
         apasa(&ui, &SharedString::from(Key::Escape));
         assert_eq!(
             *apeluri.borrow(),
-            ["omite", "ghidat", "editeaza", "anuleaza", "aplica", "sari", "opreste", "lista"]
+            [
+                "omite", "ghidat", "editeaza", "anuleaza", "j", "k", "[", "ctrl+w", "aplica",
+                "sari", "opreste", "lista"
+            ]
         );
     }
 

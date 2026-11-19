@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 3898bbf39a68c528 -->
+<!-- api-hash: 13989ba4c121f052 -->
 
 ## Rol
 
@@ -40,6 +40,7 @@ si editorul de diferente (etapa 8).
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `ordine_din_cod(cod)` | ce coloana a apasat utilizatorul; inversul codurilor din `global Sortare` (`lista.slint`) |
 | `model_lista::Lista::{selecteaza_cheie, chei_vizibile}` | selectia dupa cheie (tabul activat; goleste filtrul daca il ascunde) si ordinea curenta pentru `j` / `k` |
+| `taburi_ui(taburi, editat)`, `incarca_taburi(ui, taburi, editat)`, `TabUi` | bara de taburi a editorului: fixatele, apoi previzualizarea (inclinata); punctul pe cele editate; `+N` cand nu incap |
 | `model_taburi::{Taburi, Activ, Pas, Refuz, Cheie, MAX_FIXATE, taie_pe_mijloc}` | taburile editorului (etapa 16): previzualizare + cel mult 8 fixate, `j` / `k` care sar peste fixate, `Ctrl+W` spre vecinul din stanga; numele taiat pe mijloc |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_bara, picteaza_la, picteaza_bara_la, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}`, `LATIME_HARTA` | harta de deasupra tabelului: o coloana pe tip, care umplu cartusul; bara de proportie a starilor; patrate pictate in Rust, in ordinea din tabel; zoom automat pe trepte (`SCARI`) cand nu intra in `INALTIME_MAXIMA`; clic → rand |
 | `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | clicul, bula si reasezarea la redimensionare; calculul e doar in `harta::indice_la` |

@@ -659,17 +659,20 @@ impl Aplicatie {
                     }
                 }
             }
+            // fixatele stau in sesiune: orice schimbare a lor se salveaza
             Comanda::FixeazaSelectia => {
                 if let Some(c) = self.cheia_curenta() {
                     let editate = self.chei_editate();
                     let r = self.taburi.fixeaza(c, |k| editate.contains(k));
                     self.rezultat_fixare(r);
                 }
+                return true;
             }
             Comanda::FixeazaPrevizualizarea => {
                 let editate = self.chei_editate();
                 let r = self.taburi.fixeaza_previzualizarea(|k| editate.contains(k));
                 self.rezultat_fixare(r);
+                return true;
             }
             Comanda::ActiveazaTab(i) => {
                 self.taburi
@@ -680,10 +683,12 @@ impl Aplicatie {
                 self.taburi
                     .inchide(i.map_or(Activ::Previzualizare, Activ::Fixat));
                 self.dupa_schimbarea_tabului();
+                return true;
             }
             Comanda::InchideTabActiv => {
                 self.taburi.inchide_activ();
                 self.dupa_schimbarea_tabului();
+                return true;
             }
             Comanda::ClicPeRand(p) => {
                 if self.detalii && self.lista.selectat() == Some(p) {
@@ -1083,6 +1088,12 @@ impl Aplicatie {
         // revizuit scoate omis (se exclud)
         self.lista.pune_revizuirea(p, !era, false);
         true
+    }
+
+    /// Obiectul are text final (punctul de pe tabul lui).
+    pub fn are_text_final(&self, (baza, id): &Cheie) -> bool {
+        self.rand(baza, id)
+            .is_some_and(|r| self.editari.text_final(r).is_some())
     }
 
     /// Taburile editorului.
