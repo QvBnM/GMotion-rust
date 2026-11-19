@@ -444,6 +444,25 @@ component RandTabel inherits Rectangle {
             overflow: elide;
         }
     }
+    // „Deschide" pe randul de sub mouse sau selectat: dublu clicul nu se
+    // vede, iar pe Windows nu mergea deloc (Mihai, 2026-11-19). Doar pe
+    // obiectele care au ce arata in editor (modificate, identice).
+    property <bool> peste-deschide;
+    if (zona.has-hover || root.selectat || root.peste-deschide) && (root.r.stare == 0 || root.r.stare == 3): Rectangle {
+        x: parent.width - self.width - 10px;
+        y: (parent.height - self.height) / 2;
+        width: td.preferred-width + 20px;
+        height: 24px;
+        border-radius: 6px;
+        background: zd.has-hover ? Tema.accent : Tema.suprafata;
+        border-width: 1px;
+        border-color: Tema.accent;
+        td := Text { text: Texte.deschide + " ›"; font-family: Tema.font-ui; font-size: 12px; font-weight: 500; color: zd.has-hover ? Tema.pe-accent : Tema.accent-text; }
+        zd := TouchArea {
+            clicked => { root.dublu-clic(); }
+            changed has-hover => { root.peste-deschide = self.has-hover; }
+        }
+    }
 }
 
 // Un filtru: eticheta cu numar; activ = conturat in chihlimbar.

@@ -410,6 +410,13 @@ export component EditorDiferente inherits Window {
                                 vertical-alignment: center;
                                 overflow: elide;
                             }
+                            // previzualizarea se inlocuieste la urmatorul clic in lista;
+                            // pinul o pastreaza ca tab (ca dublu clicul pe tab)
+                            if t.previzualizare: Rectangle {
+                                width: 18px;
+                                Text { text: "◆"; font-size: 11px; color: zpin.has-hover ? Tema.accent-text : Tema.text-tert; }
+                                zpin := TouchArea { clicked => { root.fixeaza-previzualizarea(); } }
+                            }
                             Rectangle {
                                 width: 16px;
                                 Text { text: "×"; font-size: 13px; color: zx-tab.has-hover ? Tema.text : Tema.text-tert; }
@@ -417,7 +424,7 @@ export component EditorDiferente inherits Window {
                             }
                         }
                         zt := TouchArea {
-                            width: parent.width - 24px;
+                            width: parent.width - (t.previzualizare ? 42px : 24px);
                             x: 0;
                             clicked => { root.activeaza-tab(t.cod); }
                             double-clicked => { if (t.previzualizare) { root.fixeaza-previzualizarea(); } }
@@ -478,6 +485,7 @@ export component EditorDiferente inherits Window {
                     HorizontalLayout {
                         horizontal-stretch: 1;
                         min-width: 180px;
+                        alignment: start;
                         Text { text: root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 14px; color: Tema.text-tert; vertical-alignment: center; }
                         Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 14px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                     }
@@ -563,6 +571,8 @@ export component EditorDiferente inherits Window {
                         VerticalLayout {
                             padding: 6px;
                             spacing: 1px;
+                            RandMeniu { text: Texte.fixeaza-tab; apasat => { root.fixeaza-previzualizarea(); } }
+                            Rectangle { height: 1px; background: Tema.linie-slaba; }
                             RandMeniu { text: Texte.aplica-toate; activ: root.total-diferente > 0; apasat => { root.aplica-toate(); } }
                             RandMeniu { text: Texte.reset; activ: root.editat; apasat => { root.reset(); } }
                             RandMeniu { text: Texte.anuleaza-ctrlz; tasta: "Ctrl Z"; activ: root.se-poate-anula; apasat => { root.anuleaza(); } }
@@ -1073,6 +1083,20 @@ export component EditorDiferente inherits Window {
                             }
                             Text { text: r.plus; font-family: Tema.font-mono; font-size: 11px; color: Tema.add-text; vertical-alignment: center; }
                             Text { text: r.minus; font-family: Tema.font-mono; font-size: 11px; color: Tema.del-text; vertical-alignment: center; }
+                        }
+                        // „+": deschide obiectul intr-un tab nou (ca dublu clicul,
+                        // care nu se vede); apare la mouse
+                        if r.antet == "" && zr.has-hover: Rectangle {
+                            x: parent.width - self.width - 6px;
+                            y: (parent.height - self.height) / 2;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 6px;
+                            background: zplus.has-hover ? Tema.accent : Tema.suprafata;
+                            border-width: 1px;
+                            border-color: Tema.accent;
+                            Text { text: "+"; font-size: 14px; color: zplus.has-hover ? Tema.pe-accent : Tema.accent-text; }
+                            zplus := TouchArea { clicked => { root.fixeaza-randul(r.pozitie); } }
                         }
                         zr := TouchArea {
                             enabled: r.antet == "";

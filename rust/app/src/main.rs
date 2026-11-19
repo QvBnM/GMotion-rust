@@ -159,6 +159,23 @@ fn cale_csv(referinta: &str) -> std::path::PathBuf {
 /// se inchide singura exact cand treci de pe conectare pe lista. De-aia
 /// trecerea dintre ecrane are un singur loc, aici.
 fn arata<T: ComponentHandle>(nou: &T, celelalte: [&slint::Window; 3]) {
+    // fiecare ecran e o fereastra separata: cea noua preia pozitia, marimea
+    // si starea (maximizata / tot ecranul) celei de dinainte, altfel pe
+    // Windows „Deschide" parea ca porneste alta aplicatie, in alt loc
+    let w = nou.window();
+    if !w.is_visible() {
+        if let Some(veche) = celelalte.iter().find(|v| v.is_visible()) {
+            if veche.is_fullscreen() {
+                w.set_fullscreen(true);
+            } else if veche.is_maximized() {
+                w.set_maximized(true);
+            } else {
+                w.set_maximized(false);
+                w.set_size(veche.size());
+                w.set_position(veche.position());
+            }
+        }
+    }
     let _ = nou.show();
     for w in celelalte {
         let _ = w.hide();
@@ -536,7 +553,7 @@ fn ruleaza() -> Result<(), String> {
                             tip: gmotion_core::nume_tip_in(&o.tip, limba),
                             sursa_baza: &referinta,
                             sursa_server: &server,
-                            tinta_baza: &baza,
+                            tinta_baza: &o.baza,
                             tinta_server: &server,
                             stare_obiecte: &pozitie,
                             revizuit: o.revizuit,

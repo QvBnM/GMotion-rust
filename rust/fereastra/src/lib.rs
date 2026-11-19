@@ -215,6 +215,26 @@ where
     cu_jetoanele!(pune);
 }
 
+/// Pune randurile unei liste Slint **pe loc**, cand numarul lor nu s-a
+/// schimbat: un model nou la fiecare redesenare recrea randurile, deci al
+/// doilea clic al unui dublu clic cadea pe alt rand si dublu clicul nu se
+/// forma niciodata (gasit pe Windows, 2026-11-19). Intoarce modelul de pus,
+/// sau `None` daca s-a actualizat cel vechi.
+fn pe_loc<T: Clone + PartialEq + 'static>(vechi: ModelRc<T>, noi: Vec<T>) -> Option<ModelRc<T>> {
+    use slint::Model;
+    if let Some(v) = vechi.as_any().downcast_ref::<VecModel<T>>() {
+        if v.row_count() == noi.len() {
+            for (i, r) in noi.into_iter().enumerate() {
+                if v.row_data(i).as_ref() != Some(&r) {
+                    v.set_row_data(i, r);
+                }
+            }
+            return None;
+        }
+    }
+    Some(ModelRc::new(VecModel::from(noi)))
+}
+
 /// Limba pusa in `Texte` de ultimul [`aplica_limba`]; inainte de el, romana.
 pub fn limba_curenta<'a, T>(ui: &'a T) -> texte::Limba
 where
@@ -560,11 +580,12 @@ pub fn incarca_coloana_lista(ui: &EditorDiferente, lista: &model_lista::Lista) {
     }
     // numele incape in latimea coloanei: ce ramane dupa cerc, litera si +/-
     let caractere = ((ui.get_latime_lista() - 130.0) / 7.3).max(8.0) as usize;
-    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_coloana(
-        randuri_lista_ui(lista, limba),
-        caractere,
-        limba,
-    ))));
+    if let Some(m) = pe_loc(
+        ui.get_randuri_lista(),
+        randuri_coloana(randuri_lista_ui(lista, limba), caractere, limba),
+    ) {
+        ui.set_randuri_lista(m);
+    }
     ui.set_banda_text(
         lista
             .contoare_stari()
@@ -1006,7 +1027,9 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     });
     ui.set_selectat(lista.selectat().map_or(0, |p| p as i32));
     incarca_harta(ui, &randuri, lista.selectat());
-    ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
+    if let Some(m) = pe_loc(ui.get_randuri(), randuri) {
+        ui.set_randuri(m);
+    }
     ui.set_categorii(ModelRc::new(VecModel::from(categorii)));
     ui.set_tipuri(ModelRc::new(VecModel::from(tipuri)));
 
@@ -3160,5 +3183,28 @@ mod teste {
             &scurt,
         );
         assert_eq!(ui2.get_derulare_maxima(), 0.0);
+    }
+
+    /// Dublu clicul pe un rand din lista: modelul trebuie sa ramana acelasi
+    /// intre redesenari, altfel Slint recreeaza randul dupa primul clic.
+    #[test]
+    fn redesenarea_pastreaza_modelul_randurilor() {
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let inainte = ui.get_randuri();
+        lista.selecteaza(1);
+        lista.comuta_revizuit(1);
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let dupa = ui.get_randuri();
+        assert!(inainte == dupa, "acelasi model: randurile nu se recreeaza");
+        assert!(
+            dupa.row_data(1).unwrap().revizuit,
+            "dar datele s-au schimbat"
+        );
+        // alt numar de randuri: model nou, firesc
+        lista.cauta("usp_Stoc");
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(ui.get_randuri().row_count(), 1);
     }
 }
