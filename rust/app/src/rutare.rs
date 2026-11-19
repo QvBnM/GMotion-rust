@@ -277,6 +277,27 @@ pub struct Aplicatie {
     arbore: Arbore,
 }
 
+/// Un obiect de calculat pe alt fir: cheia lui si cele doua texte.
+#[derive(Debug, Clone)]
+pub struct LucruDetalii {
+    pub cheie: (String, String),
+    pub a: String,
+    pub b: String,
+    pub setari: Vec<&'static str>,
+}
+
+impl LucruDetalii {
+    /// „Difera in" si `+N −M`, ca in lista. Fara stare: merge pe orice fir.
+    pub fn calculeaza(&self) -> Detalii {
+        let d = modul::detalii_obiect(&self.a, &self.b, &self.setari);
+        Detalii {
+            difera_in: d.difera_in,
+            linii_plus: d.linii_plus,
+            linii_minus: d.linii_minus,
+        }
+    }
+}
+
 /// Numaratorul compararilor din sesiunea asta.
 fn urmatorul_id_comparare() -> u64 {
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -647,6 +668,32 @@ impl Aplicatie {
             _ => Vec::new(),
         };
         Some((a, b, setari))
+    }
+
+    /// Ce trebuie calculat ca toate obiectele modificate sa aiba „Difera in"
+    /// si `+N −M`: textele copiate, ca sa mearga pe alt fir. Pe firul
+    /// ferestrei, 60 de obiecte calculate la un filtru faceau 1,2 s (proba
+    /// pe Windows, 2026-11-19).
+    pub fn lucrari_detalii(&self) -> Vec<LucruDetalii> {
+        self.lista
+            .chei_fara_detalii()
+            .into_iter()
+            .filter_map(|(baza, id)| {
+                let a = self.sursa.get(&id)?;
+                let b = self.tinta(&baza).and_then(|t| t.get(&id))?;
+                Some(LucruDetalii {
+                    setari: modul::diferente_ascunse(a, b),
+                    a: a.afisare.clone(),
+                    b: b.afisare.clone(),
+                    cheie: (baza, id),
+                })
+            })
+            .collect()
+    }
+
+    /// Detaliile calculate pe alt fir, puse pe obiectul lor.
+    pub fn pune_detalii(&mut self, cheie: &(String, String), d: Detalii) {
+        self.lista.pune_detalii_cheie(cheie, d);
     }
 
     /// Calculeaza detaliile („Difera in", `+N −M`) pentru randurile de pe
@@ -1326,6 +1373,37 @@ mod teste {
         assert_eq!(app.lista().selectat(), Some(ordine[0]));
         app.comanda(Comanda::MutaInArbore(50));
         assert_eq!(app.lista().selectat(), ordine.last().copied());
+    }
+
+    /// Detaliile calculate pe alt fir ajung pe obiectul lor, ca si cele
+    /// calculate pe loc.
+    #[test]
+    fn detaliile_de_pe_alt_fir_sunt_aceleasi_ca_pe_loc() {
+        let mut pe_loc = aplicatie();
+        pe_loc.asigura_detalii(0, 10);
+        let mut app = aplicatie();
+        let lucrari = app.lucrari_detalii();
+        assert_eq!(lucrari.len(), 2, "pA si pB sunt modificate");
+        let rezultate: Vec<_> = std::thread::spawn(move || {
+            lucrari
+                .iter()
+                .map(|l| (l.cheie.clone(), l.calculeaza()))
+                .collect()
+        })
+        .join()
+        .expect("firul se termina");
+        for (c, d) in rezultate {
+            app.pune_detalii(&c, d);
+        }
+        assert!(app.lucrari_detalii().is_empty());
+        let detalii = |a: &Aplicatie| -> Vec<Option<Detalii>> {
+            a.lista()
+                .obiecte()
+                .iter()
+                .map(|o| o.detalii.clone())
+                .collect()
+        };
+        assert_eq!(detalii(&app), detalii(&pe_loc));
     }
 
     #[test]

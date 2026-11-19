@@ -64,6 +64,9 @@ struct Stare {
     /// urmatoarea desenare (etapa 16).
     coloana_noua: Option<gmotion_app::rutare::StareColoana>,
     garda: Option<Lucru<pornire::Citit>>,
+    /// „Difera in" si `+N −M` pentru toate obiectele modificate, calculate pe
+    /// alt fir dupa comparare (etapa 19). Un receptor nou opreste firul vechi.
+    detalii: Option<std::sync::mpsc::Receiver<DetaliiCalculate>>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
@@ -207,6 +210,26 @@ fn arata<T: ComponentHandle>(nou: &T, celelalte: [&slint::Window; 3]) {
     }
 }
 
+/// Ce trimite firul de detalii: cheia obiectului si detaliile lui.
+type DetaliiCalculate = ((String, String), gmotion_fereastra::model_lista::Detalii);
+
+/// Porneste calculul detaliilor pe alt fir, pentru toate obiectele modificate
+/// (intai cele vizibile). Firul se opreste singur cand receptorul e aruncat
+/// (o comparare noua, deconectarea).
+fn porneste_detalii(app: &Aplicatie) -> std::sync::mpsc::Receiver<DetaliiCalculate> {
+    let lucrari = app.lucrari_detalii();
+    let (tx, rx) = std::sync::mpsc::channel();
+    tracing::debug!(target: "gmotion::app", obiecte = lucrari.len(), "calculez detaliile listei pe alt fir");
+    std::thread::spawn(move || {
+        for l in lucrari {
+            if tx.send((l.cheie.clone(), l.calculeaza())).is_err() {
+                break;
+            }
+        }
+    });
+    rx
+}
+
 /// Compararile salvate, cele mai noi intai.
 fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
     let mut s = sesiuni.lista().unwrap_or_default();
@@ -287,6 +310,7 @@ fn ruleaza() -> Result<(), String> {
         cautare_servere: None,
         coloana_noua: None,
         garda: None,
+        detalii: None,
         salvat_la: String::new(),
     }));
 
@@ -521,7 +545,10 @@ fn ruleaza() -> Result<(), String> {
             };
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
-            app.asigura_detalii(0, 60);
+            // restul vin de pe firul de detalii; obiectul selectat le are pe loc
+            if let Some(p) = app.lista().selectat() {
+                app.asigura_detalii(p, p + 1);
+            }
             incarca_lista(
                 &l_ui,
                 &AntetLista {
@@ -1157,6 +1184,7 @@ fn ruleaza() -> Result<(), String> {
                             Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
                         // „Uneste ciclul cursor" porneste cum spune configurarea (F-B5)
                         app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
+                        st.detalii = Some(porneste_detalii(&app));
                         st.app = Some(app);
                         // numele bazelor din antet: offline nu vine de pe server
                         st.conectare.sursa.baza = st.referinta.clone();
@@ -1313,6 +1341,7 @@ fn ruleaza() -> Result<(), String> {
                 sv();
                 let mut st = s.borrow_mut();
                 st.app = None;
+                st.detalii = None;
                 st.deploy = None;
                 st.rulare = None;
                 st.referinta = String::new();
@@ -1986,6 +2015,33 @@ fn ruleaza() -> Result<(), String> {
                         }
                     }
                 }
+                // detaliile de pe alt fir: cate au venit, pe obiectul lor
+                {
+                    let mut st = s.borrow_mut();
+                    let st = &mut *st;
+                    if let (Some(rx), Some(app)) = (st.detalii.as_ref(), st.app.as_mut()) {
+                        let mut venite = 0usize;
+                        let mut gata = false;
+                        loop {
+                            match rx.try_recv() {
+                                Ok((cheie, d)) => {
+                                    app.pune_detalii(&cheie, d);
+                                    venite += 1;
+                                }
+                                Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                                    gata = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if gata {
+                            tracing::debug!(target: "gmotion::app", "detaliile listei sunt calculate");
+                            st.detalii = None;
+                        }
+                        s_a_schimbat |= venite > 0;
+                    }
+                }
                 if s_a_schimbat {
                     d();
                 }
@@ -2061,6 +2117,7 @@ fn ruleaza() -> Result<(), String> {
                                 }
                                 // ca la offline: comutatorul porneste din configurare
                                 app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
+                                st.detalii = Some(porneste_detalii(&app));
                                 st.app = Some(app);
                             }
                             Err(e) if e == pornire::ANULAT => {

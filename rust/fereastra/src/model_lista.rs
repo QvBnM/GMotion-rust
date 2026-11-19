@@ -503,6 +503,28 @@ impl Lista {
         }
     }
 
+    /// Detaliile obiectului cu cheia data, oriunde ar fi in lista (si filtrat).
+    /// Pentru calculul de pe alt fir: rezultatele vin dupa cheie, nu dupa
+    /// pozitie, fiindca intre timp filtrul se poate schimba.
+    pub fn pune_detalii_cheie(&mut self, cheie: &(String, String), d: Detalii) {
+        if let Some(o) = self.obiecte.iter_mut().find(|o| &o.cheie() == cheie) {
+            o.detalii = Some(d);
+        }
+    }
+
+    /// Cheile obiectelor modificate fara detalii: intai cele vizibile, in
+    /// ordinea afisata, apoi restul.
+    pub fn chei_fara_detalii(&self) -> Vec<(String, String)> {
+        let lipsa = |i: &usize| {
+            let o = &self.obiecte[*i];
+            o.detalii.is_none() && o.stare == Stare::Modificat
+        };
+        let mut v: Vec<usize> = self.vizibile.iter().copied().filter(lipsa).collect();
+        let vazute: std::collections::BTreeSet<usize> = v.iter().copied().collect();
+        v.extend((0..self.obiecte.len()).filter(|i| !vazute.contains(i) && lipsa(i)));
+        v.into_iter().map(|i| self.obiecte[i].cheie()).collect()
+    }
+
     /// Pozitiile din intervalul `[de_la, pana_la)` carora le lipsesc detaliile:
     /// exact ce trebuie calculat pentru randurile care tocmai au intrat pe
     /// ecran.
@@ -696,6 +718,23 @@ mod teste {
 
     fn cheie(nume: &str) -> (String, String) {
         ("Client1".to_string(), format!("dbo.{nume}"))
+    }
+
+    #[test]
+    fn detaliile_se_pun_dupa_cheie_si_lipsesc_intai_cele_vizibile() {
+        let mut l = lista_proba();
+        l.filtreaza_tip(Some("V".into()));
+        let lipsa = l.chei_fara_detalii();
+        // doar modificatele: usp_Stoc si vw_Facturi; vw_Facturi e vizibil
+        assert_eq!(lipsa, [cheie("vw_Facturi"), cheie("usp_Stoc")]);
+        let d = Detalii {
+            difera_in: "cod".into(),
+            linii_plus: 2,
+            linii_minus: 1,
+        };
+        // usp_Stoc e ascuns de filtru, dar primeste detaliile
+        l.pune_detalii_cheie(&cheie("usp_Stoc"), d);
+        assert_eq!(l.chei_fara_detalii(), [cheie("vw_Facturi")]);
     }
 
     #[test]

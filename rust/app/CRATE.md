@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 5709940589ef4a0d -->
+<!-- api-hash: 6912446420cffcc4 -->
 
 ## Rol
 
@@ -42,6 +42,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `StareColoana` (`in_sesiune`, `din_sesiune`) | latimea, pinul, partea si banda coloanei din editor, in sesiune (etapa 16) |
 | `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
 | `Aplicatie::arbore()`; comenzile `ComutaNod`, `MutaInArbore` | arborele listei (etapa 19); selectia isi deschide singura dosarul |
+| `Aplicatie::{lucrari_detalii, pune_detalii}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
 | `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea si selectia celei vechi |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |

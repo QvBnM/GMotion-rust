@@ -40,7 +40,7 @@ previzualizare exista un buton de wrap.
 - [ ] nicio redesenare peste 100 ms la un filtru sau la un clic, pe 4.000
       de obiecte (masurat, nu presupus)
 - [ ] captura la 1920x1080 trimisa lui Mihai si „da"-ul lui pe ea
-- [ ] poarta verde: `unelte/verifica.sh`
+- [x] poarta verde: `unelte/verifica.sh`
 - [ ] `STARE.md` actualizat
 - [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
 
@@ -68,6 +68,11 @@ previzualizare exista un buton de wrap.
   linia in randuri de continuare, deci alinierea si navigarea pe diferente
   raman cele de dinainte. Latimea panoului se afla abia dupa primul cadru;
   `changed coloane-wrap` redeseneaza.
+- **2026-11-19** Viteza: lista cu arbore, pe 4.000 de obiecte, se incarca in
+  5 ms si se deseneaza in 10 ms (`masura_lista`). Cele 1,2 s din jurnalul
+  lui Mihai veneau din „Difera in" / `+N −M` calculate pe loc pentru 60 de
+  obiecte la fiecare filtru; acum se calculeaza toate pe alt fir, imediat
+  dupa comparare. De confirmat pe jurnalul urmator de pe Windows.
 
 ## Ce a iesit altfel decat planul
 

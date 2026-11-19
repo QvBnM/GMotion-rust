@@ -46,14 +46,13 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Proba pe Windows, runda 2.** Primul jurnal (2026-11-19 17:24) a dus la:
-dublu clic numarat in Rust, filtrele pastrate la Recompara, caile de
-instantaneu fara `\\?\`, rezultatele de pe alte fire in jurnal. Neclar din
-jurnal: clicurile repetate pe tabul 0 (26:28-26:37), unde nu stiu ce astepta
-Mihai. Se cere un jurnal nou si o captura cu ora.
-
-De acum testele sunt reale, pe serverele lui Mihai: `porneste` deschide
-conectarea; previzualizarea doar cu `--previzualizare` (capturile din cloud).
+**Proba pe Windows, runda 3 (etapa 19).** Dupa prima proba pe bazele reale:
+motorul strange spatiile din string-uri ca v3.4; lista e arbore ca Object
+Explorer cu martor | modificata in dreapta; wrap („Rupe liniile", `w`);
+„Difera in" se calculeaza pe alt fir. Se cere: proba pe aceleasi baze
+(GetsBet → CEAAS), jurnalul nou, si „da"-ul lui Mihai pe
+`cercetare/capturi/lista-arbore-1920.png` (criteriul de aspect al etapei).
+Previzualizarea sintetica doar cu `--previzualizare`.
 
 **Etapele 15 si 16 sunt incheiate.** Ramane:
 
@@ -132,6 +131,14 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Fara `width: parent.width / N` pe copiii unui layout.** Layout-ul isi ia
+  marimea din copii: in 1.19 da „Recursion detected" la rulare (testele o
+  prind, compilarea nu). Impartirea egala: `horizontal-stretch: 1` si
+  `preferred-width: 1px` pe fiecare.
+- **Wrap-ul se calculeaza in Rust** (`rupe_linia`, randuri de continuare),
+  la latimea din `coloane-wrap` (Slint). Latimea caracterului e aceeasi in
+  ambele locuri (`CARACTER_MONO`, 7,52 px); daca se schimba fontul, se
+  schimba in amandoua.
 - **Fara `double-clicked` in `.slint`.** Pe Windows nu ajungea (jurnalul
   din 2026-11-19). Dublul clic se numara in Rust, cu `dublu_clic::DubluClic`,
   in handlerul clicului simplu. Daca il pui si in Slint, se deschide de doua ori.
