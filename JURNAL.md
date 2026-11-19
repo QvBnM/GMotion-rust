@@ -1368,3 +1368,52 @@ UTF-8.
 · `004` interogare · `005` baza lipsa · `006` descoperire · `007` citire
 instantaneu · `008` scriere instantaneu · `009` versiune instantaneu · `010`
 nume invalid.
+
+---
+
+## 2026-11-19 — Motorul inaintea interfetei: alinierea pe linii si plasarea
+
+**Context.** Mihai a cerut o analiza a motorului de comparare, pe un caz real:
+`uspLeasing2_GetTemplatesMultipleDocuments`, martor fata de versiunea
+upgradata. Comparate trei iesiri pe acelasi caz: GMotion-rust, GMotion v3.4 si
+Araxis Merge.
+
+**Ce s-a masurat** (pe `d9346d7`):
+
+- `aliniere.rs:131` imperecheaza liniile dintr-un bloc modificat **pe index**:
+  `AS` ajunge langa `@UserId INT,`. Nici v3.4, nici Araxis nu fac asta.
+- Cele doua `SELECT` au scor 24.00, sub pragul 44 din `perechi_replace`: ies
+  „sters" + „adaugat". v3.4 le rateaza si el (prag 55), dar deseneaza unde ar
+  veni blocul; noi nu desenam nimic.
+- `scor_similaritate` creste cubic: 85 ms la 2.000 de linii, 38 s la 16.000,
+  400 s la 32.000. Prototip cu automat de sufixe: potriviri **identice**
+  (verificate pe 800 de perechi din corpus), 0,5 s la 16.000. E partea de
+  motor din P7 al auditului.
+- `rezumat_rapid` fata de `rezumat_diff`: F-M4 din audit, inca nereparat.
+- v3.4 are un strat pe care portul Rust nu-l are deloc: `_sugereaza` /
+  `_celMaiApropiat` / `_gapSugerat` — antetul potrivit direct fara scor (ca sa
+  nu cada cand se adauga parametri), prag 55 la inlocuire, regula de
+  ambiguitate sub 8 puncte cu preferinta pe pozitie, gol sugerat si
+  rand-fantoma cand nu exista corespondent.
+
+**Decizie.** Randurile ramase in `lipsuri-portare.md` §4 (drag & drop,
+„Plaseaza aici", liniile de legatura, previzualizarea la hover) **nu sunt
+blocate de Slint, ci de motor**: fara plasare nu ai cui cere unde cade blocul.
+S-a scris `etape/20-motor-aliniere-plasare.md`, cu criteriile inainte de cod.
+Lasata NEPORNITA: etapa 19 e activa si poarta cere exact una — Mihai alege
+care merge prima.
+
+Mihai, 2026-11-19: „fara motor nu poti merge mai departe" si „toate
+functionalitatile alea trebuie implementate corect in noul format".
+
+**Alternative.** (a) Doar imperecherea 1x1 reparata — ieftin, dar nu aduce
+nici alinierea pe linii, nici plasarea, deci nu deblocheaza nimic din §4.
+(b) Portat aspectul v3.4 — respins de Mihai: functiile trebuie implementate in
+formatul nou, nu lipite. (c) Motorul intai, complet. Ales (c).
+
+**De notat pentru oricine reia:** v3.4 se poate **rula** ca referinta de
+comportament, fara server si fara Windows. `mostenire/ui.py` genereaza o
+pagina intreaga, iar „comparare offline" face tot diff-ul in browser: se
+incarca pagina intr-un browser fara cap, se umplu `offRef` / `offCur` si se
+cheama `comparaOffline()`. Asa s-au obtinut iesirile cu care am comparat, in
+loc sa le deducem din cod.

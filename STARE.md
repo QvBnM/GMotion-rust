@@ -117,6 +117,21 @@ la deschidere), nume case-insensitive intre baze, divergentele Unicode fata de
 JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
+## Pregatit, neinceput: motorul (etapa 20)
+
+`etape/20-motor-aliniere-plasare.md`, scrisa pe 2026-11-19 dupa analiza ceruta
+de Mihai. **NEPORNITA** fiindca etapa 19 e activa si poarta cere exact una.
+
+Ce spune, pe scurt: randurile ramase din `lipsuri-portare.md` §4 (drag & drop,
+„Plaseaza aici", liniile de legatura, previzualizarea la hover) nu sunt
+blocate de Slint, ci de motor — `aliniere.rs` imperecheaza liniile unui bloc
+modificat **pe index**, si stratul de plasare din v3.4 (`_sugereaza`) nu a
+fost portat deloc. Tot acolo intra F-M4 (doua rezumate divergente) si partea
+de motor din P7 (scorul creste cubic; automatul de sufixe da potriviri
+identice de ~75x mai repede).
+
+**Mihai alege care etapa merge prima: 19 sau 20.**
+
 ## Ce astept de la Mihai
 
 **Design-ul nou pentru ecranul de conectare** (macheta), dupa incheierea
