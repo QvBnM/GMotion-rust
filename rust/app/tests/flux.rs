@@ -98,8 +98,13 @@ fn din_conectare_pana_in_editor() {
     app.comanda(Comanda::Deschide);
     assert_eq!(app.ecran(), Ecran::Editor);
     assert_eq!(app.obiect().unwrap().nume, "pMesaj");
-    let model = app.model_editor().expect("modelul editorului");
-    assert_eq!(model.diferente.len(), 1);
+    assert_eq!(
+        app.model_editor()
+            .expect("modelul editorului")
+            .diferente
+            .len(),
+        1
+    );
 
     // 6. bifa din editor se vede in progresul listei
     assert!(app.comanda(Comanda::ComutaRevizuit));
@@ -360,9 +365,11 @@ fn pe_cod_deformat_aplica_toate_aduce_martorul_in_baza() {
     app.comanda(Comanda::Deschide);
     assert_eq!(app.ecran(), Ecran::Editor);
 
-    let model = app.model_editor().expect("editorul are model");
     assert!(
-        !model.diferente.is_empty(),
+        !app.model_editor()
+            .expect("editorul are model")
+            .diferente
+            .is_empty(),
         "obiectul chiar difera, altfel testul nu probeaza nimic"
     );
     // codul e deformat: majuscule amestecate si tab-uri, in ambele parti

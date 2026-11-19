@@ -139,6 +139,17 @@ impl PanouDetalii {
     }
 }
 
+/// Cheia modelului tinut minte in `Aplicatie::model`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CheieModel {
+    baza: String,
+    id: String,
+    /// Amprenta textului din dreapta (final sau al bazei).
+    text: String,
+    manual: bool,
+    uneste_cursorul: bool,
+}
+
 /// Starea aplicatiei: lista, ecranul activ si progresul revizuirii.
 pub struct Aplicatie {
     lista: Lista,
@@ -166,6 +177,14 @@ pub struct Aplicatie {
     folosit_de: std::cell::RefCell<std::collections::BTreeMap<String, FolositDe>>,
     /// „Uneste ciclul cursor": schimba taierea blocurilor in editor.
     uneste_cursorul: bool,
+    /// Modelul editorului, tinut minte pe cheia lui. Se refacea la **fiecare
+    /// desenare**: 2,4 s pentru un obiect de 30.000 de linii, deci „Aplica"
+    /// insemna 7-10 secunde de fereastra inghetata, iar o bifa (`r`, `i`) tot
+    /// 2,4 s, desi nu schimba textul (P1 din auditul QA).
+    model: std::cell::RefCell<Option<(CheieModel, ModelEditor)>>,
+    /// De cate ori s-a construit modelul. Numai asa se poate proba ca
+    /// desenarea nu-l reface (P1); altfel testul ar masura timpi.
+    refaceri_model: std::cell::Cell<u64>,
     /// A cata comparare e asta. Dat de un numarator, la construire: ce s-a
     /// calculat pe o comparare (planul de deploy, garda lui) nu se poate
     /// refolosi dupa o recomparare, si uitarea era bug-ul C2 din auditul QA.
@@ -264,6 +283,8 @@ impl Aplicatie {
             detalii: false,
             folosit_de: std::cell::RefCell::default(),
             uneste_cursorul: false,
+            model: std::cell::RefCell::default(),
+            refaceri_model: std::cell::Cell::new(0),
             id_comparare: urmatorul_id_comparare(),
         }
     }
@@ -466,7 +487,48 @@ impl Aplicatie {
     /// In dreapta e **textul final** (daca exista), nu textul bazei: editorul
     /// arata mereu sursa fata de ce va ajunge in baza, iar liniile schimbate
     /// fata de baza sunt marcate (adus / scris de tine).
-    pub fn model_editor(&self) -> Option<ModelEditor> {
+    pub fn model_editor(&self) -> Option<std::cell::Ref<'_, ModelEditor>> {
+        let cheie = self.cheie_model()?;
+        {
+            let mut c = self.model.borrow_mut();
+            if c.as_ref().map(|(k, _)| k) != Some(&cheie) {
+                *c = Some((cheie, self.construieste_modelul()?));
+            }
+        }
+        std::cell::Ref::filter_map(self.model.borrow(), |x| x.as_ref().map(|(_, m)| m)).ok()
+    }
+
+    /// De ce depinde modelul editorului: obiectul, textul lui final de acum
+    /// si taierea blocurilor. Altceva (bifa, „in plan", filtrul listei) nu-l
+    /// schimba, deci nu-l reface.
+    fn cheie_model(&self) -> Option<CheieModel> {
+        let (baza, id) = self.cheia_curenta()?;
+        let (_, b) = self.texte(&baza, &id)?;
+        let (text, manual) = match self.rand(&baza, &id) {
+            Some(r) => (
+                self.editari.curent(r, b),
+                self.editari.text_final(r).is_some_and(|t| t.manual),
+            ),
+            None => (b, false),
+        };
+        Some(CheieModel {
+            baza,
+            id,
+            text: gmotion_core::calc_hash(text),
+            manual,
+            uneste_cursorul: self.uneste_cursorul,
+        })
+    }
+
+    /// De cate ori s-a construit modelul editorului de la pornire. Pe un
+    /// obiect de 30.000 de linii o construire tine 2,4 s, deci numarul asta
+    /// e si masura inghetarilor (P1 din auditul QA).
+    pub fn refaceri_model(&self) -> u64 {
+        self.refaceri_model.get()
+    }
+
+    fn construieste_modelul(&self) -> Option<ModelEditor> {
+        self.refaceri_model.set(self.refaceri_model.get() + 1);
         let (baza, id) = self.cheia_curenta()?;
         let (a, b) = self.texte(&baza, &id)?;
         let Some(r) = self.rand(&baza, &id) else {
@@ -1469,8 +1531,9 @@ mod teste {
         );
         assert_eq!(a.stare_text_final(), (true, false));
         // liniile aduse sunt marcate
-        let m = a.model_editor().unwrap();
-        assert!(m
+        assert!(a
+            .model_editor()
+            .unwrap()
             .randuri
             .iter()
             .any(|r| r.marcaj == gmotion_fereastra::model_editor::Marcaj::Adus));
@@ -1606,5 +1669,49 @@ mod teste {
         assert!(!a.lista().obiect(1).unwrap().revizuit);
         // un rand care nu exista nu face nimic
         assert!(!a.comanda(Comanda::ComutaRevizuitLa(999)));
+    }
+
+    /// P1 din `cercetare/audit-qa-2026-11-18.md`: modelul editorului
+    /// (alinierea completa) se refacea la **fiecare desenare**, si inca o
+    /// data in `numar_diferente`, in `aplica` si in `treci`. Pe un obiect de
+    /// 30.000 de linii o construire tine 2,4 s: „Aplica" insemna 7-10 secunde
+    /// de fereastra inghetata, iar `r` sau `i` (bifa, in plan) tot 2,4 s,
+    /// desi nu schimba textul.
+    #[test]
+    fn modelul_editorului_se_reface_doar_cand_se_schimba_textul() {
+        let (mut a, _, _) = aplicatie_editare();
+        let n0 = a.refaceri_model();
+        let diferente = a.model_editor().unwrap().diferente.len();
+        assert!(diferente > 0, "obiectul de proba chiar difera");
+        let n1 = a.refaceri_model();
+        assert!(
+            n1 <= n0 + 1,
+            "cel mult o construire: {n0} -> {n1} (deschiderea obiectului il construise deja)"
+        );
+
+        // desenari repetate: acelasi model
+        for _ in 0..5 {
+            assert_eq!(a.model_editor().unwrap().diferente.len(), diferente);
+        }
+        assert_eq!(a.refaceri_model(), n1, "desenarea nu reface nimic");
+
+        // bifa si „in plan" nu ating textul, deci nici modelul
+        a.comanda(Comanda::ComutaRevizuit);
+        a.comanda(Comanda::ComutaInPlan);
+        a.model_editor().unwrap();
+        assert_eq!(a.refaceri_model(), n1, "bifa nu reface modelul");
+
+        // o schimbare de text il reface, o singura data
+        a.comanda(Comanda::AplicaToate);
+        assert_eq!(a.model_editor().unwrap().diferente.len(), 0);
+        let n2 = a.refaceri_model();
+        assert_eq!(n2, n1 + 1, "o singura refacere dupa Aplica toate");
+        a.model_editor().unwrap();
+        assert_eq!(a.refaceri_model(), n2);
+
+        // si unirea ciclului de cursor taie blocurile altfel: se reface
+        a.comanda(Comanda::ComutaUnireaCursorului(true));
+        a.model_editor().unwrap();
+        assert!(a.refaceri_model() > n2);
     }
 }

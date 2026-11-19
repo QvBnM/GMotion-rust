@@ -463,6 +463,17 @@ fn ruleaza() -> Result<(), String> {
                     app.lista().selectat().map_or(0, |p| p + 1),
                     app.lista().vizibile().len()
                 );
+                // `salvat` se ia inainte: `model_editor` tine un imprumut
+                // pe `app`, iar `s.salvat_la` e tot din `s`
+                let salvat = if s.salvat_la.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "Modificarile se salveaza singure, ultima data la {}",
+                        s.salvat_la
+                    )
+                };
+                let app = s.app.as_mut().expect("verificat mai sus");
                 if let (Some(o), Some(model)) = (app.obiect().cloned(), app.model_editor()) {
                     incarca_editor(
                         &e_ui,
@@ -486,15 +497,7 @@ fn ruleaza() -> Result<(), String> {
                     e_ui.set_uneste_cursorul(app.uneste_cursorul());
                     let (editat, _) = app.stare_text_final();
                     let (text_sursa, text_final) = app.texte_curente().unwrap_or_default();
-                    let salvat = if s.salvat_la.is_empty() {
-                        String::new()
-                    } else {
-                        format!(
-                            "Modificarile se salveaza singure, ultima data la {}",
-                            s.salvat_la
-                        )
-                    };
-                    let app = s.app.as_ref().expect("verificat mai sus");
+                    drop(model);
                     incarca_editarea(
                         &e_ui,
                         &StareEditare {

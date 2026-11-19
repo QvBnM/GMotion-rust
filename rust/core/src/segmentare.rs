@@ -37,8 +37,12 @@ static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
 });
 
 static RE_CORP_CONTROL: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(if|else|while)\b").unwrap());
+// Caracterul dinainte nu are voie sa fie parte de identificator: `@case`,
+// `#case` si `a.case` sunt nume de variabila / coloana, nu cuvinte cheie.
+// `[Case]` si `"Case"` nici nu ajung aici: linia curatata le inlocuieste cu
+// spatii (P3 din auditul QA).
 static RE_CUVINTE_STIVA: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)\b(case|begin|end)\b").unwrap());
+    Lazy::new(|| Regex::new(r"(?i)(?:^|[^A-Za-z0-9_@#.])(case|begin|end)\b").unwrap());
 static RE_UNION_LA_FINAL: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\bunion(?:\s+all)?\s*$").unwrap());
 static RE_CURSOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bcursor\b").unwrap());
@@ -54,105 +58,32 @@ static RE_INCEPE_IF_WHILE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(if|whil
 static RE_DECLARE_CURSOR: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\bdeclare\s+([0-9A-Za-z_]+)\s+cursor\b").unwrap());
 
-/// Starea de parcurgere care traverseaza liniile: suntem intr-un literal sau
-/// intr-un comentariu bloc deschis pe o linie anterioara?
-#[derive(Debug, Default, Clone, Copy)]
-struct StareScanare {
-    in_literal: bool,
-    in_comentariu_bloc: bool,
-}
-
-/// Linia cu literalele si comentariile inlocuite cu spatii, plus variatia de
-/// adancime a parantezelor.
+/// Textul cu literalele, identificatorii cu paranteze / ghilimele si
+/// comentariile inlocuite cu spatii, octet cu octet (deci liniile raman la
+/// aceleasi pozitii).
 ///
-/// Fara asta, un `SELECT` din interiorul unui literal
-/// (`'INSERT INTO fake SELECT 1'`) ar porni un bloc nou.
-fn scaneaza_linie(linie: &str, stare: &mut StareScanare) -> (String, i32) {
-    let ch: Vec<char> = linie.chars().collect();
-    let n = ch.len();
-    let mut out = String::with_capacity(n);
-    let mut delta: i32 = 0;
-    let mut i = 0usize;
-
-    let gaseste = |de_la: usize, model: &[char]| -> Option<usize> {
-        if model.len() > n {
-            return None;
-        }
-        (de_la..=n.saturating_sub(model.len())).find(|&p| ch[p..p + model.len()] == *model)
-    };
-
-    while i < n {
-        if stare.in_comentariu_bloc {
-            match gaseste(i, &['*', '/']) {
-                None => {
-                    for _ in i..n {
-                        out.push(' ');
-                    }
-                    break;
-                }
-                Some(sfarsit) => {
-                    for _ in i..sfarsit + 2 {
-                        out.push(' ');
-                    }
-                    i = sfarsit + 2;
-                    stare.in_comentariu_bloc = false;
-                    continue;
-                }
-            }
-        }
-        if stare.in_literal {
-            match gaseste(i, &['\'']) {
-                None => {
-                    for _ in i..n {
-                        out.push(' ');
-                    }
-                    break;
-                }
-                Some(qi) => {
-                    if ch.get(qi + 1) == Some(&'\'') {
-                        // apostrof escapat in interiorul literalului
-                        out.push_str("  ");
-                        i = qi + 2;
-                        continue;
-                    }
-                    stare.in_literal = false;
-                    for _ in i..qi + 1 {
-                        out.push(' ');
-                    }
-                    i = qi + 1;
-                    continue;
-                }
-            }
-        }
-        let c = ch[i];
-        if c == '-' && ch.get(i + 1) == Some(&'-') {
-            for _ in i..n {
-                out.push(' ');
-            }
-            break;
-        }
-        if c == '/' && ch.get(i + 1) == Some(&'*') {
-            stare.in_comentariu_bloc = true;
-            out.push_str("  ");
-            i += 2;
+/// Granitele vin din [`crate::lexer`], singurul loc unde se decide ce e cod.
+/// Pana la auditul QA exista aici un **al doilea** lexer, care nu stia de
+/// `[...]`, `"..."` si `@`: `SELECT [Case]` deschidea un `CASE` care nu se
+/// mai inchidea, si tot obiectul devenea un singur bloc (16 s pe 5.000 de
+/// linii, si un diff fara nicio valoare). Un apostrof intr-un `[O'Brien]`
+/// pornea un literal peste jumatate de obiect.
+fn text_curatat(cod: &str) -> String {
+    use crate::lexer::{segmente, Fel};
+    let mut out = cod.as_bytes().to_vec();
+    for s in segmente(cod) {
+        if s.fel == Fel::Cod {
             continue;
         }
-        if c == '\'' {
-            stare.in_literal = true;
-            out.push(' ');
-            i += 1;
-            continue;
+        for b in &mut out[s.start..s.sfarsit] {
+            if *b != b'\n' {
+                *b = b' ';
+            }
         }
-        if c == '(' {
-            delta += 1;
-        } else if c == ')' {
-            delta -= 1;
-        }
-        out.push(c);
-        i += 1;
     }
-
-    (out, delta)
+    // s-au inlocuit doar octeti non-ASCII cu spatii ASCII, deci textul ramane
+    // UTF-8 valid
+    String::from_utf8(out).unwrap_or_else(|_| cod.to_string())
 }
 
 /// `CASE`/`BEGIN` deschid, `END` inchide. Stiva spune daca suntem in interiorul
@@ -318,19 +249,44 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
     let mut curent: Vec<&str> = Vec::new();
     let mut in_antet = true;
     let mut linie_anterioara = String::new();
-    let mut stare = StareScanare::default();
     let mut adancime_paranteze: i32 = 0;
     let mut stiva_case: Vec<String> = Vec::new();
+    // liniile curatate, din lexer: aceleasi pozitii, fara siruri si comentarii
+    let curatat = text_curatat(cod);
+    let mut curate = curatat.split('\n');
+    // segmentele, ca sa se stie daca o linie **incepe** in interiorul unui sir
+    // sau al unui comentariu bloc deschis mai sus (un comentariu `--` se
+    // inchide la capat de linie, deci nu se pune)
+    let seg: Vec<crate::lexer::Segment> = crate::lexer::segmente(cod)
+        .into_iter()
+        .filter(|x| {
+            !matches!(
+                x.fel,
+                crate::lexer::Fel::Cod | crate::lexer::Fel::ComentariuLinie
+            )
+        })
+        .collect();
+    let deschis_la = |poz: usize| {
+        let i = seg.partition_point(|x| x.start <= poz);
+        i > 0 && poz < seg[i - 1].sfarsit && poz > seg[i - 1].start
+    };
+    let mut poz_linie = 0usize;
 
     for linie in cod.split('\n') {
         let s = linie.trim();
+        let curata = curate.next().unwrap_or("");
+        let in_text_deschis = deschis_la(poz_linie);
+        poz_linie += linie.len() + 1;
 
         // starea se evalueaza INAINTE de scanarea liniei curente
         let in_case = stiva_case.iter().any(|x| x == "case");
-        let in_construct =
-            adancime_paranteze > 0 || stare.in_literal || stare.in_comentariu_bloc || in_case;
+        let in_construct = adancime_paranteze > 0 || in_text_deschis || in_case;
 
-        let (curata, delta) = scaneaza_linie(linie, &mut stare);
+        let delta = curata.chars().fold(0i32, |d, c| match c {
+            '(' => d + 1,
+            ')' => d - 1,
+            _ => d,
+        });
         adancime_paranteze += delta;
         if adancime_paranteze < 0 {
             adancime_paranteze = 0;
@@ -346,7 +302,7 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
                 curent.push(linie);
             }
             linie_anterioara.clear();
-            actualizeaza_stiva(&curata, &mut stiva_case);
+            actualizeaza_stiva(curata, &mut stiva_case);
             continue;
         }
 
@@ -371,7 +327,7 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         }
 
         linie_anterioara = s.to_string();
-        actualizeaza_stiva(&curata, &mut stiva_case);
+        actualizeaza_stiva(curata, &mut stiva_case);
     }
     if !curent.is_empty() {
         blocuri.push(curent.join("\n"));
@@ -447,10 +403,15 @@ pub fn cheie_bloc(bloc: &str) -> String {
 /// desena acolo, iar „Aplica" ar fi inlocuit linii gresite.
 pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
     use crate::lexer::{segmente, Fel};
-    let seg = segmente(cod);
+    // segmentele sunt in ordinea pozitiei, deci se cauta binar; cautarea
+    // liniara pe fiecare candidat facea functia patratica (P2 din auditul QA)
+    let seg: Vec<_> = segmente(cod)
+        .into_iter()
+        .filter(|s| s.fel != Fel::Cod)
+        .collect();
     let in_interior = |poz: usize| {
-        seg.iter()
-            .any(|s| s.fel != Fel::Cod && s.start < poz && poz < s.sfarsit)
+        let i = seg.partition_point(|s| s.start <= poz);
+        i > 0 && poz < seg[i - 1].sfarsit && poz > seg[i - 1].start
     };
     let la_inceput_de_linie = |poz: usize| {
         cod[..poz].rsplit('\n').next().map_or(true, |inainte| {
@@ -459,6 +420,9 @@ pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
     };
     let mut out: Vec<usize> = Vec::with_capacity(blocuri.len());
     let mut poz = 0usize;
+    // numaratoarea liniilor merge din aproape in aproape: `cod[..idx]` la
+    // fiecare bloc insemna inca o parcurgere a tot textului (P2)
+    let (mut linii_pana, mut numarat_pana) = (0usize, 0usize);
     for bloc in blocuri {
         let gasit = if bloc.is_empty() {
             None
@@ -472,7 +436,13 @@ pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
         match gasit {
             None => out.push(out.last().copied().unwrap_or(0)),
             Some(idx) => {
-                out.push(cod[..idx].matches('\n').count());
+                if idx >= numarat_pana {
+                    linii_pana += cod[numarat_pana..idx].matches('\n').count();
+                } else {
+                    linii_pana = cod[..idx].matches('\n').count();
+                }
+                numarat_pana = idx;
+                out.push(linii_pana);
                 poz = idx + bloc.len();
             }
         }
@@ -601,5 +571,43 @@ mod teste {
         ));
         // litere mari sau mici, tot aia
         assert!(are_cursor("declare   Ciclu   cursor for select 1"));
+    }
+
+    /// P3 din `cercetare/audit-qa-2026-11-18.md`: segmentarea avea un **al
+    /// doilea** lexer, care nu stia de `[...]`, `"..."` si `@`. Un `[Case]`
+    /// deschidea un `CASE` care nu se mai inchidea niciodata, deci tot
+    /// obiectul devenea un singur bloc: 16 s in `diff_aliniat` pe 5.000 de
+    /// linii, si un diff care spunea doar „totul modificat". Un apostrof
+    /// intr-un `[O'Brien]` pornea un literal peste jumatate de obiect.
+    #[test]
+    fn un_case_in_paranteze_sau_dupa_arond_nu_inghite_obiectul() {
+        let ca_blocuri = |cuvant: &str| {
+            let cod: String = (0..20)
+                .map(|i| format!("SELECT {cuvant} AS c{i}\n\n"))
+                .collect();
+            split_statements(&cod, false).len()
+        };
+        for cuvant in [
+            "[Case]",
+            "@case",
+            "#case",
+            "t.[End]",
+            "[O'Brien]",
+            "\"Can't connect\"",
+            "\"Case\"",
+        ] {
+            assert_eq!(
+                ca_blocuri(cuvant),
+                20,
+                "{cuvant} nu e un cuvant de stiva si nu deschide niciun literal"
+            );
+        }
+        // iar un CASE adevarat tine blocul intreg, ca pana acum
+        let cod = "SELECT CASE WHEN a = 1\n\nTHEN 2 ELSE 3 END AS x\n\nSELECT 2";
+        assert_eq!(
+            split_statements(cod, false).len(),
+            2,
+            "liniile goale dintr-un CASE nu despart blocuri"
+        );
     }
 }

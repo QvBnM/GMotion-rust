@@ -43,4 +43,27 @@ fn main() {
         t.elapsed().as_secs_f64() * 1000.0,
         randuri
     );
+
+    // Obiecte mari, construite aici: corpusul n-are asa ceva, iar P2 din
+    // auditul QA (`linii_start_blocuri` patratic) se vede doar pe ele.
+    for n in [5_000usize, 20_000] {
+        let cod: String = (0..n)
+            .map(|i| format!("SELECT {i} FROM t{i};\n\n"))
+            .collect();
+        let blocuri = gmotion_core::split_statements(&cod, false);
+        let t = Instant::now();
+        let _ = gmotion_core::linii_start_blocuri(&cod, &blocuri);
+        println!(
+            "rust   linii_start   : {:>8.1} ms ({} blocuri)",
+            t.elapsed().as_secs_f64() * 1000.0,
+            blocuri.len()
+        );
+        let alt = format!("{cod}SELECT 1\n");
+        let t = Instant::now();
+        let _ = gmotion_core::aliniaza(&cod, &alt);
+        println!(
+            "rust   aliniaza      : {:>8.1} ms ({n} instructiuni)",
+            t.elapsed().as_secs_f64() * 1000.0
+        );
+    }
 }

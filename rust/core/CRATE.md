@@ -104,6 +104,12 @@ intra in lista. Decizie confirmata 2026-11-17; vezi testul
 4. `split_statements` nu taie niciodata in interiorul unui literal, al unui
    comentariu bloc, al unei paranteze deschise sau al unei stive
    `CASE` / `BEGIN` / `END`.
+4b. **Granitele le da `lexer`, si aici.** Pana la auditul QA segmentarea avea
+   un al doilea lexer, care nu stia de `[...]`, `"..."` si `@`: un `[Case]`
+   deschidea un `CASE` care nu se mai inchidea, deci tot obiectul devenea un
+   singur bloc (P3). Linia „curatata" (fara siruri si comentarii) vine din
+   `lexer::segmente`, iar `@case`, `#case` si `a.case` nu sunt cuvinte de
+   stiva. Divergenta fata de v3.4 si de JS e deliberata: acolo bug-ul exista.
 5. `split_statements` nu pierde si nu dubleaza **cod**:
    `norm(blocuri.join("\n")) == norm(cod)`.
    Atentie, forma mai tare — concatenare egala cu textul de intrare — e
