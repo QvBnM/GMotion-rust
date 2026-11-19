@@ -1,6 +1,6 @@
 # gmotion-platforma
 
-<!-- api-hash: b37ef24f8f05c0f8 -->
+<!-- api-hash: 258227c5f2b50e35 -->
 
 ## Rol
 
@@ -28,7 +28,7 @@ unei unelte sta in crate-ul uneltei.
 | `sesiune` | `Sesiune` (`adauga_baze` — bazele comparate se adauga, nu se inlocuiesc), `Sesiuni::pentru_modul(m)` cu `salveaza`, `incarca(server, referinta)`, `sterge(server, referinta)`, `lista`; `slug`, `slug_sesiune(server, referinta)` |
 | `configurare` | `Configurare::citeste/scrie`, cu implicite in cod; `tema` tine modul ferestrei ales cu butonul (`intunecat` / `luminos` / gol) |
 | `timp` | `acum()` („2026-11-18 14:52"), `acum_compact()` („20261118_1452"): marcajul de timp, acelasi in `cli` si in fereastra |
-| `jurnal` | `porneste`, `linii(de_la)`, `adauga_linie`, `goleste` (Sterge log: uita liniile fara sa dea indexul inapoi) |
+| `jurnal` | `porneste_cu_fisier(director)` (jurnalul sesiunii si intr-un fisier `gmotion-<moment>.log`, `gmotion` la debug; se pastreaza `PASTRATE` = 10), `porneste`, `linii(de_la)`, `adauga_linie`, `goleste` (Sterge log: uita liniile fara sa dea indexul inapoi) |
 | `modul` | `Modul`, `CerinteBaze`, `Ecran`, `Registru`, `Ruta`, `METODE_PLATFORMA` |
 
 ### Contractul de modul

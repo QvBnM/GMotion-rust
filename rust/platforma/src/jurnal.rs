@@ -180,6 +180,53 @@ fn curata_linie(s: &str) -> String {
 const FILTRU_IMPLICIT: &str = "info,tiberius=warn";
 
 pub fn porneste() {
+    porneste_intern(None);
+}
+
+/// Ca `porneste`, dar scrie jurnalul si intr-un fisier nou din `director`
+/// (`gmotion-<moment>.log`), la nivel `debug` pentru tintele `gmotion`, ca o
+/// sesiune de proba (fiecare buton apasat, fiecare comanda cu durata ei) sa
+/// se poata trimite si citi dupa. Se pastreaza doar ultimele `PASTRATE`
+/// fisiere. Intoarce calea fisierului, sau `None` daca nu s-a putut crea —
+/// jurnalul pe ecran merge oricum.
+pub fn porneste_cu_fisier(director: &std::path::Path) -> Option<std::path::PathBuf> {
+    let cale = fisier_nou(director);
+    let fisier = cale.as_ref().and_then(|c| std::fs::File::create(c).ok());
+    let scris = fisier.is_some();
+    porneste_intern(fisier);
+    if scris {
+        cale
+    } else {
+        None
+    }
+}
+
+/// Cate fisiere de jurnal se pastreaza; cele mai vechi se sterg.
+pub const PASTRATE: usize = 10;
+
+/// Calea unui fisier nou de jurnal, dupa ce le sterge pe cele vechi peste
+/// `PASTRATE - 1`. Numele are momentul, deci sortarea alfabetica e cronologica.
+fn fisier_nou(director: &std::path::Path) -> Option<std::path::PathBuf> {
+    std::fs::create_dir_all(director).ok()?;
+    let mut vechi: Vec<std::path::PathBuf> = std::fs::read_dir(director)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("gmotion-") && n.ends_with(".log"))
+        })
+        .collect();
+    vechi.sort();
+    while vechi.len() >= PASTRATE {
+        let _ = std::fs::remove_file(vechi.remove(0));
+    }
+    Some(director.join(format!("gmotion-{}.log", crate::timp::acum_compact())))
+}
+
+fn porneste_intern(fisier: Option<std::fs::File>) {
+    use tracing_subscriber::Layer;
     static PORNIT: OnceLock<()> = OnceLock::new();
     if PORNIT.set(()).is_err() {
         return;
@@ -187,10 +234,21 @@ pub fn porneste() {
     let filtru = std::env::var("GMOTION_JURNAL")
         .or_else(|_| std::env::var("RUST_LOG"))
         .unwrap_or_else(|_| FILTRU_IMPLICIT.to_string());
-    let env = tracing_subscriber::EnvFilter::try_new(&filtru)
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(FILTRU_IMPLICIT));
+    let env = || {
+        tracing_subscriber::EnvFilter::try_new(&filtru)
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(FILTRU_IMPLICIT))
+    };
+    // fisierul are filtrul lui: tot ce e `gmotion` pana la debug, restul info
+    let strat_fisier = fisier.map(|f| {
+        tracing_subscriber::fmt::layer()
+            .with_target(true)
+            .with_ansi(false)
+            .with_writer(Mutex::new(f))
+            .with_filter(tracing_subscriber::EnvFilter::new(
+                "info,tiberius=warn,gmotion=debug",
+            ))
+    });
     let _ = tracing_subscriber::registry()
-        .with(env)
         // La iesirea de ERORI, nu la cea standard. Linia de comanda scrie
         // JSON la iesirea standard, iar o linie de jurnal amestecata acolo il
         // face neparsabil. S-a intamplat: prima versiune folosea implicitul
@@ -202,9 +260,12 @@ pub fn porneste() {
                 // Culori doar pe terminal: redirectat intr-un fisier sau
                 // capturat de alt program, codurile ANSI devin gunoi.
                 .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
-                .with_writer(std::io::stderr),
+                .with_writer(std::io::stderr)
+                .with_filter(env()),
         )
-        .with(StratTampon)
+        // banda de jurnal din fereastra vede ce vede si terminalul, nu debug
+        .with(StratTampon.with_filter(env()))
+        .with(strat_fisier)
         .try_init();
 }
 
@@ -342,5 +403,30 @@ mod teste {
         porneste();
         porneste();
         porneste();
+    }
+
+    #[test]
+    fn fisierele_vechi_de_jurnal_se_sterg_peste_limita() {
+        let d = std::env::temp_dir().join(format!("gmotion-jurnale-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for i in 0..PASTRATE + 3 {
+            std::fs::write(d.join(format!("gmotion-2026111{i:02}.log")), "x").unwrap();
+        }
+        std::fs::write(d.join("altceva.txt"), "x").unwrap();
+        let nou = fisier_nou(&d).unwrap();
+        assert!(nou.starts_with(&d));
+        let ramase = std::fs::read_dir(&d)
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".log"))
+            .count();
+        assert_eq!(ramase, PASTRATE - 1, "loc pentru cel nou");
+        assert!(d.join("altceva.txt").exists(), "nu atinge alte fisiere");
+        assert!(
+            !d.join("gmotion-202611100.log").exists(),
+            "cele mai vechi pleaca"
+        );
+        let _ = std::fs::remove_dir_all(&d);
     }
 }
