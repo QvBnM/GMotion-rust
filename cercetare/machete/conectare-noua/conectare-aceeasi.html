@@ -1,0 +1,136 @@
+<!doctype html><html lang="ro"><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-400.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-500.ttf);font-weight:500}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-600.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-400.ttf);font-weight:400}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-500.ttf);font-weight:500}
+:root{--fundal:#0d1120;--suprafata:#151a2e;--strat:#1d2440;--cod:#0f1424;--linie:#2a3255;--slaba:#1e2542;--text:#eef1ff;--t2:#a3acd0;--t3:#8a93b8;--accent:#ffb547;--pe-accent:#1a1200;--prod:#d92b2b;--test:#3561d6;--dev:#3a4466;--ok:#3ddc97;--mod-fundal:#312b29;--at:#ffb547;--warn:#ffb547;--pe-mediu:#ffffff}
+:root.luminos{--fundal:#f4f5f8;--suprafata:#ffffff;--strat:#eceef3;--cod:#ffffff;--linie:#e3e6ec;--slaba:#eef0f3;--text:#0f1115;--t2:#4f5561;--t3:#5f6572;--accent:#f5a524;--pe-accent:#1a1200;--prod:#c62828;--test:#2f5fd0;--dev:#5f6572;--ok:#0f6a37;--mod-fundal:#fdf1dc;--at:#8f5b00;--warn:#8f5b00;--pe-mediu:#ffffff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:100vw;height:100vh;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.mono{font-family:GeistMono,monospace}
+.banda{height:3px;background:var(--prod)}
+header{height:57px;border-bottom:1px solid var(--linie);display:flex;align-items:center;padding:0 24px;gap:28px}
+.logo{font-size:17px;font-weight:600;letter-spacing:-.4px}.logo i{display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--accent);margin:0 1px 1px}
+.tab{color:var(--t2);height:57px;display:flex;align-items:center;gap:6px;border-bottom:2px solid transparent}
+.tab.on{color:var(--text);border-color:var(--accent)}
+.nr{font:11px GeistMono;color:var(--t3);border:1px solid var(--linie);border-radius:4px;padding:0 5px}
+.sp{flex:1}.hl{color:var(--t2)}.kbd{font:11px GeistMono;color:var(--t3);margin-left:4px}
+main{flex:1;display:flex;min-height:0}
+.st{width:480px;padding:20px 22px;border-right:1px solid var(--linie);display:flex;flex-direction:column;gap:14px;background:var(--suprafata)}
+.seg{display:flex;border:1px solid var(--linie);border-radius:8px;padding:2px;background:var(--fundal)}
+.seg div{flex:1;text-align:center;padding:7px;border-radius:6px;color:var(--t2);font-weight:500}.seg .on{background:var(--strat);color:var(--text)}
+label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
+.camp{height:36px;border:1px solid var(--linie);border-radius:8px;background:var(--fundal);display:flex;align-items:center;padding:0 12px;font:13px GeistMono}
+.rand{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{height:34px;border:1px solid var(--linie);border-radius:8px;background:var(--strat);display:flex;align-items:center;justify-content:center;font-weight:500}
+.stare{font-size:12.5px;color:var(--ok);display:flex;align-items:center;gap:8px}.stare b{width:7px;height:7px;border-radius:4px;background:var(--ok)} .luminos .stare b{background:#17c964}
+.det{font:12px GeistMono;color:var(--t3);margin-top:-8px;padding-left:15px}
+.baze{border:1px solid var(--linie);border-radius:8px;background:var(--fundal);overflow:hidden}
+.bc{display:grid;grid-template-columns:34px 1fr 56px 62px;align-items:center;height:34px;padding:0 12px;border-bottom:1px solid var(--slaba);font:13px GeistMono}
+.bc:last-child{border:none}
+.bc.cap{font:11px Geist;color:var(--t3);height:28px;letter-spacing:.3px}
+.bc.ref{background:var(--mod-fundal);box-shadow:inset 3px 0 0 var(--accent)}.bc.ref .n{color:var(--accent)}
+.bif{width:14px;height:14px;border:1px solid var(--t3);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px}
+.bif.on{background:var(--accent);border-color:var(--accent);color:var(--pe-accent)}
+.bif.off{border-color:var(--linie)}
+.m{font:500 11px GeistMono;color:var(--pe-mediu);padding:1px 5px;border-radius:4px;justify-self:start}
+.m.PROD{background:var(--prod)}.m.TEST{background:var(--test)}.m.DEV{background:var(--dev)}
+.r{text-align:right;font:12px GeistMono;color:var(--t3)}.ref .r{color:var(--accent)}
+.alt{font-size:12.5px;color:var(--at)}
+.jos{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.cmp{height:48px;border-radius:10px;background:var(--accent);color:var(--pe-accent);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:10px}
+.cmp span{font:12px GeistMono;opacity:.7}
+.mic{font-size:12px;color:var(--t2);display:flex;justify-content:space-between}.mic a{color:var(--accent)}
+.dr{flex:1;display:flex;flex-direction:column;min-width:0}
+.sec{padding:16px 28px 6px;display:flex;align-items:baseline;gap:10px}.sec b{font-weight:600}.sec span{color:var(--t3);font-size:12px}
+.rec{margin:0 28px 0;border:1px solid var(--linie);border-radius:8px;background:var(--suprafata)}
+.rr{display:grid;grid-template-columns:1fr 130px 170px 70px;align-items:center;height:36px;padding:0 14px;border-bottom:1px solid var(--slaba)}.rr:last-child{border:none}
+.rr .a{font:13px GeistMono;display:flex;gap:8px;align-items:center}.rr .a i{font-style:normal;color:var(--t3)}
+.rr .c{color:var(--t2);font-size:12.5px}.rr .k{color:var(--at);text-align:right}
+.jr{flex:1;margin:0 28px 20px;border:1px solid var(--linie);border-radius:8px;background:var(--cod);padding:12px 16px;font:12.5px/1.9 GeistMono;color:var(--t2);overflow:hidden}
+.jr .t{color:var(--t3);margin-right:10px}.jr .ok{color:var(--ok)}.jr .w{color:var(--warn)}
+.jr .gol{color:var(--t3)}
+
+main{flex:1;display:flex;flex-direction:column;padding:20px 24px 0;gap:14px;min-height:0}
+.carduri{display:grid;grid-template-columns:1fr 36px 1fr;gap:12px;align-items:stretch}
+.card{border:1px solid var(--linie);border-radius:12px;background:var(--suprafata);padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.ct{display:flex;align-items:baseline;gap:10px}.ct b{font-size:17px;font-weight:600}.ct span{color:var(--t2);font-size:12.5px}.ct .m{margin-left:auto;align-self:center}
+.schimb{align-self:start;margin-top:22px;width:34px;height:34px;border:1px solid var(--linie);border-radius:17px;display:flex;align-items:center;justify-content:center;color:var(--t2);background:var(--suprafata)}
+.aceeasi{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--accent);border-radius:8px;background:var(--mod-fundal)}
+.aceeasi .txt{display:flex;flex-direction:column;gap:2px}.aceeasi .txt small{font:12px GeistMono;color:var(--t2)}
+.baze .bc{grid-template-columns:34px 1fr 70px}
+.baze .bc.dez{color:var(--t3)}
+.select{height:36px;border:1px solid var(--linie);border-radius:8px;background:var(--fundal);display:flex;align-items:center;padding:0 12px;font:13px GeistMono}
+.select:after{content:"⌄";margin-left:auto;color:var(--t2)}
+.bara{display:flex;align-items:center;gap:16px}.bara .mic{flex:1}
+.cmp{width:240px;height:46px}
+.rec{margin:0}.sec{padding:0}
+.jr{margin:0 0 16px;font-size:12px;line-height:1.75;padding:8px 16px}
+.bloc{display:flex;flex-direction:column;gap:8px}
+.jrb{flex:1;display:flex;flex-direction:column;gap:8px;min-height:0}
+
+.conex{border:1px solid var(--linie);border-radius:12px;background:var(--suprafata);padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+.cr{display:flex;align-items:flex-end;gap:10px}
+.cr .seg{width:210px}.cr .seg div{padding:7px 4px}
+.f{display:flex;flex-direction:column}.f label{margin-bottom:6px}
+.cr .btn{padding:0 16px;height:36px}
+.lin{display:flex;align-items:center;gap:18px}
+.leg{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.ct2{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}
+.nod{display:flex;align-items:center;gap:10px}
+.baze .bc{grid-template-columns:34px 1fr 70px}
+.radio{width:14px;height:14px;border:1px solid var(--t3);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.radio.on{border-color:var(--accent)}.radio.on:after{content:"";width:6px;height:6px;border-radius:3px;background:var(--accent)}
+.bc.sel{background:var(--mod-fundal);box-shadow:inset 3px 0 0 var(--accent)}.bc.sel .n{color:var(--at)}
+.carduri{grid-template-columns:1fr 1fr;gap:16px}
+.card{padding:14px 16px;gap:10px}
+.sub2{border:1px dashed var(--linie);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+
+.cx{border:1px solid var(--linie);border-radius:8px;background:var(--fundal);padding:10px;display:flex;flex-direction:column;gap:8px;height:120px}
+.cx .rand{grid-template-columns:200px 1fr}
+.cx .camp{background:var(--suprafata)}
+.cx .seg{background:var(--suprafata)}
+.cx.ac{border-style:dashed;justify-content:center;align-items:center;gap:6px;text-align:center;background:transparent;color:var(--t2)}
+.cx.ac small{font:12.5px GeistMono;color:var(--t2)}
+.ct .leg{margin-left:auto;font-size:12.5px;color:var(--text)}
+.ct .leg + .m{margin-left:12px}
+.card{gap:12px}
+.ct .m{color:var(--pe-mediu);font-size:11px}
+main{gap:12px;padding:16px 24px 0;max-width:1760px;width:100%;margin:0 auto;overflow:hidden}
+.carduri{flex:1 1 0;min-height:0}
+.card{min-height:0;overflow:hidden}
+.cx{flex:0 0 auto;height:auto}
+.cx.ac{height:118px}
+.baze{flex:1 1 0;min-height:104px;overflow-y:auto}
+.bara{flex:0 0 auto;gap:4px!important}
+.cmp{height:42px!important}
+.bloc{flex:0 0 auto}
+.jrb{flex:0 0 clamp(120px,24vh,340px)}
+.jr{flex:1;min-height:0;overflow:auto;margin-bottom:14px}
+.carduri{max-height:640px}
+.carduri{flex:3 1 0!important;min-height:300px}
+.jrb{flex:1 1 0!important;min-height:110px}
+.scund .bloc{display:none} .scund .cx.ac{height:auto;padding:14px} .scund .card{gap:10px;padding:12px 14px} .scund .cx{padding:8px;gap:6px}
+.cx .rand{grid-template-columns:minmax(150px,200px) 1fr}.camp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.seg div{white-space:nowrap}</style></head><body><div class="banda"></div>
+<header><div class="logo">g<i></i>motion</div><div class="tab on">Conectare</div><div class="tab">Sesiuni <span class="nr">3</span></div>
+<div class="sp"></div><span class="hl">Comparare offline</span><span class="hl">Deschide un instantaneu</span><span class="hl">Ajutor<span class="kbd">F1</span></span><span class="hl">☾</span></header>
+<main><div class="carduri"><section class="card"><div class="ct"><b>Sursa</b><span>de unde vine codul</span><span></span></div>
+<div class="cx">
+ <div class="rand"><div class="seg"><div class="on">SQL Server</div><div>Windows</div></div><div class="camp">SRV-DEV\SQL2019<span class="sp"></span><span style="color:var(--t3)">⌕</span></div></div>
+ <div class="rand" style="grid-template-columns:1fr 1fr"><div class="camp">deploy_ro</div><div class="camp">••••••••••</div></div>
+ <div class="lin"><div class="stare"><b></b>conectat · SQL Server 2019 · 14 baze</div><span class="sp"></span><span class="alt">Testeaza</span></div></div>
+<div class="baze"><div class="bc sel"><span class="radio on"></span><span class="n">CharismaDev</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaProd</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaTest</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">Charisma_Copy</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaWMS</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaHR</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaHR_Test</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaFin</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaFin_2024</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaB2B</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaB2B_Dev</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">Charisma_Raportare</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">master_copie</span><span></span></div></div></section><section class="card"><div class="ct"><b>Baza</b><span>unde ajunge</span><label class="leg" style="display:flex;align-items:center;gap:8px;margin:0 0 0 auto"><span class="bif on">✓</span>Aceeasi conexiune</label><span></span></div>
+<div class="cx ac"><span>Aceeasi conexiune ca Sursa</span><small>SRV-DEV\SQL2019 · SQL Server (deploy_ro)</small></div><div class="baze"><div class="bc dez"><span class="radio" style="opacity:.35"></span><span>CharismaDev</span><span style="font:12px Geist;color:var(--t3)">e sursa</span></div><div class="bc sel"><span class="radio on"></span><span class="n">CharismaProd</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaTest</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">Charisma_Copy</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaWMS</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaHR</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaHR_Test</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaFin</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaFin_2024</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaB2B</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">CharismaB2B_Dev</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">Charisma_Raportare</span><span></span></div><div class="bc"><span class="radio"></span><span class="n">master_copie</span><span></span></div></div></section></div>
+<div class="bara" style="flex-direction:column;gap:8px;justify-content:center"><div class="cmp" style="width:300px">Compara</div><span style="font-size:12px;color:var(--t2)">Se citeste, nu se scrie nimic.</span></div>
+<div class="bloc"><div class="sec"><b>Comparari recente</b></div><div class="rec">
+<div class="rr"><span class="a">CharismaDev <i>→</i> CharismaProd <span></span></span><span class="c">ieri, 17:40</span><span class="c">124 din 336 revizuite</span><span class="k">Reia</span></div>
+<div class="rr"><span class="a">CharismaDev <i>→</i> CharismaTest <span></span></span><span class="c">luni, 10:12</span><span class="c">deploy facut</span><span class="k">Reia</span></div></div></div>
+<div class="jrb"><div class="sec"><b>Jurnal</b><span>ce se intampla acum</span><span class="sp"></span><span style="color:var(--t2)">Sterge</span></div><div class="jr"><div><span class="t">21:40:03</span><span class="ok">Sursa: conectat la SRV-DEV\SQL2019 · 14 baze</span></div><div><span class="t">21:40:03</span><span class="w">certificatul serverului nu se verifica</span></div><div><span class="t">21:40:05</span>Baza: aceeasi conexiune ca Sursa</div><div><span class="t">21:41:30</span>CharismaDev → CharismaProd</div></div></div></main><script>
+// o singura scara pentru toata fereastra: macheta e gandita la 1440x900;
+// scara = cat de mult incape din ea, intre 0.85 si 1.3
+function scara(){const k=Math.min(1.3,Math.max(0.85,Math.min(innerWidth/1440,innerHeight/900)));
+ const b=document.body;b.style.zoom=k;b.style.width=(innerWidth/k)+'px';b.style.height=(innerHeight/k)+'px';
+ b.classList.toggle('scund',innerHeight/k<820);document.documentElement.dataset.scara=k.toFixed(2);}
+addEventListener('resize',scara);scara();
+</script></body></html>
