@@ -7,10 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "Compilez (prima data dureaza cateva minute)..."
-cargo build --release --manifest-path rust/Cargo.toml -p gmotion-app
+# profilul `proba` (rust/Cargo.toml): compileaza repede; release e pentru executabilul final
+cargo build --profile proba --manifest-path rust/Cargo.toml -p gmotion-app
 
 echo
 echo "Pornesc gmotion-ui $*"
 echo "  F1 ajutor · F11 ecran complet · Ctrl+F cauta · Enter deschide obiectul"
 echo
-exec rust/target/release/gmotion-ui "$@"
+exec rust/target/proba/gmotion-ui "$@"

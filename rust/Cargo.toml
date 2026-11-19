@@ -18,3 +18,19 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+# Pentru probe (`unelte\porneste.bat`): fara LTO, pe toate nucleele si
+# incremental, ca o schimbare in fereastra sa nu recompileze totul cu
+# optimizarea maxima. Dependentele raman optimizate complet: se compileaza o
+# singura data. Release ramane pentru executabilul care se da mai departe
+# (Mihai, 2026-11-19).
+[profile.proba]
+inherits = "release"
+opt-level = 2
+lto = false
+codegen-units = 256
+incremental = true
+strip = false
+
+[profile.proba.package."*"]
+opt-level = 3

@@ -1334,6 +1334,20 @@ dublul clic merge acum, iar „Deschide" e in panou.
 
 ---
 
+## 2026-11-19 — Profilul `proba` pentru compilarile de proba
+
+**Context.** Mihai: „de ce dureaza building asa mult". `porneste.bat`
+compila release cu `lto = true` si `codegen-units = 1`, iar Slint genereaza
+~245.000 de linii de Rust din `.slint`; orice schimbare in fereastra le
+recompila pe un singur nucleu, cu optimizarea intregului program.
+
+**Decizie.** Profil `proba` (mosteneste release): `opt-level = 2`, fara LTO,
+256 de unitati, incremental; dependentele raman la `opt-level = 3` (se
+compileaza o data). `porneste.bat` / `.sh` il folosesc. Release ramane
+neatins, pentru executabilul final; „vedem atunci" (Mihai).
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

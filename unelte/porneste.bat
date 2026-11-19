@@ -13,13 +13,14 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0.."
 
 echo Compilez ^(prima data dureaza cateva minute^)...
-cargo build --release --manifest-path rust\Cargo.toml -p gmotion-app || exit /b 1
+REM profilul `proba` (rust\Cargo.toml): compileaza repede; release e pentru .exe-ul final
+cargo build --profile proba --manifest-path rust\Cargo.toml -p gmotion-app || exit /b 1
 
 echo.
 echo Pornesc gmotion-ui %*
 echo   F1 ajutor  -  F11 ecran complet  -  Ctrl+F cauta  -  Enter deschide obiectul
 echo.
-rust\target\release\gmotion-ui.exe %*
+rust\target\proba\gmotion-ui.exe %*
 set RC=!ERRORLEVEL!
 if not "!RC!"=="0" (
   echo.
