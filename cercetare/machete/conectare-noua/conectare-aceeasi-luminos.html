@@ -9,7 +9,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{width:100vw;height:100vh;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;display:flex;flex-direction:column;overflow:hidden}
 .mono{font-family:GeistMono,monospace}
-.banda{height:3px;background:var(--prod)}
 header{height:57px;border-bottom:1px solid var(--linie);display:flex;align-items:center;padding:0 24px;gap:28px}
 .logo{font-size:17px;font-weight:600;letter-spacing:-.4px}.logo i{display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--accent);margin:0 1px 1px}
 .tab{color:var(--t2);height:57px;display:flex;align-items:center;gap:6px;border-bottom:2px solid transparent}
@@ -112,9 +111,9 @@ main{gap:12px;padding:16px 24px 0;max-width:1760px;width:100%;margin:0 auto;over
 .carduri{flex:3 1 0!important;min-height:300px}
 .jrb{flex:1 1 0!important;min-height:110px}
 .scund .bloc{display:none} .scund .cx.ac{height:auto;padding:14px} .scund .card{gap:10px;padding:12px 14px} .scund .cx{padding:8px;gap:6px}
-.cx .rand{grid-template-columns:minmax(150px,200px) 1fr}.camp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.seg div{white-space:nowrap}</style></head><body><div class="banda"></div>
+.cx .rand{grid-template-columns:minmax(150px,200px) 1fr}.camp{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.seg div{white-space:nowrap}</style></head><body>
 <header><div class="logo">g<i></i>motion</div><div class="tab on">Conectare</div><div class="tab">Sesiuni <span class="nr">3</span></div>
-<div class="sp"></div><span class="hl">Comparare offline</span><span class="hl">Deschide un instantaneu</span><span class="hl">Ajutor<span class="kbd">F1</span></span><span class="hl">☀</span></header>
+<div class="sp"></div><span class="hl">Comparare offline</span><span class="hl">Deschide un instantaneu</span><span class="hl">Setari</span><span class="hl">Ajutor<span class="kbd">F1</span></span><span class="hl">☀</span></header>
 <main><div class="carduri"><section class="card"><div class="ct"><b>Sursa</b><span>de unde vine codul</span><span></span></div>
 <div class="cx">
  <div class="rand"><div class="seg"><div class="on">SQL Server</div><div>Windows</div></div><div class="camp">SRV-DEV\SQL2019<span class="sp"></span><span style="color:var(--t3)">⌕</span></div></div>
@@ -128,8 +127,10 @@ main{gap:12px;padding:16px 24px 0;max-width:1760px;width:100%;margin:0 auto;over
 <div class="rr"><span class="a">CharismaDev <i>→</i> CharismaTest <span></span></span><span class="c">luni, 10:12</span><span class="c">deploy facut</span><span class="k">Reia</span></div></div></div>
 <div class="jrb"><div class="sec"><b>Jurnal</b><span>ce se intampla acum</span><span class="sp"></span><span style="color:var(--t2)">Sterge</span></div><div class="jr"><div><span class="t">21:40:03</span><span class="ok">Sursa: conectat la SRV-DEV\SQL2019 · 14 baze</span></div><div><span class="t">21:40:03</span><span class="w">certificatul serverului nu se verifica</span></div><div><span class="t">21:40:05</span>Baza: aceeasi conexiune ca Sursa</div><div><span class="t">21:41:30</span>CharismaDev → CharismaProd</div></div></div></main><script>
 // o singura scara pentru toata fereastra: macheta e gandita la 1440x900;
-// scara = cat de mult incape din ea, intre 0.85 si 1.3
-function scara(){const k=Math.min(1.3,Math.max(0.85,Math.min(innerWidth/1440,innerHeight/900)));
+// scara = cat de mult incape din ea, intre 0.85 si 1.3; cand sistemul e
+// deja marit (125% sau mai mult), nu se mai micsoreaza: minimul e 1
+function scara(){const jos=devicePixelRatio>=1.25?1:0.85;
+ const k=Math.min(1.3,Math.max(jos,Math.min(innerWidth/1440,innerHeight/900)));
  const b=document.body;b.style.zoom=k;b.style.width=(innerWidth/k)+'px';b.style.height=(innerHeight/k)+'px';
  b.classList.toggle('scund',innerHeight/k<820);document.documentElement.dataset.scara=k.toFixed(2);}
 addEventListener('resize',scara);scara();

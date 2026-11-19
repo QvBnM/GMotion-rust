@@ -27,8 +27,10 @@ specificatie, nu se ruleaza in aplicatie. Fonturile se iau din
   de conexiune ale Bazei dispar. In locul lor ramane o zona punctata, de
   aceeasi inaltime, cu serverul sursei, ca listele sa inceapa la aceeasi linie.
   In lista Bazei, baza aleasa la Sursa apare gri, cu „e sursa".
-- **Fara etichete PROD / TEST / DEV.**
-- **Fara randul cu certificatul.** Avertismentul ramane doar in jurnal.
+- **Fara etichete PROD / TEST / DEV** si fara banda de 3 px de sus, in
+  culoarea mediului.
+- **Certificatul serverului se schimba din Setari** (link nou in antet).
+  Pe ecranul de conectare nu mai are rand; avertismentul ramane in jurnal.
 - **Compara la mijloc**, cu „Se citeste, nu se scrie nimic." sub el.
 - Dedesubt: **Comparari recente** (cu Reia), apoi **Jurnalul**, „ce se
   intampla acum".
@@ -36,7 +38,9 @@ specificatie, nu se ruleaza in aplicatie. Fonturile se iau din
 ## Proportiile
 
 - **O singura scara pentru tot ecranul.** Macheta e gandita la 1440x900.
-  Scara = cat incape din 1440x900 in fereastra, intre 0,85 si 1,3. Cu ea
+  Scara = cat incape din 1440x900 in fereastra, intre 0,85 si 1,3. Cand
+  Windows e deja marit (125% sau mai mult), minimul e 1: aplicatia nu mai
+  micsoreaza peste marirea aleasa de om. Cu ea
   cresc sau scad textul, campurile, randurile si spatiile, asa ca ecranul
   arata la fel pe orice rezolutie. Fara scara, pe ecrane mici parea ca nu
   incape, iar pe cele mari ramanea prea mult gol.
@@ -58,13 +62,8 @@ pagina, in ambele teme.
 
 ## Ce a ramas deschis
 
-- **Windows scalat la 125% sau mai mult.** Azi scara micsoreaza cu 0,85 si
-  peste marirea aleasa in Windows. Recomandat: cand Windows e deja la 125% sau
-  peste, aplicatia nu mai micsoreaza. Asteapta raspunsul lui Mihai.
-- **Certificatul serverului:** fara randul lui, nu mai exista un loc din ecran
-  de unde sa se schimbe verificarea. De decis: ramane pe ce e configurat, sau
-  se muta la Ajutor / setari.
-- **Banda de 3 px de sus,** in culoarea mediului: inca exista in macheta. E
-  acelasi semnal ca etichetele de mediu scoase; nu s-a decis daca ramane.
 - **In Slint,** scara ar fi o singura valoare in tema, inmultita in toate
-  dimensiunile din `comune.slint`. Nu e probata inca.
+  dimensiunile din `comune.slint`, iar marirea din Windows se citeste din
+  factorul de scala al ferestrei. Nu e probata inca.
+- **Ecranul Setari** nu e in macheta; acolo ajunge alegerea pentru
+  certificat.
