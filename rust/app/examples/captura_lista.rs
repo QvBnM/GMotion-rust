@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-app --example captura_lista -- \
-//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--wrap]
+//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--inaltime 900] [--wrap] [--harta]
 //!
 //! `BAZE` poate fi o lista separata prin virgula: asa se fotografiaza si
 //! coloana „Baza".
@@ -126,6 +126,15 @@ fn main() {
     gmotion_fereastra::incarca_detalii(&ui, &app.panou_detalii().pentru_fereastra());
     if let Some((sursa, tinta, setari)) = app.texte_obiect() {
         incarca_previzualizare(&ui, sursa, tinta, &setari);
+    }
+    // `--harta`: ecranul hartii (`h`), cu bula peste al treilea patrat
+    if a.iter().any(|x| x == "--harta") {
+        gmotion_fereastra::leaga_harta(&ui);
+        ui.invoke_deschide_harta();
+        let pas = gmotion_fereastra::harta::Scara::cu_latura(ui.get_patrat() as u32)
+            .unwrap_or(gmotion_fereastra::harta::SCARI[0])
+            .pas as f32;
+        ui.invoke_peste_harta(0, 2.0 * pas + 2.0, 2.0);
     }
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];
     fereastra.draw_if_needed(|rd| {

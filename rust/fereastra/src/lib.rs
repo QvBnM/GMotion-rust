@@ -10,6 +10,7 @@
 //! globalul `Tema` cu [`aplica_tema`] — in `.slint` nu se scrie nicio culoare.
 
 pub mod dublu_clic;
+pub mod harta;
 pub mod jetoane;
 pub mod model_arbore;
 pub mod model_conectare;
@@ -70,6 +71,7 @@ LISTA\n\
   r              revizuit\n\
   i              pune sau scoate din planul de deploy\n\
   Ctrl+F         cauta\n\
+  h              harta: toate obiectele dintr-o privire; Esc inapoi\n\
   Clic pe capul unei coloane sorteaza; al doilea clic inverseaza.\n\
 \n\
 EDITOR\n\
@@ -109,6 +111,7 @@ LIST\n\
   r              reviewed\n\
   i              add to or remove from the deploy plan\n\
   Ctrl+F         search\n\
+  h              map: every object at a glance; Esc back\n\
   Click a column header to sort; a second click reverses.\n\
 \n\
 EDITOR\n\
@@ -1067,6 +1070,10 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     if let Some(m) = pe_loc(ui.get_randuri(), randuri) {
         ui.set_randuri(m);
     }
+    // harta deschisa urmeaza lista: revizuirea, filtrele, selectia
+    if ui.get_arata_harta() {
+        incarca_harta(ui, lista.selectat());
+    }
     ui.set_categorii(ModelRc::new(VecModel::from(categorii)));
     ui.set_tipuri(ModelRc::new(VecModel::from(tipuri)));
 
@@ -1473,6 +1480,163 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
             .unwrap_or_default()
             .into(),
     );
+}
+
+/// Latimea si inaltimea in care se aseaza harta: ecranul ei, fara capul de
+/// 60 px si marginile cartusului (16 + 16 in afara, 18 + 18 / 16 + 16
+/// inauntru, vezi `lista.slint`). Inainte de prima afisare, 1440 x 900.
+fn loc_harta(ui: &FereastraLista) -> (f32, f32) {
+    let w = ui.window();
+    let m = w.size().to_logical(w.scale_factor());
+    let (latime, inaltime) = if m.width > 0.0 {
+        (m.width, m.height)
+    } else {
+        (1440.0, 900.0)
+    };
+    (
+        (latime - 68.0).max(200.0),
+        (inaltime - 60.0 - 16.0 - 16.0 - 32.0).max(120.0),
+    )
+}
+
+/// Harta (`h`): obiectele din lista, pe tipuri, pictate in culorile modului
+/// curent, cu conturul pe patratul obiectului selectat. Citeste randurile
+/// deja puse in fereastra, ca harta sa arate exact ce arata lista.
+pub fn incarca_harta(ui: &FereastraLista, selectat: Option<usize>) {
+    use slint::Model;
+    let randuri = ui.get_randuri();
+    // grupurile, in ordinea tipurilor dupa cate obiecte au
+    let mut pe_tip: Vec<(String, Vec<harta::Celula>)> = Vec::new();
+    for (i, r) in randuri.iter().enumerate() {
+        let c = harta::Celula {
+            rand: i,
+            stare: r.stare,
+            revizuit: r.revizuit,
+        };
+        match pe_tip
+            .iter_mut()
+            .find(|(t, _)| t.as_str() == r.tip.as_str())
+        {
+            Some((_, v)) => v.push(c),
+            None => pe_tip.push((r.tip.to_string(), vec![c])),
+        }
+    }
+    pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
+    let (latime, inaltime) = loc_harta(ui);
+    let (grupuri, total) = harta::aseaza(pe_tip, latime, inaltime);
+    let paleta = mod_curent(ui).paleta();
+    // la scalarea ecranului (125-200%), pictata in pixeli logici harta iesea
+    // neclara: se picteaza la pixelii fizici si se afiseaza la marimea logica
+    let factor = ui.window().scale_factor().max(1.0);
+    ui.set_factor_harta(factor);
+    let ui_grupuri: Vec<GrupHartaUi> = grupuri
+        .iter()
+        .map(|g| GrupHartaUi {
+            titlu: g.titlu.as_str().into(),
+            numar: g.celule.len().to_string().into(),
+            x: g.x,
+            y: g.y,
+            latime: g.latime,
+            inaltime: g.inaltime,
+            desparte: g.x > 0.0,
+            coloane: g.coloane as i32,
+            imagine: imagine(harta::picteaza_la(g, paleta, factor)),
+            bara: imagine(harta::picteaza_bara_la(g, paleta, factor)),
+            randuri: ModelRc::new(VecModel::from(
+                g.celule.iter().map(|c| c.rand as i32).collect::<Vec<_>>(),
+            )),
+        })
+        .collect();
+    let sel = selectat.and_then(|s| harta::pozitie_randului(&grupuri, s));
+    ui.set_sel_pe_harta(sel.is_some());
+    if let Some((x, y)) = sel {
+        ui.set_sel_x(x);
+        ui.set_sel_y(y);
+    }
+    // o singura treapta pe toata harta: fereastra tine doar latura ei
+    let scara = grupuri.first().map_or(harta::SCARI[0], |g| g.scara);
+    ui.set_patrat(scara.latura as f32);
+    ui.set_harta(ModelRc::new(VecModel::from(ui_grupuri)));
+    ui.set_harta_inaltime(total);
+}
+
+/// O imagine Slint din pixelii pictati de `harta`.
+fn imagine((w, h, px): (u32, u32, Vec<[u8; 4]>)) -> Image {
+    let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(w, h);
+    for (d, s) in buf.make_mut_slice().iter_mut().zip(&px) {
+        *d = Rgba8Pixel {
+            r: s[0],
+            g: s[1],
+            b: s[2],
+            a: s[3],
+        };
+    }
+    Image::from_rgba8(buf)
+}
+
+/// Randul din lista al patratului de la (x, y) din grupul `grup` al hartii,
+/// in coordonatele imaginii grupului. Calculul e in `harta::indice_la`.
+pub fn rand_din_harta(ui: &FereastraLista, grup: i32, x: f32, y: f32) -> Option<usize> {
+    use slint::Model;
+    let g = ui.get_harta().row_data(usize::try_from(grup).ok()?)?;
+    let k = harta::indice_la(scara_hartii(ui)?, u32::try_from(g.coloane).ok()?, x, y)?;
+    usize::try_from(g.randuri.row_data(k)?).ok()
+}
+
+/// Treapta de zoom a hartii afisate, din latura pusa in fereastra.
+fn scara_hartii(ui: &FereastraLista) -> Option<harta::Scara> {
+    harta::Scara::cu_latura(ui.get_patrat().round() as u32)
+}
+
+/// Obiectul selectat, daca e unul din randurile afisate.
+fn selectat_in_fereastra(ui: &FereastraLista) -> Option<usize> {
+    use slint::Model;
+    usize::try_from(ui.get_selectat())
+        .ok()
+        .filter(|&s| s < ui.get_randuri().row_count())
+}
+
+/// Leaga harta: deschiderea, reasezarea la redimensionare si bula de sub
+/// mouse. Nu tin de starea aplicatiei, deci se leaga aici, o data, dupa
+/// crearea ferestrei. Clicul pe patrat schimba selectia, deci e al `app`.
+pub fn leaga_harta(ui: &FereastraLista) {
+    let slab = ui.as_weak();
+    ui.on_deschide_harta(move || {
+        let Some(ui) = slab.upgrade() else { return };
+        ui.set_bula("".into());
+        incarca_harta(&ui, selectat_in_fereastra(&ui));
+        ui.set_arata_harta(true);
+    });
+    let slab = ui.as_weak();
+    ui.on_harta_redimensionata(move || {
+        let Some(ui) = slab.upgrade() else { return };
+        incarca_harta(&ui, selectat_in_fereastra(&ui));
+    });
+    let slab = ui.as_weak();
+    ui.on_peste_harta(move |grup, x, y| {
+        use slint::Model;
+        let Some(ui) = slab.upgrade() else { return };
+        let gasit = usize::try_from(grup).ok().and_then(|gi| {
+            let g = ui.get_harta().row_data(gi)?;
+            let col = u32::try_from(g.coloane).ok()?;
+            let k = harta::indice_la(scara_hartii(&ui)?, col, x, y)?;
+            let rand = ui
+                .get_randuri()
+                .row_data(usize::try_from(g.randuri.row_data(k)?).ok()?)?;
+            Some((g, col, k, rand))
+        });
+        let (Some((g, col, k, r)), Some(scara)) = (gasit, scara_hartii(&ui)) else {
+            ui.set_bula("".into());
+            return;
+        };
+        // coltul patratului, in coordonatele hartii; bula se aseaza in Slint,
+        // care ii stie latimea
+        let (cx, cy) = harta::coltul_in_grila(scara, col, k);
+        ui.set_bula(format!("{}.{}", r.schema, r.nume).into());
+        ui.set_bula_stare(r.stare);
+        ui.set_hover_x(g.x + cx as f32);
+        ui.set_hover_y(g.y + harta::CAP + cy as f32);
+    });
 }
 
 #[cfg(test)]
@@ -3099,5 +3263,89 @@ mod teste {
         lista.cauta("usp_Stoc");
         incarca_lista(&ui, &antet_lista(), &lista);
         assert_eq!(ui.get_randuri().row_count(), 1);
+    }
+
+    /// Harta (etapa 19, dupa macheta lui Mihai): se deschide cu butonul din
+    /// bara si cu `h`, se inchide cu Esc, bula urmeaza mouse-ul, iar clicul
+    /// pe un patrat ajunge la `clic-harta` cu obiectul lui. Totul prin mouse
+    /// si tastatura adevarate: un `TouchArea` acoperit ar trece de `invoke_`.
+    #[test]
+    fn harta_se_deschide_cu_butonul_si_h_iar_clicul_pe_patrat_alege_obiectul() {
+        use slint::platform::{Key, PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        let ui = fereastra_lista();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        let lista = lista_de_proba();
+        incarca_lista(&ui, &antet_lista(), &lista);
+        incarca_arbore(&ui, &model_arbore::Arbore::default(), &lista);
+        leaga_harta(&ui);
+        ui.show().expect("fereastra se arata");
+        let tasta = |t: SharedString| {
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: t });
+        };
+        let muta = |x: f32, y: f32| {
+            ui.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(x, y),
+            });
+        };
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            muta(x, y);
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+
+        // `h` o deschide, cu un grup pe tip; Esc o inchide
+        tasta("h".into());
+        assert!(ui.get_arata_harta(), "h deschide harta");
+        let tipuri: std::collections::BTreeSet<String> =
+            ui.get_randuri().iter().map(|r| r.tip.to_string()).collect();
+        assert_eq!(ui.get_harta().row_count(), tipuri.len());
+        tasta(Key::Escape.into());
+        assert!(!ui.get_arata_harta(), "Esc inchide harta");
+
+        // butonul din bara: primul buton din dreapta progresului
+        let x = (600..1440)
+            .step_by(4)
+            .map(|x| x as f32)
+            .find(|&x| {
+                clic(x, 60.0 + 22.0);
+                ui.get_arata_harta()
+            })
+            .expect("butonul Harta raspunde la clic");
+        assert!(x > 600.0);
+
+        // primul patrat al primului grup: bula, apoi clicul il alege
+        let alese: Rc<RefCell<Vec<Option<usize>>>> = Rc::default();
+        let a = alese.clone();
+        let slab = ui.as_weak();
+        ui.on_clic_harta(move |g, x, y| {
+            let ui = slab.upgrade().expect("fereastra");
+            a.borrow_mut().push(rand_din_harta(&ui, g, x, y));
+        });
+        let primul = ui.get_harta().row_data(0).expect("un grup");
+        let asteptat = primul.randuri.row_data(0).expect("o celula") as usize;
+        let y = (80..400)
+            .map(|y| y as f32)
+            .find(|&y| {
+                muta(42.0, y);
+                ui.get_bula() != ""
+            })
+            .expect("bula apare peste primul patrat");
+        let r = &ui.get_randuri().row_data(asteptat).expect("randul");
+        assert_eq!(ui.get_bula(), format!("{}.{}", r.schema, r.nume));
+        clic(42.0, y + 2.0);
+        assert_eq!(*alese.borrow(), [Some(asteptat)]);
+        let _ = ui.hide();
     }
 }

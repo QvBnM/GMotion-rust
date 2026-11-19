@@ -37,6 +37,13 @@ previzualizare exista un buton de wrap.
       mort (Rust si `.slint`)
 - [x] butonul Wrap: in editor si in previzualizare; liniile lungi se rup,
       iar randurile din stanga si din dreapta raman aliniate
+- [x] harta ca ecran separat de ansamblu (Mihai, 2026-11-19, dupa macheta
+      lui): se deschide din lista (buton si `h`), se inchide cu Esc; coloane
+      pe tip care umplu ecranul, latimi apropiate (mai late pentru tipurile
+      mai mari, dar nu proportional), bara de proportie, blocuri de 5
+      randuri, zoom automat ca sa intre in ecran; clic pe patrat inchide
+      harta si selecteaza obiectul in arbore (test care apasa butonul, tasta
+      si un patrat)
 - [ ] nicio redesenare peste 100 ms la un filtru sau la un clic, pe 4.000
       de obiecte (masurat, nu presupus)
 - [ ] captura la 1920x1080 trimisa lui Mihai si „da"-ul lui pe ea
@@ -73,6 +80,12 @@ previzualizare exista un buton de wrap.
   lui Mihai veneau din „Difera in" / `+N −M` calculate pe loc pentru 60 de
   obiecte la fiecare filtru; acum se calculeaza toate pe alt fir, imediat
   dupa comparare. De confirmat pe jurnalul urmator de pe Windows.
+
+- **2026-11-19** Harta readusa ca ecran separat (`h`), dupa macheta lui
+  Mihai: `harta.rs` refacut din versiunea scoasa, cu latimi `n^0,25`, doua
+  trepte de zoom mai mari si bula in dreapta patratului. Testul apasa `h`,
+  Esc, butonul si un patrat cu mouse-ul adevarat; a cazut intai pe bula
+  (`moved` vine doar cu butonul apasat). Decizia in `JURNAL.md`.
 
 ## Ce a iesit altfel decat planul
 

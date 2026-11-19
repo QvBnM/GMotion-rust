@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-19 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (531 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (539 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -45,6 +45,10 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**Harta inapoi, ca ecran separat** (`h` din lista, dupa macheta lui
+Mihai, 2026-11-19): de aratat lui Mihai capturile
+`cercetare/capturi/harta-*.png` si de luat „da"-ul pe ele.
 
 **Proba pe Windows, runda 3 (etapa 19).** Dupa prima proba pe bazele reale:
 motorul strange spatiile din string-uri ca v3.4; lista e arbore ca Object
@@ -280,14 +284,20 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   (`cercetare/schita-slint/`) are butoane pe care aplicatia inca nu le are
   (Aplica toate, Mod ghidat...). Cand le portezi, adaugi logica si butonul
   in acelasi pas, cu test.
-- **Ce patrat de pe harta e sub mouse se decide doar in `harta::indice_la`.**
-  Slint trimite coordonatele. Nu repeta calculul in `.slint`.
+- **Harta e acum un ecran separat** (`h` sau butonul din bara listei),
+  desenat peste lista in `lista.slint` (`arata-harta`). Ce patrat e sub
+  mouse se decide doar in `harta::indice_la`; Slint trimite coordonatele.
+- **`moved` dintr-un `TouchArea` vine doar cu butonul apasat.** Pentru
+  hover se asculta `changed mouse-x` / `mouse-y`. Bula hartii vechi nu
+  aparea deloc la simpla trecere a mouse-ului; capturile o aratau doar
+  fiindca o chemau cu `invoke_`.
 - **Antetul listei curge dupa latimea ferestrei in `lista.slint`** (`bara`:
   grupuri pozitionate din `preferred-width`). Un buton nou intra intr-un
   grup existent, nu ca element separat, altfel nu mai e luat in calcul la
   trecerea pe randul urmator. Sub 760 px fereastra nu se mai strange.
 - **Cateva masuri ale hartii sunt scrise de doua ori:** `harta::CAP` (44),
-  `Y_BARA` (28) si `SPATIU_X / 2` (linia la -20 px) apar si in `lista.slint`.
+  `Y_BARA` (28), `SPATIU_X / 2` (linia la -20 px) si marginile ecranului
+  hartii (`loc_harta` in `lib.rs`) apar si in `lista.slint`.
   Treapta de zoom ajunge in fereastra doar ca latura (`patrat`); clicul o
   reface prin `Scara::cu_latura`, deci doua trepte cu aceeasi latura ar
   strica clicul.

@@ -1260,6 +1260,25 @@ fn ruleaza() -> Result<(), String> {
 
     // --- lista
     {
+        // harta (`h`): deschiderea, reasezarea si bula sunt ale ferestrei;
+        // clicul pe patrat schimba selectia, deci trece prin `Comanda`
+        gmotion_fereastra::leaga_harta(&lista_ui);
+        let c = comanda.clone();
+        let l = lista_ui.as_weak();
+        lista_ui.on_clic_harta(move |grup, x, y| {
+            actiune(
+                "lista",
+                "clic_harta",
+                &format!("{:?}", (&grup, &x, &y)),
+                false,
+            );
+            let Some(ui) = l.upgrade() else { return };
+            if let Some(r) = gmotion_fereastra::rand_din_harta(&ui, grup, x, y) {
+                // harta se inchide inainte, ca redesenarea sa nu o mai picteze
+                ui.set_arata_harta(false);
+                c(Comanda::Selecteaza(r));
+            }
+        });
         let c = comanda.clone();
         let dc = RefCell::new(DubluClic::default());
         lista_ui.on_alege_randul(move |i| {

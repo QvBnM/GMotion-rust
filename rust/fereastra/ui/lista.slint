@@ -7,7 +7,7 @@
 // `model_arbore` si selectia din `model_lista`, testate fara fereastra.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Semn, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
 
 export struct RandListaUi {
     // coloana din editor (etapa 16): un rand cu `antet` nevid e capul unui
@@ -51,6 +51,22 @@ export struct CategorieUi {
 export struct TipUi {
     nume: string,
     numar: string,
+}
+
+// Un grup de pe harta: titlul, pozitia, imaginea pictata in Rust, cate
+// patrate are pe rand si, pentru fiecare patrat (pe randuri), randul lui din tabel.
+export struct GrupHartaUi {
+    titlu: string,
+    numar: string,
+    x: length,
+    y: length,
+    latime: length,
+    inaltime: length,
+    desparte: bool,
+    coloane: int,
+    imagine: image,
+    bara: image,
+    randuri: [int],
 }
 
 // Culoarea unei stari: M chihlimbar, S verde, B rosu, = / # gri.
@@ -432,14 +448,50 @@ export component FereastraLista inherits Window {
 
     // latimea ferestrei, copiata la schimbare: arborele o citeste de aici,
     // nu din `root.width`, care depinde de layout (bucla)
+    // ---- harta (`h`): ecranul de ansamblu, peste lista. Grupurile sunt
+    // asezate si pictate in Rust (`src/harta.rs`); patratul selectat e
+    // obiectul selectat din arbore
+    in-out property <bool> arata-harta: false;
+    in property <[GrupHartaUi]> harta;
+    in property <length> harta-inaltime;
+    // pixeli fizici pe pixel logic: harta se picteaza la rezolutia ecranului
+    in property <float> factor-harta: 1;
+    in property <length> sel-x;
+    in property <length> sel-y;
+    in property <bool> sel-pe-harta;
+    // bula: numele si starea patratului de sub mouse, si coltul lui in
+    // coordonatele hartii; toate puse din Rust
+    in-out property <string> bula;
+    in-out property <int> bula-stare;
+    in-out property <length> hover-x;
+    in-out property <length> hover-y;
+    // latura unui patrat, la treapta de zoom aleasa in Rust (`harta::SCARI`)
+    in property <length> patrat: 14px;
+    // deschide harta: Rust o aseaza in ecranul de acum
+    callback deschide-harta();
+    callback peste-harta(int, length, length);
+    callback clic-harta(int, length, length);
+    // fereastra si-a schimbat marimea cu harta deschisa: Rust o reaseaza
+    callback harta-redimensionata();
     property <length> latime-fereastra: 1440px;
     changed width => {
         root.latime-fereastra = self.width;
+        if (root.arata-harta) { root.harta-redimensionata(); }
+    }
+    changed height => {
+        if (root.arata-harta) { root.harta-redimensionata(); }
     }
 
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
+            // harta: `h` o deschide si o inchide, Esc o inchide inaintea oricui
+            if (e.text == "h" && !e.modifiers.control) {
+                if (root.arata-harta) { root.arata-harta = false; } else { root.deschide-harta(); }
+                return accept;
+            }
+            if (e.text == Key.Escape && root.arata-harta) { root.arata-harta = false; return accept; }
+            if (root.arata-harta) { return reject; }
             if (e.text == Key.DownArrow || e.text == "j") { root.muta-in-arbore(1); return accept; }
             if (e.text == Key.UpArrow || e.text == "k") { root.muta-in-arbore(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
@@ -541,6 +593,7 @@ export component FereastraLista inherits Window {
                             Rectangle { x: 0; width: parent.width * Math.max(0.02, root.progres-deploy); border-radius: 1.5px; background: Tema.accent; }
                         }
                     }
+                    VerticalLayout { alignment: center; Buton { text: Texte.harta-tasta; apasat => { root.deschide-harta(); } } }
                     VerticalLayout { alignment: center; Buton { text: Texte.recompara; apasat => { root.recompara(); } } }
                     VerticalLayout { alignment: center; Buton { text: Texte.ajutor-tasta; apasat => { root.arata-ajutorul = true; root.ajutor(); } } }
                     VerticalLayout { alignment: center; Buton { text: Texte.deconecteaza; apasat => { root.cere-deconectarea(); } } }
@@ -941,13 +994,167 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: Texte.obiect-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "i", e: Texte.in-plan-mic }, { t: "o", e: Texte.omite-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
+                    for k in [{ t: "j k", e: Texte.obiect-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "i", e: Texte.in-plan-mic }, { t: "o", e: Texte.omite-mic }, { t: "h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
                     }
                     Rectangle { horizontal-stretch: 1; }
                     Text { text: root.servere; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+
+    // ---- harta (`h`): toate obiectele dintr-o privire, pe tot ecranul,
+    // peste lista. Un clic pe patrat inchide harta si arata obiectul in arbore.
+    if root.arata-harta: Rectangle {
+        background: Tema.fundal;
+        // clicurile nu trec la lista de dedesubt
+        TouchArea { }
+        Rectangle {
+            y: 0;
+            height: 60px;
+            HorizontalLayout {
+                padding-left: 24px;
+                padding-right: 16px;
+                spacing: 16px;
+                VerticalLayout { alignment: center; Semn { } }
+                Text { text: Texte.harta-titlu; font-family: Tema.font-ui; font-size: 15px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+                Text { text: Texte.harta-explicatie; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                VerticalLayout { alignment: center; Buton { text: Texte.inapoi-la-lista; apasat => { root.arata-harta = false; } } }
+            }
+            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+        }
+        cartus := Rectangle {
+            x: 16px;
+            y: 76px;
+            width: parent.width - 32px;
+            // cat ii trebuie hartii, dar nu mai jos de marginea ferestrei
+            height: Math.min(parent.height - 92px, root.harta-inaltime + 32px);
+            border-radius: 14px;
+            background: Tema.suprafata;
+            border-width: 1px;
+            border-color: Tema.linie;
+            clip: true;
+            // `chenar`: loc pentru conturul selectiei / al mouse-ului, care
+            // iese cu 3 px din patrat; fara el, Flickable il taia la
+            // marginea din stanga si de sus
+            property <length> chenar: 4px;
+            flick := Flickable {
+                x: 18px - parent.chenar;
+                y: 16px - parent.chenar;
+                width: parent.width - 36px + 2 * parent.chenar;
+                height: parent.height - 32px + 2 * parent.chenar;
+                content-height: root.harta-inaltime + 2 * parent.chenar;
+                Rectangle {
+                    x: cartus.chenar;
+                    y: cartus.chenar;
+                    for g[gi] in root.harta: Rectangle {
+                        x: g.x;
+                        y: g.y;
+                        width: g.latime;
+                        height: g.inaltime;
+                        // linia despartitoare, la mijlocul spatiului dintre coloane
+                        // (`harta::SPATIU_X` / 2)
+                        if g.desparte: Rectangle {
+                            x: -20px;
+                            width: 1px;
+                            height: parent.height;
+                            background: Tema.linie;
+                        }
+                        HorizontalLayout {
+                            y: 0;
+                            height: 20px;
+                            Text { text: g.titlu; font-family: Tema.font-ui; font-size: 14px; font-weight: 500; color: Tema.text; vertical-alignment: center; horizontal-stretch: 0; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text { text: g.numar; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 0; }
+                        }
+                        // bara cu proportia starilor (`harta::Y_BARA`)
+                        Image {
+                            x: 0;
+                            y: 28px;
+                            width: g.latime;
+                            height: self.source.height * 1px / root.factor-harta;
+                            source: g.bara;
+                            image-rendering: pixelated;
+                        }
+                        // grila (`harta::CAP`); pictata la pixelii fizici ai
+                        // ecranului, deci afisata la marimea ei / factor (15 D)
+                        img := Image {
+                            x: 0;
+                            y: 44px;
+                            width: self.source.width * 1px / root.factor-harta;
+                            height: self.source.height * 1px / root.factor-harta;
+                            source: g.imagine;
+                            image-rendering: pixelated;
+                        }
+                        TouchArea {
+                            x: img.x;
+                            y: img.y;
+                            width: img.width;
+                            height: img.height;
+                            // ce patrat e sub mouse se decide in Rust (`harta::indice_la`)
+                            // `moved` vine doar cu butonul apasat; la simpla trecere a
+                            // mouse-ului se schimba doar `mouse-x` / `mouse-y`
+                            changed mouse-x => { if (self.has-hover) { root.peste-harta(gi, self.mouse-x, self.mouse-y); } }
+                            changed mouse-y => { if (self.has-hover) { root.peste-harta(gi, self.mouse-x, self.mouse-y); } }
+                            changed has-hover => { if (!self.has-hover) { root.bula = ""; } }
+                            clicked => { root.clic-harta(gi, self.mouse-x, self.mouse-y); }
+                        }
+                    }
+                    // conturul patratului de sub mouse
+                    if root.bula != "": Rectangle {
+                        x: root.hover-x - 3px;
+                        y: root.hover-y - 3px;
+                        width: root.patrat + 6px;
+                        height: root.patrat + 6px;
+                        border-radius: root.patrat / 2;
+                        border-width: 1.5px;
+                        border-color: Tema.text-secundar;
+                    }
+                    // conturul patratului selectat
+                    if root.sel-pe-harta: Rectangle {
+                        x: root.sel-x - 3px;
+                        y: root.sel-y - 3px;
+                        width: root.patrat + 6px;
+                        height: root.patrat + 6px;
+                        border-radius: root.patrat / 2;
+                        border-width: 2px;
+                        border-color: Tema.text;
+                        drop-shadow-blur: 8px;
+                        drop-shadow-color: Tema.text.with-alpha(0.35);
+                    }
+                }
+            }
+            // bula: punctul starii si numele, in dreapta patratului de sub mouse,
+            // la mijlocul lui (ca in macheta); in stanga, daca la dreapta nu incape
+            if root.bula != "": Rectangle {
+                property <length> px: flick.x + parent.chenar + flick.content-x + root.hover-x;
+                property <length> py: flick.y + parent.chenar + flick.content-y + root.hover-y;
+                x: self.px + root.patrat + 10px + self.width <= parent.width - 8px
+                    ? self.px + root.patrat + 10px
+                    : Math.max(4px, self.px - 10px - self.width);
+                y: Math.max(4px, self.py + root.patrat / 2 - 14px);
+                width: bl.preferred-width + 20px;
+                height: 28px;
+                border-radius: 7px;
+                background: Tema.strat;
+                border-width: 1px;
+                border-color: Tema.linie;
+                drop-shadow-blur: 10px;
+                drop-shadow-offset-y: 2px;
+                drop-shadow-color: Tema.fundal.with-alpha(0.5);
+                bl := HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    spacing: 7px;
+                    alignment: start;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Stari.harta(root.bula-stare); }
+                    }
+                    Text { text: root.bula; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
                 }
             }
         }

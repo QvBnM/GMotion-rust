@@ -1269,6 +1269,24 @@ schimbari reale de date; se discuta separat daca Mihai o cere.
 exact scorul din Python; asteptarile lor de divergenta s-au scos. CaseM:
 85,07 (Python 85,95), diferenta ramasa e `--` din string.
 
+## 2026-11-19 — Harta revine ca ecran separat, dupa macheta
+
+Etapa 19 scosese harta din lista (arborele are nevoie de tot ecranul). Mihai
+a cerut-o inapoi, exact ca in macheta lui, si a ales varianta „ecran separat
+de ansamblu" dintre trei (deasupra arborelui; ecran separat; in panoul din
+dreapta cand nu e nimic selectat). Se deschide cu `h` sau din bara listei,
+se inchide cu Esc; clicul pe un patrat inchide harta si selecteaza obiectul
+in arbore.
+
+Decis pe drum: (1) latimile coloanelor cresc cu radacina a patra a numarului
+de obiecte — macheta are coloane apropiate ca latime, desi tipurile difera
+de 20 de ori; proportional, procedura ar fi luat 70 % din ecran. (2) Doua
+trepte de zoom mai mari (17 si 20 px): harta are acum tot ecranul, iar cu
+cateva sute de obiecte patratele de 14 px lasau jumatate din el gol.
+(3) Bula sta in dreapta patratului, ca in macheta, nu deasupra lui, unde
+acoperea titlul coloanei. (4) Bula se leaga de `changed mouse-x/y`, nu de
+`moved`, care vine doar cu butonul apasat.
+
 ---
 
 ## Coduri de eroare — registru
