@@ -15,6 +15,7 @@ pub mod model_conectare;
 pub mod model_deploy;
 pub mod model_editor;
 pub mod model_lista;
+pub mod model_taburi;
 pub mod texte;
 
 slint::include_modules!();

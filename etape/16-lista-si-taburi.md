@@ -1,8 +1,8 @@
 # Etapa 16 — lista de obiecte in editor si taburile
 
-**Stare:** NEPORNITA
+**Stare:** ACTIVA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** — · **Incheiata:** —
+**Deschisa:** 2026-11-19 · **Incheiata:** —
 
 > Porneste dupa etapa 15, sau inainte daca Mihai cere. Extinde 15 B (lista
 > ramane in stanga, coloana de 300 px, clic = alt obiect pe loc): aici
