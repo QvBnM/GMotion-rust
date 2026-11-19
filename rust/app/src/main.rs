@@ -475,7 +475,14 @@ fn ruleaza() -> Result<(), String> {
             deploy_ui.as_weak(),
         );
         move || {
-            let mut s = stare.borrow_mut();
+            // o redesenare cheama uneori alta din interiorul ei: un `changed`
+            // din `.slint` (latimea de wrap) se declanseaza cand Rust citeste
+            // proprietatea. Cu `borrow_mut`, aplicatia cadea („RefCell already
+            // borrowed", proba pe Windows 2026-11-19); acum a doua asteapta.
+            let Ok(mut s) = stare.try_borrow_mut() else {
+                tracing::debug!(target: "gmotion::app", "redesenare ceruta din alta redesenare; amanata");
+                return;
+            };
             let (Some(c_ui), Some(l_ui), Some(e_ui), Some(d_ui)) = (
                 c_ui.upgrade(),
                 l_ui.upgrade(),
@@ -1921,14 +1928,16 @@ fn ruleaza() -> Result<(), String> {
         });
         // wrap (etapa 19): se redeseneaza cu liniile rupte la latimea panoului
         let d = deseneaza.clone();
+        // amanat: `comuta-wrap` vine si din `changed coloane-wrap`, adica din
+        // mijlocul unei redesenari (cand Rust citeste latimea)
         editor_ui.on_comuta_wrap(move |pornit| {
             actiune("editor", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
-            d()
+            slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
         });
         let d = deseneaza.clone();
         lista_ui.on_comuta_wrap(move |pornit| {
             actiune("lista", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
-            d()
+            slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
         });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
