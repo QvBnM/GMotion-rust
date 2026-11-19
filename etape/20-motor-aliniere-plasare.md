@@ -56,15 +56,19 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
       direct in cod si o tine compilatorul)
 
 **B. Aliniere pe linii**
-- [ ] liniile dintr-o pereche de blocuri se imperecheaza prin motor, nu pe
-      index
-- [ ] liniile goale si cele care sunt doar comentariu nu intra in imperechere;
-      se reaseaza dupa, marcate „ignorate la comparare"
-- [ ] fuzz: `compune` cu nimic aplicat = textul din dreapta octet cu octet;
-      cu tot aplicat = forma normalizata a stangii (invarianta 5b, pe
-      alinierea noua)
-- [ ] cazul de lucru: cele doua `SELECT` ies **modificat**, fata in fata, cu
+- [x] liniile dintr-o pereche de blocuri se imperecheaza prin motor, nu pe
+      index (`perechi_linii`; `RandAliniat` are acum cate o pozitie in bloc
+      pentru fiecare parte)
+- [x] liniile goale si cele care sunt doar comentariu nu intra in imperechere;
+      se reaseaza dupa, cu `RandAliniat::ignorata`
+- [x] fuzz: `compune` cu nimic aplicat = textul din dreapta octet cu octet;
+      cu tot aplicat = forma normalizata a stangii. Vazut cazand: cu o linie
+      fara pereche aruncata din `perechi_linii`,
+      `compunerea_pastreaza_dreapta_si_aplica_tot` pica
+- [x] cazul de lucru: cele doua `SELECT` ies **modificat**, fata in fata, cu
       virgula ca singura bucata marcata
+      (`un_bloc_fata_de_un_bloc_se_imperecheaza_oricat_de_diferit`, plus proba
+      pe binar cu `gmotion diferente`)
 
 **C. Plasarea (portata din `ui.py`, cu pragurile ei)**
 - [ ] `sugereaza(bloc, blocuri_tinta, indice_preferat)` -> „inlocuieste blocul
@@ -126,6 +130,15 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
   paritatea cu Python (doua obiecte din instantaneul real). Niciuna „ca sa
   treaca poarta": lista si editorul dau acum aceleasi numere, verificat cu
   `gmotion diferente`.
+- **2026-11-19** **B gata.** Alinierea coboara la linie: cheia e forma
+  normalizata a liniei, segmentele `replace` se imperecheaza pe scor (prag 40),
+  iar liniile goale si cele de comentariu ies din imperechere si se reaseaza
+  dupa. `RandAliniat` are acum cate o pozitie in bloc pe fiecare parte si
+  marcajul `ignorata`; `fereastra::model_editor` s-a mutat pe ele. In plus,
+  regula „un bloc fata de un singur bloc se imperecheaza intotdeauna": fara
+  concurenta, pragul n-are pe cine sa apere. Paritatea cu Python nu s-a
+  clintit. Blocurile prea mari pentru imperecherea pe linii se raporteaza in
+  `Aliniere::blocuri_nealiniate`, nu degradeaza in tacere.
 
 ## Ce a iesit altfel decat planul
 

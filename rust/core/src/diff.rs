@@ -190,6 +190,13 @@ fn perechi_replace(bv: &[String], bn: &[String]) -> Vec<(usize, usize)> {
     if n * m > MAX_PRODUS_ALINIERE {
         return (0..n.min(m)).map(|i| (i, i)).collect();
     }
+    // Un bloc fata de un singur bloc: nu exista alt candidat cu care sa se
+    // confunde, deci pragul n-are pe cine sa apere. Fara regula asta, un
+    // `SELECT` care a primit patru coloane (scor 24) iesea „sters" plus
+    // „adaugat", pe randuri diferite, in loc de „modificat" fata in fata.
+    if n == 1 && m == 1 {
+        return vec![(0, 0)];
+    }
 
     // token-urile se calculeaza o singura data per bloc, nu la fiecare pereche
     let tv: Vec<Vec<String>> = bv.iter().map(|b| tokeni_scor(b)).collect();
@@ -456,6 +463,7 @@ pub fn rezumat_diff(randuri: &[RandDiff]) -> String {
 #[cfg(test)]
 mod teste {
     use super::*;
+    use crate::normalizare::scor_similaritate;
 
     fn tipuri(r: &[RandDiff]) -> Vec<&'static str> {
         r.iter().map(|x| x.tip.eticheta()).collect()
@@ -586,6 +594,53 @@ mod teste {
             0,
             "blocurile neatinse nu trebuie raportate ca modificate: {:?}",
             tipuri(&r)
+        );
+    }
+
+    /// Cazul martor / upgrade al lui Mihai (2026-11-19): acelasi `SELECT`, cu
+    /// coloane in plus. Scorul dintre cele doua blocuri e 24, sub pragul de
+    /// perechere — dar segmentul `replace` are un bloc de fiecare parte, deci
+    /// nu exista alt candidat cu care sa se confunde. Pana la etapa 20 ieseau
+    /// „sters" plus „adaugat", pe randuri care nu se vedeau impreuna.
+    #[test]
+    fn un_bloc_fata_de_un_bloc_se_imperecheaza_oricat_de_diferit() {
+        let martor = "SELECT 'RCA_Multiple.doc' AS Template";
+        let modificata = concat!(
+            "SELECT 'RCA_Multiple.doc' AS Template,\n",
+            "       CAST(0 AS BIT) AS SaveOnLocalDisk,\n",
+            "       NULL AS LocalDiskSavePath\n",
+            "END"
+        );
+        assert!(
+            scor_similaritate(martor, modificata) < PRAG_PERECHE,
+            "cazul isi pierde rostul daca scorul trece pragul"
+        );
+        let r = diff_aliniat(martor, modificata);
+        assert_eq!(tipuri(&r), vec!["modificat"]);
+
+        let marcat = |s: &Option<Vec<Segment>>| -> Vec<String> {
+            s.as_ref()
+                .map(|v| {
+                    v.iter()
+                        .filter(|x| x.schimbat.is_some())
+                        .map(|x| x.text.clone())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        assert!(
+            marcat(&r[0].seg_stanga).is_empty(),
+            "nimic nu dispare din martor: {:?}",
+            marcat(&r[0].seg_stanga)
+        );
+        let dreapta = marcat(&r[0].seg_dreapta).join("");
+        assert!(
+            dreapta.contains(','),
+            "virgula noua se marcheaza: {dreapta:?}"
+        );
+        assert!(
+            !dreapta.contains("RCA_Multiple.doc"),
+            "ce n-a fost atins nu se marcheaza: {dreapta:?}"
         );
     }
 

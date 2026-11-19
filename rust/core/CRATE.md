@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: f97b1d2a5de1c22f -->
+<!-- api-hash: 293e2f98fe040934 -->
 
 ## Rol
 
@@ -63,7 +63,17 @@ proiectul.
 | `aliniaza_cu(a, b, uneste_cursor)`, `diff_aliniat_cu`, `are_cursor(cod)` | varianta cu unirea ciclului de cursor (v3.4): blocul de cursor se ia intreg, de la DECLARE pana la DEALLOCATE |
 | `aliniaza(stanga, dreapta) -> Aliniere` | diff-ul asezat pe linii, cu umplutura si cu liniile dintre blocuri; ce deseneaza editorul |
 | `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: „Aplica bloc" |
-| `Aliniere` (`randuri`, `diff`, `diferente()`), `RandAliniat`, `Linie` | tipurile rezultatului |
+| `Aliniere` (`randuri`, `diff`, `diferente()`, `blocuri_nealiniate`), `RandAliniat` (`linie_in_bloc_stanga` / `_dreapta`, `ignorata`), `Linie` | tipurile rezultatului |
+
+**Liniile a doua blocuri imperecheate se potrivesc intre ele, nu pe pozitie**
+(din 2026-11-19, etapa 20): cheia e forma normalizata a liniei, iar in
+segmentele `replace` imperecherea e pe scor, cu prag 40. Liniile goale si cele
+care sunt numai comentariu nu intra in imperechere — normalizarea le ignora
+oricum — si se reaseaza dupa, la locul lor. De aia `RandAliniat` are **doua**
+pozitii in bloc, una pe parte: linia a treia din stanga poate sta langa a
+cincea din dreapta. Peste `MAX_PRODUS_LINII` (4096 de perechi) imperecherea
+cade pe pozitie, iar blocul apare in `Aliniere::blocuri_nealiniate`, ca sa nu
+degradeze in tacere.
 
 ### `seqmatch`
 `SequenceMatcher` — port fidel al `difflib.SequenceMatcher` din Python, cu
@@ -130,6 +140,10 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
    Lucreaza pe liniile originale, nu pe textul blocurilor (care nu e garantat
    subsir, vezi 5). Liniile dintre blocuri (goale, comentarii) raman din
    dreapta. Verificat de fuzz in `tests/invariante.rs`.
+5c. **Alinierea pe linii nu schimba ce linii apartin unui bloc**, doar cum se
+   aseaza fata in fata. Fiecare linie a blocului apare exact o data, pe partea
+   ei: de aia `compune` ramane corect (invarianta 5b) fara sa stie nimic
+   despre imperecherea liniilor.
 6. Functiile sunt totale pe intrari UTF-8 valide: nu intorc `Result`, nu dau
    panica.
 
@@ -144,7 +158,8 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 | `UNION`, cursor `FOR`, `INSERT ... SELECT` rupt in doua | `bloc_este_continuat` si uniunile de blocuri | `src/segmentare.rs` |
 | Blocul desenat la alta linie decat cea reala; „Aplica" schimba alte linii | `linii_start_blocuri` sau `aliniaza` | `src/segmentare.rs`, `src/aliniere.rs` |
 | Numar de blocuri diferit de ce arata editorul | segmentare — clasa de bug care a produs toate divergentele din v3.4 | `src/segmentare.rs` |
-| „sters + adaugat" in loc de „modificat" | alinierea `perechi_replace` | `src/diff.rs` |
+| „sters + adaugat" in loc de „modificat" | alinierea `perechi_replace` (un bloc fata de un singur bloc se imperecheaza intotdeauna) | `src/diff.rs` |
+| Doua linii fara legatura, una langa alta, intr-un bloc modificat | `perechi_linii` / `PRAG_LINIE` | `src/aliniere.rs` |
 | Rezumat care raporteaza blocuri inexistente | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `src/diff.rs` |
 | Rezultate diferite de `difflib` | portul `SequenceMatcher`, atentie la `autojunk=False` | `src/seqmatch.rs` |
 
