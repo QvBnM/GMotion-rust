@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 940238dabfd745a9 -->
+<!-- api-hash: 0d841b96f397af2a -->
 
 ## Rol
 
@@ -41,7 +41,7 @@ si editorul de diferente (etapa 8).
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_bara, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}`, `LATIME_HARTA` | harta de deasupra tabelului: o coloana pe tip, care umplu cartusul; bara de proportie a starilor; patrate pictate in Rust, in ordinea din tabel; zoom automat pe trepte (`SCARI`) cand nu intra in `INALTIME_MAXIMA`; clic → rand |
 | `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | clicul, bula si reasezarea la redimensionare; calculul e doar in `harta::indice_la` |
 | `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |
-| `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra |
+| `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra; `GardaDeploy::SeVerifica` = recitirea ruleaza pe alt fir (P4) |
 | `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
 | `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, nota); nota se rescrie doar cand se schimba obiectul |

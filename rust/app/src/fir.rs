@@ -26,6 +26,51 @@ pub enum Veste {
     Esuata(String),
 }
 
+/// Un lucru lung care nu are voie sa tina fereastra: se porneste pe alt fir
+/// si se intreaba la fiecare bataie de ceas, ca si compararea.
+///
+/// Exista fiindca „citeste bazele", „Testeaza conexiunea", „cauta servere" si
+/// garda de deploy rulau **pe firul ferestrei**: un server inaccesibil o lasa
+/// „Not responding" pana la timeout (30 s), iar garda pe o baza mare, minute
+/// (P4 din auditul QA).
+pub struct Lucru<T> {
+    vesti: Receiver<Result<T, String>>,
+    pornit_la: Instant,
+}
+
+impl<T: Send + 'static> Lucru<T> {
+    /// Porneste `f` pe alt fir. Nu blocheaza.
+    pub fn porneste(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Lucru<T> {
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            // chiar si o panica in `f` trebuie sa lase ecranul sa iasa din
+            // „lucreaza…": canalul inchis devine eroare la `verifica`
+            let _ = tx.send(f());
+        });
+        Lucru {
+            vesti: rx,
+            pornit_la: Instant::now(),
+        }
+    }
+
+    /// `Some` cand s-a terminat; atunci `Lucru` se arunca.
+    pub fn verifica(&mut self) -> Option<Result<T, String>> {
+        match self.vesti.try_recv() {
+            Ok(r) => Some(r),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => {
+                Some(Err("lucrul s-a oprit pe neasteptate".to_string()))
+            }
+        }
+    }
+
+    /// Cat a trecut, ca „0:12".
+    pub fn timp(&self) -> String {
+        let s = self.pornit_la.elapsed().as_secs();
+        format!("{}:{:02}", s / 60, s % 60)
+    }
+}
+
 /// O comparare care ruleaza acum.
 pub struct Rulare {
     anulare: Arc<AtomicBool>,
@@ -185,5 +230,35 @@ mod teste {
         let mut r = Rulare::porneste(c);
         let e = asteapta(&mut r).map(|_| ()).expect_err("fisierul lipseste");
         assert!(e.contains("GM-DB-007"), "{e}");
+    }
+
+    #[test]
+    fn un_lucru_lung_nu_tine_fereastra_si_isi_spune_rezultatul() {
+        let mut l = Lucru::porneste(|| {
+            std::thread::sleep(std::time::Duration::from_millis(40));
+            Ok::<_, String>(21 * 2)
+        });
+        assert!(l.verifica().is_none(), "nu blocheaza la pornire");
+        let mut rezultat = None;
+        for _ in 0..200 {
+            if let Some(r) = l.verifica() {
+                rezultat = Some(r);
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(rezultat.expect("s-a terminat"), Ok(42));
+
+        // o eroare vine ca eroare, nu ca blocaj
+        let mut l = Lucru::porneste(|| Err::<(), String>("serverul nu raspunde".into()));
+        let mut rezultat = None;
+        for _ in 0..200 {
+            if let Some(r) = l.verifica() {
+                rezultat = Some(r);
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(rezultat, Some(Err("serverul nu raspunde".to_string())));
     }
 }

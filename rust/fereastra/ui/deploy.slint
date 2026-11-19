@@ -230,14 +230,19 @@ export component FereastraDeploy inherits Window {
                         Rectangle { height: 18px; }
 
                         Oprire {
-                            stare: root.garda == 1 ? 1 : root.garda == 0 ? 0 : 2;
+                            stare: root.garda == 1 ? 1 : (root.garda == 0 || root.garda == 4) ? 0 : 2;
                             titlu: Texte.baza-neatinsa;
                             text: root.text-garda;
                             for s in root.schimbari: Text { text: s; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.del-text; wrap: word-wrap; }
                             HorizontalLayout {
                                 alignment: start;
                                 padding-top: 6px;
-                                Buton { text: root.garda == 0 ? Texte.verifica-acum : Texte.verifica-din-nou; apasat => { root.verifica-baza(); } }
+                                Buton {
+                                    text: root.garda == 4 ? Texte.verifica-in-lucru
+                                        : root.garda == 0 ? Texte.verifica-acum
+                                        : Texte.verifica-din-nou;
+                                    apasat => { root.verifica-baza(); }
+                                }
                             }
                         }
                         Oprire {

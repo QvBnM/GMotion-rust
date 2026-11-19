@@ -23,7 +23,12 @@ pub struct PasDeploy {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GardaDeploy {
     Neverificata,
-    Ok { la: String },
+    /// Recitirea ruleaza acum, pe alt fir. Pe o baza mare tine minute, si
+    /// pana la auditul QA tinea fereastra blocata (P4).
+    SeVerifica,
+    Ok {
+        la: String,
+    },
     Schimbata(Vec<String>),
     Eroare(String),
 }
@@ -105,6 +110,9 @@ pub fn text_garda(g: &GardaDeploy, tinta: &str) -> String {
     match g {
         GardaDeploy::Neverificata => {
             format!("Inainte de scriere se recitesc obiectele din {tinta} si se compara cu ce ai revizuit.")
+        }
+        GardaDeploy::SeVerifica => {
+            "Se recitesc obiectele din baza, ca sa fie comparate cu ce ai revizuit...".to_string()
         }
         GardaDeploy::Ok { la } => {
             format!("Verificat la {la}: obiectele din plan sunt exact cum le-ai comparat.")

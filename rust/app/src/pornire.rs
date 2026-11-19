@@ -261,13 +261,23 @@ impl Comparata {
     }
 }
 
-/// Citeste sursa si fiecare baza bifata, si compara. `progres` primeste
-/// pasii pe rand (ce baza se citeste, a cata din cate) si intoarce `false`
-/// daca utilizatorul a apasat „Anuleaza".
-pub fn compara_cu(
-    c: &Conectare,
-    mut progres: impl FnMut(Pas) -> bool,
-) -> Result<Comparata, String> {
+/// Obiectele citite de pe server (sau din instantaneu), **fara comparare**.
+///
+/// Garda de deploy are nevoie doar de atat: obiectele recitite, ca sa le
+/// compare amprentele cu cele din plan. Pana la auditul QA chema `compara`,
+/// adica refacea toata compararea doar ca sa reciteasca — minute, pe o baza
+/// mare (P4).
+pub struct Citit {
+    pub sursa: modul::Baza,
+    pub tinte: Vec<(String, modul::Baza)>,
+    pub server: String,
+    pub referinta: String,
+}
+
+/// Citeste sursa si fiecare baza bifata. `progres` primeste pasii pe rand
+/// (ce baza se citeste, a cata din cate) si intoarce `false` daca
+/// utilizatorul a apasat „Anuleaza".
+pub fn citeste(c: &Conectare, mut progres: impl FnMut(Pas) -> bool) -> Result<Citit, String> {
     let baze = c.baza.baze_alese();
     if baze.is_empty() {
         return Err("nicio baza de comparat".to_string());
@@ -306,14 +316,30 @@ pub fn compara_cu(
         tinte.push((nume.clone(), modul::pregateste(&obiecte)));
     }
 
-    let comparare = modul::compara(&c.sursa.baza, &sursa, &tinte, |_| {});
-    Ok(Comparata {
-        randuri: comparare.randuri,
+    Ok(Citit {
         sursa,
         tinte,
         server,
         referinta: c.sursa.baza.clone(),
     })
+}
+
+/// Citeste si compara. Vezi [`citeste`] pentru partea de citire.
+pub fn compara_cu(c: &Conectare, progres: impl FnMut(Pas) -> bool) -> Result<Comparata, String> {
+    let x = citeste(c, progres)?;
+    let comparare = modul::compara(&x.referinta, &x.sursa, &x.tinte, |_| {});
+    Ok(Comparata {
+        randuri: comparare.randuri,
+        sursa: x.sursa,
+        tinte: x.tinte,
+        server: x.server,
+        referinta: x.referinta,
+    })
+}
+
+/// Recitirea pentru garda de deploy: fara comparare, fara progres.
+pub fn reciteste(c: &Conectare) -> Result<Citit, String> {
+    citeste(c, |_| true)
 }
 
 /// Unde a ajuns compararea: ce baza se citeste acum, a cata din cate.

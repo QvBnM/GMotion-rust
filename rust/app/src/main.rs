@@ -16,9 +16,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gmotion_app::fir::Lucru;
 use gmotion_app::pornire;
 use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
-use gmotion_fereastra::model_conectare::{Conectare, Recenta, StareConexiune};
+use gmotion_fereastra::model_conectare::{Conectare, Recenta, ServerGasit, StareConexiune};
 use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
@@ -27,6 +28,9 @@ use gmotion_fereastra::{
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
+
+/// Bazele unui server si ce s-a aflat despre el incercand sa le citeasca.
+type BazeCitite = (Vec<String>, StareConexiune);
 
 /// Ce stie aplicatia in orice moment.
 struct Stare {
@@ -47,6 +51,14 @@ struct Stare {
     deploy: Option<gmotion_app::deploy::Deschis>,
     /// Compararea care ruleaza acum, pe alt fir.
     rulare: Option<gmotion_app::fir::Rulare>,
+    /// Celelalte lucruri lungi, si ele pe alt fir: citirea bazelor, testul de
+    /// conexiune, cautarea de servere si garda de deploy. Pe firul ferestrei,
+    /// un server inaccesibil tinea aplicatia „Not responding" pana la timeout
+    /// (P4 din auditul QA). `bool` = pentru care parte a ecranului.
+    baze_cerute: Option<(bool, Lucru<BazeCitite>)>,
+    testare: Option<(bool, Lucru<StareConexiune>)>,
+    cautare_servere: Option<(bool, Lucru<Vec<ServerGasit>>)>,
+    garda: Option<Lucru<pornire::Citit>>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
@@ -209,6 +221,10 @@ fn ruleaza() -> Result<(), String> {
         referinta: String::new(),
         deploy: None,
         rulare: None,
+        baze_cerute: None,
+        testare: None,
+        cautare_servere: None,
+        garda: None,
         salvat_la: String::new(),
     }));
 
@@ -643,18 +659,32 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         conectare_ui.on_cere_bazele(move |sursa| {
             let c = s.borrow().conectare.clone();
-            let p = if sursa { &c.sursa } else { &c.baza };
-            let (baze, stare_noua) = match c.ce_lipseste_pentru_baze(sursa) {
-                Some(ce) => (
-                    Vec::new(),
-                    StareConexiune::Eroare(format!("completeaza {ce}")),
-                ),
-                None => pornire::citeste_bazele(&c, p),
-            };
+            if let Some(ce) = c.ce_lipseste_pentru_baze(sursa) {
+                let mut st = s.borrow_mut();
+                if let Some(tinta) = st.parte(sursa) {
+                    tinta.baze = Vec::new();
+                    tinta.stare = StareConexiune::Eroare(format!("completeaza {ce}"));
+                }
+                drop(st);
+                d();
+                return;
+            }
+            // pe alt fir: un server care nu raspunde ar tine fereastra pana
+            // la timeout (30 s), fara sa se poata apasa nimic (P4)
             let mut st = s.borrow_mut();
-            let Some(tinta) = st.parte(sursa) else { return };
-            tinta.baze = baze;
-            tinta.stare = stare_noua;
+            if st.baze_cerute.is_some() {
+                return;
+            }
+            if let Some(tinta) = st.parte(sursa) {
+                tinta.stare = StareConexiune::SeConecteaza;
+            }
+            st.baze_cerute = Some((
+                sursa,
+                Lucru::porneste(move || {
+                    let p = if sursa { &c.sursa } else { &c.baza };
+                    Ok(pornire::citeste_bazele(&c, p))
+                }),
+            ));
             drop(st);
             d();
         });
@@ -664,32 +694,29 @@ fn ruleaza() -> Result<(), String> {
         let timeout = std::time::Duration::from_millis(cfg.timeout_descoperire_ms);
         conectare_ui.on_cauta_servere(move |sursa| {
             tracing::info!(target: "gmotion::app", "caut servere in retea");
-            let gasite = gmotion_db::cauta_instante(timeout);
             let mut st = s.borrow_mut();
-            let Some(p) = st.parte(sursa) else { return };
-            match gasite {
-                Ok(v) if v.is_empty() => {
-                    p.servere_gasite.clear();
-                    p.stare = StareConexiune::Eroare(
-                        "niciun server nu a raspuns in retea; scrie-l de mana".into(),
-                    );
-                }
-                Ok(v) => {
-                    tracing::info!(target: "gmotion::app", gasite = v.len(), "servere gasite");
-                    p.servere_gasite = v
-                        .into_iter()
-                        .map(|i| gmotion_fereastra::model_conectare::ServerGasit {
-                            nume: i.server,
-                            implicita: i.implicita,
-                            cluster: i.cluster,
-                        })
-                        .collect();
-                }
-                Err(e) => {
-                    p.servere_gasite.clear();
-                    p.stare = StareConexiune::Eroare(e.to_string());
-                }
+            if st.cautare_servere.is_some() {
+                return;
             }
+            if let Some(p) = st.parte(sursa) {
+                p.stare = StareConexiune::SeConecteaza;
+            }
+            st.cautare_servere = Some((
+                sursa,
+                Lucru::porneste(move || {
+                    gmotion_db::cauta_instante(timeout)
+                        .map(|v| {
+                            v.into_iter()
+                                .map(|i| ServerGasit {
+                                    nume: i.server,
+                                    implicita: i.implicita,
+                                    cluster: i.cluster,
+                                })
+                                .collect()
+                        })
+                        .map_err(|e| e.to_string())
+                }),
+            ));
             drop(st);
             d();
         });
@@ -798,15 +825,25 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         conectare_ui.on_testeaza(move |sursa| {
             let c = s.borrow().conectare.clone();
-            let p = if sursa { &c.sursa } else { &c.baza };
             tracing::info!(target: "gmotion::app", sursa, "testez conexiunea");
-            let stare_noua = match pornire::testeaza(&c, p) {
-                Ok(t) => StareConexiune::Conectat(t),
-                Err(e) => StareConexiune::Eroare(e),
-            };
-            if let Some(p) = s.borrow_mut().parte(sursa) {
-                p.stare = stare_noua;
+            let mut st = s.borrow_mut();
+            if st.testare.is_some() {
+                return;
             }
+            if let Some(p) = st.parte(sursa) {
+                p.stare = StareConexiune::SeConecteaza;
+            }
+            st.testare = Some((
+                sursa,
+                Lucru::porneste(move || {
+                    let p = if sursa { &c.sursa } else { &c.baza };
+                    Ok(match pornire::testeaza(&c, p) {
+                        Ok(t) => StareConexiune::Conectat(t),
+                        Err(e) => StareConexiune::Eroare(e),
+                    })
+                }),
+            ));
+            drop(st);
             d();
         });
         let d = deseneaza.clone();
@@ -1135,16 +1172,16 @@ fn ruleaza() -> Result<(), String> {
         deploy_ui.on_verifica_baza(move || {
             let c = s.borrow().conectare.clone();
             tracing::info!(target: "gmotion::app", "garda: recitesc bazele");
-            let recitit = pornire::compara(&c);
             let mut st = s.borrow_mut();
-            if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
-                match recitit {
-                    Ok(r) => {
-                        dep.aplica_verificarea(r.sursa, r.tinte, &gmotion_platforma::timp::acum())
-                    }
-                    Err(e) => dep.verificare_esuata(e),
-                }
+            if st.garda.is_some() {
+                return;
             }
+            if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
+                dep.verificarea_a_pornit();
+            }
+            // `reciteste`, nu `compara`: garzii ii trebuie doar obiectele de
+            // acum, iar compararea intreaga tinea minute pe o baza mare (P4)
+            st.garda = Some(Lucru::porneste(move || pornire::reciteste(&c)));
             drop(st);
             d();
         });
@@ -1296,6 +1333,86 @@ fn ruleaza() -> Result<(), String> {
             slint::TimerMode::Repeated,
             std::time::Duration::from_millis(120),
             move || {
+                // celelalte lucruri de pe alte fire: bazele, testul,
+                // serverele, garda. Fiecare isi pune rezultatul in model si
+                // isi goleste slotul (P4).
+                let mut s_a_schimbat = false;
+                {
+                    let mut st = s.borrow_mut();
+                    if let Some((sursa, l)) = st.baze_cerute.as_mut() {
+                        let (sursa, gata) = (*sursa, l.verifica());
+                        if let Some(r) = gata {
+                            st.baze_cerute = None;
+                            s_a_schimbat = true;
+                            let (baze, stare_noua) = match r {
+                                Ok(x) => x,
+                                Err(e) => (Vec::new(), StareConexiune::Eroare(e)),
+                            };
+                            if let Some(p) = st.parte(sursa) {
+                                p.baze = baze;
+                                p.stare = stare_noua;
+                            }
+                        }
+                    }
+                    if let Some((sursa, l)) = st.testare.as_mut() {
+                        let (sursa, gata) = (*sursa, l.verifica());
+                        if let Some(r) = gata {
+                            st.testare = None;
+                            s_a_schimbat = true;
+                            let stare_noua = r.unwrap_or_else(StareConexiune::Eroare);
+                            if let Some(p) = st.parte(sursa) {
+                                p.stare = stare_noua;
+                            }
+                        }
+                    }
+                    if let Some((sursa, l)) = st.cautare_servere.as_mut() {
+                        let (sursa, gata) = (*sursa, l.verifica());
+                        if let Some(r) = gata {
+                            st.cautare_servere = None;
+                            s_a_schimbat = true;
+                            match r {
+                                Ok(v) if v.is_empty() => {
+                                    if let Some(p) = st.parte(sursa) {
+                                        p.servere_gasite.clear();
+                                        p.stare = StareConexiune::Eroare(
+                                            "niciun server nu a raspuns in retea; scrie-l de mana"
+                                                .into(),
+                                        );
+                                    }
+                                }
+                                Ok(v) => {
+                                    tracing::info!(target: "gmotion::app", gasite = v.len(), "servere gasite");
+                                    if let Some(p) = st.parte(sursa) {
+                                        p.servere_gasite = v;
+                                        p.stare = StareConexiune::Neincercat;
+                                    }
+                                }
+                                Err(e) => {
+                                    if let Some(p) = st.parte(sursa) {
+                                        p.servere_gasite.clear();
+                                        p.stare = StareConexiune::Eroare(e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if let Some(l) = st.garda.as_mut() {
+                        if let Some(r) = l.verifica() {
+                            st.garda = None;
+                            s_a_schimbat = true;
+                            let acum = gmotion_platforma::timp::acum();
+                            if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
+                                match r {
+                                    Ok(x) => dep.aplica_verificarea(x.sursa, x.tinte, &acum),
+                                    Err(e) => dep.verificare_esuata(e),
+                                }
+                            }
+                        }
+                    }
+                }
+                if s_a_schimbat {
+                    d();
+                }
                 let gata = {
                     let mut st = s.borrow_mut();
                     match st.rulare.as_mut() {

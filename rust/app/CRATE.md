@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 7e391a84e8fb69dc -->
+<!-- api-hash: 35c55f2340b016ef -->
 
 ## Rol
 
@@ -47,9 +47,11 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
 | `fir::Rulare` (`porneste`, `verifica`, `anuleaza`, `text`, `timp`, `fractie`) | compararea pe alt fir, cu progres si Anuleaza |
+| `fir::Lucru<T>` (`porneste(f)`, `verifica`, `timp`) | orice alt lucru lung pe alt fir: citirea bazelor, „Testeaza conexiunea", cautarea de servere, garda de deploy (P4) |
 | `pornire::testeaza(c, parte)` | Testeaza conexiunea: ce raspunde serverul, fara parola in mesaj |
 | `pornire::instantanee_gasite()` | fisierele .json de ales in „Deschide un instantaneu", fara dialog nativ |
 | `pornire::compara_offline(sursa, tinta)` | compararea a doua bucati de cod lipite, fara server |
+| `pornire::citeste(c, progres) -> Citit`, `reciteste(c)` | doar citirea obiectelor, fara comparare: atat ii trebuie garzii de deploy (P4) |
 | `pornire::compara(c) -> Comparata`, `compara_cu(c, progres)`, `Pas`, `ANULAT` | citeste referinta si fiecare baza bifata si compara; `compara_cu` da progresul si se poate anula. `Comparata::referinta` e baza **cu care a rulat**, nu ce scrie in formular la final (F-A3) |
 
 ## Invariante

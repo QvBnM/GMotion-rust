@@ -30,6 +30,8 @@ pub struct PasAfisat {
 pub enum Garda {
     /// Inca nu s-a verificat; scrierea nu e permisa.
     Neverificata,
+    /// Recitirea ruleaza pe alt fir; scrierea nu e permisa nici acum.
+    SeVerifica,
     /// Obiectele din plan sunt exact cum erau la comparare.
     Ok { la: String },
     /// Ceva s-a schimbat de la comparare; fiecare schimbare pe nume.
@@ -110,6 +112,12 @@ impl StareDeploy {
             self.garda = Garda::Schimbata(schimbari.iter().map(ToString::to_string).collect());
             self.recitite = None;
         }
+    }
+
+    /// Recitirea a pornit pe alt fir.
+    pub fn verificarea_a_pornit(&mut self) {
+        self.garda = Garda::SeVerifica;
+        self.recitite = None;
     }
 
     /// Recitirea a esuat: scrierea ramane blocata.
@@ -278,6 +286,7 @@ pub fn ecran(
         sarite: st.plan.sarite,
         garda: match &st.garda {
             Garda::Neverificata => GardaDeploy::Neverificata,
+            Garda::SeVerifica => GardaDeploy::SeVerifica,
             Garda::Ok { la } => GardaDeploy::Ok { la: la.clone() },
             Garda::Schimbata(v) => GardaDeploy::Schimbata(v.clone()),
             Garda::Eroare(e) => GardaDeploy::Eroare(e.clone()),

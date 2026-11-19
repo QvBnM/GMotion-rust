@@ -982,6 +982,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
     );
     let (fel, schimbari) = match &e.garda {
         GardaDeploy::Neverificata => (0, Vec::new()),
+        GardaDeploy::SeVerifica => (4, Vec::new()),
         GardaDeploy::Ok { .. } => (1, Vec::new()),
         GardaDeploy::Schimbata(v) => (2, v.iter().take(6).cloned().collect()),
         GardaDeploy::Eroare(_) => (3, Vec::new()),
