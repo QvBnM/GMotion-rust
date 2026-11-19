@@ -1,8 +1,12 @@
 # Etapa 18 — editorul arata ca macheta
 
-**Stare:** ACTIVA
+**Stare:** ABANDONATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-19 · **Incheiata:** —
+**Deschisa:** 2026-11-19 · **Incheiata:** 2026-11-19 (abandonata)
+
+> Absorbita in etapa 19: dupa prima proba pe bazele reale, Mihai a cerut
+> ecranul de dupa comparare ca Object Explorer, cu cele doua panouri; editorul
+> reasezat aici ramane, aprobarea pe captura se cere pe ecranul nou.
 
 > Numarul 17 e tinut pentru conectarea noua (`STARE.md`). Ordinea dintre 17
 > si 18 o alege Mihai.

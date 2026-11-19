@@ -1,0 +1,64 @@
+# Etapa 19 — lista ca Object Explorer, cu cele doua panouri alaturi
+
+**Stare:** ACTIVA
+**Branch:** claude/upbeat-ramanujan-dm6j8c
+**Deschisa:** 2026-11-19 · **Incheiata:** —
+
+## Scop
+
+Prima proba pe bazele reale (GetsBet → CEAAS, 311 obiecte): Mihai a gasit
+lista „o tampenie" si a cerut-o ca Object Explorer din SSMS, cu codul in
+forma ecranului Side by Side. La final, ecranul de dupa comparare e un arbore
+in stanga si cele doua panouri (martor | modificata) in dreapta; harta,
+tabelul lat si butonul „Open" plutitor nu mai exista. In editor si in
+previzualizare exista un buton de wrap.
+
+## Cum arata (descris de Mihai, 2026-11-19; nu exista macheta)
+
+- **Stanga, arborele**: `Baza` › `Proceduri` / `Functii` / `View-uri` /
+  `Triggere` › `schema.nume`. Nodurile se deschid / inchid cu clic pe
+  sageata sau pe nume, ca in SSMS; fiecare dosar are numarul de obiecte.
+  Obiectul: patratul si litera starii (M / + / −), numele in mono, ±linii.
+- **Dreapta, cele doua panouri alaturi**, ca in editor: capul cu numele
+  obiectului si actiunile (Revizuit, In plan, Omite, Deschide in editor),
+  apoi Martor | Modificata, cu numerele de linie si evidentierea.
+- **Sus** raman filtrele, cautarea, Recompara, Export CSV, Deploy.
+
+## Criterii de terminare
+
+- [ ] arborele: baza › dosar pe tip › obiect; clic pe dosar il deschide /
+      inchide; numarul din dosar = obiectele vizibile din el; filtrele si
+      cautarea de sus se aplica arborelui (test pe model)
+- [ ] clic pe obiect il arata in dreapta; dublu clic sau Enter deschide
+      editorul (test cu mouse-ul adevarat, ca la lista de acum)
+- [ ] dreapta: martor | modificata alaturi, cu numere de linie, ca in
+      editor; capul cu Revizuit / In plan / Omite / Deschide
+- [ ] harta, tabelul si butonul „Open" plutitor scoase, cu tot codul lor
+      mort (Rust si `.slint`)
+- [ ] butonul Wrap: in editor si in previzualizare; liniile lungi se rup,
+      iar randurile din stanga si din dreapta raman aliniate
+- [ ] nicio redesenare peste 100 ms la un filtru sau la un clic, pe 4.000
+      de obiecte (masurat, nu presupus)
+- [ ] captura la 1920x1080 trimisa lui Mihai si „da"-ul lui pe ea
+- [ ] poarta verde: `unelte/verifica.sh`
+- [ ] `STARE.md` actualizat
+- [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
+
+## Pasi
+
+1. `model_arbore` in `fereastra`: nodurile aplatizate din `Lista` (vizibile),
+   cu starea deschis / inchis; teste.
+2. Starea arborelui in `Aplicatie` (`Comanda::ComutaNod`), ca sa se poata
+   actiona si testa fara fereastra.
+3. `lista.slint`: corpul refacut (arbore | panouri); harta si tabelul scoase.
+4. Wrap: numarul de randuri vizuale pe linie se calculeaza in Rust (font
+   mono, latime cunoscuta), inaltimea randului = maximul celor doua parti.
+5. Masuratori, captura, proba lui Mihai.
+
+## Jurnal de lucru
+
+- **2026-11-19** Deschisa dupa prima proba pe bazele reale. Etapa 18 e
+  absorbita aici: ecranul de dupa comparare se reface oricum.
+
+## Ce a iesit altfel decat planul
+
