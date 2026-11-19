@@ -12,6 +12,7 @@
 
 use crate::diff::{diff_aliniat, Segment, TipDiferenta};
 use crate::lexer::{segmente, Fel};
+use crate::Limba;
 
 /// Cate diferente sunt in fiecare fel de text. Se numara **bucatile
 /// schimbate**, nu caracterele: „un sir" inseamna o singura bucata de sir
@@ -153,21 +154,33 @@ pub fn clasifica_randuri(randuri: &[crate::diff::RandDiff]) -> Clasificare {
 /// `setari` sunt numele setarilor de sesiune care difera (`QUOTED_IDENTIFIER`,
 /// `ANSI_NULLS`): nu se vad in text, dar schimba comportamentul la executie.
 pub fn eticheta(c: Clasificare, setari: &[&str]) -> String {
+    eticheta_in(c, setari, Limba::Romana)
+}
+
+/// `eticheta`, in limba data.
+pub fn eticheta_in(c: Clasificare, setari: &[&str], l: Limba) -> String {
     let mut parti: Vec<String> = Vec::new();
     if c.cod > 0 {
-        parti.push("cod".to_string());
+        parti.push(l.alege("cod", "code").to_string());
     }
     if c.siruri > 0 {
         // singular doar cand sirul e singura diferenta din tot obiectul
         let singur = c.siruri == 1 && c.cod == 0 && c.comentarii == 0 && setari.is_empty();
-        parti.push(if singur { "un sir" } else { "siruri" }.to_string());
+        parti.push(
+            if singur {
+                l.alege("un sir", "a string")
+            } else {
+                l.alege("siruri", "strings")
+            }
+            .to_string(),
+        );
     }
     if c.comentarii > 0 {
         parti.push(
             if c.comentarii == 1 {
-                "comentariu"
+                l.alege("comentariu", "comment")
             } else {
-                "comentarii"
+                l.alege("comentarii", "comments")
             }
             .to_string(),
         );
@@ -187,13 +200,42 @@ pub fn eticheta(c: Clasificare, setari: &[&str]) -> String {
 /// Rostul ei e sa raspunda la intrebarea pusa inainte de a deschide editorul:
 /// merita deschis? Un mesaj cu o majuscula schimbata, nu; o conditie, da.
 pub fn propozitie(text_referinta: &str, text_curent: &str, setari: &[&str]) -> String {
+    propozitie_in(text_referinta, text_curent, setari, Limba::Romana)
+}
+
+/// Eticheta romaneasca (cum o tin modelele, calculata o data) in limba data.
+/// Partile necunoscute (numele setarilor) raman cum sunt. Testul
+/// `traducerea_etichetei_da_aceeasi_eticheta` o tine egala cu `eticheta_in`.
+pub fn traduce_eticheta(ro: &str, l: Limba) -> String {
+    if l == Limba::Romana {
+        return ro.to_string();
+    }
+    ro.split(", ")
+        .map(|p| match p {
+            "cod" => "code",
+            "un sir" => "a string",
+            "siruri" => "strings",
+            "comentariu" => "comment",
+            "comentarii" => "comments",
+            alt => alt,
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// `propozitie`, in limba data.
+pub fn propozitie_in(text_referinta: &str, text_curent: &str, setari: &[&str], l: Limba) -> String {
     let randuri = diff_aliniat(text_referinta, text_curent);
     let c = clasifica_randuri(&randuri);
     let general = || {
         if c.nimic() && setari.is_empty() {
-            "fara diferente".to_string()
+            l.alege("fara diferente", "no differences").to_string()
         } else {
-            format!("difera in {}", eticheta(c, setari))
+            format!(
+                "{} {}",
+                l.alege("difera in", "differs in"),
+                eticheta_in(c, setari, l)
+            )
         }
     };
     if !setari.is_empty() {
@@ -235,11 +277,11 @@ pub fn propozitie(text_referinta: &str, text_curent: &str, setari: &[&str]) -> S
         return general();
     }
     let unde = if c.doar_siruri() {
-        "intr-un sir"
+        l.alege("intr-un sir", "in a string")
     } else if c.doar_comentarii() {
-        "intr-un comentariu"
+        l.alege("intr-un comentariu", "in a comment")
     } else {
-        "in cod"
+        l.alege("in cod", "in code")
     };
     // „un singur caracter" se refera la cat s-a schimbat, nu la cat se arata:
     // in machete scrie „un singur caracter, intr-un sir: Nu → nu", unde se
@@ -247,9 +289,9 @@ pub fn propozitie(text_referinta: &str, text_curent: &str, setari: &[&str]) -> S
     let un_caracter = a.chars().count() == b.chars().count()
         && a.chars().zip(b.chars()).filter(|(x, y)| x != y).count() == 1;
     let cat = if un_caracter {
-        "un singur caracter"
+        l.alege("un singur caracter", "a single character")
     } else {
-        "o singura bucata"
+        l.alege("o singura bucata", "a single piece")
     };
     format!("{cat}, {unde}: {a} → {b}")
 }
@@ -411,5 +453,49 @@ mod teste {
             "difera in QUOTED_IDENTIFIER"
         );
         assert_eq!(propozitie(&t, &t, &[]), "fara diferente");
+    }
+
+    #[test]
+    fn eticheta_si_propozitia_urmeaza_limba() {
+        let c = Clasificare {
+            cod: 1,
+            siruri: 2,
+            comentarii: 1,
+        };
+        assert_eq!(eticheta(c, &[]), "cod, siruri, comentariu");
+        assert_eq!(
+            eticheta_in(c, &["ANSI_NULLS"], Limba::Engleza),
+            "code, strings, comment, ANSI_NULLS"
+        );
+        assert_eq!(
+            propozitie_in("SELECT 'Nu'", "SELECT 'nu'", &[], Limba::Engleza),
+            "a single character, in a string: Nu \u{2192} nu"
+        );
+        assert_eq!(
+            propozitie_in("SELECT 1", "SELECT 1", &[], Limba::Engleza),
+            "no differences"
+        );
+    }
+
+    #[test]
+    fn traducerea_etichetei_da_aceeasi_eticheta() {
+        for cod in 0..2 {
+            for siruri in 0..3 {
+                for comentarii in 0..3 {
+                    let c = Clasificare {
+                        cod,
+                        siruri,
+                        comentarii,
+                    };
+                    for setari in [&[][..], &["QUOTED_IDENTIFIER"][..]] {
+                        assert_eq!(
+                            traduce_eticheta(&eticheta(c, setari), Limba::Engleza),
+                            eticheta_in(c, setari, Limba::Engleza),
+                            "{c:?} {setari:?}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }

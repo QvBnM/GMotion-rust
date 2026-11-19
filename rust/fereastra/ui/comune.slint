@@ -20,6 +20,8 @@ import "../fonturi/GeistMono-500.ttf";
 // Toate textele interfetei. Umplut din Rust (`texte::aplica_limba`):
 // in `.slint` nu se scrie text pentru om, ca sa existe doua limbi.
 export global Texte {
+    // `ro` / `en`, nu se afiseaza: din el afla Rust limba curenta
+    in-out property <string> cod-limba;
     in-out property <string> obiecte-per-fisier;
     in-out property <string> in-ordinea-din-script;
     in-out property <string> revenirea-explicata;

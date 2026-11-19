@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 2336c20aeaad4f09 -->
+<!-- api-hash: 68b8cde52ddd893e -->
 
 ## Rol
 
@@ -84,6 +84,10 @@ intra in lista. Decizie confirmata 2026-11-17; vezi testul
 ### radacina
 `TIPURI_OBIECTE` — tipurile comparate, ca in `sys.objects.type`:
 `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.
+`Limba` (`alege`, `numar` cu pluralul romanesc), `nume_tip_in(tip, limba)`,
+`clasificare::{eticheta_in, propozitie_in, traduce_eticheta}` — aceleasi
+texte in romana sau engleza, dupa comutatorul din fereastra.
+
 `nume_tip(tip)` — numele tipului pentru utilizator („procedura", „view",
 „functie", „trigger"), acelasi text in `cli` si in fereastra.
 

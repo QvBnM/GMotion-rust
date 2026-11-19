@@ -43,7 +43,7 @@ fn din_conectare_pana_in_editor() {
     c.instantaneu = Some(cale.to_string_lossy().to_string());
     assert_eq!(
         c.ce_lipseste().as_deref(),
-        Some("alege baza sursa din instantaneu")
+        Some("alege baza martor din instantaneu")
     );
     let (baze, stare) = pornire::citeste_bazele(&c, &c.sursa);
     assert_eq!(baze, ["CharismaDev", "CharismaProd"]);

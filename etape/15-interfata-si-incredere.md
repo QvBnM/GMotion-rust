@@ -52,10 +52,11 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 - [x] comutator de limba in interfata: romana si engleza, tinut minte intre
       porniri
 - [x] regula din `CLAUDE.md` §6 despre limba se rescrie dupa noua situatie
-- [ ] **ramase in romana**: textele facute in Rust in afara ferestrei —
-      numele tipurilor (`core::nume_tip`), propozitia „difera in cod, siruri"
-      (`core::clasificare`), rezumatele de deploy (`model_deploy`), mesajele
-      de eroare si jurnalul
+- [x] textele facute in Rust in afara ferestrei urmeaza limba: numele
+      tipurilor, „difera in", rezumatele de deploy, starea conectarii,
+      progresul, plierea, ajutorul (F1)
+- [ ] ~~mesajele de eroare si jurnalul~~ raman in romana, deliberat (motivul
+      in `JURNAL.md`, 2026-11-19); nu blocheaza incheierea etapei
 
 **F. Conectare**
 - [ ] cautarea de servere arata ca lucreaza (nu ingheata pana la raspuns)
@@ -264,6 +265,15 @@ de la Mihai" din `STARE.md`.
   (`CRATE.md`, `ARHITECTURA.md`, `HARTA.md`) vorbesc despre cod, deci raman
   si ele pe `referinta` / `tinta`. Probat pe binar: textul, `--help`, eroarea
   cu cod de iesire 1, JSON-ul cu aceleasi chei.
+
+- **2026-11-19** E, restul: `Limba` a coborat in `core` (cu `alege` si
+  `numar`, care stie pluralul romanesc: „20 de", dar „101"), iar fiecare ecran
+  isi afla limba din globalul `Texte` (`limba_curenta`). Conectarea o tine in
+  model, ca `pornire` sa scrie mesajele fara un parametru in plus. Eticheta
+  „Difera in" se calculeaza o data, in romana, si se traduce la afisare; un
+  test o tine egala cu varianta facuta direct in engleza. Pe drum, patru
+  asteptari din teste erau gramatical gresite („42 baze", „23 ore", „60
+  minute"), nu codul. Probat pe captura in engleza a listei si a editorului.
 
 ## Ce a iesit altfel decat planul
 

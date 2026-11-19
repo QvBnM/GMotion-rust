@@ -392,6 +392,12 @@ fn ruleaza() -> Result<(), String> {
             ) else {
                 return;
             };
+            // limba aleasa ajunge si in textele facute in Rust (conectare,
+            // ajutor); comutatorul cheama redesenarea dupa ce o schimba
+            let limba = gmotion_fereastra::limba_curenta(&c_ui);
+            s.conectare.limba = limba;
+            c_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
+            l_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
             if s.app.is_none() {
                 // ATENTIE la ordine: intai se arata fereastra noua, abia apoi
                 // se ascund celelalte. Slint inchide bucla cand nu mai e
@@ -404,7 +410,7 @@ fn ruleaza() -> Result<(), String> {
                     Some(r) => {
                         c_ui.set_ruleaza(true);
                         c_ui.set_progres(r.fractie());
-                        c_ui.set_progres_text(r.text().into());
+                        c_ui.set_progres_text(r.text_in(limba).into());
                         c_ui.set_progres_timp(r.timp().into());
                     }
                     None => c_ui.set_ruleaza(false),
@@ -459,8 +465,10 @@ fn ruleaza() -> Result<(), String> {
             gmotion_fereastra::incarca_detalii(&l_ui, &app.panou_detalii().pentru_fereastra());
             if app.ecran() == Ecran::Editor {
                 let pozitie = format!(
-                    "obiectul {} din {} nerevizuite",
+                    "{} {} {} {}",
+                    limba.alege("obiectul", "object"),
                     app.lista().selectat().map_or(0, |p| p + 1),
+                    limba.alege("din", "of"),
                     app.lista().vizibile().len()
                 );
                 // `salvat` se ia inainte: `model_editor` tine un imprumut
@@ -469,7 +477,11 @@ fn ruleaza() -> Result<(), String> {
                     String::new()
                 } else {
                     format!(
-                        "Modificarile se salveaza singure, ultima data la {}",
+                        "{} {}",
+                        limba.alege(
+                            "Modificarile se salveaza singure, ultima data la",
+                            "Changes are saved automatically, last at"
+                        ),
                         s.salvat_la
                     )
                 };
@@ -481,7 +493,7 @@ fn ruleaza() -> Result<(), String> {
                             id: &format!("{}/{}.{}", o.baza, o.schema, o.nume),
                             schema: &o.schema,
                             nume: &o.nume,
-                            tip: gmotion_core::nume_tip(&o.tip),
+                            tip: gmotion_core::nume_tip_in(&o.tip, limba),
                             sursa_baza: &referinta,
                             sursa_server: &server,
                             tinta_baza: &baza,
@@ -666,7 +678,9 @@ fn ruleaza() -> Result<(), String> {
                 let mut st = s.borrow_mut();
                 if let Some(tinta) = st.parte(sursa) {
                     tinta.baze = Vec::new();
-                    tinta.stare = StareConexiune::Eroare(format!("completeaza {ce}"));
+                    tinta.stare = StareConexiune::Eroare(
+                        gmotion_fereastra::model_conectare::completeaza(ce, c.limba),
+                    );
                 }
                 drop(st);
                 d();
@@ -875,7 +889,10 @@ fn ruleaza() -> Result<(), String> {
         let c_ui = conectare_ui.as_weak();
         let d = deseneaza.clone();
         conectare_ui.on_compara_offline(move |a, b| {
-            match pornire::compara_offline(&a, &b) {
+            // limba se ia inainte: un `borrow` in conditia lui `match` ar
+            // tine pana la capat si ar cadea la `borrow_mut` de dedesubt
+            let limba = s.borrow().conectare.limba;
+            match pornire::compara_offline(&a, &b, limba) {
                 Ok(r) => {
                     let mut st = s.borrow_mut();
                     st.server = r.server;
@@ -887,7 +904,7 @@ fn ruleaza() -> Result<(), String> {
                         modul::Revizuire::noua(),
                     ));
                     // numele bazelor din antet: offline nu vine de pe server
-                    st.conectare.sursa.baza = "Lipit (sursa)".into();
+                    st.conectare.sursa.baza = st.referinta.clone();
                     st.conectare.baza.baza = "Lipit".into();
                     drop(st);
                     if let Some(ui) = c_ui.upgrade() {
@@ -1126,7 +1143,10 @@ fn ruleaza() -> Result<(), String> {
             };
             let cale = cale_csv(&st.referinta);
             let mesaj = match cale.parent().map(std::fs::create_dir_all) {
-                Some(Err(e)) => format!("nu pot scrie: {e}"),
+                Some(Err(e)) => format!(
+                    "{}: {e}",
+                    st.conectare.limba.alege("nu pot scrie", "cannot write")
+                ),
                 _ => match app.exporta_csv(&cale) {
                     Ok(n) => {
                         tracing::info!(target: "gmotion::app", cale = %cale.display(), randuri = n, "CSV scris");
@@ -1368,6 +1388,7 @@ fn ruleaza() -> Result<(), String> {
                             }
                         }
                     }
+                    let st_limba = st.conectare.limba;
                     if let Some((sursa, l)) = st.cautare_servere.as_mut() {
                         let (sursa, gata) = (*sursa, l.verifica());
                         if let Some(r) = gata {
@@ -1377,9 +1398,13 @@ fn ruleaza() -> Result<(), String> {
                                 Ok(v) if v.is_empty() => {
                                     if let Some(p) = st.parte(sursa) {
                                         p.servere_gasite.clear();
+                                        let l = st_limba;
                                         p.stare = StareConexiune::Eroare(
-                                            "niciun server nu a raspuns in retea; scrie-l de mana"
-                                                .into(),
+                                            l.alege(
+                                                "niciun server nu a raspuns in retea; scrie-l de mana",
+                                                "no server answered on the network; type it in",
+                                            )
+                                            .into(),
                                         );
                                     }
                                 }
@@ -1466,8 +1491,10 @@ fn ruleaza() -> Result<(), String> {
                             }
                             Err(e) if e == pornire::ANULAT => {
                                 tracing::info!(target: "gmotion::app", "compararea a fost anulata");
-                                st.conectare.sursa.stare =
-                                    StareConexiune::Eroare("comparare anulata".into());
+                                let l = st.conectare.limba;
+                                st.conectare.sursa.stare = StareConexiune::Eroare(
+                                    l.alege("comparare anulata", "comparison cancelled").into(),
+                                );
                             }
                             Err(e) => {
                                 tracing::warn!(target: "gmotion::app", eroare = %e, "compararea a esuat");
@@ -1525,9 +1552,6 @@ fn ruleaza() -> Result<(), String> {
             tracing::warn!(target: "gmotion::app", "previzualizarea nu poate porni: {:?}", c.ce_lipseste());
         }
     }
-
-    conectare_ui.set_text_ajutor(gmotion_fereastra::AJUTOR.into());
-    lista_ui.set_text_ajutor(gmotion_fereastra::AJUTOR.into());
 
     deseneaza();
     slint::run_event_loop().map_err(|e| e.to_string())?;

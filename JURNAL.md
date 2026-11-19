@@ -1150,6 +1150,19 @@ unde se citeste, nu una dintre parti.
 
 ---
 
+## 2026-11-19 — Erorile si jurnalul raman in romana
+
+**Context.** 15 E cerea toate textele facute in Rust si in engleza.
+
+**Decizie.** Erorile (35 de mesaje cu cod `GM-*`) si jurnalul `tracing` nu se
+traduc acum. Erorile ajung in fereastra ca `String` (`e.to_string()`), nu ca
+tip; ca sa urmeze limba ar trebui duse tipate pana in ecran, prin `db`,
+`platforma`, modul si `app` — o schimbare mare pentru texte care se citesc
+rar si se cauta dupa cod. Codul ramane stabil, deci un mesaj in romana se
+gaseste oricum. Jurnalul e pentru depanare, nu pentru utilizator.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

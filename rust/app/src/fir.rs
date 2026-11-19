@@ -149,12 +149,24 @@ impl Rulare {
 
     /// Propozitia de sub bara.
     pub fn text(&self) -> String {
+        self.text_in(gmotion_core::Limba::Romana)
+    }
+
+    /// `text`, in limba data.
+    pub fn text_in(&self, l: gmotion_core::Limba) -> String {
         if self.se_opreste {
-            return "se opreste…".to_string();
+            return l.alege("se opreste…", "stopping…").to_string();
         }
         match &self.pas {
-            Some(p) => format!("Citesc {} ({} din {})", p.baza, p.facut + 1, p.din),
-            None => "Se porneste…".to_string(),
+            Some(p) => format!(
+                "{} {} ({} {} {})",
+                l.alege("Citesc", "Reading"),
+                p.baza,
+                p.facut + 1,
+                l.alege("din", "of"),
+                p.din
+            ),
+            None => l.alege("Se porneste…", "Starting…").to_string(),
         }
     }
 }

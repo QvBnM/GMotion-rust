@@ -35,24 +35,29 @@ where
         ($($camp:ident $set:ident),* $(,)?) => {
             // destructurare fara `..`: un camp din `Texte` lipsa din lista
             // nu compileaza, deci nu poate ramane nepus
-            let texte::Texte { $($camp),* } = *l.texte();
+            let texte::Texte { $($camp),* } = *texte::texte(l);
             $( g.$set($camp.into()); )*
         };
     }
     cu_textele!(pune);
 }
 
-/// Textul ferestrei de ajutor (F1). Intr-un singur loc, ca ecranele sa nu
-/// spuna lucruri diferite despre aceleasi taste.
+/// Textul ferestrei de ajutor (F1), in limba data. Intr-un singur loc, ca
+/// ecranele sa nu spuna lucruri diferite despre aceleasi taste.
+pub fn ajutor(l: texte::Limba) -> &'static str {
+    l.alege(AJUTOR, AJUTOR_EN)
+}
+
+/// Ajutorul in romana.
 pub const AJUTOR: &str = "\
 GMotion compara obiectele programabile (proceduri, functii, view-uri, \
-triggere) dintr-o baza de referinta cu una sau mai multe baze comparate, si \
+triggere) dintr-o baza martor cu una sau mai multe baze modificate, si \
 scrie scripturile de deploy. Citeste; nu scrie nimic pe server.\n\
 \n\
 CONECTARE\n\
-  Alege serverul si baza de referinta in stanga, serverul si bazele \
-comparate in dreapta. Bifeaza mai multe baze ca sa compari aceeasi \
-referinta cu toate deodata.\n\
+  Alege serverul si baza martor in stanga, serverul si bazele \
+modificate in dreapta. Bifeaza mai multe baze ca sa compari acelasi \
+martor cu toate deodata.\n\
   Testeaza conexiunea  spune ce raspunde serverul (editie, sistem, cate baze).\n\
   Comparare offline    doua bucati de cod lipite, fara server.\n\
   Esc                  anuleaza compararea care ruleaza.\n\
@@ -81,6 +86,45 @@ DEPLOY\n\
 la comparare), iar revenirea se scrie inaintea scripturilor.\n\
 \n\
 F1 deschide si inchide fereastra asta. F11 trece pe tot ecranul.";
+
+/// Ajutorul in engleza; aceleasi taste, aceeasi ordine ca `AJUTOR`.
+pub const AJUTOR_EN: &str = "\
+GMotion compares programmable objects (procedures, functions, views, \
+triggers) in a witness database with one or more modified databases, and \
+writes the deploy scripts. It only reads; it writes nothing on the server.\n\
+\n\
+CONNECTION\n\
+  Choose the server and the witness database on the left, the server and the \
+modified databases on the right. Tick several databases to compare the same \
+witness with all of them at once.\n\
+  Test connection      shows what the server answers (edition, system, databases).\n\
+  Offline comparison   two pieces of pasted code, no server.\n\
+  Esc                  cancels the running comparison.\n\
+\n\
+LIST\n\
+  j k / arrows   next, previous object\n\
+  Enter          open the object in the editor\n\
+  r              reviewed\n\
+  i              add to or remove from the deploy plan\n\
+  Ctrl+F         search\n\
+  Click a column header to sort; a second click reverses.\n\
+\n\
+EDITOR\n\
+  Esc            back to the list\n\
+  j k            next, previous object\n\
+  n p            next, previous difference\n\
+  u              side by side / unified\n\
+  Shift+arrows   scroll the code horizontally (long lines); Home back\n\
+  e              edit the final text by hand\n\
+  g              guided mode (each difference in turn)\n\
+  o              skip the object\n\
+  Ctrl+Z         undo the last change to the final text\n\
+\n\
+DEPLOY\n\
+  The plan is checked before writing (that the databases were not touched \
+since the comparison), and the rollback is written before the scripts.\n\
+\n\
+F1 opens and closes this window. F11 goes full screen.";
 
 fn culoare(c: jetoane::Culoare) -> Color {
     Color::from_rgb_u8(
@@ -170,6 +214,15 @@ where
     cu_jetoanele!(pune);
 }
 
+/// Limba pusa in `Texte` de ultimul [`aplica_limba`]; inainte de el, romana.
+pub fn limba_curenta<'a, T>(ui: &'a T) -> texte::Limba
+where
+    T: slint::ComponentHandle,
+    Texte<'a>: slint::Global<'a, T>,
+{
+    texte::Limba::din_nume(&ui.global::<Texte>().get_cod_limba()).unwrap_or_default()
+}
+
 /// Modul pus in `Tema` de ultimul [`aplica_tema`].
 pub fn mod_curent<'a, T>(ui: &'a T) -> Mod
 where
@@ -253,9 +306,14 @@ fn cod_stare(s: Stare) -> i32 {
 /// Randurile de afisat si randul de inceput al fiecarei diferente, **in
 /// coordonatele listei afisate** (plierea schimba indicii, iar navigarea
 /// deruleaza lista, nu modelul).
-fn randuri_ui(model: &ModelEditor, pliat: bool, unificat: bool) -> (Vec<RandUi>, Vec<i32>) {
+fn randuri_ui(
+    model: &ModelEditor,
+    pliat: bool,
+    unificat: bool,
+    limba: texte::Limba,
+) -> (Vec<RandUi>, Vec<i32>) {
     let afisate = if pliat {
-        model_editor::plieaza(model, 3)
+        model_editor::plieaza(model, 3, limba)
     } else {
         (0..model.randuri.len()).map(RandAfisat::Linie).collect()
     };
@@ -382,24 +440,16 @@ pub struct AntetEditor<'a> {
 }
 
 /// „1 diferenta" / „4 diferente" / „21 de diferente".
-fn numar_diferente(n: usize) -> String {
-    match n {
-        0 => "fara diferente".to_string(),
-        1 => "1 diferenta".to_string(),
-        2..=19 => format!("{n} diferente"),
-        _ => format!("{n} de diferente"),
+fn numar_diferente(n: usize, l: texte::Limba) -> String {
+    if n == 0 {
+        return l.alege("fara diferente", "no differences").to_string();
     }
+    l.numar(n, ("diferenta", "diferente"), ("difference", "differences"))
 }
 
 /// „srv-dev · 47 linii".
-fn detaliu_panou(server: &str, linii: usize) -> String {
-    let l = if linii == 1 {
-        "1 linie".to_string()
-    } else if linii < 20 {
-        format!("{linii} linii")
-    } else {
-        format!("{linii} de linii")
-    };
+fn detaliu_panou(server: &str, linii: usize, limba: texte::Limba) -> String {
+    let l = limba.numar(linii, ("linie", "linii"), ("line", "lines"));
     if server.is_empty() {
         l
     } else {
@@ -411,7 +461,7 @@ fn detaliu_panou(server: &str, linii: usize) -> String {
 /// Randurile listei, pentru tabelul intreg si pentru coloana ingusta din
 /// editor. Un singur loc: altfel cele doua ar arata altceva despre acelasi
 /// obiect.
-fn randuri_lista_ui(lista: &model_lista::Lista) -> Vec<RandListaUi> {
+fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<RandListaUi> {
     use model_lista::Stare;
     let cod = |s: Stare| match s {
         Stare::Modificat => 0,
@@ -436,7 +486,7 @@ fn randuri_lista_ui(lista: &model_lista::Lista) -> Vec<RandListaUi> {
                 schema: o.schema.as_str().into(),
                 nume: o.nume.as_str().into(),
                 baza: o.baza.as_str().into(),
-                tip: gmotion_core::nume_tip(&o.tip).into(),
+                tip: gmotion_core::nume_tip_in(&o.tip, limba).into(),
                 litera: o.stare.litera().into(),
                 stare: cod(o.stare),
                 plus: plus.into(),
@@ -444,7 +494,9 @@ fn randuri_lista_ui(lista: &model_lista::Lista) -> Vec<RandListaUi> {
                 difera_in: o
                     .detalii
                     .as_ref()
-                    .map_or("", |d| d.difera_in.as_str())
+                    .map_or(String::new(), |d| {
+                        gmotion_core::clasificare::traduce_eticheta(&d.difera_in, limba)
+                    })
                     .into(),
                 revizuit: o.revizuit,
                 in_plan: o.in_plan,
@@ -465,12 +517,20 @@ pub fn incarca_coloana_lista(ui: &EditorDiferente, lista: &model_lista::Lista) {
     let (nerevizuite, vizibile) = lista.rezumat_vizibile();
     ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
     ui.set_selectat_lista(lista.selectat().map_or(0, |p| p as i32));
-    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_lista_ui(lista))));
+    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_lista_ui(
+        lista,
+        limba_curenta(ui),
+    ))));
 }
 
 /// se cheama o data, la pornire.
 pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEditor) {
-    let (randuri, start) = randuri_ui(model, ui.get_pliaza_identicul(), !ui.get_alaturat());
+    let (randuri, start) = randuri_ui(
+        model,
+        ui.get_pliaza_identicul(),
+        !ui.get_alaturat(),
+        limba_curenta(ui),
+    );
     let total = randuri.len().max(1) as f32;
     let mut marcaje: Vec<MarcajUi> = Vec::new();
     for (k, &s) in start.iter().enumerate() {
@@ -512,11 +572,12 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_obiect_nume(antet.nume.into());
     ui.set_tip_obiect(antet.tip.into());
     ui.set_in_plan(antet.in_plan);
-    ui.set_rezumat(numar_diferente(model.diferente.len()).into());
+    let limba = limba_curenta(ui);
+    ui.set_rezumat(numar_diferente(model.diferente.len(), limba).into());
     ui.set_sursa_baza(antet.sursa_baza.into());
-    ui.set_sursa_detaliu(detaliu_panou(antet.sursa_server, linii(model, true)).into());
+    ui.set_sursa_detaliu(detaliu_panou(antet.sursa_server, linii(model, true), limba).into());
     ui.set_tinta_baza(antet.tinta_baza.into());
-    ui.set_tinta_detaliu(detaliu_panou(antet.tinta_server, linii(model, false)).into());
+    ui.set_tinta_detaliu(detaliu_panou(antet.tinta_server, linii(model, false), limba).into());
     ui.set_stare_obiecte(antet.stare_obiecte.into());
     ui.set_revizuit(antet.revizuit);
     ui.set_randuri(ModelRc::new(VecModel::from(randuri)));
@@ -586,10 +647,19 @@ pub fn incarca_editarea(ui: &EditorDiferente, e: &StareEditare) {
             ui.set_ghidat_din_sursa(din_sursa);
             ui.set_ghidat_terminat(terminat);
             ui.set_ghidat_titlu(
-                if terminat {
-                    format!("Mod ghidat incheiat: {aplicate} aplicate, {sarite} lasate cum erau")
-                } else {
-                    format!("Mod ghidat, diferenta {} din {total}", e.diferenta + 1)
+                match (terminat, limba_curenta(ui)) {
+                    (true, texte::Limba::Romana) => format!(
+                        "Mod ghidat incheiat: {aplicate} aplicate, {sarite} lasate cum erau"
+                    ),
+                    (true, texte::Limba::Engleza) => format!(
+                        "Guided mode finished: {aplicate} applied, {sarite} left as they were"
+                    ),
+                    (false, l) => format!(
+                        "{} {} {} {total}",
+                        l.alege("Mod ghidat, diferenta", "Guided mode, difference"),
+                        e.diferenta + 1,
+                        l.alege("din", "of")
+                    ),
                 }
                 .into(),
             );
@@ -741,7 +811,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             F::Nedeployate => t.get_filtru_nedeployate(),
         }
     };
-    let randuri = randuri_lista_ui(lista);
+    let randuri = randuri_lista_ui(lista, limba_curenta(ui));
     let cod_categorie = |s: Stare| match s {
         Stare::Modificat => 0,
         Stare::DoarSursa => 1,
@@ -763,7 +833,7 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
         .contoare_tipuri()
         .into_iter()
         .map(|(t, n)| TipUi {
-            nume: nume_tip_plural(&t).into(),
+            nume: nume_tip_plural(&t, limba_curenta(ui)).into(),
             numar: n.to_string().into(),
         })
         .collect();
@@ -858,7 +928,14 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             ui.set_ce_difera(
                 o.detalii
                     .as_ref()
-                    .map_or(String::new(), |d| format!("difera in {}", d.difera_in))
+                    .map_or(String::new(), |d| {
+                        let l = limba_curenta(ui);
+                        format!(
+                            "{} {}",
+                            l.alege("difera in", "differs in"),
+                            gmotion_core::clasificare::traduce_eticheta(&d.difera_in, l)
+                        )
+                    })
                     .into(),
             );
         }
@@ -901,13 +978,13 @@ pub fn incarca_detalii(ui: &FereastraLista, p: &PanouDetalii) {
 
 /// Numele tipului la plural, pentru bara laterala („Proceduri"), ca in
 /// machete. Singularul vine din `gmotion_core::nume_tip`.
-fn nume_tip_plural(tip: &str) -> &'static str {
+fn nume_tip_plural(tip: &str, l: texte::Limba) -> &'static str {
     match gmotion_core::nume_tip(tip) {
-        "procedura" => "Proceduri",
-        "view" => "View-uri",
-        "functie" => "Functii",
-        "trigger" => "Triggere",
-        _ => "Alte obiecte",
+        "procedura" => l.alege("Proceduri", "Procedures"),
+        "view" => l.alege("View-uri", "Views"),
+        "functie" => l.alege("Functii", "Functions"),
+        "trigger" => l.alege("Triggere", "Triggers"),
+        _ => l.alege("Alte obiecte", "Other objects"),
     }
 }
 
@@ -923,7 +1000,7 @@ pub fn incarca_previzualizare(
     setari: &[&str],
 ) {
     let model = model_editor::construieste(text_sursa, text_baza);
-    let (randuri, _) = randuri_ui(&model, true, false);
+    let (randuri, _) = randuri_ui(&model, true, false, limba_curenta(ui));
     ui.set_previzualizare(ModelRc::new(VecModel::from(randuri)));
     ui.set_ce_difera(gmotion_core::clasificare::propozitie(text_sursa, text_baza, setari).into());
 }
@@ -935,12 +1012,12 @@ pub fn goleste_previzualizarea(ui: &FereastraLista) {
 
 /// Ce scrie in campul bazelor cand se pot bifa mai multe: numele, daca sunt
 /// una sau doua, altfel „N baze" — un sir lung ar iesi din camp oricum.
-fn eticheta_baze(p: &model_conectare::Parte) -> String {
+fn eticheta_baze(p: &model_conectare::Parte, l: texte::Limba) -> String {
     let alese = p.baze_alese();
     match alese.len() {
         0 => String::new(),
         1 | 2 => alese.join(", "),
-        n => format!("{n} baze"),
+        n => l.numar(n, ("baza", "baze"), ("database", "databases")),
     }
 }
 
@@ -952,7 +1029,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
     ui.set_referinta(e.referinta.as_str().into());
     ui.set_tinta(e.tinta.as_str().into());
     ui.set_numar(e.pasi.len().to_string().into());
-    ui.set_rezumat(model_deploy::rezumat(&e.pasi).into());
+    ui.set_rezumat(model_deploy::rezumat(&e.pasi, limba_curenta(ui)).into());
     ui.set_mai_multe_baze(e.baze.len() > 1);
     let pasi: Vec<PasDeployUi> = e
         .pasi
@@ -965,7 +1042,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
                 creeaza: p.creeaza,
                 schema: schema.into(),
                 nume: nume.into(),
-                tip: p.tip.as_str().into(),
+                tip: gmotion_core::nume_tip_in(&p.tip, limba_curenta(ui)).into(),
                 id: p.obiect.as_str().into(),
                 baza: p.baza.as_str().into(),
             }
@@ -975,8 +1052,20 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
     ui.set_sarite(
         match e.sarite {
             0 => String::new(),
-            1 => "Un obiect ales nu intra: exista doar in baza sau e criptat.".into(),
-            n => format!("{n} obiecte alese nu intra: exista doar in baza sau sunt criptate."),
+            1 => limba_curenta(ui)
+                .alege(
+                    "Un obiect ales nu intra: exista doar in baza modificata sau e criptat.",
+                    "One chosen object is left out: it exists only in the modified database or is encrypted.",
+                )
+                .into(),
+            n => match limba_curenta(ui) {
+                texte::Limba::Romana => format!(
+                    "{n} obiecte alese nu intra: exista doar in baza modificata sau sunt criptate."
+                ),
+                texte::Limba::Engleza => format!(
+                    "{n} chosen objects are left out: they exist only in the modified database or are encrypted."
+                ),
+            },
         }
         .into(),
     );
@@ -988,7 +1077,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
         GardaDeploy::Eroare(_) => (3, Vec::new()),
     };
     ui.set_garda(fel);
-    ui.set_text_garda(model_deploy::text_garda(&e.garda, &e.tinta).into());
+    ui.set_text_garda(model_deploy::text_garda(&e.garda, &e.tinta, limba_curenta(ui)).into());
     ui.set_schimbari(ModelRc::new(VecModel::from(
         schimbari
             .into_iter()
@@ -1004,7 +1093,7 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
         RezultatDeploy::Scris { .. } => 1,
         RezultatDeploy::Eroare(_) => 2,
     });
-    ui.set_text_rezultat(model_deploy::text_rezultat(&e.rezultat).into());
+    ui.set_text_rezultat(model_deploy::text_rezultat(&e.rezultat, limba_curenta(ui)).into());
 }
 
 /// Cat de lata e harta din lista cand fereastra inca n-are marime (inainte
@@ -1218,8 +1307,8 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         alese: ModelRc::new(VecModel::from(
             p.baze.iter().map(|b| p.e_aleasa(b)).collect::<Vec<bool>>(),
         )),
-        eticheta_baze: eticheta_baze(p).into(),
-        stare: p.stare.text().into(),
+        eticheta_baze: eticheta_baze(p, limba_curenta(ui)).into(),
+        stare: p.stare.text_in(limba_curenta(ui)).into(),
         fel_stare: fel(&p.stare),
         servere_gasite: ModelRc::new(VecModel::from(
             p.servere_gasite
@@ -1250,10 +1339,14 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         &t.get_modificata(),
         &t.get_modificata_explicatie(),
     ));
-    ui.set_certificat(c.text_certificat().into());
+    ui.set_certificat(c.text_certificat_in(limba_curenta(ui)).into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
-    ui.set_ce_lipseste(c.ce_lipseste().unwrap_or_default().into());
+    ui.set_ce_lipseste(
+        c.ce_lipseste_in(limba_curenta(ui))
+            .unwrap_or_default()
+            .into(),
+    );
 }
 
 #[cfg(test)]
@@ -1710,7 +1803,7 @@ mod teste {
     #[test]
     fn niciun_text_nu_e_gol_in_nicio_limba() {
         for l in texte::Limba::toate() {
-            let t = l.texte();
+            let t = texte::texte(l);
             macro_rules! verifica {
                 ($($camp:ident $set:ident),* $(,)?) => {
                     $(
@@ -1731,7 +1824,10 @@ mod teste {
     /// testul de mai sus fara sa traduca nimic.
     #[test]
     fn cele_doua_limbi_nu_sunt_acelasi_tabel() {
-        let (ro, en) = (texte::Limba::Romana.texte(), texte::Limba::Engleza.texte());
+        let (ro, en) = (
+            texte::texte(texte::Limba::Romana),
+            texte::texte(texte::Limba::Engleza),
+        );
         assert_eq!(ro.compara, "Compara");
         assert_eq!(en.compara, "Compare");
         assert_eq!(ro.martor, "Martor");
@@ -1921,14 +2017,19 @@ mod teste {
     }
 
     #[test]
-    fn numeralele_sunt_in_romana() {
-        assert_eq!(numar_diferente(0), "fara diferente");
-        assert_eq!(numar_diferente(1), "1 diferenta");
-        assert_eq!(numar_diferente(4), "4 diferente");
-        assert_eq!(numar_diferente(21), "21 de diferente");
-        assert_eq!(detaliu_panou("srv-dev", 47), "srv-dev · 47 de linii");
-        assert_eq!(detaliu_panou("", 1), "1 linie");
-        assert_eq!(detaliu_panou("srv", 9), "srv · 9 linii");
+    fn numeralele_sunt_in_romana_si_in_engleza() {
+        const R: texte::Limba = texte::Limba::Romana;
+        const E: texte::Limba = texte::Limba::Engleza;
+        assert_eq!(numar_diferente(0, R), "fara diferente");
+        assert_eq!(numar_diferente(1, R), "1 diferenta");
+        assert_eq!(numar_diferente(4, R), "4 diferente");
+        assert_eq!(numar_diferente(21, R), "21 de diferente");
+        assert_eq!(detaliu_panou("srv-dev", 47, R), "srv-dev · 47 de linii");
+        assert_eq!(detaliu_panou("", 1, R), "1 linie");
+        assert_eq!(detaliu_panou("srv", 9, R), "srv · 9 linii");
+        assert_eq!(numar_diferente(0, E), "no differences");
+        assert_eq!(numar_diferente(21, E), "21 differences");
+        assert_eq!(detaliu_panou("srv", 1, E), "srv · 1 line");
     }
 
     #[test]
@@ -2304,13 +2405,13 @@ mod teste {
     fn eticheta_bazelor_se_scurteaza_la_mai_mult_de_doua() {
         use model_conectare::Parte;
         let mut p = Parte::default();
-        assert_eq!(eticheta_baze(&p), "");
+        assert_eq!(eticheta_baze(&p, texte::Limba::Romana), "");
         p.baza = "C1".into();
-        assert_eq!(eticheta_baze(&p), "C1");
+        assert_eq!(eticheta_baze(&p, texte::Limba::Romana), "C1");
         p.alese = vec!["C1".into(), "C2".into()];
-        assert_eq!(eticheta_baze(&p), "C1, C2");
+        assert_eq!(eticheta_baze(&p, texte::Limba::Romana), "C1, C2");
         p.alese.push("C3".into());
-        assert_eq!(eticheta_baze(&p), "3 baze");
+        assert_eq!(eticheta_baze(&p, texte::Limba::Romana), "3 baze");
     }
 
     fn fereastra_conectare() -> FereastraConectare {
@@ -2328,7 +2429,7 @@ mod teste {
         let ui = fereastra_conectare();
         let mut c = Conectare::noua();
         incarca_conectare(&ui, &c);
-        assert_eq!(ui.get_ce_lipseste(), "completeaza serverul pentru sursa");
+        assert_eq!(ui.get_ce_lipseste(), "completeaza serverul pentru martor");
 
         c.sursa = Parte {
             server: "SRV-DEV".into(),

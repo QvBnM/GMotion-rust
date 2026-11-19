@@ -9,54 +9,23 @@
 //! in lista nu compileaza, iar unul pus in lista si uitat in `.slint` cade la
 //! `aplica_limba`.
 
-/// Limba interfetei.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Limba {
-    #[default]
-    Romana,
-    Engleza,
-}
+/// Limba interfetei: aceeasi cu cea din `core`, ca textele facute acolo
+/// (numele tipurilor, „difera in") sa urmeze acelasi comutator.
+pub use gmotion_core::Limba;
 
-impl Limba {
-    pub fn din_nume(nume: &str) -> Option<Limba> {
-        match nume.trim().to_lowercase().as_str() {
-            "ro" | "romana" | "română" => Some(Limba::Romana), // diacritice-permise: nume de limba
-            "en" | "engleza" | "english" => Some(Limba::Engleza),
-            _ => None,
-        }
-    }
-
-    /// Numele scurt, cel care se scrie in configurare.
-    pub fn nume(self) -> &'static str {
-        match self {
-            Limba::Romana => "ro",
-            Limba::Engleza => "en",
-        }
-    }
-
-    /// Cum se arata in interfata.
-    pub fn eticheta(self) -> &'static str {
-        match self {
-            Limba::Romana => "Romana",
-            Limba::Engleza => "English",
-        }
-    }
-
-    pub fn toate() -> [Limba; 2] {
-        [Limba::Romana, Limba::Engleza]
-    }
-
-    pub fn texte(self) -> &'static Texte {
-        match self {
-            Limba::Romana => &RO,
-            Limba::Engleza => &EN,
-        }
+/// Tabelul de texte al limbii.
+pub fn texte(l: Limba) -> &'static Texte {
+    match l {
+        Limba::Romana => &RO,
+        Limba::Engleza => &EN,
     }
 }
 
 /// Un text pentru fiecare loc din interfata.
 #[derive(Debug, Clone, Copy)]
 pub struct Texte {
+    /// `ro` / `en`: din globalul Slint se afla limba curenta (`limba_curenta`).
+    pub cod_limba: &'static str,
     pub obiecte_per_fisier: &'static str,
     pub in_ordinea_din_script: &'static str,
     pub revenirea_explicata: &'static str,
@@ -222,6 +191,7 @@ pub struct Texte {
 }
 
 pub static RO: Texte = Texte {
+    cod_limba: "ro",
     obiecte_per_fisier: " obiecte per fisier",
     in_ordinea_din_script: ", in ordinea din script.",
     revenirea_explicata: ": obiectele schimbate se refac, cele noi se sterg.",
@@ -388,6 +358,7 @@ pub static RO: Texte = Texte {
 };
 
 pub static EN: Texte = Texte {
+    cod_limba: "en",
     obiecte_per_fisier: " objects per file",
     in_ordinea_din_script: ", in script order.",
     revenirea_explicata: ": changed objects are restored, new ones are dropped.",
@@ -558,6 +529,7 @@ pub static EN: Texte = Texte {
 macro_rules! cu_textele {
     ($m:ident) => {
         $m!(
+        cod_limba set_cod_limba,
         obiecte_per_fisier set_obiecte_per_fisier,
         in_ordinea_din_script set_in_ordinea_din_script,
         revenirea_explicata set_revenirea_explicata,

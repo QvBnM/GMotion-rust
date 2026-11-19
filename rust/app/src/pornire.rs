@@ -6,6 +6,7 @@
 //! sursei sta intr-un singur loc, si ce se arata vine din ce chiar s-a
 //! intamplat (bazele citite), nu din ce s-a cerut.
 
+use gmotion_core::Limba;
 use gmotion_db::{Autentificare, Certificat, SursaFixture, SursaObiecte, SursaSqlServer, Tinta};
 use gmotion_fereastra::model_conectare::{Conectare, Parte, StareConexiune};
 use gmotion_modul_diff_obiecte as modul;
@@ -74,16 +75,11 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
     };
     match sursa.baze() {
         Ok(baze) => {
+            let l = c.limba;
             let stare = StareConexiune::Conectat(format!(
-                "conectat · {} {}",
-                baze.len(),
-                if baze.len() == 1 {
-                    "baza"
-                } else if baze.len() < 20 {
-                    "baze"
-                } else {
-                    "de baze"
-                }
+                "{} · {}",
+                l.alege("conectat", "connected"),
+                l.numar(baze.len(), ("baza", "baze"), ("database", "databases"))
             ));
             (baze, stare)
         }
@@ -152,14 +148,16 @@ pub fn testeaza(c: &Conectare, p: &Parte) -> Result<String, String> {
     if let Some(cale) = &c.instantaneu {
         let mut s = SursaFixture::din_fisier(cale).map_err(|e| e.to_string())?;
         let baze = s.baze().map_err(|e| e.to_string())?;
+        let l = c.limba;
         return Ok(format!(
-            "instantaneu · {} · {} baze",
+            "{} · {} · {}",
+            l.alege("instantaneu", "snapshot"),
             s.descriere(),
-            baze.len()
+            l.numar(baze.len(), ("baza", "baze"), ("database", "databases"))
         ));
     }
     if let Some(ce) = p.ce_lipseste() {
-        return Err(format!("completeaza {ce}"));
+        return Err(gmotion_fereastra::model_conectare::completeaza(ce, c.limba));
     }
     let (server, port) = imparte_portul(&p.server);
     let auth = if p.auth_windows {
@@ -182,17 +180,25 @@ pub fn testeaza(c: &Conectare, p: &Parte) -> Result<String, String> {
     // `master` exista pe orice server si nu cere drepturi pe bazele
     // utilizatorului: altfel „Testeaza" ar cadea acolo unde conectarea merge
     let info = s.verifica("master").map_err(|e| e.to_string())?;
-    Ok(descrie_serverul(&info))
+    Ok(descrie_serverul(&info, c.limba))
 }
 
 /// Propozitia din ecran, din ce a raspuns serverul.
-fn descrie_serverul(i: &gmotion_db::InfoServer) -> String {
+fn descrie_serverul(i: &gmotion_db::InfoServer, l: Limba) -> String {
     let mut parti = vec![i.editie.clone(), i.sistem.clone()];
     if let Some(s) = i.pornit_de_secunde {
-        parti.push(format!("pornit de {}", durata_scurta(s)));
+        parti.push(format!(
+            "{} {}",
+            l.alege("pornit de", "up for"),
+            durata_scurta(s, l)
+        ));
     }
     if let Some(n) = i.nr_baze {
-        parti.push(format!("{n} baze"));
+        parti.push(l.numar(
+            usize::try_from(n).unwrap_or(0),
+            ("baza", "baze"),
+            ("database", "databases"),
+        ));
     }
     parti.retain(|p| !p.trim().is_empty());
     parti.join(" · ")
@@ -200,22 +206,27 @@ fn descrie_serverul(i: &gmotion_db::InfoServer) -> String {
 
 /// „3 zile", „5 ore", „12 minute": destul pentru ecran, fara dependinte.
 /// Singularul si pluralul se scriu amandoua — „1 zile" se vede.
-fn durata_scurta(secunde: i64) -> String {
+fn durata_scurta(secunde: i64, l: Limba) -> String {
     let s = secunde.max(0);
-    let (n, unu, multe) = match s {
-        0..=119 => (s, "secunda", "secunde"),
-        120..=7199 => (s / 60, "minut", "minute"),
-        7200..=86_399 => (s / 3600, "ora", "ore"),
-        _ => (s / 86_400, "zi", "zile"),
+    let (n, ro, en) = match s {
+        0..=119 => (s, ("secunda", "secunde"), ("second", "seconds")),
+        120..=7199 => (s / 60, ("minut", "minute"), ("minute", "minutes")),
+        7200..=86_399 => (s / 3600, ("ora", "ore"), ("hour", "hours")),
+        _ => (s / 86_400, ("zi", "zile"), ("day", "days")),
     };
-    format!("{n} {}", if n == 1 { unu } else { multe })
+    l.numar(usize::try_from(n).unwrap_or(0), ro, en)
 }
 
 /// Compararea offline din v3.4: doua bucati de cod lipite in ecran, fara
 /// server si fara instantaneu. Obiectul se numeste ca in machete.
-pub fn compara_offline(sursa: &str, tinta: &str) -> Result<Comparata, String> {
+pub fn compara_offline(sursa: &str, tinta: &str, l: Limba) -> Result<Comparata, String> {
     if sursa.trim().is_empty() || tinta.trim().is_empty() {
-        return Err("lipeste cod in ambele panouri".to_string());
+        return Err(l
+            .alege(
+                "lipeste cod in ambele panouri",
+                "paste code into both panels",
+            )
+            .to_string());
     }
     let obiect = |text: &str| gmotion_db::Obiect {
         schema: "dbo".into(),
@@ -232,8 +243,10 @@ pub fn compara_offline(sursa: &str, tinta: &str) -> Result<Comparata, String> {
         randuri: comparare.randuri,
         sursa: s,
         tinte,
-        server: "comparare offline".to_string(),
-        referinta: "Lipit (sursa)".to_string(),
+        server: l
+            .alege("comparare offline", "offline comparison")
+            .to_string(),
+        referinta: l.alege("Lipit (martor)", "Pasted (witness)").to_string(),
     })
 }
 
@@ -280,7 +293,10 @@ pub struct Citit {
 pub fn citeste(c: &Conectare, mut progres: impl FnMut(Pas) -> bool) -> Result<Citit, String> {
     let baze = c.baza.baze_alese();
     if baze.is_empty() {
-        return Err("nicio baza de comparat".to_string());
+        return Err(c
+            .limba
+            .alege("nicio baza de comparat", "no database to compare")
+            .to_string());
     }
     let mut sursa_db = deschide(c, &c.sursa)?;
     // identitatea, nu descrierea: intra in cheia sesiunii si in antet, deci
@@ -535,34 +551,35 @@ mod teste {
 
     #[test]
     fn compararea_offline_lucreaza_pe_doua_bucati_de_cod() {
-        let e = compara_offline("", "SELECT 1")
+        let e = compara_offline("", "SELECT 1", Limba::Romana)
             .map(|_| ())
             .expect_err("gol");
         assert_eq!(e, "lipeste cod in ambele panouri");
         let r = compara_offline(
             "CREATE PROC dbo.p AS\nSELECT 1",
             "CREATE PROC dbo.p AS\nSELECT 2",
+            Limba::Romana,
         )
         .expect("merge");
         assert_eq!(r.randuri.len(), 1);
         assert_eq!(r.randuri[0].obiect, "dbo.cod_lipit");
         assert_eq!(r.prima_tinta(), "Lipit");
         // cod identic: nu apare niciun rand, ca la comparare normala
-        let r = compara_offline("SELECT 1", "SELECT 1").expect("merge");
+        let r = compara_offline("SELECT 1", "SELECT 1", Limba::Romana).expect("merge");
         assert!(r.randuri.is_empty());
     }
 
     #[test]
     fn durata_se_scrie_in_unitatea_potrivita() {
-        assert_eq!(durata_scurta(-5), "0 secunde");
-        assert_eq!(durata_scurta(1), "1 secunda");
-        assert_eq!(durata_scurta(119), "119 secunde");
-        assert_eq!(durata_scurta(120), "2 minute");
-        assert_eq!(durata_scurta(3600), "60 minute");
-        assert_eq!(durata_scurta(7200), "2 ore");
-        assert_eq!(durata_scurta(86_399), "23 ore");
-        assert_eq!(durata_scurta(86_400), "1 zi");
-        assert_eq!(durata_scurta(172_800), "2 zile");
+        assert_eq!(durata_scurta(-5, Limba::Romana), "0 secunde");
+        assert_eq!(durata_scurta(1, Limba::Romana), "1 secunda");
+        assert_eq!(durata_scurta(119, Limba::Romana), "119 secunde");
+        assert_eq!(durata_scurta(120, Limba::Romana), "2 minute");
+        assert_eq!(durata_scurta(3600, Limba::Romana), "60 de minute");
+        assert_eq!(durata_scurta(7200, Limba::Romana), "2 ore");
+        assert_eq!(durata_scurta(86_399, Limba::Romana), "23 de ore");
+        assert_eq!(durata_scurta(86_400, Limba::Romana), "1 zi");
+        assert_eq!(durata_scurta(172_800, Limba::Romana), "2 zile");
     }
 
     #[test]
@@ -575,8 +592,8 @@ mod teste {
             nr_baze: Some(42),
         };
         assert_eq!(
-            descrie_serverul(&i),
-            "SQL Server 2019 Standard · Windows Server 2019 · pornit de 1 zi · 42 baze"
+            descrie_serverul(&i, Limba::Romana),
+            "SQL Server 2019 Standard · Windows Server 2019 · pornit de 1 zi · 42 de baze"
         );
         let gol = InfoServer {
             editie: "SQL Server".into(),
@@ -584,7 +601,7 @@ mod teste {
             pornit_de_secunde: None,
             nr_baze: None,
         };
-        assert_eq!(descrie_serverul(&gol), "SQL Server");
+        assert_eq!(descrie_serverul(&gol, Limba::Romana), "SQL Server");
     }
 
     #[test]

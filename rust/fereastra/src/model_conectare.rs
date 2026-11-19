@@ -7,6 +7,8 @@
 //! sta aici, se testeaza fara fereastra, iar tipul care tine parola **nu are
 //! `Debug` derivat**.
 
+use gmotion_core::Limba;
+
 /// Cum se autentifica o parte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Auth {
@@ -90,9 +92,14 @@ pub enum StareConexiune {
 
 impl StareConexiune {
     pub fn text(&self) -> &str {
+        self.text_in(Limba::Romana)
+    }
+
+    /// `text`, in limba data. Mesajele de la server raman cum au venit.
+    pub fn text_in(&self, l: Limba) -> &str {
         match self {
             StareConexiune::Neincercat => "",
-            StareConexiune::SeConecteaza => "se conecteaza…",
+            StareConexiune::SeConecteaza => l.alege("se conecteaza…", "connecting…"),
             StareConexiune::Conectat(t) => t,
             StareConexiune::Eroare(t) => t,
         }
@@ -177,6 +184,26 @@ impl Parte {
     }
 }
 
+/// Numele campului lipsa (`Parte::ce_lipseste`) in limba data.
+pub fn camp_in(ce: &str, l: Limba) -> &str {
+    match (ce, l) {
+        (_, Limba::Romana) => ce,
+        ("serverul", _) => "the server",
+        ("utilizatorul", _) => "the user name",
+        ("parola", _) => "the password",
+        (alt, _) => alt,
+    }
+}
+
+/// „completeaza serverul" / „fill in the server": ce se spune cand lipseste
+/// un camp inainte de citirea bazelor.
+pub fn completeaza(ce: &str, l: Limba) -> String {
+    match l {
+        Limba::Romana => format!("completeaza {ce}"),
+        Limba::Engleza => format!("fill in {}", camp_in(ce, l)),
+    }
+}
+
 /// O comparare facuta inainte, gata de reluat.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Recenta {
@@ -205,6 +232,9 @@ pub struct Conectare {
     pub recente: Vec<Recenta>,
     /// Instantaneul deschis in locul serverelor („Deschide un instantaneu…").
     pub instantaneu: Option<String>,
+    /// Limba mesajelor facute in Rust pentru ecranul asta (stari, erori de
+    /// validare); o tine la zi comutatorul de limba.
+    pub limba: Limba,
 }
 
 impl Conectare {
@@ -225,12 +255,23 @@ impl Conectare {
     /// Textul despre certificat, ca in macheta. Gol pe un instantaneu: acolo
     /// nu exista server, deci nici certificat.
     pub fn text_certificat(&self) -> &'static str {
+        self.text_certificat_in(Limba::Romana)
+    }
+
+    /// `text_certificat`, in limba data.
+    pub fn text_certificat_in(&self, l: Limba) -> &'static str {
         if self.instantaneu.is_some() {
             ""
         } else if self.verifica_certificatul {
-            "Certificatul serverului se verifica cu depozitul sistemului."
+            l.alege(
+                "Certificatul serverului se verifica cu depozitul sistemului.",
+                "The server certificate is checked against the system store.",
+            )
         } else {
-            "Certificatul serverului nu se verifica."
+            l.alege(
+                "Certificatul serverului nu se verifica.",
+                "The server certificate is not checked.",
+            )
         }
     }
 
@@ -258,28 +299,58 @@ impl Conectare {
     /// Mesajul e pentru om si spune **ce** lipseste, nu ca „formularul e
     /// invalid": asta e tot rostul lui.
     pub fn ce_lipseste(&self) -> Option<String> {
-        if self.instantaneu.is_some() {
-            return match (self.sursa.baza.is_empty(), self.baza.baza.is_empty()) {
-                (true, _) => Some("alege baza sursa din instantaneu".into()),
-                (_, true) => Some("alege baza de comparat din instantaneu".into()),
-                _ => self.acelasi_lucru(),
-            };
-        }
-        for (parte, nume) in [(&self.sursa, "sursa"), (&self.baza, "baza")] {
-            if let Some(ce) = parte.ce_lipseste() {
-                return Some(format!("completeaza {ce} pentru {nume}"));
-            }
-            if parte.baza.is_empty() {
-                return Some(format!("alege baza pentru {nume}"));
-            }
-            if !parte.stare.e_conectat() {
-                return Some(format!("conecteaza-te la {nume}"));
-            }
-        }
-        self.acelasi_lucru()
+        self.ce_lipseste_in(Limba::Romana)
     }
 
-    fn acelasi_lucru(&self) -> Option<String> {
+    /// `ce_lipseste`, in limba data.
+    pub fn ce_lipseste_in(&self, l: Limba) -> Option<String> {
+        if self.instantaneu.is_some() {
+            return match (self.sursa.baza.is_empty(), self.baza.baza.is_empty()) {
+                (true, _) => Some(
+                    l.alege(
+                        "alege baza martor din instantaneu",
+                        "choose the witness database from the snapshot",
+                    )
+                    .into(),
+                ),
+                (_, true) => Some(
+                    l.alege(
+                        "alege baza modificata din instantaneu",
+                        "choose the modified database from the snapshot",
+                    )
+                    .into(),
+                ),
+                _ => self.acelasi_lucru(l),
+            };
+        }
+        for (parte, ro, en) in [
+            (&self.sursa, "martor", "the witness"),
+            (&self.baza, "modificata", "the modified side"),
+        ] {
+            let nume = l.alege(ro, en);
+            if let Some(ce) = parte.ce_lipseste() {
+                return Some(match l {
+                    Limba::Romana => format!("completeaza {ce} pentru {nume}"),
+                    Limba::Engleza => format!("fill in {} for {nume}", camp_in(ce, l)),
+                });
+            }
+            if parte.baza.is_empty() {
+                return Some(format!(
+                    "{} {nume}",
+                    l.alege("alege baza pentru", "choose the database for")
+                ));
+            }
+            if !parte.stare.e_conectat() {
+                return Some(format!(
+                    "{} {nume}",
+                    l.alege("conecteaza-te la", "connect to")
+                ));
+            }
+        }
+        self.acelasi_lucru(l)
+    }
+
+    fn acelasi_lucru(&self, l: Limba) -> Option<String> {
         let acelasi_server =
             self.instantaneu.is_some() || self.sursa.server.eq_ignore_ascii_case(&self.baza.server);
         if acelasi_server
@@ -289,7 +360,13 @@ impl Conectare {
                 .iter()
                 .any(|b| self.sursa.baza.eq_ignore_ascii_case(b))
         {
-            return Some("sursa si baza sunt aceeasi".into());
+            return Some(
+                l.alege(
+                    "martorul si modificata sunt aceeasi baza",
+                    "the witness and the modified database are the same",
+                )
+                .into(),
+            );
         }
         None
     }
@@ -342,16 +419,16 @@ mod teste {
         let mut c = Conectare::noua();
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("completeaza serverul pentru sursa")
+            Some("completeaza serverul pentru martor")
         );
         c.sursa.server = "SRV-DEV".into();
-        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru sursa"));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru martor"));
         c.sursa.baza = "Dev".into();
-        assert_eq!(c.ce_lipseste().as_deref(), Some("conecteaza-te la sursa"));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("conecteaza-te la martor"));
         c.sursa.stare = StareConexiune::Conectat("conectat".into());
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("completeaza serverul pentru baza")
+            Some("completeaza serverul pentru modificata")
         );
         c.baza = parte_gata("SRV-PROD", "Prod");
         assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
@@ -404,7 +481,7 @@ mod teste {
         c.baza.comuta_baza("Referinta");
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("sursa si baza sunt aceeasi"),
+            Some("martorul si modificata sunt aceeasi baza"),
             "referinta bifata printre tinte nu are ce compara cu ea insasi"
         );
     }
@@ -416,7 +493,7 @@ mod teste {
         c.baza = parte_gata("srv", "aceeasi");
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("sursa si baza sunt aceeasi"),
+            Some("martorul si modificata sunt aceeasi baza"),
             "acelasi server si aceeasi baza, indiferent de majuscule"
         );
         // alt server, acelasi nume de baza: e o comparare buna
@@ -470,12 +547,12 @@ mod teste {
         c.instantaneu = Some("/tmp/inst.json".into());
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("alege baza sursa din instantaneu")
+            Some("alege baza martor din instantaneu")
         );
         c.sursa.baza = "A".into();
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("alege baza de comparat din instantaneu")
+            Some("alege baza modificata din instantaneu")
         );
         c.baza.baza = "B".into();
         assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
@@ -494,5 +571,27 @@ mod teste {
             "[GM-DB-002] autentificare"
         );
         assert!(!StareConexiune::Eroare("x".into()).e_conectat());
+    }
+
+    #[test]
+    fn mesajele_conectarii_urmeaza_limba() {
+        let e = Limba::Engleza;
+        let mut c = Conectare::noua();
+        assert_eq!(
+            c.ce_lipseste_in(e).as_deref(),
+            Some("fill in the server for the witness")
+        );
+        assert_eq!(
+            c.text_certificat_in(e),
+            "The server certificate is not checked."
+        );
+        assert_eq!(StareConexiune::SeConecteaza.text_in(e), "connecting…");
+        assert_eq!(completeaza("parola", e), "fill in the password");
+        assert_eq!(completeaza("parola", Limba::Romana), "completeaza parola");
+        c.instantaneu = Some("/tmp/i.json".into());
+        assert_eq!(
+            c.ce_lipseste_in(e).as_deref(),
+            Some("choose the witness database from the snapshot")
+        );
     }
 }

@@ -47,16 +47,96 @@ pub use segmentare::{are_cursor, cheie_bloc, linii_start_blocuri, split_statemen
 /// `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.
 pub const TIPURI_OBIECTE: [&str; 6] = ["P", "V", "FN", "IF", "TF", "TR"];
 
-/// Numele tipului, pentru utilizator. Sta aici, langa `TIPURI_OBIECTE`, ca sa
-/// fie acelasi text in `cli` si in fereastra (un singur loc, nu doua liste).
-/// Textele sunt cele din machete (`cercetare/machete/Main.dc.html`).
+/// Limba textelor pentru om. Sta in `core` fiindca si textele facute aici
+/// (numele tipurilor, „difera in ...") urmeaza comutatorul din fereastra; fara
+/// I/O, deci merge si pe wasm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Limba {
+    #[default]
+    Romana,
+    Engleza,
+}
+
+impl Limba {
+    pub fn din_nume(nume: &str) -> Option<Limba> {
+        match nume.trim().to_lowercase().as_str() {
+            "ro" | "romana" | "rom\u{e2}n\u{103}" => Some(Limba::Romana),
+            "en" | "engleza" | "english" => Some(Limba::Engleza),
+            _ => None,
+        }
+    }
+
+    /// Numele scurt, cel care se scrie in configurare.
+    pub fn nume(self) -> &'static str {
+        match self {
+            Limba::Romana => "ro",
+            Limba::Engleza => "en",
+        }
+    }
+
+    /// Cum se arata in interfata.
+    pub fn eticheta(self) -> &'static str {
+        match self {
+            Limba::Romana => "Romana",
+            Limba::Engleza => "English",
+        }
+    }
+
+    pub fn toate() -> [Limba; 2] {
+        [Limba::Romana, Limba::Engleza]
+    }
+
+    /// Textul in limba asta, din perechea data. Pentru textele facute in Rust
+    /// (cu numere sau nume in ele); cele fixe ale ferestrei stau in
+    /// `fereastra::texte`.
+    pub fn alege<'a>(self, ro: &'a str, en: &'a str) -> &'a str {
+        match self {
+            Limba::Romana => ro,
+            Limba::Engleza => en,
+        }
+    }
+
+    /// „1 obiect" / „4 obiecte" / „21 de obiecte" / „101 obiecte"; in
+    /// engleza „1 object" / „4 objects". Formele se dau: `(unu, mai_multe)`
+    /// pentru fiecare limba.
+    pub fn numar(self, n: usize, ro: (&str, &str), en: (&str, &str)) -> String {
+        match self {
+            Limba::Romana => {
+                let r = n % 100;
+                if n == 1 {
+                    format!("1 {}", ro.0)
+                } else if n < 20 || (1..20).contains(&r) {
+                    format!("{n} {}", ro.1)
+                } else {
+                    format!("{n} de {}", ro.1)
+                }
+            }
+            Limba::Engleza => {
+                if n == 1 {
+                    format!("1 {}", en.0)
+                } else {
+                    format!("{n} {}", en.1)
+                }
+            }
+        }
+    }
+}
+
+/// Numele tipului, pentru utilizator, in romana (`cli`). Sta aici, langa
+/// `TIPURI_OBIECTE`, ca sa fie acelasi text in `cli` si in fereastra (un
+/// singur loc, nu doua liste). Textele sunt cele din machete.
 pub fn nume_tip(tip: &str) -> &'static str {
+    nume_tip_in(tip, Limba::Romana)
+}
+
+/// Numele tipului, in limba data.
+pub fn nume_tip_in(tip: &str, l: Limba) -> &'static str {
     match tip.trim().to_ascii_uppercase().as_str() {
-        "P" => "procedura",
+        "P" => l.alege("procedura", "procedure"),
         "V" => "view",
-        "FN" | "IF" | "TF" => "functie",
+        "FN" | "IF" | "TF" => l.alege("functie", "function"),
         "TR" => "trigger",
-        _ => "obiect",
+        _ => l.alege("obiect", "object"),
     }
 }
 
@@ -75,5 +155,26 @@ mod teste {
         assert_eq!(nume_tip("TR"), "trigger");
         // un tip pe care nu-l comparam: nu da panica, da un nume generic
         assert_eq!(nume_tip("U"), "obiect");
+        assert_eq!(nume_tip_in("P", Limba::Engleza), "procedure");
+        assert_eq!(nume_tip_in("U", Limba::Engleza), "object");
+    }
+
+    #[test]
+    fn limba_se_citeste_si_se_scrie_cu_acelasi_nume() {
+        for l in Limba::toate() {
+            assert_eq!(Limba::din_nume(l.nume()), Some(l));
+        }
+        assert_eq!(Limba::din_nume("English"), Some(Limba::Engleza));
+        assert_eq!(Limba::din_nume("klingon"), None);
+        assert_eq!(Limba::Engleza.alege("da", "yes"), "yes");
+        let n = |n, l: Limba| l.numar(n, ("obiect", "obiecte"), ("object", "objects"));
+        assert_eq!(n(1, Limba::Romana), "1 obiect");
+        assert_eq!(n(19, Limba::Romana), "19 obiecte");
+        assert_eq!(n(20, Limba::Romana), "20 de obiecte");
+        assert_eq!(n(101, Limba::Romana), "101 obiecte");
+        assert_eq!(n(120, Limba::Romana), "120 de obiecte");
+        assert_eq!(n(0, Limba::Romana), "0 obiecte");
+        assert_eq!(n(1, Limba::Engleza), "1 object");
+        assert_eq!(n(21, Limba::Engleza), "21 objects");
     }
 }

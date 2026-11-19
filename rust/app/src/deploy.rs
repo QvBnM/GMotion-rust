@@ -280,7 +280,7 @@ pub fn ecran(
                 creeaza: !p.exista_in_baza,
                 baza: p.baza,
                 obiect: p.obiect,
-                tip: gmotion_core::nume_tip(&p.tip).to_string(),
+                tip: p.tip.clone(),
             })
             .collect(),
         sarite: st.plan.sarite,

@@ -90,6 +90,13 @@ fn main() {
             .unwrap_or(implicit)
     };
     let (w, h) = (numar("--latime", 1440), numar("--inaltime", 900));
+    // `--limba en`: capturile si in engleza
+    let limba = a
+        .iter()
+        .position(|x| x == "--limba")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_fereastra::texte::Limba::din_nume(n))
+        .unwrap_or_default();
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let tema = a
@@ -100,7 +107,7 @@ fn main() {
         .unwrap_or_default();
     let lista_ui = FereastraLista::new().expect("fereastra listei");
     aplica_tema(&lista_ui, tema);
-    gmotion_fereastra::aplica_limba(&lista_ui, Default::default());
+    gmotion_fereastra::aplica_limba(&lista_ui, limba);
     incarca_lista(
         &lista_ui,
         &AntetLista {
@@ -144,7 +151,7 @@ fn main() {
     );
     let editor_ui = EditorDiferente::new().expect("fereastra editorului");
     aplica_tema(&editor_ui, tema);
-    gmotion_fereastra::aplica_limba(&editor_ui, Default::default());
+    gmotion_fereastra::aplica_limba(&editor_ui, limba);
     let o = app.obiect().expect("un obiect deschis").clone();
     let model = app.model_editor().expect("modelul editorului");
     // coloana din stanga: lista stransa, ca in aplicatie
@@ -155,7 +162,7 @@ fn main() {
             id: &format!("{}/{}.{}", o.baza, o.schema, o.nume),
             schema: &o.schema,
             nume: &o.nume,
-            tip: gmotion_core::nume_tip(&o.tip),
+            tip: gmotion_core::nume_tip_in(&o.tip, limba),
             sursa_baza: &a[2],
             sursa_server: &server,
             tinta_baza: &a[3],

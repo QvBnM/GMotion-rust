@@ -11,7 +11,7 @@
 //! foloseste compunerea textului final. Aici doar se coloreaza.
 
 use gmotion_core::lexer::{segmente, Fel};
-use gmotion_core::{aliniaza, TipDiferenta};
+use gmotion_core::{aliniaza, Limba, TipDiferenta};
 
 /// Culoarea de sintaxa a unei bucati.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -430,15 +430,12 @@ pub enum RandAfisat {
 }
 
 /// Eticheta unei plieri, ca in macheta: „22 de linii identice, 24-45".
-fn eticheta_pliere(n: usize, de_la: Option<usize>, pana_la: Option<usize>) -> String {
-    let linii = if n == 1 {
-        "1 linie identica".to_string()
-    } else if n < 20 {
-        format!("{n} linii identice")
-    } else {
-        // in romana, de la 20 in sus: „22 de linii"
-        format!("{n} de linii identice")
-    };
+fn eticheta_pliere(n: usize, de_la: Option<usize>, pana_la: Option<usize>, l: Limba) -> String {
+    let linii = l.numar(
+        n,
+        ("linie identica", "linii identice"),
+        ("identical line", "identical lines"),
+    );
     match (de_la, pana_la) {
         (Some(a), Some(b)) if a != b => format!("{linii}, {a}\u{2013}{b}"),
         (Some(a), Some(_)) => format!("{linii}, {a}"),
@@ -451,7 +448,7 @@ fn eticheta_pliere(n: usize, de_la: Option<usize>, pana_la: Option<usize>) -> St
 /// `context` = cate linii identice se lasa vizibile lipit de o diferenta.
 /// Se plieaza doar daca ramane ceva de ascuns (minim 3 randuri), altfel
 /// plierea ar ocupa mai mult decat liniile pe care le ascunde.
-pub fn plieaza(model: &ModelEditor, context: usize) -> Vec<RandAfisat> {
+pub fn plieaza(model: &ModelEditor, context: usize, l: Limba) -> Vec<RandAfisat> {
     const MINIM_ASCUNS: usize = 3;
     let n = model.randuri.len();
     let mut vizibil = vec![false; n];
@@ -482,7 +479,7 @@ pub fn plieaza(model: &ModelEditor, context: usize) -> Vec<RandAfisat> {
             let pana_la = (i..j).rev().find_map(nr);
             rez.push(RandAfisat::Pliere {
                 randuri: j - i,
-                eticheta: eticheta_pliere(j - i, de_la, pana_la),
+                eticheta: eticheta_pliere(j - i, de_la, pana_la, l),
             });
         }
         i = j;
@@ -620,7 +617,7 @@ mod teste {
         a.remove(0);
         b.remove(0);
         let m = construieste(&a.join("\n\n"), &b.join("\n\n"));
-        let afisat = plieaza(&m, 3);
+        let afisat = plieaza(&m, 3, Limba::Romana);
         let plieri: Vec<&RandAfisat> = afisat
             .iter()
             .filter(|r| matches!(r, RandAfisat::Pliere { .. }))
@@ -650,7 +647,7 @@ mod teste {
         let a = "SELECT 1\n\nSELECT 2\n\nSELECT 3";
         let b = "SELECT 9\n\nSELECT 2\n\nSELECT 8";
         let m = construieste(a, b);
-        let afisat = plieaza(&m, 3);
+        let afisat = plieaza(&m, 3, Limba::Romana);
         assert!(
             afisat.iter().all(|r| matches!(r, RandAfisat::Linie(_))),
             "nimic de ascuns, deci nicio pliere: {afisat:?}"
@@ -660,16 +657,26 @@ mod teste {
 
     #[test]
     fn eticheta_plierii_e_in_romana_cu_intervalul_de_linii() {
-        assert_eq!(eticheta_pliere(1, Some(5), Some(5)), "1 linie identica, 5");
         assert_eq!(
-            eticheta_pliere(7, Some(10), Some(16)),
+            eticheta_pliere(1, Some(5), Some(5), Limba::Romana),
+            "1 linie identica, 5"
+        );
+        assert_eq!(
+            eticheta_pliere(7, Some(10), Some(16), Limba::Romana),
             "7 linii identice, 10\u{2013}16"
         );
         assert_eq!(
-            eticheta_pliere(22, Some(24), Some(45)),
+            eticheta_pliere(22, Some(24), Some(45), Limba::Romana),
             "22 de linii identice, 24\u{2013}45"
         );
-        assert_eq!(eticheta_pliere(4, None, None), "4 linii identice");
+        assert_eq!(
+            eticheta_pliere(4, None, None, Limba::Romana),
+            "4 linii identice"
+        );
+        assert_eq!(
+            eticheta_pliere(22, Some(24), Some(45), Limba::Engleza),
+            "22 identical lines, 24\u{2013}45"
+        );
     }
 
     #[test]
