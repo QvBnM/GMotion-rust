@@ -36,10 +36,10 @@ asteapta „da"-ul lui Mihai pe `cercetare/capturi/editor-langa-macheta.png`.
 Apoi design-ul nou al conectarii (etapa 17, cand macheta e in repo).
 
 ```
-unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare
+unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
 unelte/porneste.sh                   # Linux / WSL (cere ecran)
 unelte\porneste.bat --tema luminos
-unelte\porneste.bat --server         # ecranul de conectare, gol
+unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ```
 
 ---
@@ -51,6 +51,9 @@ dublu clic numarat in Rust, filtrele pastrate la Recompara, caile de
 instantaneu fara `\\?\`, rezultatele de pe alte fire in jurnal. Neclar din
 jurnal: clicurile repetate pe tabul 0 (26:28-26:37), unde nu stiu ce astepta
 Mihai. Se cere un jurnal nou si o captura cu ora.
+
+De acum testele sunt reale, pe serverele lui Mihai: `porneste` deschide
+conectarea; previzualizarea doar cu `--previzualizare` (capturile din cloud).
 
 **Etapele 15 si 16 sunt incheiate.** Ramane:
 
