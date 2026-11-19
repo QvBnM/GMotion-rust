@@ -11,7 +11,10 @@
 use std::rc::Rc;
 use std::time::Instant;
 
-use gmotion_fereastra::{aplica_tema, incarca_lista, model_lista, AntetLista, FereastraLista};
+use gmotion_fereastra::{
+    aplica_tema, incarca_arbore, incarca_lista, model_arbore, model_lista, AntetLista,
+    FereastraLista,
+};
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
@@ -120,12 +123,14 @@ fn main() {
         };
         let t = Instant::now();
         incarca_lista(&ui, &antet, &lista);
+        incarca_arbore(&ui, &model_arbore::Arbore::default(), &lista);
         let incarca_ms = ms(t);
 
         let cadru1 = deseneaza();
         // derulare la capatul listei: acolo se vede daca ListView deseneaza
         // doar randurile vizibile sau toata lista
-        ui.invoke_muta_selectia(lista.vizibile().len() as i32);
+        lista.selecteaza(lista.vizibile().len().saturating_sub(1));
+        incarca_arbore(&ui, &model_arbore::Arbore::default(), &lista);
         let cadru_jos = deseneaza();
 
         println!(

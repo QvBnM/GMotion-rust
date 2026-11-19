@@ -193,11 +193,8 @@ pub struct Texte {
     pub nerevizuit: &'static str,
     pub nota: &'static str,
     pub nota_indiciu: &'static str,
-    pub tasta_clic: &'static str,
-    pub detalii_mic: &'static str,
     pub tasta_dublu_clic: &'static str,
     pub omite_mic: &'static str,
-    pub inchide_detaliile_mic: &'static str,
 }
 
 pub static RO: Texte = Texte {
@@ -369,11 +366,8 @@ pub static RO: Texte = Texte {
     nerevizuit: "Nerevizuit",
     nota: "Nota",
     nota_indiciu: "Scrie o nota (ex. a ramas aici)",
-    tasta_clic: "clic",
-    detalii_mic: "detalii",
     tasta_dublu_clic: "dublu clic / enter",
     omite_mic: "omite",
-    inchide_detaliile_mic: "inchide detaliile",
 };
 
 pub static EN: Texte = Texte {
@@ -543,11 +537,8 @@ pub static EN: Texte = Texte {
     nerevizuit: "Not reviewed",
     nota: "Note",
     nota_indiciu: "Write a note (e.g. stopped here)",
-    tasta_clic: "click",
-    detalii_mic: "details",
     tasta_dublu_clic: "double click / enter",
     omite_mic: "skip",
-    inchide_detaliile_mic: "close details",
 };
 
 /// Lista campurilor: campul din `Texte` si setter-ul din Slint. O singura
@@ -723,11 +714,8 @@ macro_rules! cu_textele {
         nerevizuit set_nerevizuit,
         nota set_nota,
         nota_indiciu set_nota_indiciu,
-        tasta_clic set_tasta_clic,
-        detalii_mic set_detalii_mic,
         tasta_dublu_clic set_tasta_dublu_clic,
-        omite_mic set_omite_mic,
-        inchide_detaliile_mic set_inchide_detaliile_mic
+        omite_mic set_omite_mic
 
         )
     };

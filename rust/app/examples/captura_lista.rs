@@ -50,14 +50,13 @@ fn main() {
     let r = pornire::compara(&c).expect("compararea merge pe instantaneu");
     let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
 
-    // implicit doar modificatele; `--toate` arata toate starile (harta cu
-    // toate culorile)
+    // implicit doar modificatele; `--toate` arata toate starile
     if !a.iter().any(|x| x == "--toate") {
         app.comanda(Comanda::Filtreaza(Some(model_lista::Stare::Modificat)));
     }
     // detaliile se calculeaza doar pentru randurile de pe ecran, ca in
-    // aplicatie: aici incap ~12
-    app.asigura_detalii(0, 12);
+    // aplicatie
+    app.asigura_detalii(0, 60);
     // un obiect revizuit, ca sa se vada bifa si progresul
     app.comanda(Comanda::Selecteaza(1));
     app.comanda(Comanda::ComutaRevizuit);
@@ -109,7 +108,6 @@ fn main() {
         .and_then(|n| gmotion_fereastra::texte::Limba::din_nume(n))
         .unwrap_or_default();
     gmotion_fereastra::aplica_limba(&ui, limba);
-    gmotion_fereastra::leaga_harta(&ui);
     incarca_lista(
         &ui,
         &AntetLista {
@@ -120,14 +118,11 @@ fn main() {
         },
         lista,
     );
+    gmotion_fereastra::incarca_arbore(&ui, app.arbore(), lista);
+    gmotion_fereastra::incarca_detalii(&ui, &app.panou_detalii().pentru_fereastra());
     if let Some((sursa, tinta, setari)) = app.texte_obiect() {
         incarca_previzualizare(&ui, sursa, tinta, &setari);
     }
-    // bula de pe harta, ca sa se vada in captura
-    let pas = gmotion_fereastra::harta::Scara::cu_latura(ui.get_patrat() as u32)
-        .unwrap_or(gmotion_fereastra::harta::SCARI[0])
-        .pas as f32;
-    ui.invoke_peste_harta(0, 2.0 * pas + 2.0, 2.0);
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];

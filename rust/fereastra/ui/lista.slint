@@ -1,13 +1,10 @@
-// Ecranul principal: harta sus (fiecare obiect afisat e un patrat, pe tipuri),
-// tabelul dedesubt; la clic pe un rand, detaliile lui in dreapta (panou
-// redimensionabil, inchis cu X, Esc sau al doilea clic pe rand). Dupa
-// schita aprobata (`cercetare/schita-slint/ui/lista.slint`), pe jetoanele
-// din `Tema`. Harta e legata de tabel: patratul selectat e randul selectat.
+// Ecranul principal (etapa 19): arborele ca Object Explorer din SSMS in
+// stanga (baza › dosar pe tip › obiect), obiectul selectat in dreapta, cu
+// martor | modificata alaturi, ca in editor. Filtrele si actiunile, sus.
 //
-// Se strica astfel: randul evidentiat nu e cel pe care il arata
-// previzualizarea, sau un patrat de pe harta deschide alt obiect. Indicele
-// selectat vine din `model_lista` (testat fara fereastra); asezarea si
-// clicul pe harta, din `src/harta.rs`.
+// Se strica astfel: randul evidentiat in arbore nu e cel pe care il arata
+// dreapta, sau un dosar se deschide / inchide singur. Nodurile vin din
+// `model_arbore` si selectia din `model_lista`, testate fara fereastra.
 
 import { ListView } from "std-widgets.slint";
 import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
@@ -56,22 +53,6 @@ export struct TipUi {
     numar: string,
 }
 
-// Un grup de pe harta: titlul, pozitia, imaginea pictata in Rust, cate
-// patrate are pe rand si, pentru fiecare patrat (pe randuri), randul lui din tabel.
-export struct GrupHartaUi {
-    titlu: string,
-    numar: string,
-    x: length,
-    y: length,
-    latime: length,
-    inaltime: length,
-    desparte: bool,
-    coloane: int,
-    imagine: image,
-    bara: image,
-    randuri: [int],
-}
-
 // Culoarea unei stari: M chihlimbar, S verde, B rosu, = / # gri.
 export global Stari {
     public pure function culoare(stare: int) -> color {
@@ -97,115 +78,6 @@ export global Stari {
     }
 }
 
-// Latimile coloanelor tabelului, aceleasi in cap si pe randuri.
-// Latimile coloanelor. `in-out`, fiindca marginea capului de coloana le
-// trage; dublu clic pune latimea ceruta de continut (calculata in Rust).
-export global Coloane {
-    in-out property <length> stare: 34px;
-    in-out property <length> baza: 152px;
-    in-out property <length> tip: 84px;
-    in-out property <length> linii: 84px;
-    in-out property <length> scor: 118px;
-    in-out property <length> difera: 124px;
-    in-out property <length> revizuit: 62px;
-    in-out property <length> deploy: 100px;
-    /// Sub atat o coloana nu mai are ce arata.
-    out property <length> minim: 48px;
-
-    public function pune(coloana: int, latime: length) {
-        if (coloana == Sortare.baza) { root.baza = Math.max(root.minim, latime); }
-        if (coloana == Sortare.tip) { root.tip = Math.max(root.minim, latime); }
-        if (coloana == Sortare.linii) { root.linii = Math.max(root.minim, latime); }
-        if (coloana == Sortare.scor) { root.scor = Math.max(root.minim, latime); }
-        if (coloana == Sortare.difera) { root.difera = Math.max(root.minim, latime); }
-        if (coloana == Sortare.revizuit) { root.revizuit = Math.max(root.minim, latime); }
-        if (coloana == Sortare.deploy) { root.deploy = Math.max(root.minim, latime); }
-    }
-
-    public pure function ia(coloana: int) -> length {
-        return coloana == Sortare.baza ? root.baza
-             : coloana == Sortare.tip ? root.tip
-             : coloana == Sortare.linii ? root.linii
-             : coloana == Sortare.scor ? root.scor
-             : coloana == Sortare.difera ? root.difera
-             : coloana == Sortare.revizuit ? root.revizuit
-             : coloana == Sortare.deploy ? root.deploy
-             : 0px;
-    }
-}
-
-// Codurile coloanelor sortabile; aceeasi ordine ca `model_lista::Ordine`.
-global Sortare {
-    out property <int> nume: 0;
-    out property <int> tip: 1;
-    out property <int> linii: 2;
-    out property <int> scor: 3;
-    out property <int> difera: 4;
-    out property <int> revizuit: 5;
-    out property <int> deploy: 6;
-    out property <int> baza: 7;
-}
-
-// Un cap de coloana: clic = sorteaza; a doua oara, invers. Sageata arata
-// sensul, ca in v3.4.
-component CapColoana inherits Rectangle {
-    in property <string> titlu;
-    /// Codul coloanei (`Sortare`), pentru tragere si autofit.
-    in property <int> coloana;
-    /// Fiecare clic pe margine; dublul clic (autofit) il numara Rust-ul.
-    callback clic-margine();
-    // 0 = stretch (coloana „Obiect")
-    in property <length> latime;
-    in property <bool> sortata;
-    in property <bool> descrescator;
-    callback apasat();
-    // latime 0 = coloana care se intinde (Obiect); `width` ar strivi-o la zero
-    min-width: root.latime;
-    max-width: root.latime == 0px ? 100000px : root.latime;
-    horizontal-stretch: root.latime == 0px ? 1 : 0;
-    HorizontalLayout {
-        spacing: 4px;
-        alignment: start;
-        Text {
-            text: root.titlu;
-            font-family: Tema.font-ui;
-            font-size: 12px;
-            font-weight: 600;
-            color: root.sortata ? Tema.text : Tema.text-tert;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-        if root.sortata: Text {
-            text: root.descrescator ? "↓" : "↑";
-            font-family: Tema.font-mono;
-            font-size: 12px;
-            color: Tema.accent-text;
-            vertical-alignment: center;
-        }
-        // coloana care se intinde isi tine titlul la stanga, nu lipit de
-        // capul urmator
-        Rectangle { horizontal-stretch: 1; }
-    }
-    TouchArea { clicked => { root.apasat(); } }
-    // marginea din dreapta: trasa, schimba latimea; dublu clic o potriveste
-    // dupa continut (autofit, calculat in Rust; tot Rust-ul numara dublul
-    // clic, vezi `dublu_clic.rs`)
-    if root.latime > 0px: Rectangle {
-        x: parent.width - 3px;
-        width: 7px;
-        height: parent.height;
-        background: tragere.has-hover || tragere.pressed ? Tema.linie : transparent;
-        tragere := TouchArea {
-            mouse-cursor: col-resize;
-            moved => {
-                if (self.pressed) {
-                    Coloane.pune(root.coloana, root.latime + (self.mouse-x - self.pressed-x));
-                }
-            }
-            clicked => { root.clic-margine(); }
-        }
-    }
-}
 
 // Filtru cu meniu derulant (v3.4: „Stare"). `-1` = fara filtru.
 component MeniuFiltru inherits Rectangle {
@@ -349,124 +221,6 @@ component CampProcent inherits Rectangle {
     }
 }
 
-component RandTabel inherits Rectangle {
-    in property <RandListaUi> r;
-    in property <bool> selectat;
-    // coloana Baza apare doar cand chiar sunt mai multe baze comparate
-    in property <bool> cu-baza;
-    /// Fiecare clic; dublul clic (Deschide) il numara Rust-ul, din
-    /// `clic-rand`: `double-clicked` din Slint nu ajungea pe Windows.
-    callback apasat();
-    callback deschide();
-    callback comuta-revizuit();
-    height: 34px;
-    border-radius: 8px;
-    background: root.selectat ? Tema.strat : zona.has-hover ? Tema.suprafata : transparent;
-    zona := TouchArea {
-        clicked => { root.apasat(); }
-    }
-    if root.selectat: Rectangle { x: 0; width: 3px; height: 20px; border-radius: 1.5px; background: Tema.accent; }
-    // in plan: o crestatura pe marginea din dreapta
-    if root.r.in-plan: Rectangle { x: parent.width - 4px; width: 4px; height: 22px; border-radius: 2px; background: Tema.accent; }
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        // starea: patratul de pe harta, cu litera alaturi
-        HorizontalLayout {
-            width: Coloane.stare;
-            spacing: 6px;
-            VerticalLayout {
-                alignment: center;
-                Rectangle {
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 2.5px;
-                    background: Stari.harta(root.r.stare);
-                    opacity: root.r.revizuit ? 0.4 : 1;
-                }
-            }
-            Text { text: root.r.litera; font-family: Tema.font-mono; font-size: 12px; font-weight: 500; color: Stari.culoare(root.r.stare); vertical-alignment: center; }
-        }
-        HorizontalLayout {
-            horizontal-stretch: 1;
-            alignment: start;
-            Text { text: root.r.schema + "."; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
-            Text { text: root.r.nume; font-family: Tema.font-mono; font-size: 12.5px; color: root.r.revizuit ? Tema.text-secundar : Tema.text; vertical-alignment: center; overflow: elide; }
-        }
-        if root.cu-baza: Text { width: Coloane.baza; text: root.r.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
-        Text { width: Coloane.tip; text: root.r.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
-        HorizontalLayout {
-            width: Coloane.linii;
-            spacing: 8px;
-            Text { text: root.r.plus; font-family: Tema.font-mono; font-size: 12px; color: Tema.add-text; vertical-alignment: center; }
-            Text { text: root.r.minus; font-family: Tema.font-mono; font-size: 12px; color: Tema.del-text; vertical-alignment: center; }
-            Rectangle { horizontal-stretch: 1; }
-        }
-        // similaritatea: bara + procent; gol pentru obiectele fara scor
-        HorizontalLayout {
-            width: Coloane.scor;
-            spacing: 8px;
-            padding-right: 12px;
-            VerticalLayout {
-                alignment: center;
-                horizontal-stretch: 1;
-                Rectangle {
-                    height: 4px;
-                    border-radius: 2px;
-                    background: Tema.ident;
-                    Rectangle {
-                        x: 0;
-                        width: parent.width * root.r.scor;
-                        border-radius: 2px;
-                        background: Stari.harta(root.r.stare);
-                    }
-                }
-            }
-            Text { width: 38px; text: root.r.scor-text; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; horizontal-alignment: right; vertical-alignment: center; }
-        }
-        Text { width: Coloane.difera; text: root.r.difera-in; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
-        HorizontalLayout {
-            width: Coloane.revizuit;
-            alignment: center;
-            VerticalLayout {
-                alignment: center;
-                Bifa {
-                    text: "";
-                    bifat: root.r.revizuit;
-                    schimbat => { root.comuta-revizuit(); }
-                }
-            }
-        }
-        Text {
-            width: Coloane.deploy;
-            text: root.r.deploy == 1 ? Texte.pregatit : root.r.deploy == 2 ? Texte.trimis : root.r.deploy == 3 ? Texte.versiune-noua : root.r.deploy == 4 ? Texte.omis : Texte.neintrodus;
-            color: root.r.deploy == 1 ? Tema.accent-text : root.r.deploy == 2 ? Tema.add-text : root.r.deploy == 3 ? Tema.mod-text : Tema.text-tert;
-            font-family: Tema.font-ui;
-            font-size: 12.5px;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-    }
-    // „Deschide" pe randul de sub mouse sau selectat: dublu clicul nu se
-    // vede, iar pe Windows nu mergea deloc (Mihai, 2026-11-19). Doar pe
-    // obiectele care au ce arata in editor (modificate, identice).
-    property <bool> peste-deschide;
-    if (zona.has-hover || root.selectat || root.peste-deschide) && (root.r.stare == 0 || root.r.stare == 3): Rectangle {
-        x: parent.width - self.width - 10px;
-        y: (parent.height - self.height) / 2;
-        width: td.preferred-width + 20px;
-        height: 24px;
-        border-radius: 6px;
-        background: zd.has-hover ? Tema.accent : Tema.suprafata;
-        border-width: 1px;
-        border-color: Tema.accent;
-        td := Text { text: Texte.deschide + " ›"; font-family: Tema.font-ui; font-size: 12px; font-weight: 500; color: zd.has-hover ? Tema.pe-accent : Tema.accent-text; }
-        zd := TouchArea {
-            clicked => { root.deschide(); }
-            changed has-hover => { root.peste-deschide = self.has-hover; }
-        }
-    }
-}
 
 // Un filtru: eticheta cu numar; activ = conturat in chihlimbar.
 component Filtru inherits Rectangle {
@@ -490,32 +244,74 @@ component Filtru inherits Rectangle {
     zona := TouchArea { clicked => { root.apasat(); } }
 }
 
-// Un rand din panoul de detalii: eticheta in stanga, valoarea in dreapta.
-component RandDetaliu inherits HorizontalLayout {
-    in property <string> eticheta;
-    height: 28px;
-    spacing: 8px;
-    Text { text: root.eticheta; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; }
-    @children
+
+
+// Un rand din arbore (etapa 19): baza, dosar sau obiect, indentat pe nivel.
+// Clicul pe baza / dosar il deschide sau il inchide; pe obiect il selecteaza
+// (dublul clic, Deschide, il numara Rust-ul din `alege-randul`).
+export struct NodUi {
+    // 0 baza, 1 dosar, 2 obiect
+    nivel: int,
+    fel: int,
+    eticheta: string,
+    numar: int,
+    deschis: bool,
+    cheie: string,
+    // la obiect: pozitia in `randuri`; -1 la baza si dosar
+    pozitie: int,
 }
 
-// Eticheta colorata (stare revizuire, impact): 0 verde, 1 chihlimbar,
-// 2 rosu, 3 gri.
-component Pastila inherits Rectangle {
-    in property <string> text;
-    in property <int> fel;
-    height: 22px;
-    width: et.preferred-width + 18px;
-    border-radius: 11px;
-    background: root.fel == 0 ? Tema.add-fundal : root.fel == 1 ? Tema.mod-fundal : root.fel == 2 ? Tema.del-fundal : Tema.strat;
-    et := Text {
-        text: root.text;
-        font-family: Tema.font-ui;
-        font-size: 12px;
-        font-weight: 500;
-        color: root.fel == 0 ? Tema.add-text : root.fel == 1 ? Tema.mod-text : root.fel == 2 ? Tema.del-text : Tema.text-secundar;
-        vertical-alignment: center;
-        horizontal-alignment: center;
+component RandArbore inherits Rectangle {
+    in property <NodUi> n;
+    in property <RandListaUi> r;
+    in property <bool> selectat;
+    callback apasat();
+    callback comuta();
+    height: 26px;
+    background: root.selectat ? Tema.strat : zona.has-hover ? Tema.suprafata : transparent;
+    zona := TouchArea { clicked => { root.apasat(); } }
+    if root.selectat: Rectangle { x: 0; width: 3px; height: 18px; border-radius: 1.5px; background: Tema.accent; }
+    HorizontalLayout {
+        padding-left: 8px + root.n.nivel * 16px;
+        padding-right: 10px;
+        spacing: 6px;
+        // sageata: are TouchArea a ei, ca pe obiect sa nu fie nevoie
+        Rectangle {
+            width: 14px;
+            if root.n.fel != 2: Text {
+                text: root.n.deschis ? "▾" : "▸";
+                font-size: 11px;
+                color: Tema.text-tert;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+            if root.n.fel != 2: TouchArea { clicked => { root.comuta(); } }
+        }
+        if root.n.fel == 2: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 9px;
+                height: 9px;
+                border-radius: 2px;
+                background: Stari.harta(root.r.stare);
+                opacity: root.r.revizuit ? 0.4 : 1;
+            }
+        }
+        if root.n.fel == 2: Text { text: root.r.litera; font-family: Tema.font-mono; font-size: 11.5px; font-weight: 500; color: Stari.culoare(root.r.stare); vertical-alignment: center; }
+        Text {
+            text: root.n.eticheta;
+            font-family: root.n.fel == 1 ? Tema.font-ui : Tema.font-mono;
+            font-size: root.n.fel == 0 ? 13px : 12.5px;
+            font-weight: root.n.fel == 0 ? 600 : root.n.fel == 1 ? 500 : 400;
+            color: root.n.fel == 2 && root.r.revizuit ? Tema.text-secundar : Tema.text;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+        if root.n.fel != 2: Text { text: root.n.numar; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+        if root.n.fel == 2 && root.r.in-plan: Text { text: "◆"; font-size: 10px; color: Tema.accent-text; vertical-alignment: center; }
+        if root.n.fel == 2: Text { text: root.r.plus; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.add-text; vertical-alignment: center; }
+        if root.n.fel == 2: Text { text: root.r.minus; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.del-text; vertical-alignment: center; }
     }
 }
 
@@ -547,9 +343,6 @@ export component FereastraLista inherits Window {
     in property <int> tip-activ: -1;
 
     in property <string> rezumat-lista;       // „212 nerevizuite din 312"
-    // coloana sortata (`Sortare`) si sensul ei
-    in property <int> coloana-sortata;
-    in property <bool> sens-descrescator;
     // filtrul pe stare: indice in `stari`, -1 = toate
     in property <[string]> stari;
     in property <int> stare-activa: -1;
@@ -560,25 +353,32 @@ export component FereastraLista inherits Window {
     in property <string> mesaj-csv;
     in property <float> progres-deploy;       // 0..1
     in property <[RandListaUi]> randuri;
+    // arborele (etapa 19), aplatizat in Rust (`model_arbore`)
+    in property <[NodUi]> noduri;
+    in-out property <length> latime-arbore: 460px;
+    callback comuta-nod(string);
+    // randul gol, pentru nodurile care nu sunt obiecte
+    property <RandListaUi> rand-gol;
     in-out property <int> selectat: 0;
-
-    // harta: grupurile asezate in Rust (`src/harta.rs`) si patratul selectat
-    in property <[GrupHartaUi]> harta;
-    in property <length> harta-inaltime;
-    // pixeli fizici pe pixel logic: harta se picteaza la rezolutia ecranului
-    in property <float> factor-harta: 1;
-    in property <length> sel-x;
-    in property <length> sel-y;
-    in property <bool> sel-pe-harta;
+    // randul din `noduri` al obiectului selectat: arborele se deruleaza la el
+    in property <int> nod-selectat: -1;
+    changed nod-selectat => {
+        if (root.nod-selectat < 0) { return; }
+        if (root.nod-selectat * 26px < -arbore.content-y) {
+            arbore.content-y = -root.nod-selectat * 26px;
+        } else if ((root.nod-selectat + 1) * 26px > -arbore.content-y + arbore.visible-height) {
+            arbore.content-y = -((root.nod-selectat + 1) * 26px - arbore.visible-height);
+        }
+    }
+    /// `j` / `k`: urmatorul obiect in ordinea arborelui (calculat in Rust).
+    callback muta-in-arbore(int);
 
     in property <string> obiect-schema;
     in property <string> obiect-nume;
     in property <string> ce-difera;           // „un singur caracter, intr-un sir: Nu → nu"
     in property <bool> obiect-revizuit;
     in property <bool> obiect-in-plan;
-    // panoul de detalii: deschis, latimea (trasa de mana), impactul si nota
-    in property <bool> detalii-deschise;
-    in-out property <length> latime-detalii: 460px;
+    // impactul si nota obiectului selectat
     // -1 = nu se stie, 0 scazut, 1 mediu, 2 ridicat
     in property <int> impact-nivel: -1;
     in property <string> impact-motive;
@@ -603,10 +403,8 @@ export component FereastraLista inherits Window {
     callback alege-categoria(int);
     callback alege-tipul(int);
     callback alege-baza(int);
+    /// Clic pe obiect in arbore; doua repezi = Deschide (numarate in Rust).
     callback alege-randul(int);
-    // clic pe rand: selecteaza si deschide detaliile; pe acelasi, le inchide
-    callback clic-rand(int);
-    callback inchide-detalii();
     callback comuta-omis();
     // baza, schema.nume, textul
     callback nota-editata(string, string, string);
@@ -614,9 +412,6 @@ export component FereastraLista inherits Window {
     callback deschide-obiectul();
     callback adauga-in-plan();
     callback cauta(string);
-    callback sorteaza-coloana(int);
-    /// Clic pe marginea unei coloane; doua repezi = autofit (numarate in Rust).
-    callback clic-margine-coloana(int);
     callback alege-starea(int);
     callback schimba-scorul(string, string);
     callback exporta-csv();
@@ -628,40 +423,18 @@ export component FereastraLista inherits Window {
     callback alege-limba(int);
     callback ecran-complet();
 
-    // bula de pe harta: numele si starea patratului de sub mouse, si coltul
-    // lui in coordonatele hartii; toate puse din Rust
-    in-out property <string> bula;
-    in-out property <int> bula-stare;
-    in-out property <length> hover-x;
-    in-out property <length> hover-y;
-    // latura unui patrat, la treapta de zoom aleasa in Rust (`harta::SCARI`),
-    // si cat de inalta poate fi harta inainte de derulare
-    in property <length> patrat: 14px;
-    in property <length> harta-max: 260px;
-    callback peste-harta(int, length, length);
-    callback clic-harta(int, length, length);
-    // latimea ferestrei s-a schimbat: Rust reaseaza grupurile
-    callback harta-redimensionata();
-    // latimea ferestrei, copiata la schimbare: panoul de detalii o citeste
-    // de aici, nu din `root.width`, care depinde de layout (bucla)
+    // latimea ferestrei, copiata la schimbare: arborele o citeste de aici,
+    // nu din `root.width`, care depinde de layout (bucla)
     property <length> latime-fereastra: 1440px;
     changed width => {
         root.latime-fereastra = self.width;
-        root.harta-redimensionata();
-    }
-
-    public function muta-selectia(pas: int) {
-        if (root.randuri.length == 0) { return; }
-        root.selectat = Math.max(0, Math.min(root.randuri.length - 1, root.selectat + pas));
-        root.alege-randul(root.selectat);
-        tabel.content-y = -Math.max(0, root.selectat - 6) * 34px;
     }
 
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
-            if (e.text == Key.DownArrow || e.text == "j") { root.muta-selectia(1); return accept; }
-            if (e.text == Key.UpArrow || e.text == "k") { root.muta-selectia(-1); return accept; }
+            if (e.text == Key.DownArrow || e.text == "j") { root.muta-in-arbore(1); return accept; }
+            if (e.text == Key.UpArrow || e.text == "k") { root.muta-in-arbore(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
             if (e.text == "r") { root.comuta-revizuit(root.selectat); return accept; }
             if (e.text == "i") { root.adauga-in-plan(); return accept; }
@@ -671,8 +444,6 @@ export component FereastraLista inherits Window {
             if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
             if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
             if (e.text == Key.Escape && root.intreaba-deconectarea) { root.renunta-la-deconectare(); return accept; }
-            // dialogurile de deasupra se inchid primele
-            if (e.text == Key.Escape && root.detalii-deschise) { root.inchide-detalii(); return accept; }
             return reject;
         }
 
@@ -903,266 +674,69 @@ export component FereastraLista inherits Window {
             }
             Rectangle { height: 6px; }
 
-            // ---- harta: cate o coloana pe tip, despartite prin linii; asezarea
-            // si pictura sunt in Rust (`src/harta.rs`)
-            if root.harta.length > 0: Rectangle {
-                height: Math.min(root.harta-inaltime, root.harta-max) + 32px;
-                cartus := Rectangle {
-                    x: 16px;
-                    width: parent.width - 32px;
-                    border-radius: 14px;
-                    background: Tema.suprafata;
-                    border-width: 1px;
-                    border-color: Tema.linie;
-                    clip: true;
-                    // `chenar`: loc pentru conturul selectiei / al mouse-ului, care
-                    // iese cu 3 px din patrat; fara el, Flickable il taia la
-                    // marginea din stanga si de sus
-                    property <length> chenar: 4px;
-                    flick := Flickable {
-                        x: 18px - parent.chenar;
-                        y: 16px - parent.chenar;
-                        width: parent.width - 36px + 2 * parent.chenar;
-                        height: parent.height - 32px + 2 * parent.chenar;
-                        content-height: root.harta-inaltime + 2 * parent.chenar;
-                        Rectangle {
-                        x: cartus.chenar;
-                        y: cartus.chenar;
-                        for g[gi] in root.harta: Rectangle {
-                            x: g.x;
-                            y: g.y;
-                            width: g.latime;
-                            height: g.inaltime;
-                            // linia despartitoare, la mijlocul spatiului dintre coloane
-                            // (`harta::SPATIU_X` / 2)
-                            if g.desparte: Rectangle {
-                                x: -20px;
-                                width: 1px;
-                                height: parent.height;
-                                background: Tema.linie;
-                            }
-                            HorizontalLayout {
-                                y: 0;
-                                height: 20px;
-                                Text { text: g.titlu; font-family: Tema.font-ui; font-size: 14px; font-weight: 500; color: Tema.text; vertical-alignment: center; horizontal-stretch: 0; }
-                                Rectangle { horizontal-stretch: 1; }
-                                Text { text: g.numar; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 0; }
-                            }
-                            // bara cu proportia starilor (`harta::Y_BARA`)
-                            Image {
-                                x: 0;
-                                y: 28px;
-                                width: g.latime;
-                                height: self.source.height * 1px / root.factor-harta;
-                                source: g.bara;
-                                image-rendering: pixelated;
-                            }
-                            // grila (`harta::CAP`); pictata la pixelii fizici ai
-                            // ecranului, deci afisata la marimea ei / factor (15 D)
-                            img := Image {
-                                x: 0;
-                                y: 44px;
-                                width: self.source.width * 1px / root.factor-harta;
-                                height: self.source.height * 1px / root.factor-harta;
-                                source: g.imagine;
-                                image-rendering: pixelated;
-                            }
-                            TouchArea {
-                                x: img.x;
-                                y: img.y;
-                                width: img.width;
-                                height: img.height;
-                                // ce patrat e sub mouse se decide in Rust (`harta::indice_la`)
-                                moved => { root.peste-harta(gi, self.mouse-x, self.mouse-y); }
-                                changed has-hover => { if (!self.has-hover) { root.bula = ""; } }
-                                clicked => { root.clic-harta(gi, self.mouse-x, self.mouse-y); }
-                            }
-                        }
-                        // conturul patratului de sub mouse
-                        if root.bula != "": Rectangle {
-                            x: root.hover-x - 3px;
-                            y: root.hover-y - 3px;
-                            width: root.patrat + 6px;
-                            height: root.patrat + 6px;
-                            border-radius: root.patrat / 2;
-                            border-width: 1.5px;
-                            border-color: Tema.text-secundar;
-                        }
-                        // conturul patratului selectat
-                        if root.sel-pe-harta: Rectangle {
-                            x: root.sel-x - 3px;
-                            y: root.sel-y - 3px;
-                            width: root.patrat + 6px;
-                            height: root.patrat + 6px;
-                            border-radius: root.patrat / 2;
-                            border-width: 2px;
-                            border-color: Tema.text;
-                            drop-shadow-blur: 8px;
-                            drop-shadow-color: Tema.text.with-alpha(0.35);
-                        }
-                        }
-                    }
-                    // bula: punctul starii si numele, **deasupra** patratului de sub
-                    // mouse (dedesubt, daca sus nu incape), ca sa nu acopere randul
-                    // lui si conturul selectiei de alaturi; aliniata cu patratul,
-                    // mutata spre stanga daca la dreapta nu incape
-                    if root.bula != "": Rectangle {
-                        property <length> px: flick.x + parent.chenar + flick.content-x + root.hover-x;
-                        property <length> py: flick.y + parent.chenar + flick.content-y + root.hover-y;
-                        x: Math.max(4px, Math.min(self.px - 6px, parent.width - self.width - 8px));
-                        y: self.py - 28px - 8px >= 4px ? self.py - 28px - 8px : self.py + root.patrat + 8px;
-                        width: bl.preferred-width + 20px;
-                        height: 28px;
-                        border-radius: 7px;
-                        background: Tema.strat;
-                        border-width: 1px;
-                        border-color: Tema.linie;
-                        drop-shadow-blur: 10px;
-                        drop-shadow-offset-y: 2px;
-                        drop-shadow-color: Tema.fundal.with-alpha(0.5);
-                        bl := HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            spacing: 7px;
-                            alignment: start;
-                            VerticalLayout {
-                                alignment: center;
-                                Rectangle { width: 8px; height: 8px; border-radius: 4px; background: Stari.harta(root.bula-stare); }
-                            }
-                            Text { text: root.bula; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
-                        }
-                    }
-                }
-            }
-
-            // ---- tabelul si previzualizarea
+            // ---- corpul (etapa 19): arborele ca Object Explorer din SSMS, in
+            // stanga; obiectul selectat, martor | modificata, in dreapta.
+            // Harta si tabelul lat au iesit (Mihai, 2026-11-19).
             HorizontalLayout {
                 vertical-stretch: 1;
                 padding-left: 16px;
                 padding-right: 16px;
                 padding-top: 10px;
-                spacing: 3px;
+                padding-bottom: 6px;
+                spacing: 0px;
 
-                VerticalLayout {
-                    horizontal-stretch: 1;
-                    // capul tabelului
-                    Rectangle {
-                        height: 30px;
-                        HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            Text { width: Coloane.stare; text: ""; }
-                            CapColoana {
-                                titlu: Texte.obiect-cap + root.rezumat-lista;
-                                coloana: Sortare.nume;
-                                clic-margine => { root.clic-margine-coloana(Sortare.nume); }
-                                latime: 0px;
-                                sortata: root.coloana-sortata == Sortare.nume;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.nume); }
+                // arborele
+                Card {
+                    width: Math.max(240px, Math.min(root.latime-fereastra * 0.5, root.latime-arbore));
+                    clip: true;
+                    VerticalLayout {
+                        Rectangle {
+                            height: 34px;
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 8px;
+                                Text { text: Texte.obiecte-titlu; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+                                Text { text: root.rezumat-lista; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
                             }
-                            if root.mai-multe-baze: CapColoana {
-                                titlu: Texte.modificata;
-                                coloana: Sortare.baza;
-                                clic-margine => { root.clic-margine-coloana(Sortare.baza); }
-                                latime: Coloane.baza;
-                                sortata: root.coloana-sortata == Sortare.baza;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.baza); }
-                            }
-                            CapColoana {
-                                titlu: Texte.tip;
-                                coloana: Sortare.tip;
-                                clic-margine => { root.clic-margine-coloana(Sortare.tip); }
-                                latime: Coloane.tip;
-                                sortata: root.coloana-sortata == Sortare.tip;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.tip); }
-                            }
-                            CapColoana {
-                                titlu: Texte.linii;
-                                coloana: Sortare.linii;
-                                clic-margine => { root.clic-margine-coloana(Sortare.linii); }
-                                latime: Coloane.linii;
-                                sortata: root.coloana-sortata == Sortare.linii;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.linii); }
-                            }
-                            CapColoana {
-                                titlu: Texte.similar;
-                                coloana: Sortare.scor;
-                                clic-margine => { root.clic-margine-coloana(Sortare.scor); }
-                                latime: Coloane.scor;
-                                sortata: root.coloana-sortata == Sortare.scor;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.scor); }
-                            }
-                            CapColoana {
-                                titlu: Texte.difera-in;
-                                coloana: Sortare.difera;
-                                clic-margine => { root.clic-margine-coloana(Sortare.difera); }
-                                latime: Coloane.difera;
-                                sortata: root.coloana-sortata == Sortare.difera;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.difera); }
-                            }
-                            CapColoana {
-                                titlu: Texte.revizuit;
-                                coloana: Sortare.revizuit;
-                                clic-margine => { root.clic-margine-coloana(Sortare.revizuit); }
-                                latime: Coloane.revizuit;
-                                sortata: root.coloana-sortata == Sortare.revizuit;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.revizuit); }
-                            }
-                            CapColoana {
-                                titlu: Texte.deploy;
-                                coloana: Sortare.deploy;
-                                clic-margine => { root.clic-margine-coloana(Sortare.deploy); }
-                                latime: Coloane.deploy;
-                                sortata: root.coloana-sortata == Sortare.deploy;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.deploy); }
+                            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+                        }
+                        arbore := ListView {
+                            vertical-stretch: 1;
+                            for n in root.noduri: RandArbore {
+                                n: n;
+                                r: n.pozitie >= 0 ? root.randuri[n.pozitie] : root.rand-gol;
+                                selectat: n.pozitie >= 0 && n.pozitie == root.selectat;
+                                apasat => {
+                                    taste.focus();
+                                    if (n.pozitie >= 0) {
+                                        root.selectat = n.pozitie;
+                                        root.alege-randul(n.pozitie);
+                                    } else {
+                                        root.comuta-nod(n.cheie);
+                                    }
+                                }
+                                comuta => { root.comuta-nod(n.cheie); }
                             }
                         }
-                        Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
-                    }
-                    tabel := ListView {
-                        vertical-stretch: 1;
-                        for r[i] in root.randuri: RandTabel {
-                            r: r;
-                            cu-baza: root.mai-multe-baze;
-                            selectat: i == root.selectat;
-                            apasat => {
-                                taste.focus();
-                                root.selectat = i;
-                                root.clic-rand(i);
-                            }
-                            deschide => {
-                                root.selectat = i;
-                                root.alege-randul(i);
-                                root.deschide-obiectul();
-                            }
-                            comuta-revizuit => { root.comuta-revizuit(i); }
+                        if root.noduri.length == 0: Text {
+                            text: Texte.niciun-obiect;
+                            font-family: Tema.font-ui;
+                            font-size: 13px;
+                            color: Tema.text-secundar;
+                            horizontal-alignment: center;
                         }
-                    }
-                    if root.randuri.length == 0: Text {
-                        text: Texte.niciun-obiect;
-                        font-family: Tema.font-ui;
-                        font-size: 13px;
-                        color: Tema.text-secundar;
-                        horizontal-alignment: center;
                     }
                 }
 
-                // manerul: trage ca sa schimbi latimea panoului
-                if root.detalii-deschise: Rectangle {
+                // manerul: latimea arborelui
+                Rectangle {
                     width: 10px;
                     maner := TouchArea {
                         mouse-cursor: ew-resize;
                         moved => {
                             if (self.pressed) {
-                                root.latime-detalii = Math.max(340px, Math.min(root.latime-fereastra - 860px, root.latime-detalii - (self.mouse-x - self.pressed-x)));
+                                root.latime-arbore = Math.max(240px, Math.min(root.latime-fereastra * 0.5, root.latime-arbore + (self.mouse-x - self.pressed-x)));
                             }
                         }
                     }
@@ -1176,141 +750,126 @@ export component FereastraLista inherits Window {
                     }
                 }
 
-                // detaliile obiectului selectat
-                if root.detalii-deschise: Card {
-                    width: Math.max(340px, Math.min(root.latime-fereastra - 860px, root.latime-detalii));
+                // obiectul selectat, cele doua parti alaturi
+                Card {
+                    horizontal-stretch: 1;
                     clip: true;
-                    property <RandListaUi> sel: root.randuri[root.selectat];
+                    property <RandListaUi> sel: root.randuri.length > 0 ? root.randuri[root.selectat] : root.rand-gol;
                     VerticalLayout {
-                        // sus doar cat ii trebuie; restul inaltimii e al previzualizarii
-                        VerticalLayout {
+                        // capul: numele, starea, cifrele si actiunile
+                        HorizontalLayout {
                             vertical-stretch: 0;
-                            padding: 18px;
-                            padding-bottom: 12px;
-                            spacing: 4px;
-                            HorizontalLayout {
-                                spacing: 8px;
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            padding-top: 10px;
+                            padding-bottom: 10px;
+                            spacing: 10px;
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: 2px;
                                 HorizontalLayout {
                                     alignment: start;
-                                    horizontal-stretch: 1;
-                                    Text { text: root.obiect-schema == "" ? "" : root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 17px; color: Tema.text-tert; }
-                                    Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 17px; font-weight: 500; color: Tema.text; overflow: elide; horizontal-stretch: 1; }
+                                    Text { text: root.obiect-schema == "" ? "" : root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 15px; color: Tema.text-tert; }
+                                    Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 15px; font-weight: 500; color: Tema.text; overflow: elide; }
                                 }
-                                // X: inchide panoul (la fel ca al doilea clic pe rand, sau Esc)
-                                Rectangle {
-                                    width: 26px;
-                                    height: 26px;
-                                    border-radius: 7px;
-                                    background: inchide.has-hover ? Tema.strat : transparent;
-                                    Path {
-                                        width: 12px; height: 12px; viewbox-width: 12; viewbox-height: 12;
-                                        commands: "M 2 2 L 10 10 M 10 2 L 2 10";
-                                        stroke: Tema.text-secundar; stroke-width: 1.5px; fill: transparent;
+                                HorizontalLayout {
+                                    alignment: start;
+                                    spacing: 10px;
+                                    Text { text: sel.tip; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                                    Text { text: sel.plus; font-family: Tema.font-mono; font-size: 12px; color: Tema.add-text; vertical-alignment: center; }
+                                    Text { text: sel.minus; font-family: Tema.font-mono; font-size: 12px; color: Tema.del-text; vertical-alignment: center; }
+                                    Text { text: sel.scor-text; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
+                                    if root.impact-nivel >= 0: Text {
+                                        text: Texte.detalii-impact + ": " + (root.impact-nivel == 0 ? Texte.impact-scazut : root.impact-nivel == 1 ? Texte.impact-mediu : Texte.impact-ridicat);
+                                        font-family: Tema.font-ui;
+                                        font-size: 12px;
+                                        color: root.impact-nivel == 2 ? Tema.del-text : root.impact-nivel == 1 ? Tema.mod-text : Tema.text-secundar;
+                                        vertical-alignment: center;
                                     }
-                                    inchide := TouchArea { clicked => { root.inchide-detalii(); } }
+                                    Text { text: root.ce-difera; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
                                 }
                             }
-                            Text { text: sel.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-tert; }
-                            Rectangle { height: 8px; }
-                            RandDetaliu {
-                                eticheta: Texte.detalii-stare;
-                                VerticalLayout {
-                                    alignment: center;
-                                    Pastila {
-                                        text: sel.omis ? Texte.omis : sel.revizuit ? Texte.revizuit : Texte.nerevizuit;
-                                        fel: sel.omis ? 3 : sel.revizuit ? 0 : 1;
+                            VerticalLayout {
+                                alignment: center;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Buton {
+                                        text: root.obiect-revizuit ? Texte.revizuit-bifat : Texte.revizuit;
+                                        apasat => { root.comuta-revizuit(root.selectat); }
                                     }
+                                    Buton { text: root.obiect-in-plan ? Texte.in-plan-bifat : Texte.in-plan; apasat => { root.adauga-in-plan(); } }
+                                    Buton { text: sel.omis ? Texte.omis-bifat : Texte.omite; apasat => { root.comuta-omis(); } }
+                                    ButonPrincipal { text: Texte.deschide + " ›"; apasat => { root.deschide-obiectul(); } }
                                 }
                             }
-                            RandDetaliu {
-                                eticheta: Texte.detalii-modificari;
-                                Text { text: sel.plus == "" ? "–" : sel.plus; font-family: Tema.font-mono; font-size: 12.5px; color: sel.plus == "" ? Tema.text-tert : Tema.add-text; vertical-alignment: center; }
-                                Text { text: sel.minus; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.del-text; vertical-alignment: center; }
-                            }
-                            RandDetaliu {
-                                eticheta: Texte.detalii-similaritate;
-                                Text { text: sel.scor-text == "" ? "–" : sel.scor-text; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; }
-                            }
-                            RandDetaliu {
-                                eticheta: Texte.detalii-impact;
-                                VerticalLayout {
-                                    alignment: center;
-                                    Pastila {
-                                        text: root.impact-nivel == 0 ? Texte.impact-scazut : root.impact-nivel == 1 ? Texte.impact-mediu : root.impact-nivel == 2 ? Texte.impact-ridicat : "–";
-                                        fel: root.impact-nivel == 0 ? 0 : root.impact-nivel == 1 ? 1 : root.impact-nivel == 2 ? 2 : 3;
-                                    }
-                                }
-                            }
-                            if root.impact-motive != "": Text {
-                                text: root.impact-motive;
-                                font-family: Tema.font-ui;
-                                font-size: 11.5px;
-                                color: Tema.text-tert;
-                                wrap: word-wrap;
-                                horizontal-alignment: right;
-                            }
-                            RandDetaliu {
-                                eticheta: Texte.deploy;
-                                Text {
-                                    text: sel.deploy == 1 ? Texte.pregatit : sel.deploy == 2 ? Texte.trimis : sel.deploy == 3 ? Texte.versiune-noua : sel.deploy == 4 ? Texte.omis : Texte.neintrodus;
-                                    color: sel.deploy == 1 ? Tema.accent-text : sel.deploy == 2 ? Tema.add-text : sel.deploy == 3 ? Tema.mod-text : Tema.text-tert;
-                                    font-family: Tema.font-ui;
-                                    font-size: 12.5px;
-                                    vertical-alignment: center;
-                                }
-                            }
-                            HorizontalLayout {
-                                padding-top: 10px;
-                                spacing: 8px;
-                                alignment: start;
-                                Buton {
-                                    text: root.obiect-revizuit ? Texte.revizuit-bifat : Texte.revizuit;
-                                    apasat => { root.comuta-revizuit(root.selectat); }
-                                }
-                                Buton { text: root.obiect-in-plan ? Texte.in-plan-bifat : Texte.in-plan; apasat => { root.adauga-in-plan(); } }
-                                Buton { text: sel.omis ? Texte.omis-bifat : Texte.omite; apasat => { root.comuta-omis(); } }
-                                ButonPrincipal { text: Texte.deschide; apasat => { root.deschide-obiectul(); } }
-                            }
-                            // nota: se salveaza pe masura ce scrii, pe obiectul ei
-                            Text { text: Texte.nota; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; }
+                        }
+                        // nota, pe un rand: se salveaza pe masura ce scrii
+                        HorizontalLayout {
+                            vertical-stretch: 0;
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            padding-bottom: 10px;
                             Rectangle {
-                                height: 64px;
-                                border-radius: 8px;
+                                height: 30px;
+                                border-radius: 7px;
                                 border-width: 1px;
                                 border-color: camp-nota.has-focus ? Tema.accent : Tema.linie;
                                 background: Tema.fundal;
                                 clip: true;
                                 camp-nota := TextInput {
                                     x: 10px;
-                                    y: 8px;
                                     width: parent.width - 20px;
-                                    height: parent.height - 16px;
+                                    height: parent.height;
                                     text <=> root.nota;
                                     font-family: Tema.font-ui;
                                     font-size: 12.5px;
                                     color: Tema.text;
-                                    single-line: false;
-                                    wrap: word-wrap;
+                                    single-line: true;
+                                    vertical-alignment: center;
                                     edited => { root.nota-editata(root.nota-baza, root.nota-id, self.text); }
                                 }
                                 if root.nota == "" && !camp-nota.has-focus: Text {
                                     x: 10px;
-                                    y: 8px;
+                                    height: parent.height;
                                     text: Texte.nota-indiciu;
                                     font-family: Tema.font-ui;
                                     font-size: 12.5px;
                                     color: Tema.text-tert;
+                                    vertical-alignment: center;
                                 }
                             }
-                            Text { text: root.ce-difera; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; wrap: word-wrap; }
                         }
-                        Rectangle { height: 1px; background: Tema.linie; }
+                        // capetele celor doua parti
+                        Rectangle {
+                            height: 30px;
+                            background: Tema.suprafata;
+                            HorizontalLayout {
+                                HorizontalLayout {
+                                    horizontal-stretch: 1;
+                                    preferred-width: 1px;
+                                    padding-left: 14px;
+                                    spacing: 8px;
+                                    Text { text: Texte.martor; font-family: Tema.font-ui; font-size: 12.5px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+                                    Text { text: root.sursa-baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                }
+                                HorizontalLayout {
+                                    horizontal-stretch: 1;
+                                    preferred-width: 1px;
+                                    padding-left: 14px;
+                                    spacing: 8px;
+                                    Text { text: Texte.modificata; font-family: Tema.font-ui; font-size: 12.5px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+                                    Text { text: sel.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                }
+                            }
+                            Rectangle { x: parent.width / 2; width: 1px; background: Tema.linie; }
+                            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+                        }
                         Rectangle {
                             vertical-stretch: 1;
                             background: Tema.cod-fundal;
                             previz := ListView {
                                 for r in root.previzualizare: Rectangle {
-                                    height: 20px;
+                                    height: 21px;
                                     if r.fel == 1: Rectangle {
                                         background: Tema.fundal;
                                         Text {
@@ -1354,7 +913,7 @@ export component FereastraLista inherits Window {
                             if root.previzualizare.length == 0: Text {
                                 x: 18px;
                                 y: 14px;
-                                text: Texte.alege-un-obiect;
+                                text: root.randuri.length == 0 ? Texte.alege-un-obiect : root.ce-difera;
                                 font-family: Tema.font-ui;
                                 font-size: 12.5px;
                                 color: Tema.text-secundar;
@@ -1371,7 +930,7 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "i", e: Texte.in-plan-mic }, { t: "o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
+                    for k in [{ t: "j k", e: Texte.obiect-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "i", e: Texte.in-plan-mic }, { t: "o", e: Texte.omite-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }

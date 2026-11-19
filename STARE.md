@@ -31,9 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/18-editorul-ca-in-macheta.md`. Editorul e reasezat;
-asteapta „da"-ul lui Mihai pe `cercetare/capturi/editor-langa-macheta.png`.
-Apoi design-ul nou al conectarii (etapa 17, cand macheta e in repo).
+**Etapa activa:** `etape/19-lista-ca-object-explorer.md`. Lista e acum un
+arbore ca Object Explorer, cu martor | modificata in dreapta; urmeaza wrap-ul
+si proba lui Mihai. Apoi conectarea noua (etapa 17, cand macheta e in repo).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare

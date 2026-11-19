@@ -6,6 +6,7 @@
 //! sunt bug-uri de stare, nu de desen — de-aia starea sta aici, fara Slint, si
 //! se testeaza ca atare.
 
+use gmotion_fereastra::model_arbore::Arbore;
 use gmotion_fereastra::model_editor::{construieste_cu, marcheaza_textul_final, ModelEditor};
 use gmotion_fereastra::model_lista::{
     Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
@@ -26,13 +27,13 @@ pub enum Ecran {
 /// Fara `Eq`: `FiltreazaScor` tine procente.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Comanda {
+    /// Deschide / inchide un nod din arborele listei (cheia din `Nod`).
+    ComutaNod(String),
+    /// `j` / `k` in lista: obiectul urmator / anterior in ordinea arborelui
+    /// (pe baze si dosare), sarind peste dosarele inchise.
+    MutaInArbore(i32),
     MutaSelectia(i32),
     Selecteaza(usize),
-    /// Clic pe un rand (sau pe patratul lui de pe harta): il selecteaza si
-    /// deschide panoul de detalii; pe randul deja deschis, inchide panoul.
-    ClicPeRand(usize),
-    /// Butonul X din panoul de detalii, sau Esc.
-    InchideDetalii,
     /// Nota obiectului `(baza, schema.nume)` (text gol = sterge). Obiectul
     /// vine explicit, nu din selectie: campul poate pierde focul dupa ce
     /// selectia s-a mutat deja pe alt rand.
@@ -194,7 +195,6 @@ type FolositDe = std::rc::Rc<std::collections::BTreeMap<String, Vec<String>>>;
 /// Ce arata panoul de detalii al listei (vezi `gmotion_fereastra::PanouDetalii`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PanouDetalii {
-    pub deschis: bool,
     pub baza: String,
     pub obiect: String,
     /// 0 scazut, 1 mediu, 2 ridicat.
@@ -207,7 +207,6 @@ impl PanouDetalii {
     /// Forma pe care o primeste fereastra.
     pub fn pentru_fereastra(&self) -> gmotion_fereastra::PanouDetalii<'_> {
         gmotion_fereastra::PanouDetalii {
-            deschis: self.deschis,
             baza: &self.baza,
             obiect: &self.obiect,
             impact: self.impact,
@@ -248,8 +247,6 @@ pub struct Aplicatie {
     /// diferenta aplicata dispare si urmatoarea ii ia locul.
     diferenta: usize,
     ghidat: Option<Ghidat>,
-    /// Panoul de detalii din dreapta listei e deschis.
-    detalii: bool,
     /// Cine foloseste fiecare obiect, pe baza comparata; lexarea unei baze
     /// intregi se face o data, la prima cerere pe ea (`impact_obiect`).
     folosit_de: std::cell::RefCell<std::collections::BTreeMap<String, FolositDe>>,
@@ -276,6 +273,8 @@ pub struct Aplicatie {
     taburi: Taburi,
     /// Ce trebuie spus dupa ultima comanda pe taburi; se sterge la urmatoarea.
     mesaj_tab: Option<MesajTab>,
+    /// Arborele listei (etapa 19): ce baze si dosare sunt inchise.
+    arbore: Arbore,
 }
 
 /// Numaratorul compararilor din sesiunea asta.
@@ -367,13 +366,13 @@ impl Aplicatie {
             istoric: Vec::new(),
             diferenta: 0,
             ghidat: None,
-            detalii: false,
             folosit_de: std::cell::RefCell::default(),
             uneste_cursorul: false,
             model: std::cell::RefCell::default(),
             refaceri_model: std::cell::Cell::new(0),
             id_comparare: urmatorul_id_comparare(),
             refuzat_in_plan: false,
+            arbore: Arbore::default(),
             taburi: Taburi::noi(),
             mesaj_tab: None,
         }
@@ -397,11 +396,6 @@ impl Aplicatie {
             t.push('\u{1}');
         }
         gmotion_core::calc_hash(&t)
-    }
-
-    /// Panoul de detalii e deschis (si are un obiect de aratat).
-    pub fn detalii_deschise(&self) -> bool {
-        self.detalii && self.obiect().is_some()
     }
 
     /// Impactul estimat al deploy-ului obiectului selectat, si cine il
@@ -428,10 +422,14 @@ impl Aplicatie {
     /// Tot ce arata panoul de detalii, gata de pus in fereastra. Impactul se
     /// calculeaza doar cu panoul deschis: prima data lexeaza toata baza.
     pub fn panou_detalii(&self) -> PanouDetalii {
-        let deschis = self.detalii_deschise();
-        let impact = if deschis { self.impact_obiect() } else { None };
+        // doar pe lista: in editor nu se vede, iar prima cerere pe o baza o
+        // lexeaza toata
+        let impact = if self.ecran == Ecran::Lista {
+            self.impact_obiect()
+        } else {
+            None
+        };
         PanouDetalii {
-            deschis,
             baza: self.obiect().map(|o| o.baza.clone()).unwrap_or_default(),
             obiect: self.obiect().map(|o| o.id()).unwrap_or_default(),
             impact: impact.as_ref().map(|(i, _)| match i.nivel {
@@ -681,6 +679,26 @@ impl Aplicatie {
     /// Executa o comanda. Intoarce `true` daca starea de revizuire s-a
     /// schimbat, deci sesiunea trebuie salvata.
     pub fn comanda(&mut self, c: Comanda) -> bool {
+        // arborele listei (etapa 19): starea nodurilor nu e a sesiunii
+        if let Comanda::ComutaNod(cheie) = &c {
+            self.arbore.comuta(cheie);
+            return false;
+        }
+        let inainte = self.lista.selectat();
+        let rez = self.executa(c);
+        // obiectul selectat (j / k, tab, alt ecran) nu sta intr-un dosar inchis
+        if let Some(p) = self.lista.selectat().filter(|p| Some(*p) != inainte) {
+            self.arbore.deschide_calea(&self.lista, p);
+        }
+        rez
+    }
+
+    /// Arborele din lista: ce noduri sunt inchise.
+    pub fn arbore(&self) -> &Arbore {
+        &self.arbore
+    }
+
+    fn executa(&mut self, c: Comanda) -> bool {
         self.refuzat_in_plan = false;
         self.mesaj_tab = None;
         match c {
@@ -727,15 +745,6 @@ impl Aplicatie {
                 self.dupa_schimbarea_tabului();
                 return true;
             }
-            Comanda::ClicPeRand(p) => {
-                if self.detalii && self.lista.selectat() == Some(p) {
-                    self.detalii = false;
-                } else {
-                    self.lista.selecteaza(p);
-                    self.detalii = self.lista.selectat() == Some(p);
-                }
-            }
-            Comanda::InchideDetalii => self.detalii = false,
             Comanda::PuneNota(baza, id, text) => {
                 if self.rand(&baza, &id).is_none() {
                     return false;
@@ -753,8 +762,6 @@ impl Aplicatie {
                     if let Some(c) = self.cheia_curenta() {
                         self.taburi.deschide(c);
                     }
-                    // la intoarcere, lista arata obiectul de unde ai plecat
-                    self.detalii = true;
                 }
             }
             Comanda::InapoiLaLista => self.ecran = Ecran::Lista,
@@ -897,6 +904,29 @@ impl Aplicatie {
                 self.sari_ghidat();
             }
             Comanda::GhidatSari => self.sari_ghidat(),
+            // tratata in `comanda`, inainte
+            Comanda::ComutaNod(_) => {}
+            Comanda::MutaInArbore(pas) => {
+                let pozitii: Vec<usize> = self
+                    .arbore
+                    .noduri(&self.lista, gmotion_fereastra::texte::Limba::Romana)
+                    .iter()
+                    .filter_map(|n| n.pozitie)
+                    .collect();
+                let acum = self
+                    .lista
+                    .selectat()
+                    .and_then(|p| pozitii.iter().position(|&x| x == p));
+                let nou = match acum {
+                    Some(i) => {
+                        (i as i64 + i64::from(pas)).clamp(0, pozitii.len() as i64 - 1) as usize
+                    }
+                    None => 0,
+                };
+                if let Some(&p) = pozitii.get(nou) {
+                    self.lista.selecteaza(p);
+                }
+            }
         }
         false
     }
@@ -1266,6 +1296,38 @@ mod teste {
         )
     }
 
+    /// Etapa 19: nodurile se inchid / deschid prin comanda, iar obiectul
+    /// selectat cu `j` / `k` isi deschide singur dosarul.
+    #[test]
+    fn arborele_se_comuta_si_selectia_isi_deschide_calea() {
+        use gmotion_fereastra::texte::Limba;
+        let mut app = aplicatie();
+        let toate = app.arbore().noduri(app.lista(), Limba::Romana).len();
+        let dosar = app.arbore().noduri(app.lista(), Limba::Romana)[1]
+            .cheie
+            .clone();
+        app.comanda(Comanda::ComutaNod(dosar.clone()));
+        assert!(!app.arbore().deschis(&dosar));
+        assert!(app.arbore().noduri(app.lista(), Limba::Romana).len() < toate);
+        app.comanda(Comanda::Selecteaza(1));
+        assert!(app.arbore().deschis(&dosar), "selectia a redeschis dosarul");
+        assert_eq!(app.arbore().noduri(app.lista(), Limba::Romana).len(), toate);
+        // j / k merg in ordinea arborelui si se opresc la capete
+        let ordine: Vec<usize> = app
+            .arbore()
+            .noduri(app.lista(), Limba::Romana)
+            .iter()
+            .filter_map(|n| n.pozitie)
+            .collect();
+        app.comanda(Comanda::Selecteaza(ordine[0]));
+        app.comanda(Comanda::MutaInArbore(1));
+        assert_eq!(app.lista().selectat(), Some(ordine[1]));
+        app.comanda(Comanda::MutaInArbore(-5));
+        assert_eq!(app.lista().selectat(), Some(ordine[0]));
+        app.comanda(Comanda::MutaInArbore(50));
+        assert_eq!(app.lista().selectat(), ordine.last().copied());
+    }
+
     #[test]
     fn recompararea_pastreaza_filtrul_listei() {
         let mut veche = aplicatie();
@@ -1280,44 +1342,15 @@ mod teste {
     }
 
     #[test]
-    fn panoul_de_detalii_se_deschide_la_clic_si_se_inchide_la_al_doilea() {
+    fn deschide_duce_in_editor_si_intoarcerea_pastreaza_obiectul() {
         let mut app = aplicatie();
-        assert!(
-            !app.detalii_deschise(),
-            "la pornire lista e pe toata latimea"
-        );
-        app.comanda(Comanda::ClicPeRand(1));
-        assert!(app.detalii_deschise());
-        assert_eq!(app.lista().selectat(), Some(1));
-        // clic pe alt rand: panoul ramane, arata noul rand
-        app.comanda(Comanda::ClicPeRand(0));
-        assert!(app.detalii_deschise());
-        assert_eq!(app.lista().selectat(), Some(0));
-        // al doilea clic pe acelasi rand: se inchide, selectia ramane
-        app.comanda(Comanda::ClicPeRand(0));
-        assert!(!app.detalii_deschise());
-        assert_eq!(app.lista().selectat(), Some(0));
-        app.comanda(Comanda::ClicPeRand(0));
-        app.comanda(Comanda::InchideDetalii);
-        assert!(!app.detalii_deschise());
-        // j / k nu deschid panoul
-        app.comanda(Comanda::MutaSelectia(1));
-        assert!(!app.detalii_deschise());
-        // un rand care nu exista nu deschide nimic
-        app.comanda(Comanda::ClicPeRand(99));
-        assert!(!app.detalii_deschise());
-    }
-
-    #[test]
-    fn dublu_clicul_deschide_editorul_si_intoarcerea_arata_panoul() {
-        let mut app = aplicatie();
-        // dublu clic = doua clicuri (deschis, inchis) si apoi Deschide
-        app.comanda(Comanda::ClicPeRand(0));
-        app.comanda(Comanda::ClicPeRand(0));
+        app.comanda(Comanda::Selecteaza(1));
+        let c = app.cheia_curenta();
         app.comanda(Comanda::Deschide);
         assert_eq!(app.ecran(), Ecran::Editor);
         app.comanda(Comanda::InapoiLaLista);
-        assert!(app.detalii_deschise());
+        assert_eq!(app.ecran(), Ecran::Lista);
+        assert_eq!(app.cheia_curenta(), c);
     }
 
     #[test]
@@ -1367,14 +1400,11 @@ mod teste {
             vazute.push((app.obiect().unwrap().id(), i.folosit_de, cine));
         }
         vazute.sort();
-        // panoul inchis nu calculeaza impactul; deschis, il arata
-        assert_eq!(app.panou_detalii().impact, None);
-        app.comanda(Comanda::ClicPeRand(0));
+        // pe lista, obiectul selectat isi arata impactul (etapa 19: panoul
+        // din dreapta e mereu deschis)
+        app.comanda(Comanda::Selecteaza(0));
         let p = app.panou_detalii();
-        assert!(
-            p.deschis && p.impact.is_some() && !p.motive.is_empty(),
-            "{p:?}"
-        );
+        assert!(p.impact.is_some() && !p.motive.is_empty(), "{p:?}");
         assert_eq!(
             vazute,
             vec![
