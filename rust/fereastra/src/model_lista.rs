@@ -304,6 +304,38 @@ impl Lista {
         }
     }
 
+    /// Selecteaza obiectul cu cheia data (tabul activat in editor). Daca
+    /// filtrul il ascunde, filtrul se goleste (ordinea ramane): obiectul
+    /// deschis trebuie sa fie mereu si selectia listei. `false` daca obiectul
+    /// nu exista deloc.
+    pub fn selecteaza_cheie(&mut self, c: &(String, String)) -> bool {
+        let gaseste = |l: &Lista| l.vizibile.iter().position(|&i| &l.obiecte[i].cheie() == c);
+        if let Some(p) = gaseste(self) {
+            self.selectat = Some(p);
+            return true;
+        }
+        if !self.obiecte.iter().any(|o| &o.cheie() == c) {
+            return false;
+        }
+        self.filtru = Filtru::default();
+        self.recalculeaza();
+        match gaseste(self) {
+            Some(p) => {
+                self.selectat = Some(p);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Cheile randurilor vizibile, in ordinea afisata (pentru `j` / `k`).
+    pub fn chei_vizibile(&self) -> Vec<(String, String)> {
+        self.vizibile
+            .iter()
+            .map(|&i| self.obiecte[i].cheie())
+            .collect()
+    }
+
     /// Muta selectia cu `pas` randuri, fara sa iasa din lista.
     pub fn muta_selectia(&mut self, pas: i32) {
         if self.vizibile.is_empty() {

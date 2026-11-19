@@ -17,6 +17,8 @@ gmotion-db = { path = "../db" }
 gmotion-fereastra = { path = "../fereastra" }
 gmotion-modul-diff-obiecte = { path = "../module/diff-obiecte" }
 gmotion-platforma = { path = "../platforma" }
+# taburile fixate in `Sesiune::date` (JURNAL.md, 2026-11-19)
+serde_json = "1"
 tracing = "0.1"
 slint = { version = "1.19", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "software-renderer-systemfonts"] }
 

@@ -10,6 +10,7 @@ use gmotion_fereastra::model_editor::{construieste_cu, marcheaza_textul_final, M
 use gmotion_fereastra::model_lista::{
     Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
 };
+use gmotion_fereastra::model_taburi::{Activ, Cheie, Pas, Refuz, Taburi};
 use gmotion_modul_diff_obiecte::{self as modul, Baza, Editari, Rand, Revizuire, TextFinal};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +38,17 @@ pub enum Comanda {
     /// selectia s-a mutat deja pe alt rand.
     PuneNota(String, String, String),
     Deschide,
+    // ---- taburile editorului (etapa 16; regulile in `model_taburi`)
+    /// Fixeaza obiectul selectat intr-un tab (dublu clic in coloana listei).
+    FixeazaSelectia,
+    /// Dublu clic pe tabul de previzualizare.
+    FixeazaPrevizualizarea,
+    /// Clic pe un tab: `None` = previzualizarea, `Some(i)` = al i-lea fixat.
+    ActiveazaTab(Option<usize>),
+    /// X-ul unui tab.
+    InchideTab(Option<usize>),
+    /// `Ctrl+W`: tabul activ; activ devine vecinul din stanga.
+    InchideTabActiv,
     InapoiLaLista,
     ObiectUrmator,
     ObiectAnterior,
@@ -97,6 +109,35 @@ pub enum Comanda {
     GhidatAplica,
     /// Lasa diferenta asa si treci la urmatoarea.
     GhidatSari,
+}
+
+/// Ce se spune dupa o comanda pe taburi.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MesajTab {
+    /// `j` / `k`: nu mai e niciun obiect nefixat in directia asta.
+    Capat,
+    /// Al noualea tab, cu toate cele 8 avand text final editat: refuzat.
+    ToateEditate,
+}
+
+/// Taburile fixate, in sesiune (cheia `taburi`), ca lista de (baza, obiect).
+pub fn taburi_in_sesiune(t: &Taburi, s: &mut gmotion_platforma::Sesiune) {
+    let v = t.de_salvat();
+    if v.is_empty() {
+        s.date.remove("taburi");
+    } else if let Ok(j) = serde_json::to_value(v) {
+        s.date.insert("taburi".to_string(), j);
+    }
+}
+
+/// Taburile fixate salvate; o valoare stricata inseamna fara taburi.
+pub fn taburi_din_sesiune(s: &gmotion_platforma::Sesiune) -> Taburi {
+    let v: Vec<Cheie> = s
+        .date
+        .get("taburi")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    Taburi::din_sesiune(v)
 }
 
 /// Modul ghidat: diferentele, una cate una, cu o alegere pentru fiecare.
@@ -192,6 +233,12 @@ pub struct Aplicatie {
     /// Ultima comanda „In plan" a fost refuzata (obiectul nu are cod de
     /// deploiat). Ecranul spune de ce; se sterge la urmatoarea comanda (F-A18).
     refuzat_in_plan: bool,
+    /// Taburile editorului. Obiectul din tabul activ e mereu si selectia
+    /// listei (`selecteaza_cheie`): asa raman valabile toate comenzile care
+    /// lucreaza pe selectie.
+    taburi: Taburi,
+    /// Ce trebuie spus dupa ultima comanda pe taburi; se sterge la urmatoarea.
+    mesaj_tab: Option<MesajTab>,
 }
 
 /// Numaratorul compararilor din sesiunea asta.
@@ -290,6 +337,8 @@ impl Aplicatie {
             refaceri_model: std::cell::Cell::new(0),
             id_comparare: urmatorul_id_comparare(),
             refuzat_in_plan: false,
+            taburi: Taburi::noi(),
+            mesaj_tab: None,
         }
     }
 
@@ -596,9 +645,46 @@ impl Aplicatie {
     /// schimbat, deci sesiunea trebuie salvata.
     pub fn comanda(&mut self, c: Comanda) -> bool {
         self.refuzat_in_plan = false;
+        self.mesaj_tab = None;
         match c {
             Comanda::MutaSelectia(pas) => self.lista.muta_selectia(pas),
-            Comanda::Selecteaza(p) => self.lista.selecteaza(p),
+            Comanda::Selecteaza(p) => {
+                self.lista.selecteaza(p);
+                // in editor, clicul in coloana listei incarca obiectul in
+                // previzualizare (sau ii activeaza tabul, daca e fixat)
+                if self.ecran == Ecran::Editor {
+                    if let Some(c) = self.cheia_curenta() {
+                        self.taburi.deschide(c);
+                        self.dupa_schimbarea_tabului();
+                    }
+                }
+            }
+            Comanda::FixeazaSelectia => {
+                if let Some(c) = self.cheia_curenta() {
+                    let editate = self.chei_editate();
+                    let r = self.taburi.fixeaza(c, |k| editate.contains(k));
+                    self.rezultat_fixare(r);
+                }
+            }
+            Comanda::FixeazaPrevizualizarea => {
+                let editate = self.chei_editate();
+                let r = self.taburi.fixeaza_previzualizarea(|k| editate.contains(k));
+                self.rezultat_fixare(r);
+            }
+            Comanda::ActiveazaTab(i) => {
+                self.taburi
+                    .activeaza(i.map_or(Activ::Previzualizare, Activ::Fixat));
+                self.dupa_schimbarea_tabului();
+            }
+            Comanda::InchideTab(i) => {
+                self.taburi
+                    .inchide(i.map_or(Activ::Previzualizare, Activ::Fixat));
+                self.dupa_schimbarea_tabului();
+            }
+            Comanda::InchideTabActiv => {
+                self.taburi.inchide_activ();
+                self.dupa_schimbarea_tabului();
+            }
             Comanda::ClicPeRand(p) => {
                 if self.detalii && self.lista.selectat() == Some(p) {
                     self.detalii = false;
@@ -622,6 +708,9 @@ impl Aplicatie {
                 // editor: ecranul ramane pe lista
                 if self.model_editor().is_some() {
                     self.ecran = Ecran::Editor;
+                    if let Some(c) = self.cheia_curenta() {
+                        self.taburi.deschide(c);
+                    }
                     // la intoarcere, lista arata obiectul de unde ai plecat
                     self.detalii = true;
                 }
@@ -629,6 +718,8 @@ impl Aplicatie {
             Comanda::InapoiLaLista => self.ecran = Ecran::Lista,
             // din editor, obiectul urmator se deschide direct: altfel ar
             // trebui drum dus-intors prin lista pentru fiecare obiect
+            Comanda::ObiectUrmator if self.ecran == Ecran::Editor => self.pas_tab(1),
+            Comanda::ObiectAnterior if self.ecran == Ecran::Editor => self.pas_tab(-1),
             Comanda::ObiectUrmator => {
                 self.treci(1);
                 self.diferenta = 0;
@@ -814,6 +905,15 @@ impl Aplicatie {
             return false;
         }
         self.istoric.push((r, inainte));
+        // textul final editat pe obiectul din previzualizare il fixeaza: un
+        // clic in lista nu are voie sa-l inlocuiasca (regula din etapa 16)
+        if self.taburi.activ() == Activ::Previzualizare
+            && self.taburi.previzualizare() == Some(&(baza.clone(), id.clone()))
+        {
+            let editate = self.chei_editate();
+            let r = self.taburi.fixeaza_previzualizarea(|k| editate.contains(k));
+            self.rezultat_fixare(r);
+        }
         // dupa o schimbare, diferenta curenta nu poate trece de ultima
         let n = self.numar_diferente();
         self.diferenta = self.diferenta.min(n.saturating_sub(1));
@@ -983,6 +1083,79 @@ impl Aplicatie {
         // revizuit scoate omis (se exclud)
         self.lista.pune_revizuirea(p, !era, false);
         true
+    }
+
+    /// Taburile editorului.
+    pub fn taburi(&self) -> &Taburi {
+        &self.taburi
+    }
+
+    /// Ce trebuie spus dupa ultima comanda pe taburi.
+    pub fn mesaj_tab(&self) -> Option<MesajTab> {
+        self.mesaj_tab
+    }
+
+    /// Taburile de dinainte (recomparare, sau din sesiune). Cele ale
+    /// obiectelor care nu mai difera se inchid.
+    pub fn cu_taburi(mut self, mut t: Taburi) -> Self {
+        let exista: std::collections::BTreeSet<Cheie> =
+            self.lista.obiecte().iter().map(|o| o.cheie()).collect();
+        t.pastreaza(|c| exista.contains(c));
+        self.taburi = t;
+        self
+    }
+
+    /// Fixatele cu text final editat: pe ele nu le inchide al noualea tab.
+    fn chei_editate(&self) -> Vec<Cheie> {
+        self.taburi
+            .fixate()
+            .into_iter()
+            .filter(|(b, id)| {
+                self.rand(b, id)
+                    .is_some_and(|r| self.editari.text_final(r).is_some())
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn rezultat_fixare(&mut self, r: Result<Option<Cheie>, Refuz>) {
+        match r {
+            Ok(_) => self.dupa_schimbarea_tabului(),
+            Err(Refuz::ToateEditate) => self.mesaj_tab = Some(MesajTab::ToateEditate),
+        }
+    }
+
+    /// Obiectul din tabul activ devine selectia listei; fara niciun tab,
+    /// editorul n-are ce arata, deci se intoarce in lista.
+    fn dupa_schimbarea_tabului(&mut self) {
+        let Some(c) = self.taburi.cheie_activa().cloned() else {
+            self.ecran = Ecran::Lista;
+            return;
+        };
+        if self.cheia_curenta().as_ref() != Some(&c) {
+            self.lista.selecteaza_cheie(&c);
+            self.diferenta = 0;
+            self.ghidat = None;
+            self.istoric.clear();
+        }
+    }
+
+    /// `j` / `k` in editor: urmatorul obiect nefixat care se poate deschide,
+    /// in ordinea listei; la capat se ramane pe loc, cu mesaj.
+    fn pas_tab(&mut self, pas: i32) {
+        let chei: Vec<Cheie> = self
+            .lista
+            .chei_vizibile()
+            .into_iter()
+            .filter(|(b, id)| self.texte(b, id).is_some())
+            .collect();
+        match self.taburi.urmatorul(&chei, pas) {
+            Pas::Obiect(c) => {
+                self.taburi.deschide(c);
+                self.dupa_schimbarea_tabului();
+            }
+            Pas::Capat => self.mesaj_tab = Some(MesajTab::Capat),
+        }
     }
 
     /// Ultimul „In plan" a fost refuzat: obiectul n-are cod de deploiat.
@@ -1752,21 +1925,24 @@ mod teste {
     /// sters", unde „Aplica toate" salva un text final gol.
     #[test]
     fn anularea_e_a_obiectului_deschis_iar_criptatele_nu_intra_in_editor() {
-        let (mut a, sursa, baza) = aplicatie_editare();
+        // doua obiecte (pA, pB): testul cere chiar trecerea pe ALT obiect; cu
+        // unul singur, `j` ramane pe loc (etapa 16) si nu dovedea nimic
+        let mut a = aplicatie();
+        a.comanda(Comanda::Deschide);
         let id = a.id_obiect().expect("un obiect deschis");
         assert!(a.comanda(Comanda::SalveazaText {
             id,
-            text: format!("{baza}\n-- scris de mine")
+            text: "CREATE PROC dbo.pA AS\nSELECT 1\n-- scris de mine".into()
         }));
         assert!(a.se_poate_anula());
         // alt obiect: ce s-a facut pe cel dinainte nu se mai anuleaza de aici
         a.comanda(Comanda::ObiectUrmator);
+        assert_eq!(a.obiect().unwrap().nume, "pB");
         assert!(
             !a.se_poate_anula(),
             "istoricul e al obiectului deschis, nu global"
         );
         assert!(!a.comanda(Comanda::Anuleaza), "si nu face nimic pe ascuns");
-        assert_ne!(sursa, baza);
 
         // un obiect criptat nu are model de editor
         let mut criptate = aplicatie_criptat();
@@ -1840,5 +2016,83 @@ mod teste {
         assert!(x.lista().in_plan().is_empty());
         x.comanda(Comanda::MutaSelectia(0));
         assert!(!x.refuzat_in_plan(), "si dispare la urmatoarea comanda");
+    }
+
+    /// Etapa 16: taburile in aplicatie. Obiectul din tabul activ e si
+    /// selectia listei; editarea fixeaza; `j` sare peste fixate.
+    #[test]
+    fn taburile_urmeaza_regulile_in_aplicatie() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Deschide);
+        assert_eq!(
+            a.taburi().previzualizare().map(|c| c.1.as_str()),
+            Some("dbo.pA")
+        );
+        // dublu clic: pA fixat; j incarca pB in previzualizare
+        a.comanda(Comanda::FixeazaSelectia);
+        a.comanda(Comanda::ObiectUrmator);
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        assert_eq!(a.taburi().fixate().len(), 1);
+        // clic pe tabul fixat: selectia listei il urmeaza
+        a.comanda(Comanda::ActiveazaTab(Some(0)));
+        assert_eq!(a.obiect().unwrap().nume, "pA");
+        // j de pe pA: pB nu e fixat, deci el; inca un j: capat (pDoarSursa
+        // nu se poate deschide), mesaj si ramane pe loc
+        a.comanda(Comanda::ObiectUrmator);
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        a.comanda(Comanda::ObiectUrmator);
+        assert_eq!(a.mesaj_tab(), Some(MesajTab::Capat));
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        // editarea textului final in previzualizare il fixeaza
+        let id = a.id_obiect().unwrap();
+        a.comanda(Comanda::SalveazaText {
+            id,
+            text: "CREATE PROC dbo.pB AS\nSELECT 2".into(),
+        });
+        assert_eq!(a.taburi().fixate().len(), 2);
+        assert_eq!(a.taburi().previzualizare(), None);
+        // Ctrl+W pe pB: activ devine pA (vecinul din stanga)
+        a.comanda(Comanda::InchideTabActiv);
+        assert_eq!(a.obiect().unwrap().nume, "pA");
+        // ultimul tab inchis: inapoi in lista
+        a.comanda(Comanda::InchideTabActiv);
+        assert_eq!(a.ecran(), Ecran::Lista);
+    }
+
+    #[test]
+    fn tabul_activat_cu_filtru_care_il_ascunde_se_arata_oricum() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Deschide);
+        a.comanda(Comanda::FixeazaSelectia);
+        a.comanda(Comanda::Cauta("pB".into()));
+        a.comanda(Comanda::Selecteaza(0));
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        a.comanda(Comanda::ActiveazaTab(Some(0)));
+        assert_eq!(
+            a.obiect().unwrap().nume,
+            "pA",
+            "filtrul s-a golit ca sa-l arate"
+        );
+    }
+
+    #[test]
+    fn taburile_trec_prin_sesiune_si_prin_recomparare() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Deschide);
+        a.comanda(Comanda::FixeazaSelectia);
+        let mut s = gmotion_platforma::Sesiune::noua("SRV", "SQL", "Ref", "acum");
+        taburi_in_sesiune(a.taburi(), &mut s);
+        let t = taburi_din_sesiune(&s);
+        assert_eq!(t.de_salvat(), a.taburi().de_salvat());
+        // recomparare in care pA nu mai difera: tabul lui se inchide
+        let sursa = modul::pregateste(&[obiect_db("pB", "CREATE PROC dbo.pB AS\nSELECT 2")]);
+        let tinta = modul::pregateste(&[obiect_db("pB", "CREATE PROC dbo.pB AS\nSELECT 9")]);
+        let tinte = vec![("Client1".to_string(), tinta)];
+        let c = modul::compara("Ref", &sursa, &tinte, |_| {});
+        let b = Aplicatie::noua(c.randuri, sursa, tinte, Revizuire::noua()).cu_taburi(t);
+        assert!(b.taburi().fixate().is_empty());
+        // fara taburi in sesiune: niciunul, fara eroare
+        taburi_in_sesiune(&Taburi::noi(), &mut s);
+        assert!(!s.date.contains_key("taburi"));
     }
 }

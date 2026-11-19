@@ -1189,6 +1189,23 @@ Paritatea cu v3.4 are o asteptare noua (`hint_lock_cosmetic`).
 
 ---
 
+## 2026-11-19 — `serde_json` in `app`, pentru taburile din sesiune
+
+**Context.** Etapa 16: taburile fixate supravietuiesc inchiderii, deci intra
+in `Sesiune::date` (un `BTreeMap<String, serde_json::Value>`).
+
+**Decizie.** `app` primeste `serde_json = "1"`. Nu e o dependinta noua in
+proiect: `platforma`, `cli` si `diff-obiecte` o folosesc deja, deci nimic nou
+in `Cargo.lock`. Alternativa — o functie de serializare in `platforma` —
+ar fi mutat acolo o forma care e a aplicatiei, nu a platformei.
+
+**Obiectul activ e mereu selectia listei.** Taburile nu aduc un al doilea
+„obiect curent": activarea unui tab selecteaza obiectul in lista (golind
+filtrul daca il ascunde), deci toate comenzile care lucreaza pe selectie
+(revizuit, omite, in plan, aplica) raman valabile neschimbate.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
