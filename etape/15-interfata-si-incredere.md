@@ -46,7 +46,7 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 
 **E. Denumiri si limba**
 - [x] „Sursa" / „Baza" devin **„Martor" / „Modificata"** in fereastra
-- [ ] aceeasi redenumire in `cli` si in documente
+- [x] aceeasi redenumire in `cli` si in documente
 - [x] toate textele din interfata trec printr-un singur loc, nu stau
       imprastiate prin `.slint`
 - [x] comutator de limba in interfata: romana si engleza, tinut minte intre
@@ -254,6 +254,16 @@ de la Mihai" din `STARE.md`.
   - Amanatele nu sunt o lista de bune intentii: fiecare are motivul ei in
     tabel, si cele care cer SQL Server, Windows sau o decizie de produs sunt
     marcate ca atare. Tabelul de verdicte e singura lista de urmarit.
+
+- **2026-11-19** E: „Martor" / „Modificata" si in `cli` (ajutorul, rezumatul
+  compararii, progresul, erorile), in mesajele modulului pe care le arata
+  `cli` si fereastra (garda planului, GM-MOD-002, progresul compararii) si in
+  `README.md`. Raman neschimbate, fiindca sunt cod (CLAUDE.md §6): optiunile
+  `--referinta` / `--baze`, cheile JSON, formatul planului si antetul
+  `-- DEPLOYER ... | referinta:` din scripturi. Documentele pentru dezvoltator
+  (`CRATE.md`, `ARHITECTURA.md`, `HARTA.md`) vorbesc despre cod, deci raman
+  si ele pe `referinta` / `tinta`. Probat pe binar: textul, `--help`, eroarea
+  cu cod de iesire 1, JSON-ul cu aceleasi chei.
 
 ## Ce a iesit altfel decat planul
 

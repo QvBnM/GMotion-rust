@@ -6,7 +6,7 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-19 · commit `4271601` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Actualizat:** 2026-11-19 · commit `c88e8b6` · branch `claude/upbeat-ramanujan-dm6j8c`
 **Poarta:** verde (488 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
@@ -90,9 +90,9 @@ vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
 3. ~~**H3** cadere si ecrane~~ — gata (2026-11-19).
 4. ~~**H4** inghetari~~ — gata (2026-11-19).
 5. ~~**H5** restul auditului~~ — gata (2026-11-19).
-6. **15 E** ce a ramas: „Martor" / „Modificata" si in `cli` si in documente;
-   textele facute in Rust in afara ferestrei (`core::nume_tip`,
-   `core::clasificare`, rezumatele de deploy, erorile) si in engleza.
+6. **15 E** ce a ramas: textele facute in Rust in afara ferestrei
+   (`core::nume_tip`, `core::clasificare`, rezumatele de deploy, erorile) si
+   in engleza. („Martor" / „Modificata" in `cli` si `README.md`: gata.)
 7. **15 B** marginea dintre lista si editor trasa cu mouse-ul.
 8. **15 C** incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
    comutatorul Alaturat / Unificat, liniile lungi.

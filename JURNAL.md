@@ -1118,6 +1118,20 @@ clippy porneste lint-uri pe care le tinea inchise (`is_none_or`).
 
 ---
 
+## 2026-11-19 — „Martor" / „Modificata" in `cli`: doar textele, nu interfata
+
+**Context.** Etapa 15 E cerea redenumirea si in `cli`; `CLAUDE.md` §6 spune ca
+in cod `referinta` si `tinta` raman, „asa e si in `cli` si in plan".
+
+**Decizie (Mihai, „fa daca este relevant").** Se schimba doar ce citeste
+omul: ajutorul, rezumatul, progresul, erorile. Optiunile (`--referinta`,
+`--baze`), cheile JSON, formatul planului si antetul scripturilor raman: sunt
+interfata pe care o folosesc scripturile si planurile deja salvate, iar o
+redenumire le-ar rupe fara castig. `--sursa` ramane: inseamna fisierul de
+unde se citeste, nu una dintre parti.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
