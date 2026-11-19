@@ -388,6 +388,13 @@ export component FereastraLista inherits Window {
     in-out property <string> nota-baza;
     in-out property <string> nota-id;
     in property <[RandUi]> previzualizare;
+    // wrap (etapa 19), ca in editor: Rust rupe liniile la `coloane-wrap`
+    in-out property <bool> impacheteaza: false;
+    out property <int> coloane-wrap: Math.floor((previz.visible-width / 2 - 60px) / 7.52px);
+    callback comuta-wrap(bool);
+    changed coloane-wrap => {
+        if (root.impacheteaza) { root.comuta-wrap(true); }
+    }
     in property <image> tigla-hasura;
 
     callback recompara();
@@ -794,6 +801,10 @@ export component FereastraLista inherits Window {
                                 HorizontalLayout {
                                     spacing: 8px;
                                     Buton {
+                                        text: root.impacheteaza ? Texte.impacheteaza-bifat : Texte.impacheteaza;
+                                        apasat => { root.impacheteaza = !root.impacheteaza; root.comuta-wrap(root.impacheteaza); }
+                                    }
+                                    Buton {
                                         text: root.obiect-revizuit ? Texte.revizuit-bifat : Texte.revizuit;
                                         apasat => { root.comuta-revizuit(root.selectat); }
                                     }
@@ -889,7 +900,7 @@ export component FereastraLista inherits Window {
                                             nr: r.st-nr;
                                             bucati: r.st;
                                             stare: r.stare;
-                                            fara-linie: r.st-nr == "";
+                                            fara-linie: r.continuare ? r.st-lipsa : r.st-nr == "";
                                             margine: true;
                                             tigla: root.tigla-hasura;
                                         }
@@ -899,7 +910,7 @@ export component FereastraLista inherits Window {
                                             nr: r.dr-nr;
                                             bucati: r.dr;
                                             stare: r.stare;
-                                            fara-linie: r.dr-nr == "";
+                                            fara-linie: r.continuare ? r.dr-lipsa : r.dr-nr == "";
                                             tigla: root.tigla-hasura;
                                         }
                                     }

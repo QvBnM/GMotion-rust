@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 58cfc331f669f04d -->
+<!-- api-hash: 43b466a09ae3b0a4 -->
 
 ## Rol
 
@@ -39,6 +39,7 @@ si editorul de diferente (etapa 8).
 | `texte::{Limba, Texte, RO, EN, texte}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `model_lista::Lista::{selecteaza_cheie, chei_vizibile}` | selectia dupa cheie (tabul activat; goleste filtrul daca il ascunde) si ordinea curenta pentru `j` / `k` |
+| `RandUi::{continuare, st_lipsa, dr_lipsa}`; in `.slint`, `impacheteaza` si `coloane-wrap` (editor, lista) | wrap: linia lunga continua pe randuri fara numar, rupta la cuvant; partea mai scurta primeste randuri goale, deci stanga si dreapta raman aliniate |
 | `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_arbore(ui, arbore, lista)`, `NodUi` | arborele listei ca Object Explorer: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari |
 | `model_lista::Lista::preia_vederea` | filtrul, ordinea si selectia altei liste (recomparare) |
 | `dublu_clic::DubluClic` | dublul clic numarat in Rust din doua clicuri simple pe aceeasi tinta (500 ms); `double-clicked` din Slint nu ajungea pe Windows |
@@ -107,6 +108,7 @@ si editorul de diferente (etapa 8).
 | Numere de linie gresite | `linii_start_blocuri` in `core`, capcana despre blocuri unite |
 | O bucata schimbata nemarcata | `schimbat_pe_caractere` si `diff_intra` din `core` |
 | Fereastra nu se deseneaza pe un server fara GPU | backend-ul: `winit` + `software` |
+| Wrap-ul rupe prea devreme / prea tarziu | `CARACTER_MONO` din `lib.rs` si `coloane-wrap` din `.slint` (aceeasi latime de caracter) |
 | Dublu clicul nu face nimic (deschide, tab nou, autofit) | `src/dublu_clic.rs` si handlerul din `app/src/main.rs`; in `.slint` nu se foloseste `double-clicked` |
 
 ## Testare

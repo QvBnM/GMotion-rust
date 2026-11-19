@@ -2,7 +2,7 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--font-mono NUME] [--tema intunecat|luminos]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos]
 use std::rc::Rc;
 
 use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
@@ -143,6 +143,30 @@ fn main() {
     }
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
+    // `--wrap`: liniile rupte la latimea panoului; latimea se stie abia dupa
+    // primul cadru, deci editorul se reincarca, ca in aplicatie
+    if are("--wrap") {
+        ui.set_impacheteaza(true);
+        scrie_png(&fereastra, w, h, &a[5]);
+        incarca_editor(
+            &ui,
+            &AntetEditor {
+                id: &format!("{}/{schema}.{nume}", a[3]),
+                schema,
+                nume,
+                tip: gmotion_core::nume_tip(&tip),
+                sursa_baza: &a[2],
+                sursa_server: &server,
+                tinta_baza: &a[3],
+                tinta_server: &server,
+                stare_obiecte: "obiectul 4 din 18 nerevizuite",
+                revizuit: false,
+                in_plan: false,
+            },
+            &model,
+        );
+        fereastra.request_redraw();
+    }
     scrie_png(&fereastra, w, h, &a[5]);
     println!(
         "{} randuri in model, {} diferente -> {}",

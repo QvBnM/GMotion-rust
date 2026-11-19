@@ -26,16 +26,16 @@ previzualizare exista un buton de wrap.
 
 ## Criterii de terminare
 
-- [ ] arborele: baza › dosar pe tip › obiect; clic pe dosar il deschide /
+- [x] arborele: baza › dosar pe tip › obiect; clic pe dosar il deschide /
       inchide; numarul din dosar = obiectele vizibile din el; filtrele si
       cautarea de sus se aplica arborelui (test pe model)
-- [ ] clic pe obiect il arata in dreapta; dublu clic sau Enter deschide
+- [x] clic pe obiect il arata in dreapta; dublu clic sau Enter deschide
       editorul (test cu mouse-ul adevarat, ca la lista de acum)
-- [ ] dreapta: martor | modificata alaturi, cu numere de linie, ca in
+- [x] dreapta: martor | modificata alaturi, cu numere de linie, ca in
       editor; capul cu Revizuit / In plan / Omite / Deschide
-- [ ] harta, tabelul si butonul „Open" plutitor scoase, cu tot codul lor
+- [x] harta, tabelul si butonul „Open" plutitor scoase, cu tot codul lor
       mort (Rust si `.slint`)
-- [ ] butonul Wrap: in editor si in previzualizare; liniile lungi se rup,
+- [x] butonul Wrap: in editor si in previzualizare; liniile lungi se rup,
       iar randurile din stanga si din dreapta raman aliniate
 - [ ] nicio redesenare peste 100 ms la un filtru sau la un clic, pe 4.000
       de obiecte (masurat, nu presupus)
@@ -59,6 +59,15 @@ previzualizare exista un buton de wrap.
 
 - **2026-11-19** Deschisa dupa prima proba pe bazele reale. Etapa 18 e
   absorbita aici: ecranul de dupa comparare se reface oricum.
+- **2026-11-19** Arborele si panourile facute; harta, tabelul, Open-ul
+  plutitor si panoul comutat la clic scoase. `j` / `k` merg in ordinea
+  arborelui (`MutaInArbore`), nu a listei: altfel sareau intre dosare.
+  `width: parent.width / 2` pe copiii unui `HorizontalLayout` a dat
+  „Recursion detected" la rulare; impartirea se face cu `stretch`.
+- **2026-11-19** Wrap („Rupe liniile", tasta `w` in editor): Rust rupe
+  linia in randuri de continuare, deci alinierea si navigarea pe diferente
+  raman cele de dinainte. Latimea panoului se afla abia dupa primul cadru;
+  `changed coloane-wrap` redeseneaza.
 
 ## Ce a iesit altfel decat planul
 

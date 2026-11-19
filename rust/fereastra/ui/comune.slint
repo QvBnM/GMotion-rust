@@ -91,6 +91,8 @@ export global Texte {
     in-out property <string> parola;
     in-out property <string> plaseaza-aici;
     in-out property <string> pliaza-identicul;
+    in-out property <string> impacheteaza;
+    in-out property <string> impacheteaza-bifat;
     in-out property <string> pliaza-identicul-bifat;
     in-out property <string> pregatit;
     in-out property <string> progresul-salvat;
@@ -610,6 +612,11 @@ export struct RandUi {
     // in modul unificat: cealalta versiune a liniei, aratata la hover
     pereche: [BucataUi],
     pereche-nr: string,
+    // wrap (etapa 19): randul continua linia de deasupra, fara numar; o
+    // parte care nu avea linia deloc ramane hasurata si pe continuare
+    continuare: bool,
+    st-lipsa: bool,
+    dr-lipsa: bool,
 }
 
 export struct MarcajUi {

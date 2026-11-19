@@ -1852,6 +1852,17 @@ fn ruleaza() -> Result<(), String> {
             actiune("editor", "comuta_alaturat", "", false);
             d()
         });
+        // wrap (etapa 19): se redeseneaza cu liniile rupte la latimea panoului
+        let d = deseneaza.clone();
+        editor_ui.on_comuta_wrap(move |pornit| {
+            actiune("editor", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
+            d()
+        });
+        let d = deseneaza.clone();
+        lista_ui.on_comuta_wrap(move |pornit| {
+            actiune("lista", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
+            d()
+        });
         let a = alege_tema.clone();
         let d = deseneaza.clone();
         let al = alege_limba.clone();

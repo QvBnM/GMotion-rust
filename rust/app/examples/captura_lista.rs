@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-app --example captura_lista -- \
-//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960]
+//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--wrap]
 //!
 //! `BAZE` poate fi o lista separata prin virgula: asa se fotografiaza si
 //! coloana „Baza".
@@ -108,6 +108,10 @@ fn main() {
         .and_then(|n| gmotion_fereastra::texte::Limba::din_nume(n))
         .unwrap_or_default();
     gmotion_fereastra::aplica_limba(&ui, limba);
+    // fereastra are marime inainte de incarcare: latimea de wrap vine din ea
+    ui.show().expect("fereastra nu se arata");
+    fereastra.set_size(slint::PhysicalSize::new(w, h));
+    ui.set_impacheteaza(a.iter().any(|x| x == "--wrap"));
     incarca_lista(
         &ui,
         &AntetLista {
@@ -123,9 +127,16 @@ fn main() {
     if let Some((sursa, tinta, setari)) = app.texte_obiect() {
         incarca_previzualizare(&ui, sursa, tinta, &setari);
     }
-    ui.show().expect("fereastra nu se arata");
-    fereastra.set_size(slint::PhysicalSize::new(w, h));
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];
+    fereastra.draw_if_needed(|rd| {
+        rd.render(&mut buf, w as usize);
+    });
+    // dupa primul cadru panoul are latimea adevarata: ca in aplicatie
+    // (`changed coloane-wrap`), previzualizarea se reface la ea
+    if let Some((sursa, tinta, setari)) = app.texte_obiect() {
+        incarca_previzualizare(&ui, sursa, tinta, &setari);
+    }
+    fereastra.request_redraw();
     fereastra.draw_if_needed(|rd| {
         rd.render(&mut buf, w as usize);
     });

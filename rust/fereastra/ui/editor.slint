@@ -186,6 +186,14 @@ export component EditorDiferente inherits Window {
     in property <string> obiect-id;
     in-out property <bool> alaturat: true;
     in-out property <bool> pliaza-identicul: true;
+    // wrap (etapa 19): liniile lungi continua pe randul urmator; Rust le
+    // rupe la `coloane-wrap` caractere, calculat aici din latimea panoului
+    in-out property <bool> impacheteaza: false;
+    out property <int> coloane-wrap: Math.floor((root.panou - 60px - (root.alaturat ? 0px : 44px)) / 7.52px);
+    callback comuta-wrap(bool);
+    changed coloane-wrap => {
+        if (root.impacheteaza) { root.comuta-wrap(true); }
+    }
     in property <string> stare-obiecte;      // „obiectul 4 din 212 nerevizuite"
     // editarea (vezi `incarca_editarea`)
     in property <bool> omis: false;
@@ -355,6 +363,7 @@ export component EditorDiferente inherits Window {
             if (e.text == "g") { if (root.ghidat) { root.ghidat-opreste(); } else { root.ghidat-porneste(); } return accept; }
             if (e.text == "e") { root.porneste-editarea(); return accept; }
             if (e.text == "u") { root.alaturat = !root.alaturat; root.comuta-alaturat(root.alaturat); return accept; }
+            if (e.text == "w") { root.impacheteaza = !root.impacheteaza; root.derulare-x = 0px; root.comuta-wrap(root.impacheteaza); return accept; }
             // liniile lungi: Shift + sageti deruleaza codul pe orizontala,
             // Shift+Home il aduce inapoi la inceput (V10)
             if (e.modifiers.shift && e.text == Key.RightArrow) { root.deruleaza(120px); return accept; }
@@ -551,6 +560,14 @@ export component EditorDiferente inherits Window {
                             }
                         }
                     }
+                    // wrap: liniile lungi continua dedesubt, fara derulare
+                    VerticalLayout {
+                        alignment: center;
+                        ButonCap {
+                            text: root.impacheteaza ? Texte.impacheteaza-bifat : Texte.impacheteaza;
+                            apasat => { root.impacheteaza = !root.impacheteaza; root.derulare-x = 0px; root.comuta-wrap(root.impacheteaza); }
+                        }
+                    }
                     // tot ce statea in barele de jos, cu tastele pastrate
                     VerticalLayout {
                         alignment: center;
@@ -691,7 +708,7 @@ export component EditorDiferente inherits Window {
                                             bucati: r.st;
                                             stare: root.ascunde-diferentele ? 0 : r.stare;
                                             curenta: r.diferenta == root.diferenta-curenta;
-                                            fara-linie: r.st-nr == "";
+                                            fara-linie: r.continuare ? r.st-lipsa : r.st-nr == "";
                                             fond: Tema.panou-sursa;
                                             decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
@@ -770,7 +787,7 @@ export component EditorDiferente inherits Window {
                                             stare: root.ascunde-diferentele ? 0 : r.stare;
                                             marcaj: root.ascunde-diferentele ? 0 : r.dr-marcaj;
                                             curenta: r.diferenta == root.diferenta-curenta;
-                                            fara-linie: r.dr-nr == "";
+                                            fara-linie: r.continuare ? r.dr-lipsa : r.dr-nr == "";
                                             decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
                                         }
@@ -802,7 +819,7 @@ export component EditorDiferente inherits Window {
                                         nr: r.st-nr;
                                         nr-baza: r.dr-nr;
                                         doua-numere: true;
-                                        bucati: r.st-nr != "" ? r.st : r.dr;
+                                        bucati: r.st-nr != "" || (r.continuare && !r.st-lipsa) ? r.st : r.dr;
                                         stare: root.ascunde-diferentele ? 0 : r.stare;
                                         marcaj: root.ascunde-diferentele || r.st-nr != "" ? 0 : r.dr-marcaj;
                                         curenta: r.diferenta == root.diferenta-curenta;

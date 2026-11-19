@@ -308,6 +308,83 @@ fn bucati_ui(b: &[Bucata]) -> ModelRc<BucataUi> {
     ))
 }
 
+/// Latimea estimata a unui caracter mono de 12,5 px, in pixeli logici (Slint
+/// nu masoara un text fara sa-l deseneze). Aceeasi in `.slint`, la
+/// `coloane-wrap`.
+const CARACTER_MONO: f32 = 7.52;
+
+/// Cate coloane ocupa un caracter pe ecran: tabul se socoteste 4.
+fn coloane_caracter(c: char) -> usize {
+    if c == '\t' {
+        4
+    } else {
+        1
+    }
+}
+
+/// Bucatile unei linii, rupte in randuri de cel mult `coloane` (wrap, etapa
+/// 19). Se rupe dupa ultimul spatiu din a doua jumatate a randului, ca un
+/// cuvant sa nu se taie; fara spatiu acolo, la margine. O bucata taiata isi
+/// pastreaza culoarea si marcajul. Intoarce mereu cel putin un rand (gol,
+/// pentru linia goala). Fara `coloane`, linia ramane intreaga.
+fn rupe_linia(bucati: &[Bucata], coloane: Option<usize>) -> Vec<Vec<Bucata>> {
+    let Some(max) = coloane.filter(|&c| c >= 8) else {
+        return vec![bucati.to_vec()];
+    };
+    // fiecare caracter, cu bucata lui
+    let car: Vec<(char, usize)> = bucati
+        .iter()
+        .enumerate()
+        .flat_map(|(k, b)| b.text.chars().map(move |c| (c, k)))
+        .collect();
+    // unde incepe fiecare rand afisat
+    let mut inceputuri = vec![0usize];
+    let (mut start, mut ocupat) = (0usize, 0usize);
+    let mut i = 0usize;
+    while i < car.len() {
+        let w = coloane_caracter(car[i].0);
+        if ocupat + w > max && i > start {
+            // ultimul spatiu din a doua jumatate a randului
+            let rupe = (start + 1..i)
+                .rev()
+                .take_while(|&k| k > start + max / 2)
+                .find(|&k| car[k - 1].0 == ' ')
+                .unwrap_or(i);
+            inceputuri.push(rupe);
+            start = rupe;
+            ocupat = car[start..i]
+                .iter()
+                .map(|&(c, _)| coloane_caracter(c))
+                .sum();
+            continue;
+        }
+        ocupat += w;
+        i += 1;
+    }
+    inceputuri.push(car.len());
+    inceputuri
+        .windows(2)
+        .map(|g| {
+            let mut rand: Vec<Bucata> = Vec::new();
+            for &(c, k) in &car[g[0]..g[1]] {
+                match rand.last_mut() {
+                    // bucatile vecine cu acelasi aspect se lipesc
+                    Some(b)
+                        if b.sintaxa == bucati[k].sintaxa && b.schimbat == bucati[k].schimbat =>
+                    {
+                        b.text.push(c)
+                    }
+                    _ => rand.push(Bucata {
+                        text: c.to_string(),
+                        ..bucati[k].clone()
+                    }),
+                }
+            }
+            rand
+        })
+        .collect()
+}
+
 /// Codul de stare pentru `.slint`: 0 egal, 1 modificat, **2 doar in sursa**,
 /// **3 doar in baza**.
 ///
@@ -333,7 +410,36 @@ fn randuri_ui(
     pliat: bool,
     unificat: bool,
     limba: texte::Limba,
+    wrap: Option<usize>,
 ) -> (Vec<RandUi>, Vec<i32>) {
+    // un rand al modelului devine unul sau mai multe randuri afisate: cu
+    // wrap, linia lunga continua pe randuri fara numar, iar partea mai
+    // scurta primeste randuri goale, ca stanga si dreapta sa ramana aliniate
+    let pune = |randuri: &mut Vec<RandUi>, sablon: RandUi, st: &[Bucata], dr: &[Bucata]| {
+        let st_r = rupe_linia(st, wrap);
+        let dr_r = rupe_linia(dr, wrap);
+        let n = st_r.len().max(dr_r.len());
+        let st_lipsa = sablon.st_nr.is_empty();
+        let dr_lipsa = sablon.dr_nr.is_empty();
+        for j in 0..n {
+            let parte =
+                |v: &Vec<Vec<Bucata>>| v.get(j).map_or_else(|| bucati_ui(&[]), |b| bucati_ui(b));
+            let mut r = RandUi {
+                st: parte(&st_r),
+                dr: parte(&dr_r),
+                ..sablon.clone()
+            };
+            if j > 0 {
+                r.st_nr = SharedString::new();
+                r.dr_nr = SharedString::new();
+                r.inceput = false;
+                r.continuare = true;
+                r.st_lipsa = st_lipsa;
+                r.dr_lipsa = dr_lipsa;
+            }
+            randuri.push(r);
+        }
+    };
     let afisate = if pliat {
         model_editor::plieaza(model, 3, limba)
     } else {
@@ -362,6 +468,9 @@ fn randuri_ui(
                 linii_bloc: 0,
                 pereche: gol(),
                 pereche_nr: SharedString::new(),
+                continuare: false,
+                st_lipsa: false,
+                dr_lipsa: false,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -393,9 +502,17 @@ fn randuri_ui(
                     linii_bloc: 0,
                     pereche: gol(),
                     pereche_nr: SharedString::new(),
+                    continuare: false,
+                    st_lipsa: false,
+                    dr_lipsa: false,
                 };
                 if !unificat || rand.stare != Stare::Modificat {
-                    randuri.push(baza);
+                    pune(
+                        &mut randuri,
+                        baza,
+                        &rand.stanga.bucati,
+                        &rand.dreapta.bucati,
+                    );
                     continue;
                 }
                 // unificat: blocul modificat se vede de doua ori, intai cum e
@@ -403,22 +520,22 @@ fn randuri_ui(
                 // cealalta versiune ramane pe rand, in `pereche`: la hover
                 // se vede fara sa comuti pe alaturat (v3.4 facea la fel)
                 if rand.stanga.nr.is_some() {
-                    randuri.push(RandUi {
+                    let sablon = RandUi {
                         dr_nr: SharedString::new(),
-                        dr: gol(),
                         pereche: bucati_ui(&rand.dreapta.bucati),
                         pereche_nr: nr(rand.dreapta.nr),
                         ..baza.clone()
-                    });
+                    };
+                    pune(&mut randuri, sablon, &rand.stanga.bucati, &[]);
                 }
                 if rand.dreapta.nr.is_some() {
-                    randuri.push(RandUi {
+                    let sablon = RandUi {
                         st_nr: SharedString::new(),
-                        st: gol(),
                         pereche: bucati_ui(&rand.stanga.bucati),
                         pereche_nr: nr(rand.stanga.nr),
                         ..baza
-                    });
+                    };
+                    pune(&mut randuri, sablon, &[], &rand.dreapta.bucati);
                 }
             }
         }
@@ -643,6 +760,8 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
         ui.get_pliaza_identicul(),
         !ui.get_alaturat(),
         limba_curenta(ui),
+        ui.get_impacheteaza()
+            .then(|| usize::try_from(ui.get_coloane_wrap()).unwrap_or(0)),
     );
     let total = randuri.len().max(1) as f32;
     let mut marcaje: Vec<MarcajUi> = Vec::new();
@@ -698,7 +817,12 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_total_diferente(model.diferente.len() as i32);
     ui.set_start_diferente(ModelRc::new(VecModel::from(start)));
     ui.set_diferenta_curenta(0);
-    ui.set_latime_continut(latime_continut(model));
+    // cu wrap nu mai e nimic de derulat pe orizontala
+    ui.set_latime_continut(if ui.get_impacheteaza() {
+        0.0
+    } else {
+        latime_continut(model)
+    });
     ui.set_derulare_x(0.0);
 }
 
@@ -711,7 +835,7 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
 /// Slint nu da latimea unui text fara sa-l deseneze, iar o supraestimare mica
 /// inseamna doar cateva pixeli de derulat in gol.
 fn latime_continut(model: &ModelEditor) -> f32 {
-    const CARACTER: f32 = 7.52;
+    const CARACTER: f32 = CARACTER_MONO;
     let cele_mai_lungi = model
         .randuri
         .iter()
@@ -1062,27 +1186,32 @@ pub fn incarca_previzualizare(
     // Lista se redeseneaza la fiecare comanda (filtru, clic, revizuit), iar
     // diff-ul unui obiect mare costa peste o secunda (proba pe Windows,
     // 2026-11-19: 1,2 s la un filtru). Se recalculeaza doar cand obiectul
-    // sau limba s-au schimbat.
-    /// Textele, setarile si limba din care s-a calculat ultima previzualizare.
-    type Calculata = (String, String, Vec<String>, texte::Limba);
+    // sau limba s-au schimbat, ori latimea de wrap.
+    /// Textele, setarile, limba si wrap-ul din care s-a calculat ultima
+    /// previzualizare.
+    type Calculata = (String, String, Vec<String>, texte::Limba, Option<usize>);
     thread_local! {
         static ULTIMA: std::cell::RefCell<Option<Calculata>> =
             const { std::cell::RefCell::new(None) };
     }
     let limba = limba_curenta(ui);
+    let wrap = ui
+        .get_impacheteaza()
+        .then(|| usize::try_from(ui.get_coloane_wrap()).unwrap_or(0));
     let acelasi = ULTIMA.with_borrow(|u| {
-        u.as_ref().is_some_and(|(a, b, s, l)| {
+        u.as_ref().is_some_and(|(a, b, s, l, w)| {
             a == text_sursa
                 && b == text_baza
                 && s.iter().map(String::as_str).eq(setari.iter().copied())
                 && *l == limba
+                && *w == wrap
         })
     });
     if acelasi && slint::Model::row_count(&ui.get_previzualizare()) > 0 {
         return;
     }
     let model = model_editor::construieste(text_sursa, text_baza);
-    let (randuri, _) = randuri_ui(&model, true, false, limba);
+    let (randuri, _) = randuri_ui(&model, true, false, limba, wrap);
     ui.set_previzualizare(ModelRc::new(VecModel::from(randuri)));
     ui.set_ce_difera(gmotion_core::clasificare::propozitie(text_sursa, text_baza, setari).into());
     ULTIMA.with_borrow_mut(|u| {
@@ -1091,6 +1220,7 @@ pub fn incarca_previzualizare(
             text_baza.to_string(),
             setari.iter().map(|x| x.to_string()).collect(),
             limba,
+            wrap,
         ))
     });
 }
@@ -2877,6 +3007,75 @@ mod teste {
             &scurt,
         );
         assert_eq!(ui2.get_derulare_maxima(), 0.0);
+    }
+
+    /// Etapa 19: linia se rupe dupa un spatiu, iar o bucata care trece de
+    /// margine se taie cu culoarea ei;
+    /// tabul ocupa 4 coloane; fara wrap linia ramane intreaga.
+    #[test]
+    fn linia_se_rupe_la_margine_cu_bucatile_ei() {
+        let b = |t: &str, schimbat: bool| Bucata {
+            text: t.into(),
+            sintaxa: Sintaxa::Text,
+            schimbat,
+        };
+        let linie = [
+            b("SELECT ", false),
+            b("coloana_lunga", true),
+            b(" FROM t", false),
+        ];
+        let r = rupe_linia(&linie, Some(10));
+        let texte: Vec<String> = r
+            .iter()
+            .map(|x| {
+                x.iter()
+                    .map(|b| b.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join("|")
+            })
+            .collect();
+        // rupe dupa spatiu; cuvantul mai lung decat randul se taie la margine
+        assert_eq!(texte, ["SELECT ", "coloana_lu", "nga| FROM t"]);
+        assert!(r[1][0].schimbat, "bucata taiata isi pastreaza marcajul");
+        assert_eq!(rupe_linia(&linie, None).len(), 1);
+        assert_eq!(rupe_linia(&[], Some(10)).len(), 1, "linia goala e un rand");
+        let tab = [b("\t\t\tx", false)];
+        assert_eq!(
+            rupe_linia(&tab, Some(10)).len(),
+            2,
+            "trei taburi = 12 coloane"
+        );
+    }
+
+    /// Cu wrap, linia lunga continua pe randuri fara numar, iar partea mai
+    /// scurta primeste randuri goale: stanga si dreapta raman aliniate, iar
+    /// blocul diferentei le numara si pe ele.
+    #[test]
+    fn wrapul_pastreaza_partile_aliniate() {
+        let a = format!("CREATE PROC dbo.p AS\nSELECT {} FROM t", "a, ".repeat(30));
+        let b = format!("CREATE PROC dbo.p AS\nSELECT {} FROM u", "a, ".repeat(30));
+        let model = model_editor::construieste(&a, &b);
+        let (fara, _) = randuri_ui(&model, false, false, texte::Limba::Romana, None);
+        let (cu, start) = randuri_ui(&model, false, false, texte::Limba::Romana, Some(20));
+        assert!(cu.len() > fara.len(), "linia lunga s-a rupt");
+        let continuari: Vec<&RandUi> = cu.iter().filter(|r| r.continuare).collect();
+        assert!(!continuari.is_empty());
+        assert!(continuari
+            .iter()
+            .all(|r| r.st_nr.is_empty() && r.dr_nr.is_empty() && !r.inceput));
+        assert!(continuari.iter().all(|r| !r.st_lipsa && !r.dr_lipsa));
+        // diferenta incepe pe primul ei rand si isi numara continuarile
+        let s = start[0] as usize;
+        assert!(cu[s].inceput && !cu[s].continuare);
+        let din_bloc = cu.iter().filter(|r| r.diferenta == 0).count() as i32;
+        assert_eq!(cu[s].linii_bloc, din_bloc);
+        // o parte fara linie ramane hasurata si pe continuari
+        let model = model_editor::construieste(
+            "SELECT 1",
+            &format!("SELECT 1\nPRINT '{}'", "x".repeat(60)),
+        );
+        let (cu, _) = randuri_ui(&model, false, false, texte::Limba::Romana, Some(20));
+        assert!(cu.iter().any(|r| r.continuare && r.st_lipsa && !r.dr_lipsa));
     }
 
     /// Dublu clicul pe un rand din lista: modelul trebuie sa ramana acelasi
