@@ -334,10 +334,26 @@ export component EditorDiferente inherits Window {
                         Text { text: root.tip-obiect + ", " + root.rezumat; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; horizontal-stretch: 1; }
                         Text { text: root.stare-obiecte; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; }
                     }
+                    // titlul: cel mult doua randuri; un nume lung se scrie mai
+                    // mic si se rupe oriunde (numele SQL n-au spatii), ca sa
+                    // se vada intreg, nu taiat cu „..." (15 C)
                     HorizontalLayout {
                         alignment: start;
-                        Text { text: root.obiect-schema + "."; font-family: Tema.font-ui; font-size: 40px; font-weight: 300; color: Tema.text-tert; letter-spacing: -1.6px; }
-                        Text { text: root.obiect-nume; font-family: Tema.font-ui; font-size: 40px; font-weight: 600; color: Tema.text; letter-spacing: -1.6px; overflow: elide; horizontal-stretch: 1; }
+                        property <length> marime: root.obiect-nume.character-count > 80 ? 20px : root.obiect-nume.character-count > 34 ? 26px : 40px;
+                        Text { text: root.obiect-schema + "."; font-family: Tema.font-ui; font-size: parent.marime; font-weight: 300; color: Tema.text-tert; letter-spacing: -1px; vertical-alignment: top; }
+                        Text {
+                            text: root.obiect-nume;
+                            font-family: Tema.font-ui;
+                            font-size: parent.marime;
+                            font-weight: 600;
+                            color: Tema.text;
+                            letter-spacing: -1px;
+                            // fara `elide`: impreuna cu ruperea pe randuri, Slint taia
+                            // dupa primul rand si lasa golul; marimea pe trepte tine
+                            // numele in doua randuri
+                            wrap: char-wrap;
+                            horizontal-stretch: 1;
+                        }
                     }
                     // legenda culorilor, o data pentru ambele panouri
                     HorizontalLayout {
@@ -906,16 +922,32 @@ export component EditorDiferente inherits Window {
                         apasat => { if (root.ghidat) { root.ghidat-opreste(); } else { root.ghidat-porneste(); } }
                     }
                     Despartitor { }
-                    ButonInsula {
-                        text: Texte.alaturat;
-                        fel: root.alaturat ? 2 : 0;
-                        apasat => { root.alaturat = true; root.comuta-alaturat(true); }
-                    }
-                    ButonInsula {
-                        text: Texte.unificat;
-                        tasta: "u";
-                        fel: root.alaturat ? 0 : 2;
-                        apasat => { root.alaturat = false; root.comuta-alaturat(false); }
+                    // Alaturat / Unificat: un comutator in doua, cu partea aleasa
+                    // pe fundal de accent, ca sa se vada dintr-o privire (15 C)
+                    Rectangle {
+                        height: 36px;
+                        width: comutator.preferred-width + 8px;
+                        border-radius: 10px;
+                        border-width: 1px;
+                        border-color: Tema.linie;
+                        background: Tema.fundal;
+                        comutator := HorizontalLayout {
+                            padding: 3px;
+                            spacing: 2px;
+                            ButonInsula {
+                                height: 28px;
+                                text: Texte.alaturat;
+                                fel: root.alaturat ? 1 : 0;
+                                apasat => { root.alaturat = true; root.comuta-alaturat(true); }
+                            }
+                            ButonInsula {
+                                height: 28px;
+                                text: Texte.unificat;
+                                tasta: "u";
+                                fel: root.alaturat ? 0 : 1;
+                                apasat => { root.alaturat = false; root.comuta-alaturat(false); }
+                            }
+                        }
                     }
                     Despartitor { }
                     ButonInsula {

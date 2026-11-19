@@ -35,9 +35,12 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 
 **C. Incadrare si lizibilitate**
 - [ ] la 1366x768 si 1920x1080 nu iese nimic din ecran si nu se taie butoane
-- [ ] titlul obiectului: cel mult doua linii, strans
-- [ ] comutatorul Alaturat / Unificat mai mare si mai vizibil
-- [ ] liniile lungi se pot citi (derulare pe orizontala sau incadrare)
+      — lista, editorul si deploy-ul: da (capturi 2026-11-19); **conectarea**
+      nu: la 1366x768 banda de jurnal iese jos. Se face cu design-ul nou al
+      conectarii, care vine imediat dupa etapa
+- [x] titlul obiectului: cel mult doua linii, strans
+- [x] comutatorul Alaturat / Unificat mai mare si mai vizibil
+- [x] liniile lungi se pot citi (derulare pe orizontala sau incadrare) — V10, la H3
 
 **D. Harta**
 - [ ] patratele desenate curat, fara pixelare, la rezolutia ecranului
@@ -279,6 +282,14 @@ de la Mihai" din `STARE.md`.
   minim, editorul pastreaza 640 px); latimea trasa se tine minte, iar Esc /
   sageata o readuc la ea, nu la 300 px. Testul trage cu mouse-ul adevarat
   (evenimente de pointer), nu cheama proprietatea.
+
+- **2026-11-19** C: titlul se rupe pe doua randuri, cu marimea pe trepte
+  dupa lungimea numelui (40 / 26 / 20 px). `elide` impreuna cu ruperea pe
+  randuri nu merge in Slint: taia dupa primul rand si lasa golul — vazut pe
+  captura, de aceea marimea pe trepte. Comutatorul Alaturat / Unificat e acum
+  un comutator in doua, cu partea aleasa pe accent; la 1024 px insulele tot
+  trec pe doua randuri. Pe drum: in cardul Martor, campul bazei scria
+  „Modificata" (ramas de la redenumire); are acum textul lui, „Baza".
 
 ## Ce a iesit altfel decat planul
 

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: ec4cba4a2d1d7a2a -->
+<!-- api-hash: f0e399cb07c56e14 -->
 
 ## Rol
 

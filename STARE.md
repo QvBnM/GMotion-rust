@@ -93,7 +93,8 @@ vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
 6. ~~**15 E**~~ — gata (2026-11-19); erorile si jurnalul raman in romana,
    deliberat (`JURNAL.md`).
 7. ~~**15 B**~~ — gata (2026-11-19).
-8. **15 C** incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
+8. ~~**15 C**~~ — gata (2026-11-19), in afara conectarii la 1366x768
+   (merge cu design-ul nou). Era: incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
    comutatorul Alaturat / Unificat, liniile lungi.
 9. **15 D** harta: desen curat, 4.000 de obiecte, timpii masurati.
 10. **15 F** cautarea de servere vizibila; marcajul „aceeasi instanta".
