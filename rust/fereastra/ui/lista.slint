@@ -662,7 +662,7 @@ export component FereastraLista inherits Window {
         if (root.randuri.length == 0) { return; }
         root.selectat = Math.max(0, Math.min(root.randuri.length - 1, root.selectat + pas));
         root.alege-randul(root.selectat);
-        tabel.viewport-y = -Math.max(0, root.selectat - 6) * 34px;
+        tabel.content-y = -Math.max(0, root.selectat - 6) * 34px;
     }
 
     taste := FocusScope {

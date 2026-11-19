@@ -47,6 +47,26 @@ else
   sare "clippy" "cargo nu e instalat"
 fi
 
+# Avertismentele compilatorului Slint (`.slint`) nu le vede clippy: apar
+# doar cand build.rs al ferestrei ruleaza din nou, ca `warning: gmotion-
+# fereastra@...`. Un fisier `.slint` atins il face sa ruleze; orice
+# avertisment pica poarta (o proprietate depreciata a ajuns asa la Mihai,
+# 2026-11-19, iar o bucla de layout „poate cadea la rulare").
+avertismente_slint() {
+  touch rust/fereastra/ui/fereastra.slint
+  local ies
+  ies="$(cargo build --manifest-path rust/Cargo.toml -p gmotion-fereastra 2>&1)" || { printf '%s\n' "$ies"; return 1; }
+  if printf '%s\n' "$ies" | grep -q "^warning: gmotion-fereastra@"; then
+    printf '%s\n' "$ies" | grep "^warning: gmotion-fereastra@" | head -20
+    return 1
+  fi
+}
+if command -v cargo >/dev/null; then
+  ruleaza "fara avertismente Slint" avertismente_slint
+else
+  sare "avertismente Slint" "cargo nu e instalat"
+fi
+
 # ---------------------------------------------------------------- 3. teste
 titlu "teste"
 if command -v cargo >/dev/null; then
