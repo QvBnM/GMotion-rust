@@ -113,8 +113,8 @@ pub type Detalii = std::collections::BTreeMap<usize, gmotion_modul_diff_obiecte:
 pub fn comparare_text(c: &Comparare, detalii: &Detalii) -> String {
     let n = c.numaratoare;
     let mut out = format!(
-        "Referinta: {}\nBaze comparate: {}\n\n\
-         {} obiecte in referinta: {} identice, {} diferite, {} lipsa, {} doar in tinta\n",
+        "Martor: {}\nBaze modificate: {}\n\n\
+         {} obiecte in martor: {} identice, {} diferite, {} lipsa, {} doar in modificate\n",
         c.referinta,
         if c.baze.is_empty() {
             "(niciuna)".to_string()
@@ -134,7 +134,7 @@ pub fn comparare_text(c: &Comparare, detalii: &Detalii) -> String {
         ));
     }
     if c.randuri.is_empty() {
-        out.push_str("\nNimic de raportat: bazele sunt identice cu referinta.\n");
+        out.push_str("\nNimic de raportat: bazele sunt identice cu martorul.\n");
         return out;
     }
     let randuri: Vec<Vec<String>> = c
@@ -337,8 +337,8 @@ mod teste {
     #[test]
     fn textul_arata_numaratoarea_si_toate_randurile() {
         let t = comparare_text(&comparare_exemplu(), &Detalii::new());
-        assert!(t.contains("Referinta: Ref"));
-        assert!(t.contains("5 obiecte in referinta: 3 identice, 1 diferite, 1 lipsa"));
+        assert!(t.contains("Martor: Ref"));
+        assert!(t.contains("5 obiecte in martor: 3 identice, 1 diferite, 1 lipsa"));
         assert!(t.contains("dbo.pLung"));
         assert!(t.contains("87.50"));
         assert!(t.contains("dbo.v"));

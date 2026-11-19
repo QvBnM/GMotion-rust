@@ -1,8 +1,8 @@
 # GMotion v4 — rescriere in Rust
 
 Unealta pentru compararea obiectelor SQL Server (proceduri, view-uri, functii,
-triggere) intre mai multe baze de date fata de o baza de referinta, si pentru
-generarea scripturilor de deploy.
+triggere) din mai multe baze de date modificate fata de o baza martor, si
+pentru generarea scripturilor de deploy.
 
 Versiunea in productie e GMotion v3.4, in Python. Codul ei e **inghetat** in
 `mostenire/`, ca referinta de paritate; vezi `mostenire/MOSTENIRE.md`.

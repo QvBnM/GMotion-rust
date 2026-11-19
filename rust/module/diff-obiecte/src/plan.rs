@@ -105,7 +105,7 @@ impl fmt::Display for Schimbare {
             Parte::Tinta => write!(f, "{}: {} {fel} de la comparare", self.baza, self.obiect),
             Parte::Referinta => write!(
                 f,
-                "{} {fel} in referinta de la comparare (deploy pe {})",
+                "{} {fel} in martor de la comparare (deploy pe {})",
                 self.obiect, self.baza
             ),
         }
@@ -265,7 +265,7 @@ impl Plan {
         let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
         for p in &self.pasi {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
-                schimbari: format!("{} a disparut din referinta", p.obiect),
+                schimbari: format!("{} a disparut din martor", p.obiect),
             })?;
             pe_baza.entry(p.baza.clone()).or_default().push(DeDeployat {
                 obiect: p.obiect.clone(),

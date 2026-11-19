@@ -758,7 +758,7 @@ fn planul_altei_referinte_e_refuzat() {
         d.join("out").to_str().unwrap(),
     ]);
     assert!(!o.status.success());
-    assert!(err(&o).contains("referinta"), "{}", err(&o));
+    assert!(err(&o).contains("martorul"), "{}", err(&o));
 }
 
 /// „Aplica", „Omite" si deploy-ul cu textul final, fara fereastra

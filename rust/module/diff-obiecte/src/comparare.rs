@@ -195,7 +195,7 @@ pub fn compara(
 
     progres(Progres {
         mesaj: format!(
-            "Referinta '{referinta}': {} obiecte. Incep compararea...",
+            "Martor '{referinta}': {} obiecte. Incep compararea...",
             ref_obiecte.len()
         ),
         procent: 5,
@@ -327,7 +327,7 @@ pub fn compara(
 
     progres(Progres {
         mesaj: format!(
-            "Gata. {} obiecte in referinta: {} identice, {} diferite, {} lipsa, {} extra.",
+            "Gata. {} obiecte in martor: {} identice, {} diferite, {} lipsa, {} extra.",
             n.total_referinta, n.identice, n.diferite, n.lipsa, n.extra
         ),
         procent: 100,

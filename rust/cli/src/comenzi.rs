@@ -220,7 +220,7 @@ fn ruleaza_comparare(
     let disponibile = s.baze().map_err(|e| e.to_string())?;
     if !disponibile.iter().any(|b| b == referinta) {
         return Err(format!(
-            "baza de referinta {referinta:?} nu exista in sursa. Disponibile: {}",
+            "baza martor {referinta:?} nu exista in sursa data. Disponibile: {}",
             disponibile.join(", ")
         ));
     }
@@ -254,7 +254,7 @@ fn ruleaza_comparare(
                 return;
             }
             if i == 0 {
-                format.progres(&format!("Citesc referinta {baza}..."));
+                format.progres(&format!("Citesc martorul {baza}..."));
             } else {
                 format.progres(&format!("[{i}/{n_altele}] citesc {baza}..."));
             }
@@ -263,7 +263,7 @@ fn ruleaza_comparare(
         .into_iter();
     let ref_obiecte = match citite.next() {
         Some((_, obiecte)) => modul::pregateste(&obiecte),
-        None => return Err("referinta nu a putut fi citita".into()),
+        None => return Err("martorul nu a putut fi citit".into()),
     };
     let altele: Vec<(String, modul::Baza)> = citite
         .map(|(baza, obiecte)| (baza, modul::pregateste(&obiecte)))
@@ -388,7 +388,7 @@ pub fn revizuire(
         format.progres(if sters {
             "Progresul salvat a fost sters."
         } else {
-            "Nu exista progres salvat pentru referinta asta."
+            "Nu exista progres salvat pentru martorul asta."
         });
         return Ok(());
     }
@@ -801,7 +801,7 @@ pub fn editare(
         if editat {
             "text final salvat"
         } else {
-            "needitat (textul bazei)"
+            "needitat (textul bazei modificate)"
         },
         if manual { ", scris si de mana" } else { "" }
     );
@@ -819,7 +819,7 @@ pub fn editare(
                 .collect::<String>()
         };
         println!(
-            "  {:>3}. {:<9} sursa: {}\n       {:<9} baza:  {}",
+            "  {:>3}. {:<9} martor:     {}\n       {:<9} modificata: {}",
             i + 1,
             d.tip.eticheta(),
             prima(&d.stanga),
@@ -839,7 +839,7 @@ pub fn export(
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
     if r.comparare.randuri.is_empty() {
-        return Err("nimic de exportat: bazele sunt identice cu referinta".into());
+        return Err("nimic de exportat: bazele sunt identice cu martorul".into());
     }
     let cale =
         iesire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
@@ -995,7 +995,7 @@ pub fn deploy(
                 .map_err(|e| format!("planul {} nu e valid: {e}", c.display()))?;
             if plan.referinta != referinta {
                 return Err(format!(
-                    "planul e facut cu referinta {:?}, nu {referinta:?}",
+                    "planul e facut cu martorul {:?}, nu {referinta:?}",
                     plan.referinta
                 ));
             }
@@ -1009,7 +1009,7 @@ pub fn deploy(
             plan.verifica_sau_opreste(&r.referinta, &r.altele)
                 .map_err(|e| e.to_string())?;
             format.progres(&format!(
-                "Baza n-a mai fost atinsa: cele {} obiecte din plan (facut la {}) sunt exact cum erau.",
+                "Baza modificata n-a mai fost atinsa: cele {} obiecte din plan (facut la {}) sunt exact cum erau.",
                 plan.pasi.len(),
                 plan.facut_la
             ));
@@ -1033,7 +1033,7 @@ pub fn deploy(
         .count();
     if cu_text_final > 0 {
         format.progres(&format!(
-            "{cu_text_final} obiecte se deployeaza cu textul final din editor, nu cu codul din referinta."
+            "{cu_text_final} obiecte se deployeaza cu textul final din editor, nu cu codul din martor."
         ));
     }
     let pe_baza = plan
@@ -1070,7 +1070,7 @@ pub fn deploy(
         raport.director.display(),
         raport.obiecte,
         if sarite > 0 {
-            format!(", {sarite} sarite - exista doar in baza comparata sau sunt criptate")
+            format!(", {sarite} sarite - exista doar in baza modificata sau sunt criptate")
         } else {
             String::new()
         },
@@ -1152,7 +1152,7 @@ pub fn diferente(
                 let lista: Vec<&str> = locuri.iter().take(20).map(String::as_str).collect();
                 let rest = locuri.len().saturating_sub(20);
                 println!(
-                    "Diferente la liniile (referinta/tinta): {}{}",
+                    "Diferente la liniile (martor/modificata): {}{}",
                     lista.join(", "),
                     if rest > 0 {
                         format!(" si inca {rest}")

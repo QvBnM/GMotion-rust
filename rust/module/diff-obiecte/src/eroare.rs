@@ -10,7 +10,7 @@ pub enum Eroare {
     #[error("[GM-MOD-001] nu s-a rulat nicio comparare")]
     NicioComparare,
 
-    #[error("[GM-MOD-002] niciun obiect de deployat. Obiectele marcate exista doar in bazele comparate, deci nu exista cod de adus din referinta")]
+    #[error("[GM-MOD-002] niciun obiect de deployat. Obiectele marcate exista doar in bazele modificate, deci nu exista cod de adus din martor")]
     NimicDeDeployat,
 
     #[error("[GM-MOD-003] nu pot scrie in {cale}: {detaliu}")]

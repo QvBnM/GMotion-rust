@@ -33,9 +33,9 @@ use sursa::ArgumenteSursa;
 #[command(
     name = "gmotion",
     version,
-    about = "Compara obiectele SQL ale mai multor baze fata de o referinta si genereaza scripturi de deploy.",
+    about = "Compara obiectele SQL ale mai multor baze modificate fata de un martor si genereaza scripturi de deploy.",
     long_about = "Compara obiectele SQL (proceduri, view-uri, functii, triggere) ale mai multor \
-                  baze de date fata de o baza de referinta, si genereaza scripturile de deploy.\n\n\
+                  baze de date modificate fata de o baza martor, si genereaza scripturile de deploy.\n\n\
                   Orice comanda care citeste obiecte merge atat de pe un server (--server) cat \
                   si dintr-un instantaneu pe disc (--sursa). Asa se reia un bug de pe o baza \
                   reala pe orice masina:\n\n  \
@@ -99,16 +99,17 @@ enum Comanda {
         nota: String,
     },
 
-    /// Compara bazele cu referinta si arata lista de diferente.
+    /// Compara bazele modificate cu martorul si arata lista de diferente.
     Compara {
         #[command(flatten)]
         sursa: ArgumenteSursa,
 
-        /// Baza de referinta.
+        /// Baza martor: cea fata de care se compara.
         #[arg(long, value_name = "BAZA")]
         referinta: String,
 
-        /// Bazele de comparat. Lipsa lor inseamna toate celelalte.
+        /// Bazele modificate, de comparat cu martorul. Lipsa lor inseamna
+        /// toate celelalte.
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
 
@@ -128,7 +129,8 @@ enum Comanda {
         #[arg(long, value_name = "BAZA")]
         referinta: String,
 
-        /// Bazele de comparat. Lipsa lor inseamna toate celelalte.
+        /// Bazele modificate, de comparat cu martorul. Lipsa lor inseamna
+        /// toate celelalte.
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
 
@@ -144,7 +146,7 @@ enum Comanda {
         #[arg(long, value_name = "schema.obiect,...")]
         scoate: Option<String>,
 
-        /// Sterge tot progresul salvat pentru referinta asta.
+        /// Sterge tot progresul salvat pentru martorul asta.
         #[arg(long)]
         goleste: bool,
 
@@ -158,7 +160,7 @@ enum Comanda {
     },
 
     /// Impactul estimat al deploy-ului fiecarui obiect care difera: cine il
-    /// foloseste in baza comparata, cat de mare e schimbarea, si nivelul.
+    /// foloseste in baza modificata, cat de mare e schimbarea, si nivelul.
     Impact {
         #[command(flatten)]
         sursa: ArgumenteSursa,
@@ -166,7 +168,8 @@ enum Comanda {
         #[arg(long, value_name = "BAZA")]
         referinta: String,
 
-        /// Bazele de comparat. Lipsa lor inseamna toate celelalte.
+        /// Bazele modificate, de comparat cu martorul. Lipsa lor inseamna
+        /// toate celelalte.
         #[arg(long, value_name = "A,B,C")]
         baze: Option<String>,
 
@@ -175,7 +178,7 @@ enum Comanda {
         obiect: Option<String>,
     },
 
-    /// Textul final al unui obiect: aplica diferente din referinta, toate,
+    /// Textul final al unui obiect: aplica diferente din martor, toate,
     /// reset, sau un text scris de mana. Fara actiune, arata diferentele
     /// ramase, numerotate. Se salveaza in sesiune si intra in deploy.
     Editare {
@@ -185,7 +188,7 @@ enum Comanda {
         #[arg(long, value_name = "BAZA")]
         referinta: String,
 
-        /// Baza comparata.
+        /// Baza modificata.
         #[arg(long, value_name = "BAZA")]
         baza: String,
 
@@ -197,11 +200,11 @@ enum Comanda {
         #[arg(long, value_name = "1,3", conflicts_with_all = ["aplica_toate", "reset", "din_fisier"])]
         aplica: Option<String>,
 
-        /// Textul final devine exact cel din referinta.
+        /// Textul final devine exact cel din martor.
         #[arg(long, conflicts_with_all = ["reset", "din_fisier"])]
         aplica_toate: bool,
 
-        /// Inapoi la textul bazei.
+        /// Inapoi la textul bazei modificate.
         #[arg(long, conflicts_with = "din_fisier")]
         reset: bool,
 
@@ -222,7 +225,7 @@ enum Comanda {
         #[arg(long, value_name = "BAZA")]
         referinta: String,
 
-        /// Baza in care se uita.
+        /// Baza modificata in care se uita.
         #[arg(long, value_name = "BAZA")]
         baza: String,
 
@@ -231,7 +234,7 @@ enum Comanda {
         obiect: String,
     },
 
-    /// Genereaza scripturile de deploy cu codul din referinta.
+    /// Genereaza scripturile de deploy cu codul din martor.
     Deploy {
         #[command(flatten)]
         sursa: ArgumenteSursa,
@@ -266,7 +269,7 @@ enum Comanda {
     },
 
     /// Scrie planul de deploy: ce intra, cu amprentele de acum ale fiecarui
-    /// obiect, ca deploy-ul de mai tarziu sa poata verifica ca baza n-a mai
+    /// obiect, ca deploy-ul de mai tarziu sa poata verifica ca baza modificata n-a mai
     /// fost atinsa intre timp.
     Plan {
         #[command(flatten)]
