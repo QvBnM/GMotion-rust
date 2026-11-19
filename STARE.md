@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-18 · commit `d9078c6` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (478 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-19 · commit `dac8b08` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (482 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -71,17 +71,18 @@ pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
 test care cade, abia apoi se repara. Verdictele intra in sectiunea
 „Verdicte" de la finalul auditului.
 
-**H1 (siguranta deploy-ului) si H2 (pierdere de date) sunt gata**, cate un
-commit per constatare, cu poarta verde inainte de fiecare. Toate
-cincisprezece s-au reprodus pe codul de acum — niciuna nu disparuse de la
-sine. Ramase, notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi
-mai jos) si **campul de parola din F-A2** (vezi „Verdicte" din audit).
+**H1, H2 si H3 sunt gata**, cate un commit per constatare (sau per grup
+strans legat), cu poarta verde inainte de fiecare. Din cele 21, trei nu se
+mai reproduceau (C9, V1, V2 — refacerea hartii si a antetului de la etapa 15
+le scosese), si fiecare are acum testul sau captura care o tine asa. Ramase,
+notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi mai jos) si
+**campul de parola din F-A2** (vezi „Verdicte" din audit).
 
 **Tot ce e de facut, in ordine:**
 
 1. ~~**H1** siguranta deploy-ului~~ — gata (2026-11-18).
 2. ~~**H2** pierdere de date~~ — gata (2026-11-18).
-3. **H3** cadere si ecrane: C9, V9, V1, V2, V3, V10.
+3. ~~**H3** cadere si ecrane~~ — gata (2026-11-19).
 4. **H4** inghetari: P4, P1, P2, P3.
 5. **H5** restul auditului: verdict pe fiecare constatare (reparat / nu se
    mai reproduce / amanat cu motiv).
@@ -187,6 +188,18 @@ Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Capturile se fac si la 1366x768 si la 1024x768**, nu doar la 1440x900.
+  Toate erau la 1440 pana la auditul QA, si de aceea butoane iesite din ecran
+  (V1-V3) n-au fost vazute niciodata. Comenzile: `cercetare/capturi/README.md`.
+- **Intr-un `HorizontalLayout` cu `alignment: start` nimic nu se intinde.**
+  `horizontal-stretch` e ignorat acolo; o bucata care trebuie sa ia restul
+  latimii primeste `width` calculat (vezi `Jumatate` din `comune.slint`).
+  Pus gresit, codul din editor dispare cu totul si raman doar numerele.
+- **Cat se poate derula codul pe orizontala se afla din Rust**
+  (`latime_continut`: cea mai lunga linie × latimea unui caracter mono).
+  Slint nu da latimea unui text fara sa-l deseneze. Daca se schimba fontul sau
+  marimea din editor, se schimba si constanta.
 
 - **Un camp din Slint nu mai urmeaza modelul dupa prima tasta.** `text:
   root.text` e o legatura care se rupe la editare. De-aia `Camp` din

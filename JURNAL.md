@@ -1023,6 +1023,36 @@ depinda de formularul de acum.
 
 ---
 
+## 2026-11-19 — Auditul QA, H3: ce s-a decis pe cadere si ecrane
+
+**1. O constatare care nu se mai reproduce primeste tot un test.** Trei din
+sase (C9 — caderea hartii, V1 si V2 — antetul listei) disparusera odata cu
+refacerea hartii si a antetului de la etapa 15. Tentatia e sa le bifezi si sa
+treci mai departe. Dar atunci urmatoarea refacere le poate aduce inapoi fara
+ca cineva sa stie. Deci: `nicio_imagine_a_hartii_nu_trece_de_8192_px` (pe
+50.000 de obiecte de un singur tip) si capturile la 1366x768 si 1024x768 intra
+in setul standard.
+
+**2. Un audit facut pe cod vechi arata simptomul, nu locul.** V9 („bifa unui
+rand bifeaza alt obiect") era descrisa ca o problema de `.slint`. In codul de
+acum `.slint` trimitea de mult indicele corect, iar legatura din `main.rs` il
+ignora. Reparat acolo, cu `Comanda::ComutaRevizuitLa(usize)`. Morala pentru
+restul auditului: reproduci intai, apoi citesti unde cade, nu inainte.
+
+**3. Liniile lungi: derulare, nu impachetare.** Pentru V10 se putea si una si
+alta. Impachetarea ar muta liniile una fata de alta, iar imperecherea
+vizuala stanga-dreapta e tot rostul ecranului. Deci derulare pe orizontala,
+**comuna celor doua panouri**, cu bara trasa cu mouse-ul si Shift + sageti de
+la tastatura. Cat se poate derula vine din Rust (`latime_continut`): Slint nu
+da latimea unui text fara sa-l deseneze.
+
+**4. Insulele de jos trec pe doua randuri, nu intr-un meniu.** Auditul
+propunea un meniu „…" sub o latime. Un buton ascuns intr-un meniu e un buton
+pe care nu-l mai gaseste nimeni; doua randuri costa 58 px din inaltimea
+codului si se vad toate. La 1440 raman pe un rand, ca pana acum.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

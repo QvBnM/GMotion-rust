@@ -91,8 +91,8 @@ de la Mihai" din `STARE.md`.
       cere o proba pe Windows)
 - [x] H2 pierdere de date: C3, C4, F-B4, F-A1, F-A2, F-A3
       (campul de parola din F-A2 ramane partial: vezi „Verdicte")
-- [ ] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
-      intra in setul standard
+- [x] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
+      intra in setul standard (si la 1024x768, unde se vedea V3)
 - [ ] H4 inghetari: P4, P1, P2, P3
 - [ ] H5 restul: fiecare constatare din audit are verdict in sectiunea
       „Verdicte" de la finalul auditului — reparat (commit), nu se mai
@@ -210,6 +210,21 @@ de la Mihai" din `STARE.md`.
     compararea sta in `main.rs`, care n-are teste. Garantia e pusa in tipuri:
     `Stare::parte` intoarce `Option`, deci compilatorul cere tratat cazul la
     fiecare camp. De confirmat pe Windows.
+
+- **2026-11-18** H3 (cadere si ecrane) gata. Trei din sase **nu se mai
+  reproduceau**: C9 (harta), V1 si V2 (antetul listei) — refacerea hartii si
+  a antetului de la etapa 15 le-a scos, fara ca cineva sa stie. Fiecare are
+  acum testul sau captura care o tine asa.
+  - **V9 se reproducea, dar in alta parte decat spunea auditul**: `.slint`
+    trimitea de mult indicele randului apasat; legatura din `main.rs` il
+    ignora. Un audit facut pe cod vechi arata simptomul, nu locul.
+  - **V3 si V10 se reproduceau intocmai.** Pentru V10 (liniile lungi) am ales
+    derulare pe orizontala **comuna celor doua panouri**, nu impachetare:
+    impachetarea ar muta liniile una fata de alta si ar strica imperecherea
+    vizuala, care e tot rostul ecranului.
+  - **Capturile erau toate la 1440x900** — de aceea V1-V3 n-au fost vazute
+    niciodata. Acum fiecare exemplu primeste `--latime` / `--inaltime`, si
+    setul standard are 1366x768 si 1024x768.
 
 ## Ce a iesit altfel decat planul
 
