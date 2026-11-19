@@ -1378,6 +1378,48 @@ mod teste {
         ui
     }
 
+    /// 15 B: marginea dintre coloana listei si editor se trage cu mouse-ul,
+    /// in limite, si latimea trasa se tine minte.
+    #[test]
+    fn marginea_coloanei_de_lista_se_trage_cu_mouse_ul() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        ui.show().expect("fereastra se arata");
+        let trage = |de_la: f32, la: f32| {
+            let (a, b) = (
+                LogicalPosition::new(de_la, 450.0),
+                LogicalPosition::new(la, 450.0),
+            );
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position: a });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position: a,
+                button: PointerEventButton::Left,
+            });
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position: b });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position: b,
+                button: PointerEventButton::Left,
+            });
+        };
+        assert_eq!(ui.get_latime_lista(), 300.0);
+        trage(300.0, 420.0);
+        assert_eq!(ui.get_latime_lista(), 420.0, "marginea a urmat mouse-ul");
+        assert_eq!(ui.get_latime_lista_aleasa(), 420.0, "si se tine minte");
+        trage(420.0, 0.0);
+        assert_eq!(ui.get_latime_lista(), 200.0, "nu se strange sub 200 px");
+        trage(200.0, 1400.0);
+        assert_eq!(
+            ui.get_latime_lista(),
+            1440.0 - 640.0,
+            "editorul pastreaza loc"
+        );
+        let _ = ui.hide();
+    }
+
     /// Apasa o tasta in fereastra, ca un utilizator (apasat si eliberat).
     fn apasa(ui: &EditorDiferente, tasta: &str) {
         use slint::platform::WindowEvent;

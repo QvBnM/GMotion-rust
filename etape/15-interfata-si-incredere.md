@@ -31,7 +31,7 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
       obiectul se schimba cu un clic in coloana, fara sa pleci din editor
 - [x] `Esc` (si sageata din capul coloanei) readuce lista la latime intreaga
 - [x] antetul (obiect N din M, Revizuit, Omite, In plan) ramane acelasi
-- [ ] marginea dintre coloana si editor se trage cu mouse-ul
+- [x] marginea dintre coloana si editor se trage cu mouse-ul
 
 **C. Incadrare si lizibilitate**
 - [ ] la 1366x768 si 1920x1080 nu iese nimic din ecran si nu se taie butoane
@@ -274,6 +274,11 @@ de la Mihai" din `STARE.md`.
   test o tine egala cu varianta facuta direct in engleza. Pe drum, patru
   asteptari din teste erau gramatical gresite („42 baze", „23 ore", „60
   minute"), nu codul. Probat pe captura in engleza a listei si a editorului.
+
+- **2026-11-19** B gata: manerul dintre coloana listei si editor (200 px
+  minim, editorul pastreaza 640 px); latimea trasa se tine minte, iar Esc /
+  sageata o readuc la ea, nu la 300 px. Testul trage cu mouse-ul adevarat
+  (evenimente de pointer), nu cheama proprietatea.
 
 ## Ce a iesit altfel decat planul
 

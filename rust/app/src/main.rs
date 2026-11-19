@@ -1298,10 +1298,11 @@ fn ruleaza() -> Result<(), String> {
         let d = deseneaza.clone();
         editor_ui.on_ascunde_lista(move || {
             if let Some(ui) = e.upgrade() {
+                // la redeschidere, coloana revine la latimea trasa ultima data
                 ui.set_latime_lista(if ui.get_latime_lista() > 0.0 {
                     0.0
                 } else {
-                    300.0
+                    ui.get_latime_lista_aleasa()
                 });
             }
             d();

@@ -219,6 +219,8 @@ export component EditorDiferente inherits Window {
     in property <int> selectat-lista;
     in property <string> rezumat-lista;
     in-out property <length> latime-lista: 300px;
+    // ultima latime trasa cu mouse-ul; la ea revine coloana dupa Esc
+    in-out property <length> latime-lista-aleasa: 300px;
     callback alege-randul(int);
     callback cauta(string);
     callback ascunde-lista();
@@ -797,6 +799,32 @@ export component EditorDiferente inherits Window {
                     spacing: 10px;
                     Text { text: "j k " + Texte.obiect-mic; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; }
                 }
+            }
+        }
+
+        // marginea dintre coloana listei si editor: se trage cu mouse-ul
+        // (15 B). Latimea aleasa se tine minte, ca Esc sa o readuca.
+        if root.latime-lista > 0px: Rectangle {
+            x: root.latime-lista - 5px;
+            y: 0;
+            width: 10px;
+            height: root.height;
+            maner-lista := TouchArea {
+                mouse-cursor: ew-resize;
+                moved => {
+                    if (self.pressed) {
+                        root.latime-lista = Math.max(200px, Math.min(root.width - 640px, root.latime-lista + (self.mouse-x - self.pressed-x)));
+                        root.latime-lista-aleasa = root.latime-lista;
+                    }
+                }
+            }
+            Rectangle {
+                x: (parent.width - 3px) / 2;
+                width: 3px;
+                height: 48px;
+                y: (parent.height - 48px) / 2;
+                border-radius: 1.5px;
+                background: maner-lista.pressed || maner-lista.has-hover ? Tema.accent : transparent;
             }
         }
 

@@ -92,7 +92,7 @@ vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
 5. ~~**H5** restul auditului~~ — gata (2026-11-19).
 6. ~~**15 E**~~ — gata (2026-11-19); erorile si jurnalul raman in romana,
    deliberat (`JURNAL.md`).
-7. **15 B** marginea dintre lista si editor trasa cu mouse-ul.
+7. ~~**15 B**~~ — gata (2026-11-19).
 8. **15 C** incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
    comutatorul Alaturat / Unificat, liniile lungi.
 9. **15 D** harta: desen curat, 4.000 de obiecte, timpii masurati.
