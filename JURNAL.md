@@ -1132,6 +1132,24 @@ unde se citeste, nu una dintre parti.
 
 ---
 
+## 2026-11-19 — Deciziile deschise din audit si din etapa 12, inchise
+
+**Decizie (Mihai, recomandarile acceptate in bloc).**
+- **F-M3, hinturile de blocare:** raman zgomot la comparare, dar un obiect
+  care difera **doar** prin ele nu mai iese „identic": apare in lista ca
+  „difera doar in hinturi", ca o reparatie de concurenta sa nu se piarda.
+- **F-A18, ca in v3.4:** „Aplica toate" marcheaza obiectul revizuit; N din
+  „Cate N obiecte per fisier" se schimba din ecran; „In plan" refuzat (obiect
+  nedeployabil) spune de ce.
+- **F-B5, setarile moarte:** `timeout_conectare_s` si `prag_similaritate` se
+  leaga; `uneste_cursor` se scoate (ciclul de cursor se uneste mereu).
+- **`DROP`:** deploy-ul nu sterge obiecte; `extra` se sar, ca in v3.4.
+- **„Ruleaza":** GMotion doar scrie `.sql`; rularea ramane in SSMS / sqlcmd.
+- **Ordinea:** se incheie etapa 15, apoi design-ul nou al conectarii, apoi
+  etapa 16.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

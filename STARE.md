@@ -98,12 +98,14 @@ vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
    comutatorul Alaturat / Unificat, liniile lungi.
 9. **15 D** harta: desen curat, 4.000 de obiecte, timpii masurati.
 10. **15 F** cautarea de servere vizibila; marcajul „aceeasi instanta".
-11. Incheierea etapei 15: capturi, poarta completa, `STARE.md`, `JURNAL.md`.
-12. **Etapa 16** (`etape/16-lista-si-taburi.md`, NEPORNITA): lista din
+11. Deciziile din audit (F-M3, F-A18, F-B5), cum s-au decis in `JURNAL.md`.
+12. Incheierea etapei 15: capturi, poarta completa, `STARE.md`, `JURNAL.md`.
+13. Design-ul nou al conectarii (macheta de la Mihai).
+14. **Etapa 16** (`etape/16-lista-si-taburi.md`, NEPORNITA): lista din
     stanga cu pin / ascundere / mutare; taburi (previzualizare + maxim 8
     fixate; `j` / `k` sar peste obiectele fixate). Fara note pe blocuri in
     editor (Mihai). Macheta: `cercetare/machete/sina-si-taburi/`.
-13. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
+15. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
     (singurul rand ramas in `cercetare/lipsuri-portare.md`); decizia pe `rfd`.
 
 Criteriile: `etape/15-interfata-si-incredere.md` si `etape/16-lista-si-taburi.md`.
@@ -148,63 +150,16 @@ nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce astept de la Mihai
 
-**Trei decizii din auditul QA** (nu le iau singur, fiindca schimba ce face
-produsul, nu cum arata):
+**Design-ul nou pentru ecranul de conectare** (macheta), dupa incheierea
+etapei 15, inaintea etapei 16.
 
-8. **Hinturile de blocare sunt zgomot?** (F-M3) Azi normalizarea scoate
-   `WITH (NOLOCK)` si rudele lui, deci un obiect caruia i s-a adaugat
-   `WITH (UPDLOCK, HOLDLOCK)` — adica o reparatie de concurenta — iese
-   „identic" si nu se deployeaza niciodata. Varianta: raman zgomot, dar apare
-   „difera doar in hinturi", si obiectul intra in lista.
-9. **Diferentele ramase fata de v3.4** (F-A18): „Aplica toate" nu mai
-   marcheaza obiectul revizuit; N din „Cate N obiecte per fisier" nu se poate
-   schimba din ecran; „In plan" refuzat (obiect nedeployabil) nu da niciun
-   semn. Le lasam asa sau le aducem la v3.4?
-10. **Trei setari din configurare nu fac nimic** (F-B5):
-   `timeout_conectare_s`, `prag_similaritate`, `uneste_cursor`. Le legam, sau
-   le scoatem? (Timeout-ul e fix 30 s acum.)
+**Decizii inca deschise** (nu blocheaza nimic): dialogul nativ de fisiere
+(`rfd`); textul ecranului „Despre" (cerut de licenta Slint); implicitul pentru
+`--certificat`; specificatia modulului `upgrade`; repo-ul public; paritatea
+portii pe `cmd` (acum cere Git Bash sau WSL).
 
-
-**Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
-specificatia modulului `upgrade`; repo-ul public.
-
-**Doua decizii noi, din etapa 14:**
-
-6. **Dialogul nativ de fisiere (`rfd`)?** Acum „Deschide un instantaneu" arata
-   `.json`-urile gasite pe disc si accepta o cale scrisa. Un dialog nativ ar fi
-   o dependinta noua pe care n-o pot proba fara ecran. Daca il vrei, intra cu
-   intrarea lui in `JURNAL.md`.
-7. **Ecranul „Despre"** (cerut de licenta Slint): textul il dai tu — ce scrie
-   acolo despre licenta si versiune.
-
-Intrebarile de design din etapa 8 au primit raspuns (2026-11-17, vezi
-`JURNAL.md`): contrastul se repara intunecand minim doua jetoane; modul
-unificat primeste doua jgheaburi de numere; comentariul singur ramane zgomot
-filtrat, deci randul „difera doar in comentariu" din `Main.dc.html` ramane
-nefolosit.
-
-**Doua intrebari din etapa 12** (ecranul de deploy exista acum; raspunsul
-schimba ce face, nu cum arata):
-
-4. **Deploy-ul sterge obiectele care nu mai sunt in sursa?** Macheta are un
-   pas `DROP`. Acum obiectele `extra` se sar, ca in v3.4.
-5. **„Ruleaza" executa scriptul pe server din aplicatie?** Acum GMotion doar
-   scrie `.sql`; rularea e in SSMS / sqlcmd. Daca da, e o etapa proprie.
-
-**Trei intrebari din etapa 11:**
-
-1. **Selector de fisiere** (pentru „Deschide un instantaneu" si, acum, pentru
-   directorul de deploy)? Ar fi o dependinta noua (`rfd`, dialogul nativ) si
-   nu o pot proba pe Linux fara ecran. Pana atunci, instantaneul se da la
-   pornire (`gmotion-ui --sursa f.json`), iar deploy-ul se scrie in
-   directorul de date.
-2. ~~Mediul (PROD / TEST / DEV) de unde se ia?~~ Inchisa: eticheta a fost
-   scoasa de peste tot (Mihai, 2026-11-18), fiindca nu exista de unde sti.
-3. **Compararea pe server real blocheaza fereastra** pana se termina (12 s pe
-   baza ta, din masuratori). Machetele n-au ecran de progres; v3.4 avea. Il
-   facem, sau e acceptabil asa?
-
-Ramane deschis si: paritatea portii pe `cmd` (acum cere Git Bash sau WSL).
+Deciziile din audit (F-M3, F-A18, F-B5) si din etapa 12 (`DROP`, „Ruleaza")
+au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 
 ## Capcane active
 
