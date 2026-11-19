@@ -18,6 +18,7 @@ pub mod model_deploy;
 pub mod model_editor;
 pub mod model_lista;
 pub mod model_taburi;
+pub mod scara;
 pub mod texte;
 
 slint::include_modules!();
@@ -1401,6 +1402,28 @@ pub fn incarca_jurnal(ui: &FereastraConectare, linii: &[String]) {
     ui.set_jurnal(ModelRc::new(VecModel::from(v)));
 }
 
+/// Leaga scara unica de fereastra de conectare (etapa 17, `scara.rs`): la
+/// fiecare redimensionare se recalculeaza, dupa ce Slint a terminat
+/// evenimentul curent (schimbata in mijlocul lui, ar redimensiona fereastra
+/// din interiorul propriei redimensionari).
+pub fn leaga_scara(ui: &FereastraConectare) {
+    let scara = std::rc::Rc::new(scara::ScaraFereastra::noua());
+    let slaba = ui.as_weak();
+    let aplica = move || {
+        let s = scara.clone();
+        let slaba = slaba.clone();
+        slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+            if let Some(ui) = slaba.upgrade() {
+                s.aplica(ui.window());
+                let logic = ui.window().size().to_logical(ui.window().scale_factor());
+                ui.set_scund(logic.height < 820.0);
+            }
+        });
+    };
+    aplica();
+    ui.on_dimensiune_schimbata(aplica);
+}
+
 pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare) {
     use model_conectare::StareConexiune;
     let fel = |s: &StareConexiune| match s {
@@ -1462,8 +1485,19 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         &t.get_modificata_explicatie(),
     ));
     ui.set_certificat(c.text_certificat_in(limba_curenta(ui)).into());
+    ui.set_aceeasi_conexiune(c.aceeasi_conexiune && c.instantaneu.is_none());
+    ui.set_baza_blocata(
+        c.baza
+            .baze
+            .iter()
+            .find(|b| c.e_baza_martorului(b))
+            .map(String::as_str)
+            .unwrap_or("")
+            .into(),
+    );
     ui.set_nota_instanta(
-        if c.aceeasi_instanta() {
+        // cu „Aceeasi conexiune" e evident: nu se mai spune
+        if c.aceeasi_instanta() && !c.aceeasi_conexiune {
             limba_curenta(ui).alege(
                 "Martorul si modificata sunt pe aceeasi instanta",
                 "The witness and the modified database are on the same instance",
@@ -2774,6 +2808,79 @@ mod teste {
         );
     }
 
+    /// Etapa 17: bifa „Aceeasi conexiune", randurile din cele doua liste de
+    /// baze si Setari, apasate cu mouse-ul, la 1440x900 (scara 1). Baza
+    /// martorului din lista modificatei nu raspunde la clic.
+    #[test]
+    fn conectarea_noua_raspunde_la_clicuri() {
+        use model_conectare::{Conectare, Parte, StareConexiune};
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let ui = fereastra_conectare();
+        let mut c = Conectare::noua();
+        c.sursa = Parte {
+            server: "SRV-DEV".into(),
+            baza: "Dev".into(),
+            baze: vec!["Dev".into(), "Prod".into(), "Test".into()],
+            stare: StareConexiune::Conectat("conectat".into()),
+            auth_windows: true,
+            ..Parte::default()
+        };
+        c.sincronizeaza();
+        c.alege_baza_modificata("Prod");
+        incarca_conectare(&ui, &c);
+        assert!(ui.get_aceeasi_conexiune());
+        assert_eq!(ui.get_baza_blocata(), "Dev");
+        ui.show().expect("fereastra se arata");
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+
+        let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
+        let a = apeluri.clone();
+        ui.on_baza_schimbata(move |sursa, t| a.borrow_mut().push(format!("baza {sursa} {t}")));
+        let a = apeluri.clone();
+        ui.on_aceeasi_conexiune_comutata(move || a.borrow_mut().push("bifa".into()));
+        let a = apeluri.clone();
+        ui.on_schimba_certificatul(move || a.borrow_mut().push("certificat".into()));
+
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // al doilea rand din lista martorului, apoi primul si al treilea din
+        // a modificatei (primul e chiar martorul: nu raspunde)
+        clic(300.0, 323.0);
+        clic(1000.0, 289.0);
+        clic(1000.0, 357.0);
+        clic(1320.0, 105.0);
+        assert_eq!(
+            *apeluri.borrow(),
+            ["baza true Prod", "baza false Test", "bifa"]
+        );
+
+        // Setari din antet, apoi „Schimba" din fereastra lui
+        assert!(!ui.get_arata_setarile());
+        clic(1187.0, 30.0);
+        assert!(ui.get_arata_setarile(), "Setari se deschide din antet");
+        // de la mijloc in jos: un clic in afara ferestrei mici o inchide
+        let apasat = (440..520).step_by(4).any(|y| {
+            clic(945.0, y as f32);
+            apeluri.borrow().last().is_some_and(|x| x == "certificat")
+        });
+        assert!(apasat, "„Schimba” din Setari schimba certificatul");
+    }
+
     /// Progresul compararii si etichetele serverelor gasite ajung pe ecran.
     #[test]
     fn progresul_si_etichetele_serverelor_ajung_in_fereastra() {
@@ -2840,6 +2947,8 @@ mod teste {
         use model_conectare::{Conectare, StareConexiune};
         let ui = fereastra_conectare();
         let mut c = Conectare::noua();
+        // doua conexiuni scrise separat, care se dovedesc aceeasi instanta
+        c.aceeasi_conexiune = false;
         c.sursa.server = "srv-prod.firma.local".into();
         c.baza.server = "SRV-PROD,1433".into();
         incarca_conectare(&ui, &c);
@@ -3014,7 +3123,7 @@ mod teste {
             .step_by(4)
             .map(|y| y as f32)
             .find(|&y| {
-                clic(200.0, y);
+                clic(450.0, y);
                 tasteaza("x");
                 let gasit = scris
                     .borrow()

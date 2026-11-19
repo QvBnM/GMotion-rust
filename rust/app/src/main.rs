@@ -315,6 +315,7 @@ fn ruleaza() -> Result<(), String> {
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
+    gmotion_fereastra::leaga_scara(&conectare_ui);
     let lista_ui = FereastraLista::new().map_err(|e| e.to_string())?;
     let editor_ui = EditorDiferente::new().map_err(|e| e.to_string())?;
     let deploy_ui = FereastraDeploy::new().map_err(|e| e.to_string())?;
@@ -502,6 +503,9 @@ fn ruleaza() -> Result<(), String> {
                 // nicio fereastra vizibila, deci „ascunde tot, apoi arata"
                 // inchide aplicatia pe loc.
                 arata(&c_ui, [l_ui.window(), e_ui.window(), d_ui.window()]);
+                // „Aceeasi conexiune": ce s-a schimbat la martor ajunge si la
+                // modificata, inainte sa se deseneze
+                s.conectare.sincronizeaza();
                 incarca_conectare(&c_ui, &s.conectare);
                 // progresul compararii, cat ruleaza pe alt fir
                 match s.rulare.as_ref() {
@@ -868,12 +872,14 @@ fn ruleaza() -> Result<(), String> {
             );
             {
                 let mut st = s.borrow_mut();
-                let Some(p) = st.parte(sursa) else { return };
+                if st.parte(sursa).is_none() {
+                    return;
+                }
                 if sursa {
-                    p.baza = text.to_string();
+                    st.conectare.sursa.baza = text.to_string();
                 } else {
-                    // partea comparata primeste bife: acelasi clic pune si scoate
-                    p.comuta_baza(&text);
+                    // o singura baza si la modificata (etapa 17)
+                    st.conectare.alege_baza_modificata(&text);
                 }
                 drop(st);
                 d();
@@ -1003,6 +1009,21 @@ fn ruleaza() -> Result<(), String> {
             );
             {
                 a(intunecat);
+                d();
+            }
+        });
+        let s = stare.clone();
+        let d = deseneaza.clone();
+        conectare_ui.on_aceeasi_conexiune_comutata(move || {
+            actiune("conectare", "aceeasi_conexiune_comutata", "", false);
+            {
+                let mut st = s.borrow_mut();
+                if st.rulare.is_some() {
+                    return;
+                }
+                let da = !st.conectare.aceeasi_conexiune;
+                st.conectare.pune_aceeasi_conexiune(da);
+                drop(st);
                 d();
             }
         });

@@ -273,6 +273,11 @@ pub struct Conectare {
     pub limba: Limba,
     /// `timeout_conectare_s` din configurare; `None` = implicitul din `db`.
     pub timeout_conectare_s: Option<u64>,
+    /// Bifa „Aceeasi conexiune" (etapa 17): modificata foloseste serverul,
+    /// autentificarea si bazele martorului, iar pe ecran ramane doar lista ei
+    /// de baze. Copia se face in `sincronizeaza`, nu se citeste de doua ori:
+    /// restul aplicatiei vede tot doua parti complete.
+    pub aceeasi_conexiune: bool,
 }
 
 impl Conectare {
@@ -286,6 +291,9 @@ impl Conectare {
                 auth_windows: true,
                 ..Parte::default()
             },
+            // de cele mai multe ori martorul si modificata sunt pe acelasi
+            // server (in v3.4 era singurul caz): bifa porneste pusa
+            aceeasi_conexiune: true,
             ..Conectare::default()
         }
     }
@@ -328,8 +336,61 @@ impl Conectare {
 
     /// Inverseaza cele doua parti, cu tot cu acreditari si baze citite: altfel
     /// ar trebui tastate din nou, exact cand omul a observat ca a pus invers.
+    /// Cu „Aceeasi conexiune", conexiunea e una singura: se schimba doar
+    /// bazele alese.
     pub fn inverseaza(&mut self) {
         std::mem::swap(&mut self.sursa, &mut self.baza);
+        self.sincronizeaza();
+    }
+
+    /// Pune sau scoate bifa „Aceeasi conexiune". Scoasa, modificata isi
+    /// pastreaza ce a primit de la martor, ca sa nu se tasteze din nou.
+    pub fn pune_aceeasi_conexiune(&mut self, da: bool) {
+        self.aceeasi_conexiune = da;
+        self.sincronizeaza();
+    }
+
+    /// Cu bifa pusa, copiaza conexiunea martorului in modificata: serverul,
+    /// autentificarea, acreditarile, bazele citite si starea. Baza aleasa la
+    /// modificata ramane doar daca exista in lista si nu e chiar a martorului.
+    /// Se cheama inainte de fiecare desenare, deci ce schimba martorul ajunge
+    /// si in modificata. Fara bifa nu face nimic.
+    pub fn sincronizeaza(&mut self) {
+        if !self.aceeasi_conexiune || self.instantaneu.is_some() {
+            return;
+        }
+        let s = &self.sursa;
+        let b = &mut self.baza;
+        b.server.clone_from(&s.server);
+        b.auth_windows = s.auth_windows;
+        b.acreditari.clone_from(&s.acreditari);
+        b.baze.clone_from(&s.baze);
+        b.stare.clone_from(&s.stare);
+        b.servere_gasite.clear();
+        b.alese.clear();
+        let ramane = b.baze.iter().any(|x| x == &b.baza) && !b.baza.eq_ignore_ascii_case(&s.baza);
+        if !ramane {
+            b.baza.clear();
+        }
+    }
+
+    /// Alege baza modificatei: una singura (Mihai, 2026-11-19). Cu „Aceeasi
+    /// conexiune", baza martorului nu se poate alege: ar fi aceeasi baza.
+    pub fn alege_baza_modificata(&mut self, nume: &str) {
+        if self.e_baza_martorului(nume) {
+            return;
+        }
+        self.baza.baza = nume.to_string();
+        self.baza.alese.clear();
+    }
+
+    /// In lista modificatei, randul asta e chiar baza martorului (si deci nu
+    /// se poate alege): doar cu „Aceeasi conexiune", unde listele sunt una.
+    pub fn e_baza_martorului(&self, nume: &str) -> bool {
+        self.aceeasi_conexiune
+            && self.instantaneu.is_none()
+            && !self.sursa.baza.is_empty()
+            && self.sursa.baza.eq_ignore_ascii_case(nume)
     }
 
     /// Ce lipseste ca sa se poata compara. `None` = butonul e apasabil.
@@ -445,6 +506,94 @@ mod teste {
         }
     }
 
+    fn martor_conectat() -> Conectare {
+        let mut c = Conectare::noua();
+        c.sursa = parte_gata("SRV-DEV", "Dev");
+        c.sursa.baze = vec!["Dev".into(), "Prod".into(), "Test".into()];
+        c.sursa.auth_windows = false;
+        c.sursa.acreditari = Acreditari::noi("deploy_ro", "secret");
+        c
+    }
+
+    #[test]
+    fn aceeasi_conexiune_copiaza_martorul_in_modificata() {
+        let mut c = martor_conectat();
+        c.baza = parte_gata("ALT", "Altceva");
+        c.pune_aceeasi_conexiune(true);
+        assert_eq!(c.baza.server, "SRV-DEV");
+        assert!(!c.baza.auth_windows);
+        assert_eq!(c.baza.acreditari.utilizator, "deploy_ro");
+        assert_eq!(c.baza.acreditari.parola(), "secret");
+        assert_eq!(c.baza.baze, c.sursa.baze);
+        assert_eq!(c.baza.stare, c.sursa.stare);
+        // „Altceva" nu e pe serverul martorului: nu ramane aleasa
+        assert_eq!(c.baza.baza, "");
+        c.alege_baza_modificata("Prod");
+        assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
+
+        // martorul se schimba: modificata urmeaza la urmatoarea sincronizare
+        c.sursa.server = "SRV-NOU".into();
+        c.sursa.baze = vec!["Prod".into(), "Altele".into()];
+        c.sincronizeaza();
+        assert_eq!(c.baza.server, "SRV-NOU");
+        assert_eq!(c.baza.baza, "Prod", "Prod exista si acolo: ramane");
+        c.sursa.baze = vec!["Altele".into()];
+        c.sincronizeaza();
+        assert_eq!(c.baza.baza, "", "Prod nu mai exista: se goleste");
+    }
+
+    #[test]
+    fn fara_bifa_modificata_isi_tine_conexiunea() {
+        let mut c = martor_conectat();
+        c.aceeasi_conexiune = false;
+        c.baza = parte_gata("ALT", "Altceva");
+        c.sincronizeaza();
+        assert_eq!(c.baza.server, "ALT");
+        // bifa scoasa dupa ce a fost pusa: ramane ce s-a copiat
+        c.pune_aceeasi_conexiune(true);
+        c.pune_aceeasi_conexiune(false);
+        c.sursa.server = "SRV-NOU".into();
+        c.sincronizeaza();
+        assert_eq!(c.baza.server, "SRV-DEV");
+    }
+
+    #[test]
+    fn la_modificata_se_alege_o_singura_baza() {
+        let mut c = martor_conectat();
+        c.pune_aceeasi_conexiune(true);
+        c.alege_baza_modificata("Prod");
+        c.alege_baza_modificata("Test");
+        assert_eq!(c.baza.baze_alese(), ["Test"]);
+        // baza martorului nu se poate alege cand conexiunea e aceeasi
+        assert!(c.e_baza_martorului("dev"));
+        c.alege_baza_modificata("Dev");
+        assert_eq!(c.baza.baza, "Test");
+        // martorul trece pe baza aleasa la modificata: aceea se goleste
+        c.sursa.baza = "Test".into();
+        c.sincronizeaza();
+        assert_eq!(c.baza.baza, "");
+        // fara bifa, pe alt server, acelasi nume se poate alege
+        c.pune_aceeasi_conexiune(false);
+        c.baza.server = "ALT".into();
+        assert!(!c.e_baza_martorului("Test"));
+        c.alege_baza_modificata("Test");
+        assert_eq!(c.baza.baza, "Test");
+    }
+
+    #[test]
+    fn inversarea_cu_aceeasi_conexiune_schimba_doar_bazele() {
+        let mut c = martor_conectat();
+        c.pune_aceeasi_conexiune(true);
+        c.alege_baza_modificata("Prod");
+        c.inverseaza();
+        assert_eq!(
+            (c.sursa.baza.as_str(), c.baza.baza.as_str()),
+            ("Prod", "Dev")
+        );
+        assert_eq!(c.baza.server, c.sursa.server);
+        assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
+    }
+
     #[test]
     fn parola_nu_apare_in_debug() {
         let a = Acreditari::noi("deploy_ro", "parola-secreta");
@@ -556,6 +705,7 @@ mod teste {
     #[test]
     fn inversarea_muta_tot_inclusiv_acreditarile_si_bazele_citite() {
         let mut c = Conectare::noua();
+        c.aceeasi_conexiune = false;
         c.sursa = parte_gata("SRV-DEV", "Dev");
         c.baza = Parte {
             auth_windows: false,

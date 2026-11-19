@@ -1,7 +1,11 @@
 //! Randeaza ecranul de conectare fara ecran, intr-un PNG, cu datele din
-//! macheta (`cercetare/machete/Conectare.dc.html`), ca sa se poata compara.
+//! macheta (`cercetare/machete/conectare-noua/`), ca sa se poata compara.
 //!
-//!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png [--tema intunecat|luminos]
+//!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png \
+//!       [--tema intunecat|luminos] [--alta] [--latime N --inaltime N] [--sistem 1.5]
+//!
+//! `--latime` / `--inaltime` sunt pixeli de ecran; `--sistem` e marirea din
+//! Windows. Scara se pune ca in aplicatie (`scara.rs`).
 use std::rc::Rc;
 
 use gmotion_fereastra::model_conectare::{
@@ -26,37 +30,58 @@ fn main() {
     let a: Vec<String> = std::env::args().collect();
     let cale = a.get(1).cloned().unwrap_or_else(|| "conectare.png".into());
 
+    // datele din macheta `cercetare/machete/conectare-noua/`; `--alta`
+    // fotografiaza varianta cu modificata pe alt server
+    let alta = a.iter().any(|x| x == "--alta");
+    let baze: Vec<String> = [
+        "CharismaDev",
+        "CharismaProd",
+        "CharismaTest",
+        "Charisma_Copy",
+        "CharismaWMS",
+        "CharismaHR",
+        "CharismaHR_Test",
+        "CharismaFin",
+        "CharismaFin_2024",
+        "CharismaB2B",
+        "CharismaB2B_Dev",
+        "Charisma_Raportare",
+        "master_copie",
+    ]
+    .iter()
+    .map(|b| b.to_string())
+    .collect();
     let mut c = Conectare::noua();
     c.sursa = Parte {
         server: "SRV-DEV\\SQL2019".into(),
+        acreditari: Acreditari::noi("deploy_ro", "nu se vede"),
         baza: "CharismaDev".into(),
-        baze: vec!["CharismaDev".into(), "CharismaDev_Copy".into()],
-        stare: StareConexiune::Conectat("conectat · SQL Server 2019 · 21.204 obiecte".into()),
-        auth_windows: true,
+        baze: baze.clone(),
+        stare: StareConexiune::Conectat("conectat · SQL Server 2019 · 14 baze".into()),
+        auth_windows: false,
         ..Parte::default()
     };
-    c.baza = Parte {
-        server: "srv-prod.firma.local,1433".into(),
-        acreditari: Acreditari::noi("deploy_ro", "nu se vede"),
-        baza: "CharismaProd".into(),
-        baze: vec!["CharismaProd".into()],
-        stare: StareConexiune::Conectat("conectat · SQL Server 2016 SP2 · 21.183 obiecte".into()),
-        auth_windows: false,
-        servere_gasite: vec![
-            ServerGasit {
-                nume: "srv-prod.firma.local,1433".into(),
-                implicita: true,
-                cluster: false,
-            },
-            ServerGasit {
-                nume: "SRV-PROD\\SQL2019".into(),
-                implicita: false,
-                cluster: true,
-            },
-            ServerGasit::nou("SRV-TEST"),
-        ],
-        alese: Vec::new(),
-    };
+    if alta {
+        c.pune_aceeasi_conexiune(false);
+        c.baza = Parte {
+            server: "srv-prod.firma.local,1433".into(),
+            acreditari: Acreditari::noi("deploy_ro", "nu se vede"),
+            baza: "CharismaProd".into(),
+            baze: vec![
+                "CharismaProd".into(),
+                "CharismaProd_Arhiva".into(),
+                "CharismaProd_Test".into(),
+            ],
+            stare: StareConexiune::Conectat("conectat · SQL Server 2016 SP2 · 3 baze".into()),
+            auth_windows: false,
+            ..Parte::default()
+        };
+    } else {
+        c.pune_aceeasi_conexiune(true);
+        c.alege_baza_modificata("CharismaProd");
+    }
+    // sa nu se foloseasca `ServerGasit`: in macheta lista e inchisa
+    let _ = ServerGasit::nou("");
     c.recente = vec![
         Recenta {
             sursa: "CharismaDev".into(),
@@ -71,13 +96,6 @@ fn main() {
             baza: "CharismaTest".into(),
             cand: "luni, 10:12".into(),
             progres: "deploy facut".into(),
-        },
-        Recenta {
-            sursa: "Charisma_Copy".into(),
-            server: "SRV02".into(),
-            baza: "CharismaDev".into(),
-            cand: "12 noiembrie".into(),
-            progres: "96 din 1.204 revizuite".into(),
         },
     ];
 
@@ -106,15 +124,28 @@ fn main() {
     incarca_jurnal(
         &ui,
         &[
-            "[INFO] caut instante in retea timeout_ms=2000".into(),
-            "[INFO] 3 instante gasite".into(),
             "[INFO] deschid conexiunea server=SRV-DEV\\SQL2019 baza=master".into(),
             "[WARN] certificatul serverului nu se verifica".into(),
-            "[INFO] conectat la srv-prod.firma.local,1433: 21.183 obiecte".into(),
+            "[INFO] baze citite sursa=true baze=14".into(),
+            "[INFO] actiune ecran=conectare nume=baza_schimbata".into(),
         ],
     );
     ui.show().expect("fereastra nu se arata");
+    let sistem: f32 = a
+        .iter()
+        .position(|x| x == "--sistem")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+    let k = gmotion_fereastra::scara::scara(w as f32 / sistem, h as f32 / sistem, sistem);
+    let factor = sistem * k;
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {
+            scale_factor: factor,
+        });
     fereastra.set_size(slint::PhysicalSize::new(w, h));
+    ui.set_scund((h as f32 / factor) < 820.0);
+    println!("scara {k:.2}, factor {factor:.2}");
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];
     fereastra.draw_if_needed(|rd| {
         rd.render(&mut buf, w as usize);
