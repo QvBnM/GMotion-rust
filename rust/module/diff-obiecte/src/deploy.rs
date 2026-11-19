@@ -193,19 +193,117 @@ fn cuvinte_de_cod(cod: &str) -> Vec<Cuvant<'_>> {
     rez
 }
 
-/// Transforma primul `CREATE` sau `ALTER <tip>` in `CREATE OR ALTER`.
+/// Numele calificat scris imediat dupa tipul obiectului: `[start, sfarsit)`.
 ///
-/// Un script care face `CREATE` pe un obiect existent esueaza; unul care face
-/// `ALTER` pe un obiect inexistent, la fel. `CREATE OR ALTER` merge in ambele
-/// cazuri, deci acelasi script poate fi rulat si pe o baza careia lipseste
-/// obiectul si pe una care il are intr-o versiune veche.
-///
-/// Se uita **doar la cod**: un `CREATE` dintr-un comentariu (`-- vechi: CREATE
-/// PROCEDURE ...`) sau dintr-un string nu se atinge. Pana la audit, regula
-/// lovea primul `CREATE` din text, deci rescria comentariul si lasa `CREATE`-ul
-/// adevarat, iar scriptul cadea pe orice baza care avea deja obiectul.
-/// `CREATE TABLE` nu intra: `CREATE OR ALTER TABLE` nu exista in T-SQL.
-pub fn aplica_create_or_alter(cod: &str) -> String {
+/// Sare peste comentarii (`CREATE PROCEDURE /* vechi */ dbo.p`) si accepta
+/// partile in paranteze, in ghilimele sau simple. `None` daca nu urmeaza un
+/// nume — atunci codul nu se rescrie, si garda din `verifica_inainte` decide.
+fn span_nume(cod: &str, de_la: usize) -> Option<(usize, usize)> {
+    use gmotion_core::lexer::{segmente, Fel};
+    let e_cuvant = |c: char| c.is_alphanumeric() || matches!(c, '_' | '@' | '#' | '$');
+    let mut start: Option<usize> = None;
+    let mut sfarsit = 0usize;
+    let mut astept_parte = true;
+    for seg in segmente(cod) {
+        if seg.sfarsit <= de_la {
+            continue;
+        }
+        match seg.fel {
+            Fel::ComentariuLinie | Fel::ComentariuBloc => continue,
+            Fel::Sir => break,
+            Fel::IdentificatorParanteze | Fel::IdentificatorGhilimele => {
+                if !astept_parte {
+                    break;
+                }
+                start.get_or_insert(seg.start);
+                sfarsit = seg.sfarsit;
+                astept_parte = false;
+            }
+            Fel::Cod => {
+                let de = seg.start.max(de_la);
+                let bucata = &cod[de..seg.sfarsit];
+                let mut i = 0usize;
+                while let Some(c) = bucata[i..].chars().next() {
+                    if c.is_whitespace() {
+                        i += c.len_utf8();
+                    } else if c == '.' {
+                        if astept_parte {
+                            return None;
+                        }
+                        astept_parte = true;
+                        i += 1;
+                    } else if e_cuvant(c) {
+                        if !astept_parte {
+                            return start.map(|s| (s, sfarsit));
+                        }
+                        let j = bucata[i..]
+                            .char_indices()
+                            .find(|(_, c)| !e_cuvant(*c))
+                            .map_or(bucata.len(), |(k, _)| i + k);
+                        start.get_or_insert(de + i);
+                        sfarsit = de + j;
+                        astept_parte = false;
+                        i = j;
+                    } else {
+                        return start.map(|s| (s, sfarsit));
+                    }
+                }
+            }
+        }
+    }
+    if astept_parte {
+        return None;
+    }
+    start.map(|s| (s, sfarsit))
+}
+
+/// Partile unui nume calificat, cu litere mici si fara paranteze.
+fn parti_nume(text: &str) -> Vec<String> {
+    use gmotion_core::lexer::{segmente, Fel};
+    let mut parti = vec![String::new()];
+    for seg in segmente(text) {
+        let bucata = &text[seg.start..seg.sfarsit];
+        match seg.fel {
+            Fel::IdentificatorParanteze => parti
+                .last_mut()
+                .expect("mereu cel putin o parte")
+                .push_str(&bucata[1..bucata.len() - 1].replace("]]", "]")),
+            Fel::IdentificatorGhilimele => parti
+                .last_mut()
+                .expect("mereu cel putin o parte")
+                .push_str(&bucata[1..bucata.len() - 1].replace("\"\"", "\"")),
+            _ => {
+                for c in bucata.chars() {
+                    if c == '.' {
+                        parti.push(String::new());
+                    } else if !c.is_whitespace() {
+                        parti.last_mut().expect("mereu cel putin o parte").push(c);
+                    }
+                }
+            }
+        }
+    }
+    parti.iter().map(|p| p.to_lowercase()).collect()
+}
+
+/// Numele pe care il creeaza efectiv codul, daca se poate citi: ultimele doua
+/// parti ale numelui de dupa `CREATE OR ALTER <tip>`, ca `schema.nume`. O
+/// singura parte iese fara schema — adica obiectul ar ajunge in schema
+/// implicita a celui care ruleaza scriptul, nu neaparat cea din plan.
+fn numele_creat(cod: &str) -> Option<String> {
+    let (_, tip_sfarsit) = capul(cod)?;
+    let (s, f) = span_nume(cod, tip_sfarsit)?;
+    let parti = parti_nume(&cod[s..f]);
+    match parti.as_slice() {
+        [] => None,
+        [nume] => Some(nume.clone()),
+        [.., schema, nume] => Some(format!("{schema}.{nume}")),
+    }
+}
+
+/// `CREATE`/`ALTER <tip>` de rescris: tipul cu majuscule si unde se termina
+/// cuvantul tipului. `None` daca nu exista niciunul in cod.
+fn capul(cod: &str) -> Option<(Cap, usize)> {
     const TIPURI: [(&str, &str); 5] = [
         ("procedure", "PROCEDURE"),
         ("proc", "PROCEDURE"),
@@ -220,28 +318,80 @@ pub fn aplica_create_or_alter(cod: &str) -> String {
             continue;
         }
         let urm = |k: usize| cuv.get(i + k).map(|x| x.text);
-        if e_create
+        let deja = e_create
             && urm(1).is_some_and(|w| w.eq_ignore_ascii_case("or"))
-            && urm(2).is_some_and(|w| w.eq_ignore_ascii_case("alter"))
-        {
-            return cod.to_string(); // deja CREATE OR ALTER
-        }
-        let Some(tip) = cuv.get(i + 1) else {
+            && urm(2).is_some_and(|w| w.eq_ignore_ascii_case("alter"));
+        let pozitie_tip = if deja { i + 3 } else { i + 1 };
+        let Some(tip) = cuv.get(pozitie_tip) else {
             continue;
         };
-        if let Some((_, mare)) = TIPURI
+        let Some((_, mare)) = TIPURI
             .iter()
             .find(|(mic, _)| tip.text.eq_ignore_ascii_case(mic))
-        {
-            return format!(
-                "{}CREATE OR ALTER {}{}",
-                &cod[..c.start],
-                mare,
-                &cod[tip.sfarsit..]
-            );
+        else {
+            if deja {
+                return None;
+            }
+            continue;
+        };
+        return Some((
+            Cap {
+                start: c.start,
+                tip: mare,
+                deja,
+            },
+            tip.sfarsit,
+        ));
+    }
+    None
+}
+
+struct Cap {
+    start: usize,
+    tip: &'static str,
+    deja: bool,
+}
+
+/// Transforma primul `CREATE` sau `ALTER <tip>` in `CREATE OR ALTER`, si
+/// rescrie numele din definitie la `obiect` (`schema.nume` din plan).
+///
+/// Un script care face `CREATE` pe un obiect existent esueaza; unul care face
+/// `ALTER` pe un obiect inexistent, la fel. `CREATE OR ALTER` merge in ambele
+/// cazuri, deci acelasi script poate fi rulat si pe o baza careia lipseste
+/// obiectul si pe una care il are intr-o versiune veche.
+///
+/// Numele din `definition` nu e numele obiectului: dupa `sp_rename` sau
+/// `ALTER SCHEMA TRANSFER`, SQL Server pastreaza textul original. Deploy-ul
+/// crea atunci **alt** obiect decat cel din plan, iar revenirea stergea unul
+/// pe care deploy-ul nu-l crease (F-D4 din auditul QA). Se rescrie la numele
+/// din plan, care vine din `sys.objects`; o schema lipsa (`CREATE PROC p`) la
+/// fel, altfel obiectul ar ajunge in schema implicita a celui care ruleaza.
+///
+/// Se uita **doar la cod**: un `CREATE` dintr-un comentariu (`-- vechi: CREATE
+/// PROCEDURE ...`) sau dintr-un string nu se atinge. Pana la audit, regula
+/// lovea primul `CREATE` din text, deci rescria comentariul si lasa `CREATE`-ul
+/// adevarat, iar scriptul cadea pe orice baza care avea deja obiectul.
+/// `CREATE TABLE` nu intra: `CREATE OR ALTER TABLE` nu exista in T-SQL.
+pub fn aplica_create_or_alter(cod: &str, obiect: &str) -> String {
+    let Some((cap, tip_sfarsit)) = capul(cod) else {
+        return cod.to_string();
+    };
+    // numele intai: rescris de la coada, pozitiile capului raman valabile
+    let mut rez = cod.to_string();
+    if let Some((s, f)) = span_nume(cod, tip_sfarsit) {
+        if parti_nume(&cod[s..f]) != parti_nume(obiect) {
+            rez = format!("{}{}{}", &cod[..s], nume_calificat(obiect), &cod[f..]);
         }
     }
-    cod.to_string()
+    if !cap.deja {
+        rez = format!(
+            "{}CREATE OR ALTER {}{}",
+            &rez[..cap.start],
+            cap.tip,
+            &rez[tip_sfarsit..]
+        );
+    }
+    rez
 }
 
 /// `]` dublat: singurul caracter care poate iesi dintr-un `[identificator]`.
@@ -295,6 +445,19 @@ fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>
                 return Err(Eroare::NumeNesigur {
                     nume: o.obiect.clone(),
                 });
+            }
+            // ultima garda pentru F-D4: `aplica_create_or_alter` rescrie
+            // numele, dar un `DeDeployat` construit altfel (plan `.json` scris
+            // de mana, alt apelant al modulului) poate avea in cod un nume pe
+            // care nu l-a vazut nimeni. Un cod fara `CREATE <tip>` nu se
+            // verifica: acolo nu se poate sti ce creeaza.
+            if let Some(gasit) = numele_creat(&o.cod) {
+                if parti_nume(&gasit) != parti_nume(&o.obiect) {
+                    return Err(Eroare::NumeDinDefinitie {
+                        obiect: o.obiect.clone(),
+                        gasit,
+                    });
+                }
             }
             let linii = gmotion_core::lexer::linii_go(&o.cod);
             if !linii.is_empty() {
@@ -959,40 +1122,50 @@ mod teste {
 
     #[test]
     fn create_devine_create_or_alter() {
-        for (intrare, asteptat) in [
+        for (intrare, obiect, asteptat) in [
             (
                 "CREATE PROCEDURE dbo.p AS SELECT 1",
+                "dbo.p",
                 "CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1",
             ),
             (
                 "CREATE PROC dbo.p AS SELECT 1",
+                "dbo.p",
                 "CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1",
             ),
             (
                 "ALTER PROCEDURE dbo.p AS SELECT 1",
+                "dbo.p",
                 "CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1",
             ),
             (
                 "create view dbo.v as select 1",
+                "dbo.v",
                 "CREATE OR ALTER VIEW dbo.v as select 1",
             ),
             (
                 "ALTER FUNCTION dbo.f() RETURNS INT AS BEGIN RETURN 1 END",
+                "dbo.f",
                 "CREATE OR ALTER FUNCTION dbo.f() RETURNS INT AS BEGIN RETURN 1 END",
             ),
             (
-                "CREATE TRIGGER t ON tab AFTER INSERT AS SELECT 1",
-                "CREATE OR ALTER TRIGGER t ON tab AFTER INSERT AS SELECT 1",
+                "CREATE TRIGGER dbo.t ON tab AFTER INSERT AS SELECT 1",
+                "dbo.t",
+                "CREATE OR ALTER TRIGGER dbo.t ON tab AFTER INSERT AS SELECT 1",
             ),
         ] {
-            assert_eq!(aplica_create_or_alter(intrare), asteptat, "pe {intrare:?}");
+            assert_eq!(
+                aplica_create_or_alter(intrare, obiect),
+                asteptat,
+                "pe {intrare:?}"
+            );
         }
     }
 
     #[test]
     fn spatii_si_comentarii_inainte_nu_incurca() {
         let cod = "-- comentariu\n/* bloc */\n\n   CREATE   PROCEDURE  dbo.p AS SELECT 1";
-        let rez = aplica_create_or_alter(cod);
+        let rez = aplica_create_or_alter(cod, "dbo.p");
         assert!(
             rez.starts_with("-- comentariu"),
             "antetul trebuie pastrat: {rez}"
@@ -1003,19 +1176,19 @@ mod teste {
 
     #[test]
     fn deja_create_or_alter_nu_se_atinge() {
-        for cod in [
-            "CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1",
-            "create or alter view dbo.v as select 1",
-            "CREATE\n  OR\n  ALTER PROCEDURE dbo.p AS SELECT 1",
+        for (cod, obiect) in [
+            ("CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1", "dbo.p"),
+            ("create or alter view dbo.v as select 1", "dbo.v"),
+            ("CREATE\n  OR\n  ALTER PROCEDURE dbo.p AS SELECT 1", "dbo.p"),
         ] {
-            assert_eq!(aplica_create_or_alter(cod), cod, "pe {cod:?}");
+            assert_eq!(aplica_create_or_alter(cod, obiect), cod, "pe {cod:?}");
         }
     }
 
     #[test]
     fn doar_prima_aparitie_se_schimba() {
         let cod = "CREATE PROCEDURE dbo.p AS\n-- CREATE PROCEDURE dbo.altceva\nEXEC('CREATE VIEW v AS SELECT 1')";
-        let rez = aplica_create_or_alter(cod);
+        let rez = aplica_create_or_alter(cod, "dbo.p");
         assert_eq!(rez.matches("CREATE OR ALTER").count(), 1);
         assert!(
             rez.contains("-- CREATE PROCEDURE dbo.altceva"),
@@ -1035,7 +1208,7 @@ mod teste {
             "-- doar un comentariu",
             "CREATED PROCEDURE x",
         ] {
-            assert_eq!(aplica_create_or_alter(cod), cod, "pe {cod:?}");
+            assert_eq!(aplica_create_or_alter(cod, "dbo.x"), cod, "pe {cod:?}");
         }
     }
 
@@ -1043,7 +1216,68 @@ mod teste {
     fn create_table_nu_se_atinge() {
         // Nu e un tip pe care-l comparam, si `CREATE OR ALTER TABLE` nu exista.
         let cod = "CREATE TABLE t (a INT)";
-        assert_eq!(aplica_create_or_alter(cod), cod);
+        assert_eq!(aplica_create_or_alter(cod, "dbo.t"), cod);
+    }
+
+    /// F-D4 din `cercetare/audit-qa-2026-11-18.md`: dupa `sp_rename` sau
+    /// `ALTER SCHEMA TRANSFER`, `definition` pastreaza numele vechi. Scriptul
+    /// crea atunci alt obiect decat cel din plan, iar revenirea stergea unul
+    /// pe care deploy-ul nu-l crease.
+    #[test]
+    fn numele_din_definitie_se_rescrie_la_cel_din_plan() {
+        for (cod, obiect, asteptat) in [
+            // redenumit
+            (
+                "CREATE PROCEDURE dbo.pVechi AS SELECT 1",
+                "dbo.pNou",
+                "CREATE OR ALTER PROCEDURE [dbo].[pNou] AS SELECT 1",
+            ),
+            // mutat in alta schema
+            (
+                "CREATE OR ALTER VIEW [dbo].[v] AS SELECT 1",
+                "raport.v",
+                "CREATE OR ALTER VIEW [raport].[v] AS SELECT 1",
+            ),
+            // fara schema: ar ajunge in schema implicita a celui care ruleaza
+            (
+                "CREATE PROC p AS SELECT 1",
+                "dbo.p",
+                "CREATE OR ALTER PROCEDURE [dbo].[p] AS SELECT 1",
+            ),
+            // comentariu intre tip si nume
+            (
+                "CREATE PROC /* x */ dbo.pVechi AS SELECT 1",
+                "dbo.pNou",
+                "CREATE OR ALTER PROCEDURE /* x */ [dbo].[pNou] AS SELECT 1",
+            ),
+            // acelasi nume scris altfel nu se atinge: colatia e
+            // case-insensitive, iar parantezele nu schimba obiectul
+            (
+                "CREATE OR ALTER PROCEDURE [DBO].[P] AS SELECT 1",
+                "dbo.p",
+                "CREATE OR ALTER PROCEDURE [DBO].[P] AS SELECT 1",
+            ),
+        ] {
+            assert_eq!(aplica_create_or_alter(cod, obiect), asteptat, "{cod:?}");
+        }
+    }
+
+    #[test]
+    fn numele_se_citeste_si_cand_e_in_ghilimele_sau_cu_baza_in_fata() {
+        assert_eq!(
+            numele_creat("CREATE PROCEDURE \"dbo\".\"p\" AS SELECT 1").as_deref(),
+            Some("dbo.p")
+        );
+        assert_eq!(
+            numele_creat("CREATE PROCEDURE Baza.dbo.p AS SELECT 1").as_deref(),
+            Some("dbo.p")
+        );
+        assert_eq!(
+            numele_creat("CREATE PROCEDURE p AS SELECT 1").as_deref(),
+            Some("p")
+        );
+        // fara `CREATE <tip>` nu se poate sti ce creeaza codul
+        assert_eq!(numele_creat("SELECT 1"), None);
     }
 
     #[test]
@@ -1127,25 +1361,33 @@ mod teste {
 
     #[test]
     fn create_din_comentariu_sau_string_nu_se_rescrie() {
-        for (intrare, asteptat) in [
+        for (intrare, obiect, asteptat) in [
             (
                 "-- vechi: CREATE PROCEDURE dbo.pCom_old\nCREATE PROCEDURE dbo.pCom AS SELECT 1",
+                "dbo.pCom",
                 "-- vechi: CREATE PROCEDURE dbo.pCom_old\nCREATE OR ALTER PROCEDURE dbo.pCom AS SELECT 1",
             ),
             (
                 "/* exemplu: ALTER VIEW dbo.v */ CREATE PROCEDURE dbo.p AS SELECT 1",
+                "dbo.p",
                 "/* exemplu: ALTER VIEW dbo.v */ CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1",
             ),
             (
                 "/* use CREATE OR ALTER next time */\nCREATE PROCEDURE dbo.pStr AS SELECT 1",
+                "dbo.pStr",
                 "/* use CREATE OR ALTER next time */\nCREATE OR ALTER PROCEDURE dbo.pStr AS SELECT 1",
             ),
             (
                 "CREATE PROC /* x */ dbo.p AS SELECT 'ALTER VIEW v'",
+                "dbo.p",
                 "CREATE OR ALTER PROCEDURE /* x */ dbo.p AS SELECT 'ALTER VIEW v'",
             ),
         ] {
-            assert_eq!(aplica_create_or_alter(intrare), asteptat, "{intrare:?}");
+            assert_eq!(
+                aplica_create_or_alter(intrare, obiect),
+                asteptat,
+                "{intrare:?}"
+            );
         }
     }
 
@@ -1154,11 +1396,14 @@ mod teste {
         // `K` (semnul Kelvin) si `İ`: minusculele au alta lungime in octeti.
         // Inainte: panica, respectiv `CCREATE OR ALTER PROCEDUREdbo...`.
         assert_eq!(
-            aplica_create_or_alter("-- 5\u{212A}\nCREATE PROCEDURE dbo.p AS SELECT 1"),
+            aplica_create_or_alter("-- 5\u{212A}\nCREATE PROCEDURE dbo.p AS SELECT 1", "dbo.p"),
             "-- 5\u{212A}\nCREATE OR ALTER PROCEDURE dbo.p AS SELECT 1"
         );
         assert_eq!(
-            aplica_create_or_alter("-- İstanbul\nCREATE PROCEDURE dbo.pTurc AS SELECT 1"),
+            aplica_create_or_alter(
+                "-- İstanbul\nCREATE PROCEDURE dbo.pTurc AS SELECT 1",
+                "dbo.pTurc"
+            ),
             "-- İstanbul\nCREATE OR ALTER PROCEDURE dbo.pTurc AS SELECT 1"
         );
     }
@@ -1293,6 +1538,21 @@ mod teste {
             let s = f.file_name().unwrap().to_string_lossy().to_uppercase();
             !s.starts_with("CON.")
         }));
+    }
+
+    /// Garda pentru F-D4 cand codul nu vine prin `aplica_create_or_alter`:
+    /// un plan `.json` scris de mana, sau alt apelant al modulului.
+    #[test]
+    fn un_cod_care_creeaza_alt_obiect_e_refuzat_inainte_de_orice_scriere() {
+        let d = dir("alt-obiect");
+        let pe_baza = o_baza(
+            "Baza",
+            o("dbo.pNou", "CREATE OR ALTER PROC dbo.pVechi AS SELECT 1"),
+        );
+        let e = scrie(&d, "Ref", &pe_baza, ModImpartire::PerBaza, 0, "t")
+            .expect_err("codul creeaza alt obiect");
+        assert_eq!(e.cod(), "GM-MOD-014", "{e}");
+        assert!(!d.exists(), "nu se scrie nimic");
     }
 
     #[test]
@@ -1808,8 +2068,14 @@ mod teste {
         pe_baza.insert(
             "BazaCuNumeFoarteLungPentruProba".to_string(),
             vec![
-                o(&lung("_unu"), "CREATE OR ALTER PROC dbo.a AS SELECT 1"),
-                o(&lung("_doi"), "CREATE OR ALTER PROC dbo.b AS SELECT 2"),
+                o(
+                    &lung("_unu"),
+                    &format!("CREATE OR ALTER PROC {} AS SELECT 1", lung("_unu")),
+                ),
+                o(
+                    &lung("_doi"),
+                    &format!("CREATE OR ALTER PROC {} AS SELECT 2", lung("_doi")),
+                ),
             ],
         );
         let r = scrie(&d, "Ref", &pe_baza, ModImpartire::PerObiect, 0, "t").unwrap();

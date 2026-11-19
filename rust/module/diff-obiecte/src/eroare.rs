@@ -43,6 +43,9 @@ pub enum Eroare {
     #[error("[GM-MOD-013] {obiect} apare de doua ori in planul pentru {baza}; ar fi scris de doua ori, iar revenirea ar avea doua DROP-uri pentru el. Scoate pasul repetat din plan")]
     ObiectRepetat { obiect: String, baza: String },
 
+    #[error("[GM-MOD-014] definitia lui {obiect} creeaza {gasit}, nu {obiect}; scriptul ar face alt obiect decat cel din plan, iar revenirea ar sterge unul pe care deploy-ul nu l-a creat. Scrie numele intreg, `[schema].[nume]`, in textul final")]
+    NumeDinDefinitie { obiect: String, gasit: String },
+
     #[error("[GM-MOD-012] baza s-a schimbat de la comparare, deci deploy-ul nu se scrie: {schimbari}. Compara din nou si revizuieste ce s-a schimbat")]
     BazaAtinsa { schimbari: String },
 }
@@ -63,6 +66,7 @@ impl Eroare {
             Eroare::ObiectCriptat { .. } => "GM-MOD-011",
             Eroare::BazaAtinsa { .. } => "GM-MOD-012",
             Eroare::ObiectRepetat { .. } => "GM-MOD-013",
+            Eroare::NumeDinDefinitie { .. } => "GM-MOD-014",
         }
     }
 }

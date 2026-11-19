@@ -281,6 +281,7 @@ impl Plan {
                         // care l-am declarat identic (C5 din auditul QA).
                         .filter(|t| t.as_str() != gmotion_core::pregateste_afisare(&o.definitie))
                         .map_or(o.definitie.as_str(), String::as_str),
+                    &p.obiect,
                 ),
                 setari: o.setari,
             });
@@ -307,7 +308,7 @@ impl Plan {
                 Some(o) => PasRevenire::Reface(DeDeployat {
                     obiect: p.obiect.clone(),
                     tip: o.tip.clone(),
-                    cod: aplica_create_or_alter(&o.definitie),
+                    cod: aplica_create_or_alter(&o.definitie, &p.obiect),
                     setari: o.setari,
                 }),
                 None => PasRevenire::Sterge(DeDeployat {
@@ -315,7 +316,7 @@ impl Plan {
                     tip: p.tip.clone(),
                     cod: referinta
                         .get(&p.obiect)
-                        .map(|o| aplica_create_or_alter(&o.definitie))
+                        .map(|o| aplica_create_or_alter(&o.definitie, &p.obiect))
                         .unwrap_or_default(),
                     setari: None,
                 }),
@@ -391,9 +392,33 @@ mod teste {
         let pe_baza = p.de_deployat_cu(&r, &texte).expect("se poate deploia");
         assert_eq!(
             pe_baza["Tinta"][0].cod,
-            crate::deploy::aplica_create_or_alter(def),
+            crate::deploy::aplica_create_or_alter(def, "dbo.pA"),
             "definitia referintei, octet cu octet"
         );
+    }
+
+    /// F-D4: definitia venita din `sys.sql_modules` pastreaza numele dinainte
+    /// de `sp_rename`. Planul lucreaza pe numele din `sys.objects`, deci codul
+    /// deployat trebuie sa-l creeze pe acela — altfel revenirea sterge un
+    /// obiect pe care deploy-ul nu l-a creat.
+    #[test]
+    fn codul_deployat_creeaza_obiectul_din_plan_nu_pe_cel_din_definitie() {
+        let r = pregateste(&[ob("pNou", "CREATE PROCEDURE dbo.pVechi AS SELECT 1")]);
+        let t = pregateste(&[ob("pNou", "CREATE PROCEDURE dbo.pVechi AS SELECT 2")]);
+        let a = vec![("Tinta".to_string(), t)];
+        let p = plan(&r, &a);
+        let pe_baza = p.de_deployat(&r).expect("se poate deploia");
+        assert!(
+            pe_baza["Tinta"][0].cod.contains("[dbo].[pNou]"),
+            "{}",
+            pe_baza["Tinta"][0].cod
+        );
+        // si revenirea reface obiectul din plan, nu pe cel din definitie
+        let rev = p.revenire(&r, &a);
+        let crate::plan::PasRevenire::Reface(d) = &rev["Tinta"][0] else {
+            panic!("obiectul exista in tinta, deci se reface");
+        };
+        assert!(d.cod.contains("[dbo].[pNou]"), "{}", d.cod);
     }
 
     /// C8 din `cercetare/audit-qa-2026-11-18.md`: referinta are `dbo.GetX`,

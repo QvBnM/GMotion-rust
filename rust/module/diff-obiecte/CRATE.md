@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 102a400c11ea5650 -->
+<!-- api-hash: 5c73eea506ddcf1f -->
 
 ## Rol
 
@@ -63,11 +63,18 @@ biblioteca** — fara nicio interfata.
    cauta doar in cod (prin `gmotion_core::lexer`), nu in comentarii sau
    string-uri; pozitiile sunt in textul original. `CREATE TABLE` nu se atinge.
    Codul deja `CREATE OR ALTER` ramane neatins.
+6a. **Numele din definitie se rescrie la `[schema].[nume]` din plan.** Dupa
+   `sp_rename` sau `ALTER SCHEMA TRANSFER`, `definition` pastreaza numele
+   vechi: scriptul crea alt obiect decat cel din plan, iar revenirea stergea
+   unul pe care deploy-ul nu-l crease (F-D4). O schema lipsa se completeaza la
+   fel — altfel obiectul ar ajunge in schema implicita a celui care ruleaza
+   scriptul. Un cod care totusi creeaza altceva e `GM-MOD-014`.
 6b. **Nimic nu se scrie daca ceva e periculos** (verificare inainte de orice
    fisier): nume cu caractere de control (`GM-MOD-008`), o linie `GO` in
    definitie (`GM-MOD-009`; sqlcmd taie batch-ul chiar si intr-un string),
    obiect fara cod / criptat (`GM-MOD-011`), acelasi obiect de doua ori in
-   planul unei baze (`GM-MOD-013`), procedura numerotata `dbo.p;1`, pe care
+   planul unei baze (`GM-MOD-013`), cod care creeaza alt obiect decat cel din
+   plan (`GM-MOD-014`), procedura numerotata `dbo.p;1`, pe care
    `CREATE OR ALTER` n-o accepta (`GM-MOD-008`). Numele bazei intra in `USE [..]`
    cu `]` dublat.
 6c. **Fiecare obiect isi reface setarile de creare** (`SET ANSI_NULLS` /
@@ -149,6 +156,7 @@ biblioteca** — fara nicio interfata.
 | `GM-MOD-011` | obiect criptat sau fara cod: nu se compara, nu se deployeaza | `src/deploy.rs`, `src/comparare.rs` |
 | `GM-MOD-012` | baza sau referinta s-a schimbat intre plan si deploy; mesajul spune ce obiect | `src/plan.rs` |
 | `GM-MOD-013` | acelasi obiect de doua ori in planul unei baze (plan scris de mana) | `src/deploy.rs` |
+| `GM-MOD-014` | codul creeaza alt obiect decat cel din plan (nume redenumit in definitie) | `src/deploy.rs` |
 
 **Un obiect raportat ca „modificat" care se deschide identic** era bug-ul tipic
 din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
