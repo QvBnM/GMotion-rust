@@ -158,7 +158,7 @@ fn main() {
     // `--banda` o arata mutata pe dreapta sau stransa ca banda (etapa 16)
     editor_ui.set_lista_dreapta(a.iter().any(|x| x == "--dreapta"));
     editor_ui.set_lista_banda(a.iter().any(|x| x == "--banda"));
-    gmotion_fereastra::incarca_coloana_lista(&editor_ui, app.lista());
+    gmotion_fereastra::incarca_coloana_lista(&editor_ui, app.lista(), app.arbore());
     gmotion_fereastra::incarca_taburi(&editor_ui, app.taburi(), |_| false);
     incarca_editor(
         &editor_ui,

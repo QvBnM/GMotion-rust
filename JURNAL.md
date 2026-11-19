@@ -1315,6 +1315,23 @@ raman ca pana acum.
 
 ---
 
+## 2026-11-19 — Object Explorer in coloana editorului
+
+**Context.** Mihai a cerut lista „ca Object Explorer din SSMS, in forma
+ecranului Side by Side". Am inteles ecranul listei; el voia arborele in
+coloana din stanga a editorului, langa martor | modificata.
+
+**Decizie.** Coloana editorului e acelasi arbore ca lista (baza › dosar pe
+tip › obiect), din `model_arbore`, cu starea nodurilor in `Aplicatie`.
+Grupurile pe stare din etapa 16 au iesit. Latimea coloanei: 320 px
+implicit, intre 200 si 520 (era 244, intre 200 si 360): un arbore are
+indentare si numele nu mai incapeau.
+
+**De intrebat.** Ce ramane pe ecranul listei: arborele de acum, tabelul de
+dinainte, sau nimic (dupa comparare direct in editor).
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

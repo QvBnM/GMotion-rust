@@ -144,13 +144,13 @@ impl StareColoana {
         );
     }
 
-    /// Ce s-a salvat; latimea se tine intre 200 si 360 px, ca in fereastra.
+    /// Ce s-a salvat; latimea se tine intre 200 si 520 px, ca in fereastra.
     /// O valoare lipsa sau stricata inseamna implicitul ferestrei.
     pub fn din_sesiune(s: &gmotion_platforma::Sesiune) -> Option<Self> {
         let v = s.date.get("coloana")?.as_object()?;
         let b = |k: &str| v.get(k).and_then(serde_json::Value::as_bool);
         Some(StareColoana {
-            latime: (v.get("latime")?.as_f64()? as f32).clamp(200.0, 360.0),
+            latime: (v.get("latime")?.as_f64()? as f32).clamp(200.0, 520.0),
             fixata: b("fixata")?,
             dreapta: b("dreapta")?,
             banda: b("banda")?,
@@ -1274,10 +1274,14 @@ impl Aplicatie {
     /// `j` / `k` in editor: urmatorul obiect nefixat care se poate deschide,
     /// in ordinea listei; la capat se ramane pe loc, cu mesaj.
     fn pas_tab(&mut self, pas: i32) {
+        // in ordinea arborelui din coloana (Object Explorer), ca `j` sa mearga
+        // la obiectul de dedesubt, nu la urmatorul din lista sortata
         let chei: Vec<Cheie> = self
-            .lista
-            .chei_vizibile()
-            .into_iter()
+            .arbore
+            .noduri(&self.lista, gmotion_fereastra::texte::Limba::Romana)
+            .iter()
+            .filter_map(|n| n.pozitie)
+            .filter_map(|p| self.lista.obiect(p).map(|o| o.cheie()))
             .filter(|(b, id)| self.texte(b, id).is_some())
             .collect();
         match self.taburi.urmatorul(&chei, pas) {
@@ -2287,7 +2291,7 @@ mod teste {
         };
         c.in_sesiune(&mut s);
         let r = StareColoana::din_sesiune(&s).unwrap();
-        assert_eq!(r.latime, 360.0, "latimea ramane intre 200 si 360");
+        assert_eq!(r.latime, 520.0, "latimea ramane intre 200 si 520");
         assert!(!r.fixata && r.dreapta && r.banda);
         s.date
             .insert("coloana".into(), serde_json::json!("stricat"));

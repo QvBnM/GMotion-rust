@@ -87,5 +87,11 @@ previzualizare exista un buton de wrap.
   Esc, butonul si un patrat cu mouse-ul adevarat; a cazut intai pe bula
   (`moved` vine doar cu butonul apasat). Decizia in `JURNAL.md`.
 
+- **2026-11-19** Proba lui Mihai: arborele trebuia **in coloana din stanga
+  editorului** (ecranul Side by Side), nu doar in lista. Coloana grupata pe
+  stare (etapa 16) a fost inlocuita cu acelasi arbore (`noduri_ui`, comun);
+  `j` / `k` din editor merg in ordinea arborelui. Coloana: 320 px implicit,
+  200-520 px trasa (numele se citeau taiate la 244).
+
 ## Ce a iesit altfel decat planul
 

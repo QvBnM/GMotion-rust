@@ -634,7 +634,7 @@ fn ruleaza() -> Result<(), String> {
                         },
                         &model,
                     );
-                    gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista());
+                    gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista(), app.arbore());
                     gmotion_fereastra::incarca_taburi(&e_ui, app.taburi(), |c| {
                         app.are_text_final(c)
                     });
@@ -1736,6 +1736,13 @@ fn ruleaza() -> Result<(), String> {
                 tracing::debug!(target: "gmotion::actiuni", "dublu clic pe previzualizare");
                 c(Comanda::FixeazaPrevizualizarea);
             }
+        });
+        // arborele din coloana (Object Explorer): baza / dosar se deschid si
+        // se inchid, ca in lista
+        let c = comanda.clone();
+        editor_ui.on_comuta_nod(move |cheie| {
+            actiune("editor", "comuta_nod", &format!("{:?}", (&cheie,)), false);
+            c(Comanda::ComutaNod(cheie.to_string()))
         });
         let c = comanda.clone();
         editor_ui.on_inchide_tab(move |cod| {
