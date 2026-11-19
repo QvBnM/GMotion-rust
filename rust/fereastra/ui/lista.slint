@@ -537,6 +537,8 @@ export component FereastraLista inherits Window {
     // harta: grupurile asezate in Rust (`src/harta.rs`) si patratul selectat
     in property <[GrupHartaUi]> harta;
     in property <length> harta-inaltime;
+    // pixeli fizici pe pixel logic: harta se picteaza la rezolutia ecranului
+    in property <float> factor-harta: 1;
     in property <length> sel-x;
     in property <length> sel-y;
     in property <bool> sel-pe-harta;
@@ -915,13 +917,17 @@ export component FereastraLista inherits Window {
                                 x: 0;
                                 y: 28px;
                                 width: g.latime;
+                                height: self.source.height * 1px / root.factor-harta;
                                 source: g.bara;
                                 image-rendering: pixelated;
                             }
-                            // grila (`harta::CAP`)
+                            // grila (`harta::CAP`); pictata la pixelii fizici ai
+                            // ecranului, deci afisata la marimea ei / factor (15 D)
                             img := Image {
                                 x: 0;
                                 y: 44px;
+                                width: self.source.width * 1px / root.factor-harta;
+                                height: self.source.height * 1px / root.factor-harta;
                                 source: g.imagine;
                                 image-rendering: pixelated;
                             }

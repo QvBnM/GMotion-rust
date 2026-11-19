@@ -43,9 +43,9 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 - [x] liniile lungi se pot citi (derulare pe orizontala sau incadrare) — V10, la H3
 
 **D. Harta**
-- [ ] patratele desenate curat, fara pixelare, la rezolutia ecranului
-- [ ] la 4.000 de obiecte care difera: ramane lizibila si se poate derula
-- [ ] masurat: timpul de desenare la 1.000 / 10.000 / 50.000 de obiecte
+- [x] patratele desenate curat, fara pixelare, la rezolutia ecranului
+- [x] la 4.000 de obiecte care difera: ramane lizibila si se poate derula
+- [x] masurat: timpul de desenare la 1.000 / 10.000 / 50.000 de obiecte
 
 **E. Denumiri si limba**
 - [x] „Sursa" / „Baza" devin **„Martor" / „Modificata"** in fereastra
@@ -290,6 +290,21 @@ de la Mihai" din `STARE.md`.
   un comutator in doua, cu partea aleasa pe accent; la 1024 px insulele tot
   trec pe doua randuri. Pe drum: in cardul Martor, campul bazei scria
   „Modificata" (ramas de la redenumire); are acum textul lui, „Baza".
+
+- **2026-11-19** D gata. Harta se picteaza la pixelii fizici ai ecranului
+  (`picteaza_la(g, paleta, factor)`, factorul din fereastra) si se afiseaza
+  la marimea logica: inainte, pe un ecran scalat 125-200%, imaginea se marea
+  si patratele ieseau neclare. Masurat cu `--example masura_harta` (release,
+  latimea 1440), asezare + pictare, toate coloanele:
+
+  | obiecte | aseaza | picteaza 1x | picteaza 2x | latura | inaltime |
+  |---|---|---|---|---|---|
+  | 1.000 | 0,0 ms | 0,4 ms | 1,4 ms | 11 px | 219 px |
+  | 4.000 | 0,0 ms | 0,1 ms | 0,5 ms | 4 px | 129 px |
+  | 10.000 | 0,1 ms | 0,4 ms | 1,8 ms | 4 px | 257 px |
+  | 50.000 | 0,8 ms | 3,2 ms | 10,1 ms | 4 px | 1.121 px (se deruleaza) |
+
+  Captura la 4.000 (1.778 modificate, 1366x768): trei coloane curate.
 
 ## Ce a iesit altfel decat planul
 

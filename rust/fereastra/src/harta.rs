@@ -309,28 +309,43 @@ fn amesteca(a: Culoare, b: Culoare, f: f32) -> [u8; 4] {
     [c(16), c(8), c(0), 255]
 }
 
-/// Pixelii grilei unei coloane (RGBA, rand cu rand) si dimensiunea imaginii.
-/// Fondul e transparent; un patrat revizuit e estompat spre `suprafata`.
+/// Pixelii grilei unei coloane (RGBA, rand cu rand) si dimensiunea imaginii,
+/// in pixeli logici. Pentru ecran se foloseste `picteaza_la`.
 pub fn picteaza(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
+    picteaza_la(g, p, 1.0)
+}
+
+/// Ca `picteaza`, dar la `factor` pixeli fizici pe pixel logic (scalarea
+/// ecranului: 1,25, 1,5, 2). Pictata in pixeli logici, imaginea se marea pe
+/// un ecran scalat si patratele ieseau neclare (15 D). Coltul fiecarui patrat
+/// se rotunjeste la pixel, deci la factori neintregi doua patrate pot diferi
+/// cu un pixel, dar raman nete.
+pub fn picteaza_la(g: &Grup, p: &Paleta, factor: f32) -> (u32, u32, Vec<[u8; 4]>) {
+    let f = factor.max(0.5);
+    let fizic = |v: u32| -> u32 { (v as f32 * f).round() as u32 };
     let (w, h) = (
-        intindere(g.scara, g.coloane) as u32,
-        inaltime_grila(g.scara, g.randuri()) as u32,
+        fizic(intindere(g.scara, g.coloane) as u32).max(1),
+        fizic(inaltime_grila(g.scara, g.randuri()) as u32).max(1),
     );
     let mut px = vec![[0u8; 4]; (w * h) as usize];
+    let l = fizic(g.scara.latura).max(1);
+    // colturi rotunjite, aproximate; patratele mici raman drepte
+    let colt = if g.scara.latura >= 8 { fizic(2) } else { 0 };
     for (k, c) in g.celule.iter().enumerate() {
         let (cx, cy) = coltul(g, k);
-        let f = if c.revizuit { 0.4 } else { 1.0 };
-        let culoare = amesteca(culoare_starii(p, c.stare), p.suprafata, f);
-        let l = g.scara.latura;
-        // colturi rotunjite, aproximate; patratele mici raman drepte
-        let colt = if l >= 8 { 2 } else { 0 };
+        let (cx, cy) = (fizic(cx), fizic(cy));
+        let k_f = if c.revizuit { 0.4 } else { 1.0 };
+        let culoare = amesteca(culoare_starii(p, c.stare), p.suprafata, k_f);
         for y in 0..l {
             for x in 0..l {
                 let (dx, dy) = (x.min(l - 1 - x), y.min(l - 1 - y));
                 if dx + dy < colt {
                     continue;
                 }
-                px[((cy + y) * w + cx + x) as usize] = culoare;
+                let (px_x, px_y) = (cx + x, cy + y);
+                if px_x < w && px_y < h {
+                    px[(px_y * w + px_x) as usize] = culoare;
+                }
             }
         }
     }
@@ -353,13 +368,21 @@ const GOL_BARA: u32 = 3;
 /// Pixelii barei de proportie, lata cat coloana: fiecare stare ia o bucata
 /// pe masura numarului ei de obiecte; o stare fara obiecte nu apare.
 pub fn picteaza_bara(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
-    let (w, h) = ((g.latime as u32).max(1), GROSIME_BARA);
+    picteaza_bara_la(g, p, 1.0)
+}
+
+/// Ca `picteaza_bara`, la `factor` pixeli fizici pe pixel logic.
+pub fn picteaza_bara_la(g: &Grup, p: &Paleta, factor: f32) -> (u32, u32, Vec<[u8; 4]>) {
+    let f = factor.max(0.5);
+    let fizic = |v: u32| -> u32 { (v as f32 * f).round() as u32 };
+    let (w, h) = (fizic(g.latime as u32).max(1), fizic(GROSIME_BARA).max(1));
+    let gol = fizic(GOL_BARA);
     let mut px = vec![[0u8; 4]; (w * h) as usize];
     let n = proportii(g);
     let culori = [p.harta_mod, p.harta_add, p.harta_del, p.harta_gol];
     let bucati = n.iter().filter(|&&k| k > 0).count() as u32;
     let total = n.iter().sum::<usize>().max(1) as f32;
-    let util = w.saturating_sub(GOL_BARA * bucati.saturating_sub(1)) as f32;
+    let util = w.saturating_sub(gol * bucati.saturating_sub(1)) as f32;
     let mut x0 = 0u32;
     let mut cumul = 0usize;
     for (k, &cate) in n.iter().enumerate() {
@@ -368,7 +391,7 @@ pub fn picteaza_bara(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
         }
         cumul += cate;
         // capatul se ia din suma cumulata: bucatile umplu exact bara
-        let gol_pana_aici = GOL_BARA * (n[..k].iter().filter(|&&c| c > 0).count() as u32);
+        let gol_pana_aici = gol * (n[..k].iter().filter(|&&c| c > 0).count() as u32);
         let x1 = ((cumul as f32 / total * util).round() as u32 + gol_pana_aici).min(w);
         let culoare = amesteca(culori[k], culori[k], 1.0);
         for y in 0..h {
@@ -380,7 +403,7 @@ pub fn picteaza_bara(g: &Grup, p: &Paleta) -> (u32, u32, Vec<[u8; 4]>) {
                 }
             }
         }
-        x0 = x1 + GOL_BARA;
+        x0 = x1 + gol;
     }
     (w, h, px)
 }
@@ -777,5 +800,36 @@ mod teste {
             let total: usize = grupuri.iter().map(|g| g.celule.len()).sum();
             assert_eq!(total, n);
         }
+    }
+
+    /// 15 D: pe un ecran scalat, harta se picteaza la pixelii fizici. La
+    /// factor 2 imaginea e de doua ori mai mare, iar un patrat are latura
+    /// dubla, nu e o marire a celui de la 1x (care ar fi neclara).
+    #[test]
+    fn harta_se_picteaza_la_pixelii_fizici() {
+        let (g, _) = aseaza_la(vec![("t".into(), celule(7, 0))], 500.0, S);
+        let p = &INTUNECAT;
+        let (w1, h1, px1) = picteaza(&g[0], p);
+        let (w2, h2, px2) = picteaza_la(&g[0], p, 2.0);
+        assert_eq!((w2, h2), (w1 * 2, h1 * 2));
+        let plini = |px: &[[u8; 4]]| px.iter().filter(|c| c[3] == 255).count();
+        // aceeasi forma, ~de patru ori mai multi pixeli; doar colturile
+        // rotunjite difera putin (cel mult 16 pixeli pe patrat)
+        let (n1, n2) = (plini(&px1), plini(&px2));
+        assert!(n2.abs_diff(n1 * 4) <= 7 * 16, "{n1} -> {n2}");
+        // primul patrat: rand plin pe toata latura lui fizica, la mijloc
+        let l = S.latura * 2;
+        let y = l / 2;
+        let rand: Vec<_> = (0..l).map(|x| px2[(y * w2 + x) as usize][3]).collect();
+        assert!(rand.iter().all(|&a| a == 255), "{rand:?}");
+        // la 1,5: dimensiuni rotunjite, fara panica, patratele nete
+        let (w3, h3, px3) = picteaza_la(&g[0], p, 1.5);
+        assert_eq!(px3.len(), (w3 * h3) as usize);
+        assert!(
+            px3.iter().all(|c| c[3] == 0 || c[3] == 255),
+            "fara pixeli amestecati"
+        );
+        let (wb, hb, _) = picteaza_bara_la(&g[0], p, 2.0);
+        assert_eq!((wb, hb), ((g[0].latime as u32) * 2, GROSIME_BARA * 2));
     }
 }

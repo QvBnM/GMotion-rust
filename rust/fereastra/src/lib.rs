@@ -1136,6 +1136,10 @@ fn incarca_harta(ui: &FereastraLista, randuri: &[RandListaUi], selectat: Option<
     pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
     let (grupuri, inaltime) = harta::aseaza(pe_tip, latime_harta(ui), harta::INALTIME_MAXIMA);
     let paleta = mod_curent(ui).paleta();
+    // la scalarea ecranului (125-200%), pictata in pixeli logici harta iesea
+    // neclara: se picteaza la pixelii fizici si se afiseaza la marimea logica
+    let factor = ui.window().scale_factor().max(1.0);
+    ui.set_factor_harta(factor);
     let ui_grupuri: Vec<GrupHartaUi> = grupuri
         .iter()
         .map(|g| GrupHartaUi {
@@ -1147,8 +1151,8 @@ fn incarca_harta(ui: &FereastraLista, randuri: &[RandListaUi], selectat: Option<
             inaltime: g.inaltime,
             desparte: g.x > 0.0,
             coloane: g.coloane as i32,
-            imagine: imagine(harta::picteaza(g, paleta)),
-            bara: imagine(harta::picteaza_bara(g, paleta)),
+            imagine: imagine(harta::picteaza_la(g, paleta, factor)),
+            bara: imagine(harta::picteaza_bara_la(g, paleta, factor)),
             randuri: ModelRc::new(VecModel::from(
                 g.celule.iter().map(|c| c.rand as i32).collect::<Vec<_>>(),
             )),
