@@ -102,6 +102,20 @@ pub fn citeste_bazele(c: &Conectare, p: &Parte) -> (Vec<String>, StareConexiune)
 ///
 /// Se intorc doar fisiere `.json` care chiar exista, fara duplicate, cele mai
 /// noi intai: cine tocmai a facut un instantaneu il gaseste primul.
+/// Un `.json` e propus doar daca incepe ca un instantaneu: obiect cu cheia
+/// `versiune` la inceput. Altfel apareau si `*.asteptari.json` (liste) sau
+/// configurarea, iar alegerea lor dadea GM-DB-007 (Mihai, 2026-11-19).
+fn pare_instantaneu(cale: &std::path::Path) -> bool {
+    use std::io::Read;
+    let mut inceput = [0u8; 512];
+    let n = std::fs::File::open(cale)
+        .and_then(|mut f| f.read(&mut inceput))
+        .unwrap_or(0);
+    let t = String::from_utf8_lossy(&inceput[..n]);
+    let t = t.trim_start_matches('\u{feff}').trim_start();
+    t.starts_with('{') && t.contains("\"versiune\"")
+}
+
 pub fn instantanee_gasite() -> Vec<std::path::PathBuf> {
     let mut locuri: Vec<std::path::PathBuf> = Vec::new();
     if let Ok(d) = gmotion_platforma::cai::director_date() {
@@ -129,7 +143,10 @@ pub fn instantanee_gasite() -> Vec<std::path::PathBuf> {
         };
         for e in intrari.flatten() {
             let cale = e.path();
-            if !cale.is_file() || cale.extension().is_none_or(|x| x != "json") {
+            if !cale.is_file()
+                || cale.extension().is_none_or(|x| x != "json")
+                || !pare_instantaneu(&cale)
+            {
                 continue;
             }
             let cale = cale.canonicalize().unwrap_or(cale);
@@ -551,6 +568,13 @@ mod teste {
         unice.dedup();
         assert_eq!(unice.len(), gasite.len(), "fara duplicate: {gasite:?}");
         assert!(gasite.len() <= 40, "lista nu creste la nesfarsit");
+        // fisierele de asteptari (liste JSON) nu sunt instantanee (GM-DB-007)
+        assert!(
+            !gasite
+                .iter()
+                .any(|c| c.to_string_lossy().ends_with(".asteptari.json")),
+            "{gasite:?}"
+        );
         // in repo exista cel putin instantaneul de previzualizare
         assert!(
             gasite.iter().any(|c| c.ends_with("previzualizare.json")),
