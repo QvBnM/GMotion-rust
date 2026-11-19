@@ -1246,6 +1246,31 @@ masina Windows aici, ar fi fost ghicit. Dublul clic numarat in `.slint` cu
 
 ---
 
+## 2026-11-19 — Spatiile din string-uri se strang din nou, ca in v3.4
+
+**Context.** Prima proba pe bazele reale (GetsBet → CEAAS): Mihai a gasit
+motorul „departe de precizia din Python". Captura arata blocuri de SQL
+dinamic marcate modificat, cu indentarea evidentiata: in string-uri
+(`'... W\n\t\tJOIN ...'`) se schimbasera doar taburi in spatii. Decizia din
+2026-11-17 pastra string-urile exact, deci si spatiile lor.
+
+**Decizie.** In `norm`, spatiile dintr-un string se strang intr-unul (ca
+v3.4). Majusculele din string raman cum sunt (`'Activ'` ≠ `'ACTIV'`), iar
+codul de dupa un `--` din string tot nu se mai sterge. In `diff_intra`,
+spatii schimbate pe spatii intr-un string nu se evidentiaza; un spatiu
+aparut sau disparut da.
+
+**Alternative.** Pastrata regula exacta: corecta in teorie, dar codul Charisma
+are SQL dinamic peste tot si fiecare reindentare devenea „modificat".
+Inapoi complet la v3.4 (si majusculele): reintroduce ascunderea unor
+schimbari reale de date; se discuta separat daca Mihai o cere.
+
+**Consecinte.** Pe `testsimilitudine.json`, CaseG, CaseK si CaseN au acum
+exact scorul din Python; asteptarile lor de divergenta s-au scos. CaseM:
+85,07 (Python 85,95), diferenta ramasa e `--` din string.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

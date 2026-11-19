@@ -554,15 +554,18 @@ export component FereastraConectare inherits Window {
             spacing: 14px;
 
             // cele doua parti, cu inversarea intre ele
-            // latimi fixe, jumatate fiecare: cu `stretch`, Slint imparte dupa
-            // latimea preferata a continutului, deci un mesaj lung sau lista
-            // de servere gasite mutau granita dintre carduri (Mihai, 2026-11-19)
+            // jumatate fiecare: aceeasi latime preferata (1px) si acelasi
+            // stretch, deci spatiul se imparte egal oricat de lung e un mesaj.
+            // Cu latimea preferata a continutului, un mesaj lung sau lista de
+            // servere gasite mutau granita (Mihai, 2026-11-19). O latime
+            // calculata din a layout-ului era bucla, deprecata in Slint.
             parti := HorizontalLayout {
                 vertical-stretch: 0;
                 spacing: 0px;
-                property <length> card: (self.width - 56px) / 2;
                 PanouParte {
-                    width: parti.card;
+                    preferred-width: 1px;
+                    min-width: 320px;
+                    horizontal-stretch: 1;
                     p: root.sursa;
                     fara-servere: root.instantaneu != "";
                     server-schimbat(t) => { root.server-schimbat(true, t); }
@@ -598,7 +601,9 @@ export component FereastraConectare inherits Window {
                     }
                 }
                 PanouParte {
-                    width: parti.card;
+                    preferred-width: 1px;
+                    min-width: 320px;
+                    horizontal-stretch: 1;
                     p: root.baza;
                     multiplu: true;
                     fara-servere: root.instantaneu != "";

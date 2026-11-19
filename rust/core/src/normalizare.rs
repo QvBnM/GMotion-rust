@@ -75,7 +75,8 @@ const MARCAJ_SFARSIT: char = '\u{E001}';
 /// identice semantic ieseau cu normalizari diferite si erau marcate gresit ca
 /// `modificat`.
 ///
-/// Pastrate exact: string-urile (`'...'`) si identificatorii in ghilimele.
+/// Pastrate: string-urile (`'...'`), cu majusculele lor, dar cu spatiile
+/// stranse ca in v3.4; identificatorii in ghilimele, exact.
 /// Identificatorii in paranteze: `[simplu]` devine `simplu` ca inainte, iar
 /// `[cu spatiu]` isi pastreaza parantezele (doar literele mici), fiindca
 /// `[a b]` (o coloana) nu e `a b` (coloana cu alias).
@@ -105,7 +106,11 @@ pub fn norm(s: &str) -> String {
             Fel::ComentariuLinie | Fel::ComentariuBloc => cod.push(' '),
             Fel::IdentificatorParanteze if RE_IDENTIFICATOR_SIMPLU.is_match(t) => cod.push_str(t),
             Fel::IdentificatorParanteze => pastreaza(&mut cod, t.to_lowercase()),
-            Fel::Sir | Fel::IdentificatorGhilimele => pastreaza(&mut cod, t.to_string()),
+            // in string-uri spatiile se strang intr-unul, ca in v3.4: SQL-ul
+            // dinamic (`'... \n\t\tJOIN ...'`) difera des doar in indentare,
+            // iar asta nu e o modificare (proba pe Windows, 2026-11-19)
+            Fel::Sir => pastreaza(&mut cod, RE_SPATII.replace_all(t, " ").into_owned()),
+            Fel::IdentificatorGhilimele => pastreaza(&mut cod, t.to_string()),
         }
     }
     let s = RE_WITH_HINTURI.replace_all(&cod, " ");
@@ -424,7 +429,6 @@ mod teste {
             // continutul literalelor
             ("WHERE s = 'Activ'", "WHERE s = 'ACTIV'"),
             ("SELECT N'Ăla'", "SELECT N'ăla'"), // diacritice-permise: date de test
-            ("SELECT 'a  b'", "SELECT 'a b'"),
             ("SELECT 'a ,b'", "SELECT 'a,b'"),
             ("WHERE c LIKE '[0-9]%'", "WHERE c LIKE '0-9%'"),
             ("EXEC('SELECT * FROM dbo.t')", "EXEC('SELECT * FROM t')"),
@@ -455,6 +459,12 @@ mod teste {
             ("SELECT x COLLATE database_default , y", "SELECT x, y"),
             ("\u{FEFF}SELECT 1", "SELECT 1"),
             ("WHERE s = 'Activ'", "where S = 'Activ'"),
+            // spatiile din string-uri, ca in v3.4: SQL dinamic reindentat
+            ("SELECT 'a  b'", "SELECT 'a b'"),
+            (
+                "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a  '",
+                "SET @s = ') W\n            JOIN t X ON W.a=X.a '",
+            ),
             ("SELECT [Coloana_1] FROM t", "SELECT coloana_1 FROM t"),
         ];
         for (a, b) in perechi {

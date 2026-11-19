@@ -144,6 +144,13 @@ fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
         let vb: String = tb[op.j1..op.j2].concat();
         let mut schimbat = op.tag != Tag::Equal;
         let in_literal = la[op.i1..op.i2].iter().any(|&x| x) || lb[op.j1..op.j2].iter().any(|&x| x);
+        // in string, spatii schimbate pe spatii (tab in loc de spatii,
+        // indentare) sunt cosmetice, ca in `norm`; un spatiu aparut sau
+        // disparut ramane schimbare
+        let doar_spatii = |v: &str| !v.is_empty() && v.chars().all(char::is_whitespace);
+        if schimbat && in_literal && doar_spatii(&va) && doar_spatii(&vb) {
+            schimbat = false;
+        }
         if schimbat
             && !in_literal
             && (va.is_empty() || este_cosmetic(&va))
@@ -454,10 +461,18 @@ mod teste {
         assert_eq!(tipuri(&diff_aliniat(a, b)), vec!["modificat"]);
     }
 
-    /// Un spatiu in plus intr-un string se marcheaza; acelasi spatiu in cod nu.
+    /// Un spatiu aparut intr-un string se marcheaza; acelasi spatiu in cod nu.
+    /// (Doua spatii in loc de unul, in string, sunt egale, ca in v3.4.)
     #[test]
     fn spatiile_din_string_se_marcheaza_cele_din_cod_nu() {
-        let r = diff_aliniat("PRINT 'a b'", "PRINT 'a  b'");
+        assert_eq!(
+            tipuri(&diff_aliniat("PRINT 'a b'", "PRINT 'a  b'")),
+            vec!["egal"]
+        );
+        let r = diff_aliniat(
+            "PRINT 'mesaj catre partenerul'",
+            "PRINT 'mesaj catre partenerul '",
+        );
         let seg = r[0].seg_dreapta.as_ref().expect("segmente");
         assert!(seg.iter().any(|s| s.schimbat.is_some()), "{seg:?}");
         let r = diff_aliniat("SELECT a,b FROM t", "SELECT a,  b FROM t");
@@ -503,6 +518,28 @@ mod teste {
             "prefixul dbo. nu trebuie evidentiat ca diferenta: {:?}",
             marcat
         );
+    }
+
+    /// Proba pe Windows (2026-11-19): SQL dinamic reindentat intr-un string
+    /// (tab in loc de spatii) nu se evidentiaza; un spatiu aparut in string
+    /// da, fiindca schimba textul.
+    #[test]
+    fn spatiile_schimbate_in_string_nu_se_evidentiaza() {
+        let marcat = |a: &str, b: &str| -> Vec<String> {
+            let (ss, sc) = diff_intra(a, b);
+            ss.iter()
+                .chain(sc.iter())
+                .filter(|s| s.schimbat.is_some())
+                .map(|s| s.text.clone())
+                .collect()
+        };
+        let m = marcat(
+            "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a\t' + @x",
+            "SET @s = ') W\n            JOIN t X ON W.a=X.a ' + @y",
+        );
+        assert_eq!(m, ["@x", "@y"], "doar variabila difera: {m:?}");
+        let m = marcat("PRINT 'a b'", "PRINT 'ab'");
+        assert!(!m.is_empty(), "spatiul disparut din string se vede");
     }
 
     #[test]

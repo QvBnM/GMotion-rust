@@ -1,34 +1,10 @@
 [
- {
-  "obiect": "dbo.TESTSIMILITUDINE_CaseG_StringCuKeywords",
-  "baza": "CharismaERP_GetsBet_Copy",
-  "camp": "scor",
-  "python": 87.5,
-  "rust": 87.18,
-  "motiv": "continutul string-urilor (majuscule, spatii) nu se mai normalizeaza; verificat 2026-11-17: in afara string-urilor normalizarea e identica cu v3.4"
- },
- {
-  "obiect": "dbo.TESTSIMILITUDINE_CaseK_Mixt",
-  "baza": "CharismaERP_GetsBet_Copy",
-  "camp": "scor",
-  "python": 81.39,
-  "rust": 81.31,
-  "motiv": "continutul string-urilor (majuscule, spatii) nu se mai normalizeaza; verificat 2026-11-17: in afara string-urilor normalizarea e identica cu v3.4"
- },
- {
-  "obiect": "dbo.TESTSIMILITUDINE_CaseM_StringComplex",
-  "baza": "CharismaERP_GetsBet_Copy",
-  "camp": "scor",
-  "python": 85.95,
-  "rust": 84.62,
-  "motiv": "v3.4 trata '-- acesta e doar text' din string ca comentariu si stergea codul de dupa; v4 pastreaza string-ul"
- },
- {
-  "obiect": "dbo.TESTSIMILITUDINE_CaseN_MegaMixt",
-  "baza": "CharismaERP_GetsBet_Copy",
-  "camp": "scor",
-  "python": 83.88,
-  "rust": 83.52,
-  "motiv": "continutul string-urilor (majuscule, spatii) nu se mai normalizeaza; verificat 2026-11-17: in afara string-urilor normalizarea e identica cu v3.4"
- }
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_CaseM_StringComplex",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "scor",
+    "python": 85.95,
+    "rust": 85.07,
+    "motiv": "v3.4 trata '-- acesta e doar text' din string ca comentariu si stergea codul de dupa; v4 pastreaza string-ul (majusculele lui raman; spatiile se strang ca in v3.4 din 2026-11-19)"
+  }
 ]

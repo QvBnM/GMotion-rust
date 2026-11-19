@@ -1114,10 +1114,40 @@ pub fn incarca_previzualizare(
     text_baza: &str,
     setari: &[&str],
 ) {
+    // Lista se redeseneaza la fiecare comanda (filtru, clic, revizuit), iar
+    // diff-ul unui obiect mare costa peste o secunda (proba pe Windows,
+    // 2026-11-19: 1,2 s la un filtru). Se recalculeaza doar cand obiectul
+    // sau limba s-au schimbat.
+    /// Textele, setarile si limba din care s-a calculat ultima previzualizare.
+    type Calculata = (String, String, Vec<String>, texte::Limba);
+    thread_local! {
+        static ULTIMA: std::cell::RefCell<Option<Calculata>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    let limba = limba_curenta(ui);
+    let acelasi = ULTIMA.with_borrow(|u| {
+        u.as_ref().is_some_and(|(a, b, s, l)| {
+            a == text_sursa
+                && b == text_baza
+                && s.iter().map(String::as_str).eq(setari.iter().copied())
+                && *l == limba
+        })
+    });
+    if acelasi && slint::Model::row_count(&ui.get_previzualizare()) > 0 {
+        return;
+    }
     let model = model_editor::construieste(text_sursa, text_baza);
-    let (randuri, _) = randuri_ui(&model, true, false, limba_curenta(ui));
+    let (randuri, _) = randuri_ui(&model, true, false, limba);
     ui.set_previzualizare(ModelRc::new(VecModel::from(randuri)));
     ui.set_ce_difera(gmotion_core::clasificare::propozitie(text_sursa, text_baza, setari).into());
+    ULTIMA.with_borrow_mut(|u| {
+        *u = Some((
+            text_sursa.to_string(),
+            text_baza.to_string(),
+            setari.iter().map(|x| x.to_string()).collect(),
+            limba,
+        ))
+    });
 }
 
 /// Goleste previzualizarea (niciun obiect selectat).
@@ -2568,6 +2598,15 @@ mod teste {
             "un singur caracter, intr-un sir: Nu → nu"
         );
         assert!(ui.get_previzualizare().row_count() > 0);
+        // a doua redesenare pe acelasi obiect nu mai recalculeaza diff-ul
+        let inainte = ui.get_previzualizare();
+        incarca_previzualizare(&ui, &a, &b, &[]);
+        assert!(
+            inainte == ui.get_previzualizare(),
+            "acelasi model, nerecalculat"
+        );
+        incarca_previzualizare(&ui, &b, &a, &[]);
+        assert!(inainte != ui.get_previzualizare(), "alt obiect, recalculat");
         goleste_previzualizarea(&ui);
         assert_eq!(ui.get_previzualizare().row_count(), 0);
     }
