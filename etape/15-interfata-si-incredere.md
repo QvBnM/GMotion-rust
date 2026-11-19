@@ -1,8 +1,8 @@
 # Etapa 15 — interfata care se tine de treaba, si incredere in motor
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-18 · **Incheiata:** —
+**Deschisa:** 2026-11-18 · **Incheiata:** 2026-11-19
 
 ## Scop
 
@@ -34,7 +34,8 @@ Cerut de Mihai pe 2026-11-18, dupa prima rulare pe Windows.
 - [x] marginea dintre coloana si editor se trage cu mouse-ul
 
 **C. Incadrare si lizibilitate**
-- [ ] la 1366x768 si 1920x1080 nu iese nimic din ecran si nu se taie butoane
+- [ ] ~~la 1366x768 si 1920x1080 nu iese nimic din ecran~~ — mutat la design-ul
+      nou al conectarii (singurul ecran care nu incape); restul: da
       — lista, editorul si deploy-ul: da (capturi 2026-11-19); **conectarea**
       nu: la 1366x768 banda de jurnal iese jos. Se face cu design-ul nou al
       conectarii, care vine imediat dupa etapa
@@ -104,10 +105,11 @@ de la Mihai" din `STARE.md`.
       constatari, toate cu verdict**; unsprezece reparate in H5.
 
 **Comun**
-- [ ] capturi noi in ambele moduri
-- [ ] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat
+- [x] capturi noi in ambele moduri (2026-11-19: editor, lista, deploy,
+      conectare; editor si lista si la 1366x768)
+- [x] poarta verde: `unelte/verifica.sh`
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat
 
 ## Pasi
 
@@ -316,4 +318,20 @@ de la Mihai" din `STARE.md`.
 
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+- **Auditul QA a intrat in mijlocul etapei** (pachetul H) si a luat cel mai
+  mult timp; V1-V3 si V10 din el au rezolvat dinainte o parte din C. O
+  etapa de interfata care primeste un audit la jumatate ar trebui sa-si
+  rescrie ordinea pasilor, nu sa-i adauge la coada.
+- **Cele mai multe „decizii" au avut o abatere la implementare.** F-B5:
+  scoaterea unui camp din configurare ar fi stricat fisierele existente
+  (`deny_unknown_fields`), deci s-a legat in loc de scos. Erorile si
+  jurnalul n-au trecut in engleza: ar fi cerut erori tipate pana in ecran.
+  Lectia: o decizie de produs se verifica pe cod inainte de a fi scrisa ca
+  „acceptata".
+- **Patru asteptari din teste erau gramatical gresite** („42 baze", „23
+  ore", „60 minute"), nu codul — a cincea oara cand cifra din test greseste
+  (CLAUDE.md §6).
+- **Slint: `elide` nu merge cu ruperea pe randuri**; titlul are marimea pe
+  trepte. Si `close-policy` nu primeste o expresie.
+- **Incadrarea conectarii la 1366x768 a ramas pe dinafara**, mutata la
+  design-ul nou, care oricum reaseaza ecranul.

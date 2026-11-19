@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-19 · commit `c88e8b6` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (488 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-19 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (502 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -31,10 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/15-interfata-si-incredere.md` — interfata care nu te
-incurca (lista ramane in stanga cand deschizi, incadrare la orice rezolutie,
-harta curata, denumiri „Martor" / „Modificata", comutator de limba) si
-incredere in motor pe cod scris urat. Etapa 14 s-a incheiat pe 2026-11-18.
+**Etapa activa:** niciuna. Etapa 15 s-a incheiat pe 2026-11-19. Urmeaza
+design-ul nou al conectarii (macheta de la Mihai), apoi etapa 16
+(`etape/16-lista-si-taburi.md`, NEPORNITA).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare
@@ -47,68 +46,22 @@ unelte\porneste.bat --server         # ecranul de conectare, gol
 
 ## Urmatorul pas concret
 
-**Etapa 15, pachetul A (motorul si testele), e in lucru.** Facut: cazul
-raportat de Mihai a intrat in harness si s-a dovedit ca motorul da exact ce da
-v3.4; instantaneul de previzualizare are acum un ciclu de cursor intreg, cu
-`WHILE` imbricat si `IF/ELSE`, scris urat; exista un test cap-coada care aplica
-toate blocurile pe el si verifica forma normalizata.
+**Etapa 15 e incheiata.** Ordinea hotarata cu Mihai (2026-11-19):
 
-**Facut din E:** textele interfetei au iesit din `.slint` intr-un tabel unic
-(`fereastra::texte`), in romana si engleza, cu comutator in antet si alegerea
-tinuta minte; „Sursa" / „Baza" sunt acum „Martor" / „Modificata".
+1. **Design-ul nou al conectarii.** Mihai are macheta; cand o da, se deschide
+   etapa 17 din `etape/SABLON.md`, cu criteriile scrise inainte de cod. Intra
+   acolo si ce a ramas din 15 C: la 1366x768 banda de jurnal din conectare
+   iese jos. Logica din 15 F (`aceeasi_instanta`, starea `SeCauta`) ramane;
+   doar desenul se reaseaza.
+2. **Etapa 16** (`etape/16-lista-si-taburi.md`): lista din stanga cu pin /
+   ascundere / mutare; taburi (previzualizare + maxim 8 fixate). Macheta:
+   `cercetare/machete/sina-si-taburi/`.
+3. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
+   (singurul rand ramas in `cercetare/lipsuri-portare.md`). De probat intai
+   daca se poate in Slint (`TextInput` nu are culori pe bucati).
 
-**Facut din G:** panoul de detalii din lista (cerut de Mihai): lista pe toata
-latimea pana la clic, detaliile in dreapta cu impact estimat si nota, maner
-de latime, X / Esc / al doilea clic inchid, dublu clic deschide editorul.
-Din `cli`: `gmotion impact`, `revizuire --nota`.
-
-**Facut din B:** lista ramane in stanga cand deschizi un obiect — coloana de
-300 px, clic pe rand = alt obiect pe loc, Esc o largeste la loc.
-
-**Auditul QA (etapa 15, pachetul H) e in lucru, inaintea oricarui alt
-lucru** — cererea lui Mihai. `cercetare/audit-qa-2026-11-18.md` a fost facut
-pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
-test care cade, abia apoi se repara. Verdictele intra in sectiunea
-„Verdicte" de la finalul auditului.
-
-**Pachetul H (auditul QA) e gata, tot** — cate un commit per constatare (sau
-per grup strans legat), cu poarta verde inainte de fiecare. Din cele 25 de constatari
-din H1-H4, trei nu se mai reproduceau (C9, V1, V2 — refacerea hartii si a
-antetului de la etapa 15 le scosese), si fiecare are acum testul sau captura
-care o tine asa. H5 a mai reparat **unsprezece** constatari mici si a dat
-**verdict tuturor celor 85**: tabelul e sectiunea „Verdicte" din
-`cercetare/audit-qa-2026-11-18.md`, si aia e singura lista de urmarit.
-
-Ramase deschise si notate acolo: **F-D7** (cere o proba de SQL pe Windows,
-vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
-(F-M3, F-A18, F-B5) trecute la „Ce astept de la Mihai".
-
-**Tot ce e de facut, in ordine:**
-
-1. ~~**H1** siguranta deploy-ului~~ — gata (2026-11-18).
-2. ~~**H2** pierdere de date~~ — gata (2026-11-18).
-3. ~~**H3** cadere si ecrane~~ — gata (2026-11-19).
-4. ~~**H4** inghetari~~ — gata (2026-11-19).
-5. ~~**H5** restul auditului~~ — gata (2026-11-19).
-6. ~~**15 E**~~ — gata (2026-11-19); erorile si jurnalul raman in romana,
-   deliberat (`JURNAL.md`).
-7. ~~**15 B**~~ — gata (2026-11-19).
-8. ~~**15 C**~~ — gata (2026-11-19), in afara conectarii la 1366x768
-   (merge cu design-ul nou). Era: incadrarea la 1366x768 si 1920x1080, titlul pe doua linii,
-   comutatorul Alaturat / Unificat, liniile lungi.
-9. ~~**15 D**~~ — gata (2026-11-19).
-10. ~~**15 F**~~ — gata (2026-11-19).
-11. ~~Deciziile din audit (F-M3, F-A18, F-B5)~~ — gata (2026-11-19).
-12. Incheierea etapei 15: capturi, poarta completa, `STARE.md`, `JURNAL.md`.
-13. Design-ul nou al conectarii (macheta de la Mihai).
-14. **Etapa 16** (`etape/16-lista-si-taburi.md`, NEPORNITA): lista din
-    stanga cu pin / ascundere / mutare; taburi (previzualizare + maxim 8
-    fixate; `j` / `k` sar peste obiectele fixate). Fara note pe blocuri in
-    editor (Mihai). Macheta: `cercetare/machete/sina-si-taburi/`.
-15. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
-    (singurul rand ramas in `cercetare/lipsuri-portare.md`); decizia pe `rfd`.
-
-Criteriile: `etape/15-interfata-si-incredere.md` si `etape/16-lista-si-taburi.md`.
+La pornire: `python3 -I unelte/harta-cod.py`, apoi cauti in `HARTA-COD.md`
+si citesti doar intervalul (CLAUDE.md §0).
 
 - **Platforma cu module:** deocamdata ramane un singur modul, „comparare
   obiecte" (`diff-obiecte`).
@@ -164,6 +117,19 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Harta se picteaza la pixelii fizici** (`picteaza_la(.., factor)`), iar in
+  `lista.slint` imaginea are `width = source.width / factor-harta`. O imagine
+  noua pictata cu `picteaza` (1x) si pusa acolo iese pe jumatate pe un ecran
+  scalat 2x — sau, invers, uitata latimea, iese dubla.
+- **Un obiect care „difera doar in hinturi" n-are blocuri in editor**:
+  normalizarea uneste hinturile, deci editorul arata 0 diferente, desi lista
+  il da modificat. E deliberat (F-M3): se pune in plan, iar deploy-ul duce
+  textul exact. Nu e un bug de aliniere.
+- **`Limba` sta in `core`**; fiecare ecran o afla cu `limba_curenta(ui)` din
+  globalul `Texte`. Un text nou facut in Rust pentru om trece prin
+  `limba.alege(ro, en)` sau `limba.numar(..)`, altfel ramane in romana cand
+  fereastra e in engleza.
 
 - **Modelul editorului se tine minte pe o cheie** (obiect + amprenta textului
   final + unirea cursorului), si `model_editor()` da un `Ref`, nu o copie. Daca
