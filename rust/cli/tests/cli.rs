@@ -1134,3 +1134,95 @@ fn munca_unei_baze_nu_se_pierde_cand_compari_cu_alta() {
     );
     std::fs::remove_dir_all(&d).ok();
 }
+
+/// F-C1, F-C2 si F-C3 din `cercetare/audit-qa-2026-11-18.md`:
+/// `revizuire --marcheaza` bifa doar **prima** baza (tacut), `export` scria
+/// mereu „NU" la Rezolvat si Omis, iar `editare --arata-final` amesteca
+/// progresul in iesirea standard, deci fisierul redirectat incepea cu
+/// „Citesc referinta...".
+#[test]
+fn cli_marcheaza_pe_toate_bazele_exporta_starea_si_nu_amesteca_progresul() {
+    let d = dir("cli-fc");
+    let date = d.join("date");
+    let inst = d.join("inst.json");
+    std::fs::write(
+        &inst,
+        r#"{"versiune":1,"server":"SRV","creat":"2026-11-19T10:00:00Z","nota":"","baze":{
+          "Ref":[{"schema":"dbo","nume":"pDiff","tip":"P","definitie":"CREATE PROC dbo.pDiff AS SELECT 1"}],
+          "T1":[{"schema":"dbo","nume":"pDiff","tip":"P","definitie":"CREATE PROC dbo.pDiff AS SELECT 11"}],
+          "T2":[{"schema":"dbo","nume":"pDiff","tip":"P","definitie":"CREATE PROC dbo.pDiff AS SELECT 21"}]}}"#,
+    )
+    .unwrap();
+    let i = inst.to_str().unwrap();
+
+    // F-C1: o singura chemare bifeaza obiectul in ambele baze comparate
+    let o = ruleaza_in(
+        &[
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Ref",
+            "--marcheaza",
+            "dbo.pDiff",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ruleaza_in(
+        &["revizuire", "--sursa", i, "--referinta", "Ref", "--json"],
+        Some(&date),
+    );
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(
+        v["revizuite"],
+        2,
+        "bifa merge pe toate bazele comparate: {}",
+        out(&o)
+    );
+
+    // F-C2: exportul spune ce s-a revizuit, nu „NU" peste tot
+    let csv = d.join("export.csv");
+    let o = ruleaza_in(
+        &[
+            "export",
+            "--sursa",
+            i,
+            "--referinta",
+            "Ref",
+            "--iesire",
+            csv.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let text = std::fs::read_to_string(&csv).unwrap();
+    assert!(
+        text.lines().skip(1).all(|l| l.contains(";DA")),
+        "starea de revizuire ajunge in CSV:\n{text}"
+    );
+
+    // F-C3: cu --arata-final, iesirea standard e numai textul
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Ref",
+            "--baza",
+            "T1",
+            "--obiect",
+            "dbo.pDiff",
+            "--arata-final",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(
+        out(&o).starts_with("CREATE PROC"),
+        "nimic inaintea textului:\n{}",
+        out(&o)
+    );
+    std::fs::remove_dir_all(&d).ok();
+}

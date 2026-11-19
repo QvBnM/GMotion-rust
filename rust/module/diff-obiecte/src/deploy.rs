@@ -251,11 +251,30 @@ fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>
     verifica_nume(referinta)?;
     for (baza, obiecte) in pe_baza {
         verifica_nume(baza)?;
+        // un plan `.json` scris de mana poate repeta un pas: obiectul ar fi
+        // scris de doua ori, iar revenirea ar avea doua DROP-uri pentru el
+        // (F-D12 din auditul QA)
+        let mut vazute: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+        for o in obiecte {
+            if !vazute.insert(o.obiect.as_str()) {
+                return Err(Eroare::ObiectRepetat {
+                    obiect: o.obiect.clone(),
+                    baza: baza.clone(),
+                });
+            }
+        }
         for o in obiecte {
             verifica_nume(&o.obiect)?;
             if o.cod.trim().is_empty() {
                 return Err(Eroare::ObiectCriptat {
                     obiect: o.obiect.clone(),
+                });
+            }
+            // `dbo.p;1` e o procedura numerotata: `CREATE OR ALTER` nu le
+            // accepta, deci scriptul ar cadea la rulare (F-D10)
+            if o.obiect.contains(';') {
+                return Err(Eroare::NumeNesigur {
+                    nume: o.obiect.clone(),
                 });
             }
             let linii = gmotion_core::lexer::linii_go(&o.cod);
@@ -1648,5 +1667,42 @@ mod teste {
             s.contains("RAISERROR") && !s.contains("DROP"),
             "tip necunoscut: {s}"
         );
+    }
+
+    /// F-D12 si F-D10 din `cercetare/audit-qa-2026-11-18.md`: un plan `.json`
+    /// scris de mana putea repeta un pas (obiectul scris de doua ori, cu doua
+    /// DROP-uri in revenire), iar o procedura numerotata (`dbo.p;1`) ajungea
+    /// intr-un `CREATE OR ALTER`, care nu le accepta: scriptul cadea la
+    /// rulare, dupa ce alte obiecte fusesera deja scrise.
+    #[test]
+    fn pasii_repetati_si_procedurile_numerotate_se_refuza() {
+        let d = dir("repetat");
+        let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
+        pe_baza.insert(
+            "B".to_string(),
+            vec![
+                o("dbo.p", "CREATE OR ALTER PROC dbo.p AS SELECT 1"),
+                o("dbo.p", "CREATE OR ALTER PROC dbo.p AS SELECT 2"),
+            ],
+        );
+        let e = scrie(&d, "Ref", &pe_baza, ModImpartire::Unul, 0, "t").unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-013", "{e}");
+        assert!(!d.exists(), "nimic nu se scrie cand se refuza");
+
+        let d = dir("numerotat");
+        let e = scrie(
+            &d,
+            "Ref",
+            &o_baza(
+                "B",
+                o("dbo.p;1", "CREATE OR ALTER PROC dbo.p;1 AS SELECT 1"),
+            ),
+            ModImpartire::Unul,
+            0,
+            "t",
+        )
+        .unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-008", "{e}");
+        assert!(!d.exists());
     }
 }

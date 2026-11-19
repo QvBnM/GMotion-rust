@@ -402,17 +402,21 @@ pub fn revizuire(
     let mut necunoscute: Vec<String> = Vec::new();
     if let Some(l) = marcheaza {
         for obiect in lista(l) {
-            match r
+            // pe toate bazele comparate, ca `--omite` si `--scoate`: cu
+            // `.find` se bifa doar prima, tacut (F-C1 din auditul QA)
+            let mut gasit = false;
+            for rand in r
                 .comparare
                 .randuri
                 .iter()
-                .find(|x| x.obiect.eq_ignore_ascii_case(&obiect))
+                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
             {
-                Some(rand) => {
-                    revizuire.marcheaza(rand);
-                    schimbat = true;
-                }
-                None => necunoscute.push(obiect),
+                revizuire.marcheaza(rand);
+                gasit = true;
+            }
+            schimbat |= gasit;
+            if !gasit {
+                necunoscute.push(obiect);
             }
         }
     }
@@ -686,7 +690,11 @@ pub fn editare(
     arata_final: bool,
     format: Format,
 ) -> Result<(), String> {
-    let r = ruleaza_comparare(args, referinta, Some(baza), format)?;
+    // cu `--arata-final`, iesirea standard e **fisierul** cerut de om: progresul
+    // merge pe erori, ca la `--json`. Altfel textul redirectat incepea cu
+    // „Citesc referinta..." (F-C3 din auditul QA).
+    let progres = if arata_final { Format::Json } else { format };
+    let r = ruleaza_comparare(args, referinta, Some(baza), progres)?;
     let rand = r
         .comparare
         .randuri
@@ -835,8 +843,19 @@ pub fn export(
     }
     let cale =
         iesire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
-    let n = modul::scrie_csv(&cale, &r.comparare.randuri, |_| modul::Stare::default())
-        .map_err(|e| e.to_string())?;
+    // starea de revizuire vine din sesiune: altfel „Rezolvat" si „Omis" ies
+    // mereu NU, iar exportul minte despre munca facuta (F-C2 din auditul QA)
+    let (revizuire, _) = salvate(args, referinta);
+    let n = modul::scrie_csv(&cale, &r.comparare.randuri, |i| {
+        r.comparare
+            .randuri
+            .get(i)
+            .map_or_else(modul::Stare::default, |rand| modul::Stare {
+                rezolvat: revizuire.e_revizuit(rand),
+                omis: revizuire.e_omis(rand),
+            })
+    })
+    .map_err(|e| e.to_string())?;
     format.progres(&format!("Scris {} ({n} randuri).", cale.display()));
     Ok(())
 }

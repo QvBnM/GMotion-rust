@@ -35,9 +35,22 @@ fn din_zile(zile: u64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m as u32, d as u32)
 }
 
-/// Marcaj compact pentru nume de fisiere: `20261117_1030`.
+/// Marcaj compact pentru nume de fisiere: `20261117_103045`.
+///
+/// **Cu secunde.** Cu rezolutie de un minut, doua exporturi CSV in acelasi
+/// minut se suprascriau, iar un al doilea deploy in acelasi minut cadea cu
+/// `GM-MOD-010` („directorul nu e gol") si un mesaj care nu spunea de ce
+/// (F-A10 si F-A11 din auditul QA).
 pub fn acum_compact() -> String {
-    acum().replace(['-', ':'], "").replace(' ', "_")
+    let s = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    format!(
+        "{}{:02}",
+        acum().replace(['-', ':'], "").replace(' ', "_"),
+        s % 60
+    )
 }
 
 #[cfg(test)]
@@ -63,7 +76,7 @@ mod teste {
         assert_eq!(a.as_bytes()[10], b' ');
         assert_eq!(a.as_bytes()[13], b':');
         let c = acum_compact();
-        assert_eq!(c.len(), 13, "{c}");
+        assert_eq!(c.len(), 15, "{c}");
         assert!(c.contains('_'));
         assert!(!c.contains('-') && !c.contains(':') && !c.contains(' '));
     }

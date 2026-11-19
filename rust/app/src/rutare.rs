@@ -529,6 +529,12 @@ impl Aplicatie {
 
     fn construieste_modelul(&self) -> Option<ModelEditor> {
         self.refaceri_model.set(self.refaceri_model.get() + 1);
+        // un obiect criptat n-are text de comparat: editorul arata un diff
+        // fals („totul sters"), iar „Aplica toate" salva un text final gol
+        // (F-A14 din auditul QA)
+        if self.obiect().is_some_and(|o| o.stare == Stare::Criptat) {
+            return None;
+        }
         let (baza, id) = self.cheia_curenta()?;
         let (a, b) = self.texte(&baza, &id)?;
         let Some(r) = self.rand(&baza, &id) else {
@@ -606,6 +612,7 @@ impl Aplicatie {
             Comanda::Deschide => {
                 self.diferenta = 0;
                 self.ghidat = None;
+                self.istoric.clear();
                 // un obiect care exista doar intr-o parte n-are ce arata in
                 // editor: ecranul ramane pe lista
                 if self.model_editor().is_some() {
@@ -621,11 +628,16 @@ impl Aplicatie {
                 self.treci(1);
                 self.diferenta = 0;
                 self.ghidat = None;
+                // Ctrl+Z e al obiectului deschis, ca in v3.4 (`ui.py:3205`):
+                // cu un istoric global, anularea schimba textul altui obiect,
+                // si nu se vede nimic pe ecran (F-A4 din auditul QA)
+                self.istoric.clear();
             }
             Comanda::ObiectAnterior => {
                 self.treci(-1);
                 self.diferenta = 0;
                 self.ghidat = None;
+                self.istoric.clear();
             }
             Comanda::ComutaRevizuit => return self.comuta_revizuit(),
             Comanda::ComutaRevizuitLa(p) => {
@@ -1713,5 +1725,64 @@ mod teste {
         a.comanda(Comanda::ComutaUnireaCursorului(true));
         a.model_editor().unwrap();
         assert!(a.refaceri_model() > n2);
+    }
+
+    /// F-A4 si F-A14 din `cercetare/audit-qa-2026-11-18.md`: Ctrl+Z avea un
+    /// istoric **global**, deci anula o schimbare de pe alt obiect, fara sa se
+    /// vada nimic pe ecran (v3.4 golea istoricul la deschiderea unui obiect);
+    /// iar un obiect criptat se deschidea in editor cu un diff fals „totul
+    /// sters", unde „Aplica toate" salva un text final gol.
+    #[test]
+    fn anularea_e_a_obiectului_deschis_iar_criptatele_nu_intra_in_editor() {
+        let (mut a, sursa, baza) = aplicatie_editare();
+        let id = a.id_obiect().expect("un obiect deschis");
+        assert!(a.comanda(Comanda::SalveazaText {
+            id,
+            text: format!("{baza}\n-- scris de mine")
+        }));
+        assert!(a.se_poate_anula());
+        // alt obiect: ce s-a facut pe cel dinainte nu se mai anuleaza de aici
+        a.comanda(Comanda::ObiectUrmator);
+        assert!(
+            !a.se_poate_anula(),
+            "istoricul e al obiectului deschis, nu global"
+        );
+        assert!(!a.comanda(Comanda::Anuleaza), "si nu face nimic pe ascuns");
+        assert_ne!(sursa, baza);
+
+        // un obiect criptat nu are model de editor
+        let mut criptate = aplicatie_criptat();
+        criptate.comanda(Comanda::Selecteaza(0));
+        assert_eq!(
+            criptate.lista().obiect(0).map(|o| o.stare),
+            Some(Stare::Criptat)
+        );
+        assert!(
+            criptate.model_editor().is_none(),
+            "un obiect criptat n-are ce arata in editor"
+        );
+        criptate.comanda(Comanda::Deschide);
+        assert_eq!(criptate.ecran(), Ecran::Lista, "deci ramane in lista");
+    }
+
+    /// O comparare cu un obiect criptat (definitie goala intr-o parte).
+    fn aplicatie_criptat() -> Aplicatie {
+        let sursa = modul::pregateste(&[obiect_db("pCriptat", "")]);
+        let tinta = modul::pregateste(&[obiect_db(
+            "pCriptat",
+            "CREATE PROC dbo.pCriptat AS SELECT 1",
+        )]);
+        let comparare = modul::compara(
+            "Referinta",
+            &sursa,
+            &[("Client1".to_string(), tinta.clone())],
+            |_| {},
+        );
+        Aplicatie::noua(
+            comparare.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        )
     }
 }
