@@ -236,6 +236,22 @@ export component EditorDiferente inherits Window {
     property <length> latime-cod: Math.min(1280px, root.width - root.latime-lista - 96px);
     // latimea unui panou; 14 px raman pentru harta diferentelor
     property <length> panou: root.alaturat ? (root.latime-cod - root.jgheab - 14px) / 2 : root.latime-cod - 14px;
+    // insulele de jos: cat ocupa fiecare si daca mai incap alaturi
+    property <length> latime-insula-blocuri: sj.preferred-width + 12px;
+    property <length> latime-insula-unelte: sx.preferred-width + 12px;
+    property <length> spatiu-insule: root.width - root.latime-lista - 36px;
+    // ---- derularea pe orizontala a codului (V10)
+    // `latime-continut` vine din Rust: latimea celei mai lungi linii, in
+    // pixeli, la fontul mono de 12,5 px. Fara ea nu se stie cat e de derulat.
+    in property <length> latime-continut: 0px;
+    in-out property <length> derulare-x: 0px;
+    property <length> latime-text: root.panou - 57px;
+    out property <length> derulare-maxima: max(0px, root.latime-continut - root.latime-text);
+    public function deruleaza(cu: length) {
+        root.derulare-x = Math.max(0px, Math.min(root.derulare-maxima, root.derulare-x + cu));
+    }
+    out property <bool> insule-sub-ea:
+        root.latime-insula-blocuri + 12px + root.latime-insula-unelte > root.spatiu-insule;
 
     public function mergi-la(i: int) {
         if (root.total-diferente == 0) { return; }
@@ -286,6 +302,11 @@ export component EditorDiferente inherits Window {
             if (e.text == "g") { if (root.ghidat) { root.ghidat-opreste(); } else { root.ghidat-porneste(); } return accept; }
             if (e.text == "e") { root.porneste-editarea(); return accept; }
             if (e.text == "u") { root.alaturat = !root.alaturat; root.comuta-alaturat(root.alaturat); return accept; }
+            // liniile lungi: Shift + sageti deruleaza codul pe orizontala,
+            // Shift+Home il aduce inapoi la inceput (V10)
+            if (e.modifiers.shift && e.text == Key.RightArrow) { root.deruleaza(120px); return accept; }
+            if (e.modifiers.shift && e.text == Key.LeftArrow) { root.deruleaza(-120px); return accept; }
+            if (e.text == Key.Home) { root.derulare-x = 0px; return accept; }
             // Esc: intai largeste lista inapoi la tot ecranul, nu pleaca direct
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
@@ -299,7 +320,9 @@ export component EditorDiferente inherits Window {
             height: root.height;
             padding-top: 84px;
             // modul ghidat isi are locul lui sub cod, nu peste el
-            padding-bottom: root.ghidat ? 86px + 150px : 86px;
+            // insulele de jos pot sta pe doua randuri: codul le lasa loc
+            padding-bottom: (root.ghidat ? 86px + 150px : 86px)
+                + (root.insule-sub-ea ? 58px : 0px);
             HorizontalLayout {
                 alignment: center;
                 VerticalLayout {
@@ -411,6 +434,7 @@ export component EditorDiferente inherits Window {
                                             curenta: r.diferenta == root.diferenta-curenta;
                                             fara-linie: r.st-nr == "";
                                             fond: Tema.panou-sursa;
+                                            decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
                                         }
                                         // blocul din sursa se poate **trage**
@@ -488,6 +512,7 @@ export component EditorDiferente inherits Window {
                                             marcaj: root.ascunde-diferentele ? 0 : r.dr-marcaj;
                                             curenta: r.diferenta == root.diferenta-curenta;
                                             fara-linie: r.dr-nr == "";
+                                            decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
                                         }
                                         // unde ajunge blocul tras
@@ -523,6 +548,7 @@ export component EditorDiferente inherits Window {
                                         marcaj: root.ascunde-diferentele || r.st-nr != "" ? 0 : r.dr-marcaj;
                                         curenta: r.diferenta == root.diferenta-curenta;
                                         fara-linie: false;
+                                        decalaj-x: root.derulare-x;
                                         tigla: root.tigla-hasura;
                                     }
                                     // previzualizare la hover: cealalta
@@ -557,6 +583,33 @@ export component EditorDiferente inherits Window {
                                             }
                                         }
                                     }
+                                }
+                            }
+                        }
+                        // bara de derulare pe orizontala: liniile mai lungi
+                        // decat panoul se pot citi tragand-o, sau cu
+                        // Shift + sageti (V10 din auditul QA)
+                        if root.derulare-maxima > 0px: bara-oriz := Rectangle {
+                            height: 12px;
+                            property <length> de_la;
+                            property <length> util: parent.width - 8px;
+                            property <length> cursor: Math.max(40px, bara-oriz.util * root.latime-text / root.latime-continut);
+                            Rectangle {
+                                x: 4px + (bara-oriz.util - bara-oriz.cursor) * (root.derulare-x / root.derulare-maxima);
+                                y: 4px;
+                                width: bara-oriz.cursor;
+                                height: 5px;
+                                border-radius: 2.5px;
+                                background: trage-oriz.pressed || trage-oriz.has-hover ? Tema.text-secundar : Tema.text-tert;
+                            }
+                            trage-oriz := TouchArea {
+                                pointer-event(e) => {
+                                    if (e.kind == PointerEventKind.down) { bara-oriz.de_la = root.derulare-x; }
+                                }
+                                moved => {
+                                    root.derulare-x = Math.max(0px, Math.min(root.derulare-maxima,
+                                        bara-oriz.de_la + (self.mouse-x - self.pressed-x)
+                                            * root.derulare-maxima / Math.max(1px, bara-oriz.util - bara-oriz.cursor)));
                                 }
                             }
                         }
@@ -788,14 +841,19 @@ export component EditorDiferente inherits Window {
             }
         }
 
-        // ---- jos: lucrul pe blocuri, ca bara din v3.4, si a doua insula
-        HorizontalLayout {
-            x: root.latime-lista + (root.width - root.latime-lista - self.preferred-width) / 2;
-            y: root.height - 50px - 22px;
+        // ---- jos: lucrul pe blocuri, ca bara din v3.4, si a doua insula.
+        // Cand nu incap alaturi, a doua trece pe randul de deasupra: asezate
+        // pe un singur rand si centrate, la 1024 px jumatate din butoane
+        // ieseau din ecran si nu se mai puteau apasa (V3 din auditul QA).
+        Insula {
+            x: root.insule-sub-ea
+                ? root.latime-lista + (root.spatiu-insule - root.latime-insula-blocuri) / 2
+                : root.latime-lista
+                    + (root.spatiu-insule - root.latime-insula-blocuri - 12px
+                        - root.latime-insula-unelte) / 2;
+            y: root.height - 50px - 22px - (root.insule-sub-ea ? 58px : 0px);
             height: 50px;
-            spacing: 12px;
-            Insula {
-                width: sj.preferred-width + 12px;
+            width: root.latime-insula-blocuri;
                 sj := HorizontalLayout {
                     padding: 6px;
                     spacing: 2px;
@@ -841,10 +899,18 @@ export component EditorDiferente inherits Window {
                         }
                     }
                 }
-            }
-            Insula {
-                width: sx.preferred-width + 12px;
-                sx := HorizontalLayout {
+        }
+        Insula {
+            x: root.insule-sub-ea
+                ? root.latime-lista + (root.spatiu-insule - root.latime-insula-unelte) / 2
+                : root.latime-lista
+                    + (root.spatiu-insule - root.latime-insula-blocuri - 12px
+                        - root.latime-insula-unelte) / 2
+                    + root.latime-insula-blocuri + 12px;
+            y: root.height - 50px - 22px;
+            height: 50px;
+            width: root.latime-insula-unelte;
+            sx := HorizontalLayout {
                     padding: 6px;
                     spacing: 2px;
                     ButonInsula { text: Texte.editeaza; tasta: "e"; fel: root.editeaza-mod ? 2 : 0; apasat => { root.porneste-editarea(); } }
@@ -860,8 +926,7 @@ export component EditorDiferente inherits Window {
                         fel: root.uneste-cursorul ? 2 : 0;
                         apasat => { root.comuta-unirea-cursorului(!root.uneste-cursorul); }
                     }
-                    ButonInsula { text: Texte.anuleaza-ctrlz; tasta: "Ctrl Z"; activ: root.se-poate-anula; apasat => { root.anuleaza(); } }
-                }
+                ButonInsula { text: Texte.anuleaza-ctrlz; tasta: "Ctrl Z"; activ: root.se-poate-anula; apasat => { root.anuleaza(); } }
             }
         }
 

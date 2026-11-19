@@ -86,7 +86,12 @@ fn main() {
         .and_then(|i| a.get(i + 1))
         .and_then(|v| v.parse::<u32>().ok())
         .unwrap_or(1440);
-    let h = 900u32;
+    let h = a
+        .iter()
+        .position(|x| x == "--inaltime")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(900);
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra nu se creeaza");

@@ -65,7 +65,16 @@ fn main() {
         st.scrie(&director, "2026-11-18 14:53", &Default::default());
     }
 
-    let (w, h) = (1440u32, 900u32);
+    // `--latime N` / `--inaltime N`: ecranul se fotografiaza si la rezolutii
+    // mici (1366x768 e cel mai comun laptop), ca sa se vada ce iese din el
+    let numar = |f: &str, implicit: u32| -> u32 {
+        a.iter()
+            .position(|x| x == f)
+            .and_then(|i| a.get(i + 1))
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(implicit)
+    };
+    let (w, h) = (numar("--latime", 1440), numar("--inaltime", 900));
     let fereastra = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraDeploy::new().expect("fereastra");

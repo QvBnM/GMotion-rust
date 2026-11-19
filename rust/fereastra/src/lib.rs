@@ -70,6 +70,7 @@ EDITOR\n\
   j k            obiectul urmator, anterior\n\
   n p            diferenta urmatoare, anterioara\n\
   u              alaturat / unificat\n\
+  Shift+sageti   deruleaza codul pe orizontala (liniile lungi); Home inapoi\n\
   e              editeaza textul final de mana\n\
   g              modul ghidat (fiecare diferenta pe rand)\n\
   o              omite obiectul\n\
@@ -523,6 +524,33 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_total_diferente(model.diferente.len() as i32);
     ui.set_start_diferente(ModelRc::new(VecModel::from(start)));
     ui.set_diferenta_curenta(0);
+    ui.set_latime_continut(latime_continut(model));
+    ui.set_derulare_x(0.0);
+}
+
+/// Latimea celei mai lungi linii, in pixeli logici.
+///
+/// Liniile mai lungi decat panoul erau taiate fara elipsa si fara derulare:
+/// o diferenta la coloana 90 era invizibila intr-o unealta de diff (V10 din
+/// auditul QA). Fereastra deruleaza pe orizontala, si are nevoie sa stie pana
+/// unde. Latimea unui caracter mono de 12,5 px e estimata, ca in `harta`:
+/// Slint nu da latimea unui text fara sa-l deseneze, iar o supraestimare mica
+/// inseamna doar cateva pixeli de derulat in gol.
+fn latime_continut(model: &ModelEditor) -> f32 {
+    const CARACTER: f32 = 7.52;
+    let cele_mai_lungi = model
+        .randuri
+        .iter()
+        .map(|r| {
+            r.stanga
+                .text()
+                .chars()
+                .count()
+                .max(r.dreapta.text().chars().count())
+        })
+        .max()
+        .unwrap_or(0);
+    cele_mai_lungi as f32 * CARACTER
 }
 
 /// Starea editarii obiectului deschis: textul final, omis, modul ghidat.
@@ -2606,5 +2634,101 @@ mod teste {
             !ui.get_randuri().row_data(randul).unwrap().revizuit,
             "bifa nu se deseneaza bifata inainte sa raspunda modelul"
         );
+    }
+
+    /// V10 din `cercetare/audit-qa-2026-11-18.md`: liniile mai lungi decat
+    /// panoul erau taiate fara elipsa, fara derulare si fara impachetare —
+    /// o diferenta la coloana 90 era invizibila intr-o unealta de diff.
+    #[test]
+    fn liniile_lungi_se_pot_derula_pe_orizontala() {
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1024, 768));
+        let lunga = format!("SELECT {} FROM t", "coloana_cu_nume_lung, ".repeat(20));
+        let a = format!("CREATE PROC dbo.p AS\n{lunga} WHERE a = 1");
+        let b = format!("CREATE PROC dbo.p AS\n{lunga} WHERE a = 2");
+        let model = model_editor::construieste(&a, &b);
+        incarca_editor(
+            &ui,
+            &AntetEditor {
+                id: "Prod/dbo.p",
+                schema: "dbo",
+                nume: "p",
+                tip: "procedura",
+                sursa_baza: "Dev",
+                sursa_server: "srv",
+                tinta_baza: "Prod",
+                tinta_server: "srv",
+                stare_obiecte: "obiectul 1 din 1 nerevizuite",
+                revizuit: false,
+                in_plan: false,
+            },
+            &model,
+        );
+        ui.show().expect("fereastra se arata");
+        ui.invoke_focus_taste();
+        assert!(
+            ui.get_latime_continut() > 1024.0,
+            "linia de proba e mai lata decat ecranul: {}",
+            ui.get_latime_continut()
+        );
+        assert!(
+            ui.get_derulare_maxima() > 0.0,
+            "deci se poate derula: {}",
+            ui.get_derulare_maxima()
+        );
+        assert_eq!(ui.get_derulare_x(), 0.0, "incepe de la stanga");
+
+        // Shift + sageti deruleaza, si nu trece de capete
+        let cu_shift = |tasta: slint::platform::Key| {
+            use slint::platform::WindowEvent;
+            let t: SharedString = tasta.into();
+            ui.window().dispatch_event(WindowEvent::KeyPressed {
+                text: slint::platform::Key::Shift.into(),
+            });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: t });
+            ui.window().dispatch_event(WindowEvent::KeyReleased {
+                text: slint::platform::Key::Shift.into(),
+            });
+        };
+        cu_shift(slint::platform::Key::RightArrow);
+        let dupa = ui.get_derulare_x();
+        assert!(dupa > 0.0, "s-a derulat spre dreapta: {dupa}");
+        cu_shift(slint::platform::Key::LeftArrow);
+        assert_eq!(ui.get_derulare_x(), 0.0, "si inapoi");
+        cu_shift(slint::platform::Key::LeftArrow);
+        assert_eq!(ui.get_derulare_x(), 0.0, "nu trece de margine");
+        for _ in 0..200 {
+            cu_shift(slint::platform::Key::RightArrow);
+        }
+        assert_eq!(
+            ui.get_derulare_x(),
+            ui.get_derulare_maxima(),
+            "nici de cealalta margine"
+        );
+        // un obiect fara linii lungi nu are ce derula
+        let scurt = model_editor::construieste("SELECT 1", "SELECT 2");
+        let ui2 = fereastra();
+        ui2.window().set_size(slint::PhysicalSize::new(1024, 768));
+        incarca_editor(
+            &ui2,
+            &AntetEditor {
+                id: "Prod/dbo.q",
+                schema: "dbo",
+                nume: "q",
+                tip: "procedura",
+                sursa_baza: "Dev",
+                sursa_server: "srv",
+                tinta_baza: "Prod",
+                tinta_server: "srv",
+                stare_obiecte: "",
+                revizuit: false,
+                in_plan: false,
+            },
+            &scurt,
+        );
+        assert_eq!(ui2.get_derulare_maxima(), 0.0);
     }
 }
