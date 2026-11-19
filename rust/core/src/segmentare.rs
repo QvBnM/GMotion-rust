@@ -414,9 +414,10 @@ pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
         i > 0 && poz < seg[i - 1].sfarsit && poz > seg[i - 1].start
     };
     let la_inceput_de_linie = |poz: usize| {
-        cod[..poz].rsplit('\n').next().map_or(true, |inainte| {
-            inainte.chars().all(|c| c == ' ' || c == '\t')
-        })
+        cod[..poz]
+            .rsplit('\n')
+            .next()
+            .is_none_or(|inainte| inainte.chars().all(|c| c == ' ' || c == '\t'))
     };
     let mut out: Vec<usize> = Vec::with_capacity(blocuri.len());
     let mut poz = 0usize;

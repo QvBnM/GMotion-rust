@@ -600,7 +600,7 @@ pub fn impact(
         .comparare
         .randuri
         .iter()
-        .filter(|x| obiect.map_or(true, |o| x.obiect.eq_ignore_ascii_case(o)))
+        .filter(|x| obiect.is_none_or(|o| x.obiect.eq_ignore_ascii_case(o)))
         .map(|x| {
             let cine = folosit
                 .get(x.baza.as_str())

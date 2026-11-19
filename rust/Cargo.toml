@@ -5,7 +5,11 @@ members = ["core", "db", "platforma", "module/diff-obiecte", "cli", "fereastra",
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.74"
+# Minimul **real**, nu unul dorit: `uuid` (prin `tiberius`) cere 1.89, iar
+# `fereastra` si `app` cer 1.95 (Slint). Poarta verifica declaratia asta fata
+# de ce cer dependentele — 1.74 era fals de mult, si `db` nici nu se construia
+# pe el (F-B1 din auditul QA).
+rust-version = "1.89"
 license = "UNLICENSED"
 
 [profile.release]

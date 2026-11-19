@@ -67,9 +67,8 @@ pub fn director_date() -> Rezultat<PathBuf> {
 pub(crate) fn scrie_atomic(cale: &std::path::Path, date: &[u8]) -> std::io::Result<()> {
     let temporar = cale.with_extension("tmp-gmotion");
     std::fs::write(&temporar, date)?;
-    std::fs::rename(&temporar, cale).map_err(|e| {
+    std::fs::rename(&temporar, cale).inspect_err(|_e| {
         let _ = std::fs::remove_file(&temporar);
-        e
     })
 }
 

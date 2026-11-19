@@ -130,6 +130,68 @@ if probleme:
 PY
 if [ $? -eq 0 ]; then pas "directia dependentelor"; else cade "directia dependentelor"; fi
 
+# ---------------------------------------------------------------- 6b. MSRV
+# `rust-version` spunea 1.74, iar dependentele cereau de mult mai mult: `db` si
+# `platforma` nici nu se construiau pe 1.74. O versiune minima falsa e o
+# promisiune pe care o descopera abia cine incearca (F-B1 din auditul QA).
+# Nu se instaleaza un toolchain vechi: se compara ce declaram cu ce cer
+# dependentele, din `cargo metadata`.
+titlu "versiunea minima de Rust (MSRV)"
+if ! command -v cargo >/dev/null; then
+  sare "MSRV" "cargo nu e instalat"
+elif [ "$MOD" = rapid ]; then
+  sare "MSRV" "mod rapid"
+else
+  cargo metadata --manifest-path rust/Cargo.toml --format-version 1 --all-features 2>/dev/null > "$RADACINA/.msrv.json"
+  python3 - "$RADACINA/.msrv.json" <<'PY'
+import json, sys
+
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+pk = {p["id"]: p for p in d["packages"]}
+noduri = {n["id"]: n for n in d["resolve"]["nodes"]}
+nostru = [p for p in d["packages"] if p["name"].startswith("gmotion-")]
+
+def ver(v):
+    # „1.89" si „1.89.0" sunt aceeasi versiune
+    p = [int(x) for x in v.split(".")]
+    return (p + [0, 0, 0])[:3]
+
+def toate_dependentele(id_):
+    vazut, de_vazut = set(), [id_]
+    while de_vazut:
+        i = de_vazut.pop()
+        if i in vazut:
+            continue
+        vazut.add(i)
+        de_vazut.extend(dep["pkg"] for dep in noduri[i]["deps"])
+    return vazut
+
+probleme = []
+for p in nostru:
+    declarat = p.get("rust_version")
+    if not declarat:
+        probleme.append(p["name"] + ": fara rust-version")
+        continue
+    maxim = ("0.0.0", "")
+    for i in toate_dependentele(p["id"]):
+        rv = pk[i].get("rust_version")
+        if rv and ver(rv) > ver(maxim[0]):
+            maxim = (rv, pk[i]["name"])
+    if ver(maxim[0]) > ver(declarat):
+        probleme.append(
+            "{}: rust-version = {}, dar {} cere {}".format(
+                p["name"], declarat, maxim[1], maxim[0]
+            )
+        )
+
+if probleme:
+    print("\n".join(probleme))
+    sys.exit(1)
+PY
+  if [ $? -eq 0 ]; then pas "MSRV acopera dependentele"; else cade "MSRV"; fi
+  rm -f "$RADACINA/.msrv.json"
+fi
+
 # ---------------------------------------------------------------- 7. CRATE.md
 # Cauza de eroare proprie: documentatia ramasa in urma codului. Singurul fel de
 # bug pe care nu-l prinde niciun test.

@@ -465,7 +465,7 @@ mod teste {
             r.iter().all(|x| x
                 .seg_dreapta
                 .as_ref()
-                .map_or(true, |s| s.iter().all(|g| g.schimbat.is_none()))),
+                .is_none_or(|s| s.iter().all(|g| g.schimbat.is_none()))),
             "{r:?}"
         );
     }
