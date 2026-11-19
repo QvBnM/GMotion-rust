@@ -94,9 +94,10 @@ de la Mihai" din `STARE.md`.
 - [x] H3 cadere si ecrane: C9, V9, V1, V2, V3, V10; capturile la 1366x768
       intra in setul standard (si la 1024x768, unde se vedea V3)
 - [x] H4 inghetari: P4, P1, P2, P3
-- [ ] H5 restul: fiecare constatare din audit are verdict in sectiunea
+- [x] H5 restul: fiecare constatare din audit are verdict in sectiunea
       „Verdicte" de la finalul auditului — reparat (commit), nu se mai
-      reproduce (test), sau amanat (motiv si unde e urmarit)
+      reproduce (test), sau amanat (motiv si unde e urmarit). **85 de
+      constatari, toate cu verdict**; unsprezece reparate in H5.
 
 **Comun**
 - [ ] capturi noi in ambele moduri
@@ -240,6 +241,19 @@ de la Mihai" din `STARE.md`.
     inchide si P3 si clasa lui.
   - P4 a cerut un mecanism, nu o reparatie punctuala: `fir::Lucru<T>`, acelasi
     pentru toate lucrurile lungi, plus o stare vizibila pe ecran cat lucreaza.
+
+- **2026-11-19** H5 gata: verdict pe toate cele 85 de constatari ale
+  auditului, si inca unsprezece reparate pe drum (F-A4, F-A10 partial,
+  F-A11, F-A13 partial, F-A14, F-B1, F-C1, F-C2, F-C3, F-D10, F-D12).
+  - **Poarta a primit o verificare noua**: MSRV-ul declarat fata de ce cer
+    dependentele. `rust-version` spunea 1.74, iar `db` si `platforma` nici nu
+    se construiau pe el. Nu se instaleaza un toolchain vechi: se compara
+    `cargo metadata`. Vazuta cazand pe 1.74 si pe 1.80.
+  - **Ridicarea MSRV-ului a pornit lint-uri noi de clippy** (`is_none_or`),
+    pe care le tinea inchise versiunea veche declarata. Patru locuri.
+  - Amanatele nu sunt o lista de bune intentii: fiecare are motivul ei in
+    tabel, si cele care cer SQL Server, Windows sau o decizie de produs sunt
+    marcate ca atare. Tabelul de verdicte e singura lista de urmarit.
 
 ## Ce a iesit altfel decat planul
 

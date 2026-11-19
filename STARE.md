@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-19 · commit `3955c7a` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (485 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-19 · commit `4271601` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (488 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -71,12 +71,17 @@ pe `aec038a`; fiecare constatare se reproduce intai pe codul de acum cu un
 test care cade, abia apoi se repara. Verdictele intra in sectiunea
 „Verdicte" de la finalul auditului.
 
-**H1-H4 sunt gata**, cate un commit per constatare (sau per grup
-strans legat), cu poarta verde inainte de fiecare. Din cele 25, trei nu se
-mai reproduceau (C9, V1, V2 — refacerea hartii si a antetului de la etapa 15
-le scosese), si fiecare are acum testul sau captura care o tine asa. Ramase,
-notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi mai jos) si
-**campul de parola din F-A2** (vezi „Verdicte" din audit).
+**Pachetul H (auditul QA) e gata, tot** — cate un commit per constatare (sau
+per grup strans legat), cu poarta verde inainte de fiecare. Din cele 25 de constatari
+din H1-H4, trei nu se mai reproduceau (C9, V1, V2 — refacerea hartii si a
+antetului de la etapa 15 le scosese), si fiecare are acum testul sau captura
+care o tine asa. H5 a mai reparat **unsprezece** constatari mici si a dat
+**verdict tuturor celor 85**: tabelul e sectiunea „Verdicte" din
+`cercetare/audit-qa-2026-11-18.md`, si aia e singura lista de urmarit.
+
+Ramase deschise si notate acolo: **F-D7** (cere o proba de SQL pe Windows,
+vezi mai jos), **campul de parola din F-A2**, si trei decizii de produs
+(F-M3, F-A18, F-B5) trecute la „Ce astept de la Mihai".
 
 **Tot ce e de facut, in ordine:**
 
@@ -84,8 +89,7 @@ notate ca atare: **F-D7** (cere o proba de SQL pe Windows, vezi mai jos) si
 2. ~~**H2** pierdere de date~~ — gata (2026-11-18).
 3. ~~**H3** cadere si ecrane~~ — gata (2026-11-19).
 4. ~~**H4** inghetari~~ — gata (2026-11-19).
-5. **H5** restul auditului: verdict pe fiecare constatare (reparat / nu se
-   mai reproduce / amanat cu motiv).
+5. ~~**H5** restul auditului~~ — gata (2026-11-19).
 6. **15 E** ce a ramas: „Martor" / „Modificata" si in `cli` si in documente;
    textele facute in Rust in afara ferestrei (`core::nume_tip`,
    `core::clasificare`, rezumatele de deploy, erorile) si in engleza.
@@ -143,6 +147,23 @@ JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
 ## Ce astept de la Mihai
+
+**Trei decizii din auditul QA** (nu le iau singur, fiindca schimba ce face
+produsul, nu cum arata):
+
+8. **Hinturile de blocare sunt zgomot?** (F-M3) Azi normalizarea scoate
+   `WITH (NOLOCK)` si rudele lui, deci un obiect caruia i s-a adaugat
+   `WITH (UPDLOCK, HOLDLOCK)` — adica o reparatie de concurenta — iese
+   „identic" si nu se deployeaza niciodata. Varianta: raman zgomot, dar apare
+   „difera doar in hinturi", si obiectul intra in lista.
+9. **Diferentele ramase fata de v3.4** (F-A18): „Aplica toate" nu mai
+   marcheaza obiectul revizuit; N din „Cate N obiecte per fisier" nu se poate
+   schimba din ecran; „In plan" refuzat (obiect nedeployabil) nu da niciun
+   semn. Le lasam asa sau le aducem la v3.4?
+10. **Trei setari din configurare nu fac nimic** (F-B5):
+   `timeout_conectare_s`, `prag_similaritate`, `uneste_cursor`. Le legam, sau
+   le scoatem? (Timeout-ul e fix 30 s acum.)
+
 
 **Decizii vechi, inca deschise:** implicitul pentru `--certificat`;
 specificatia modulului `upgrade`; repo-ul public.

@@ -1088,6 +1088,36 @@ instructiuni). Cazurile au ramas in `cargo run --release --example bench`:
 
 ---
 
+## 2026-11-19 — Auditul QA, H5: ce se repara acum si ce se amana
+
+**Regula de taiere.** Dupa H1-H4 ramaneau 60 de constatari. Le-am impartit
+dupa un singur criteriu: **schimba ce ajunge in baza, sau ce crede omul ca e
+adevarat?** Daca da si e ieftin, s-a facut acum (unsprezece). Daca nu, intra
+in tabelul de verdicte cu motivul ei. Amanat fara motiv scris inseamna uitat.
+
+**Ce a intrat, desi e „MIC".** `revizuire --marcheaza` care bifeaza doar
+prima baza si `export` care scrie mereu „NU" la Rezolvat mint despre munca
+facuta — omul crede ca a revizuit, si n-a revizuit. Ctrl+Z cu istoric global
+schimba textul altui obiect fara sa se vada. Obiectele criptate deschise in
+editor salvau un text final **gol**, care apoi s-ar fi deployat. Astea sunt
+clasa „cod gresit in baza", oricat de mic le-ar fi eticheta.
+
+**Ce s-a amanat, desi e „MEDIU".** F-M1, F-M4, F-M5, F-M6 ating motorul si
+paritatea: fiecare cere un caz in `referinta/cazuri.json` si poate o intrare
+in `DIVERGENTE_DELIBERATE`. Facute in graba, intre alte zece reparatii, ar
+reintroduce exact felul de divergenta pe care fixture-ul il pazeste. Au
+nevoie de un pachet propriu.
+
+**MSRV-ul a devenit o verificare, nu o corectura.** `rust-version = 1.74` era
+fals de mult (dependentele cereau 1.89, Slint 1.95), si nimic nu-l verifica.
+Se putea scrie 1.89 si gata. Dar aceeasi minciuna se reface singura la
+urmatoarea dependinta ridicata, deci poarta compara acum declaratia cu ce cer
+dependentele, din `cargo metadata` — fara sa ceara un toolchain vechi
+instalat. Vazuta cazand pe 1.74 si pe 1.80. Efect colateral: cu MSRV-ul real,
+clippy porneste lint-uri pe care le tinea inchise (`is_none_or`).
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
