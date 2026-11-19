@@ -27,6 +27,9 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
+# Harta codului, generata la pornire (unelte/harta-cod.py)
+HARTA-COD.md
+
 # Rust
 target/
 pkg/

@@ -14,6 +14,7 @@ Fiecare document raspunde la o singura intrebare, ca sa nu se dubleze:
 | Ce s-a facut, exact | `git log` — **nu se dubleaza in fisiere** |
 | Harta crate-urilor, directia dependentelor | `ARHITECTURA.md` |
 | Simptom -> fisierul vinovat | `HARTA.md` |
+| Unde e o functie / componenta, la ce linie | `HARTA-COD.md` (generat, nu e in git) |
 | Contractul unui crate | `<crate>/CRATE.md` |
 
 ---
@@ -28,7 +29,10 @@ de pe alt cont. Deci starea trebuie sa fie in repo, nu in memoria sesiunii.
 1. `CLAUDE.md` — asta. Regulile.
 2. `STARE.md` — unde suntem, urmatorul pas concret, capcanele active.
 3. etapa activa din `etape/` — scopul si criteriile de terminare.
-4. `unelte/verifica.sh` — confirma ca pornesti de pe verde. Daca poarta e rosie
+4. `python3 -I unelte/harta-cod.py` — genereaza `HARTA-COD.md`: fiecare
+   fisier, rolul lui si functiile cu numarul de linie. **Cauti in harta, apoi
+   citesti doar intervalul** (`sed -n 'A,Bp'`), nu fisiere intregi.
+5. `unelte/verifica.sh` — confirma ca pornesti de pe verde. Daca poarta e rosie
    inainte sa atingi ceva, **asta** e prima treaba, si se spune utilizatorului.
 
 Nu te apuci de cod inainte de pasii 2 si 3. Daca `STARE.md` contrazice ce
