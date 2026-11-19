@@ -31,8 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapele 15 si 16 s-au incheiat pe 2026-11-19.
-Urmeaza design-ul nou al conectarii (etapa 17, cand macheta e in repo).
+**Etapa activa:** `etape/18-editorul-ca-in-macheta.md`. Editorul e reasezat;
+asteapta „da"-ul lui Mihai pe `cercetare/capturi/editor-langa-macheta.png`.
+Apoi design-ul nou al conectarii (etapa 17, cand macheta e in repo).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza si intra in previzualizare

@@ -1348,6 +1348,9 @@ fn ruleaza() -> Result<(), String> {
         editor_ui.on_fixeaza_previzualizarea(move || c(Comanda::FixeazaPrevizualizarea));
         let c = comanda.clone();
         editor_ui.on_inchide_tab_activ(move || c(Comanda::InchideTabActiv));
+        // Deploy (N) din bara de sus a editorului (etapa 18)
+        let c = comanda.clone();
+        editor_ui.on_deschide_deploy(move || c(Comanda::DeschideDeploy));
         let c = comanda.clone();
         editor_ui.on_cauta(move |t| c(Comanda::Cauta(t.to_string())));
         let e = editor_ui.as_weak();

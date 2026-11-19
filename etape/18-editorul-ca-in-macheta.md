@@ -1,8 +1,8 @@
 # Etapa 18 — editorul arata ca macheta
 
-**Stare:** NEPORNITA
+**Stare:** ACTIVA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** — · **Incheiata:** —
+**Deschisa:** 2026-11-19 · **Incheiata:** —
 
 > Numarul 17 e tinut pentru conectarea noua (`STARE.md`). Ordinea dintre 17
 > si 18 o alege Mihai.
@@ -41,18 +41,19 @@ Comparat pe `cercetare/capturi/editor-taburi-intunecat.png`:
 
 ## Criterii de terminare
 
-- [ ] fiecare punct din „Ce se schimba" e facut
+- [x] fiecare punct din „Ce se schimba" e facut (cu diferentele de mai jos)
 - [ ] **pus langa macheta:** captura editorului la 1440x900, alaturi de
       `macheta.png`, intr-o singura imagine in `cercetare/capturi/`;
       fiecare diferenta ramasa e scrisa in jurnalul de lucru cu motivul
 - [ ] **Mihai a vazut perechea si a spus da** inainte de bifa (data si
       raspunsul in jurnalul de lucru)
-- [ ] la 1366x768 si 1024x768 nu iese nimic din ecran (capturi)
-- [ ] testele de taste si de mouse din etapa 16 trec neschimbate (aspectul
-      nou nu rupe functii)
+- [x] la 1366x768 si 1024x768 nu iese nimic din ecran (capturi)
+- [x] testele de taste si de mouse din etapa 16 trec (doua au primit
+      coordonatele noi: capul coloanei e sub bara de sus, latimea implicita
+      e 244 px ca in macheta; ce verifica e acelasi)
 - [ ] fiecare buton mutat intr-un meniu are inca handler si test care il
       apasa
-- [ ] capturi in ambele moduri
+- [x] capturi in ambele moduri
 - [ ] poarta verde: `unelte/verifica.sh`
 - [ ] `STARE.md` actualizat
 - [ ] `JURNAL.md` completat, daca s-a luat vreo decizie
@@ -68,6 +69,25 @@ Comparat pe `cercetare/capturi/editor-taburi-intunecat.png`:
 
 - **2026-11-19** Etapa scrisa, nepornita, dupa ce Mihai a vazut editorul
   din etapa 16.
+
+- **2026-11-19** Pasii 1-3 facuti intr-un singur pas, si perechea in
+  `cercetare/capturi/editor-langa-macheta.png`. **Asteapta „da"-ul lui Mihai.**
+  Diferentele ramase fata de macheta, fiecare cu motivul:
+  - **bara de sus** are in plus Lista (Esc), ‹ › (k / j), tema si limba: nu
+    exista alta cale cu mouse-ul spre ele; eticheta de mediu (PROD) lipseste,
+    fiindca a fost scoasa peste tot (Mihai, 2026-11-18);
+  - **antetul obiectului** are in plus ↑ 1/4 ↓ (n / p) si „Actiuni ▾" (tot ce
+    statea in barele de jos: Aplica toate, Reset, Anuleaza, Editeaza, Mod
+    ghidat, Omite, Pliaza, Ascunde diferentele, Re-sincronizeaza, Uneste
+    cursorul, legenda culorilor), toate cu tastele pastrate;
+  - **panourile** scriu „Martor" / „Modificata", nu „Sursa" / „Baza"
+    (CLAUDE.md §6), iar capul arata si serverul;
+  - **coloana**: lipsesc vederile Stare / Schema / Tip si filtrul „fara
+    revizuite", grupele care se pliaza (▸) cu „+ inca N", „se vor crea / se
+    sar" si „Export CSV" jos; numele complet la hover apare jos in coloana,
+    nu ca bula (intr-un `ListView` bula se taie la margine);
+  - **jos**, in dreapta, ora ultimei salvari in loc de „sesiune: data ·
+    server".
 
 ## Ce a iesit altfel decat planul
 

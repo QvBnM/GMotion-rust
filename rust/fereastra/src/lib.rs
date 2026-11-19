@@ -523,6 +523,41 @@ pub fn incarca_coloana_lista(ui: &EditorDiferente, lista: &model_lista::Lista) {
     ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
     ui.set_selectat_lista(lista.selectat().map_or(0, |p| p as i32));
     let limba = limba_curenta(ui);
+    ui.set_numar_obiecte(lista.vizibile().len() as i32);
+    // bara de sus (etapa 18): progresul revizuirii, ca in lista mare
+    let (revizuite, total) = lista.progres_revizuire();
+    ui.set_progres_text(
+        format!(
+            "{revizuite}/{total} {}",
+            limba.alege("revizuite", "reviewed")
+        )
+        .into(),
+    );
+    ui.set_progres_fractie(if total == 0 {
+        0.0
+    } else {
+        revizuite as f32 / total as f32
+    });
+    ui.set_numar_deploy(lista.in_plan().len() as i32);
+    // antetul obiectului: +/- si unde difera, din detaliile randului
+    match lista.obiect_selectat().and_then(|o| o.detalii.as_ref()) {
+        Some(d) => {
+            ui.set_plus(format!("+{}", d.linii_plus).into());
+            ui.set_minus(format!("\u{2212}{}", d.linii_minus).into());
+            let eticheta = gmotion_core::clasificare::traduce_eticheta(&d.difera_in, limba);
+            let chips: Vec<SharedString> = eticheta
+                .split(", ")
+                .filter(|x| !x.is_empty() && *x != "\u{2014}")
+                .map(SharedString::from)
+                .collect();
+            ui.set_difera_in(ModelRc::new(VecModel::from(chips)));
+        }
+        None => {
+            ui.set_plus(SharedString::new());
+            ui.set_minus(SharedString::new());
+            ui.set_difera_in(ModelRc::new(VecModel::from(Vec::<SharedString>::new())));
+        }
+    }
     // numele incape in latimea coloanei: ce ramane dupa cerc, litera si +/-
     let caractere = ((ui.get_latime_lista() - 130.0) / 7.3).max(8.0) as usize;
     ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_coloana(
@@ -1516,8 +1551,9 @@ mod teste {
                 button: PointerEventButton::Left,
             });
         };
-        assert_eq!(ui.get_latime_lista(), 300.0);
-        trage(300.0, 340.0);
+        // 244 px implicit, ca in macheta (etapa 18)
+        assert_eq!(ui.get_latime_lista(), 244.0);
+        trage(244.0, 340.0);
         assert_eq!(ui.get_latime_lista(), 340.0, "marginea a urmat mouse-ul");
         assert_eq!(ui.get_latime_lista_aleasa(), 340.0, "si se tine minte");
         trage(340.0, 0.0);
@@ -1582,11 +1618,12 @@ mod teste {
         };
         // capul coloanei: Esc la dreapta, inaintea lui «, ⇄, pinul (24 px
         // fiecare, cu 4 px intre ele); se cauta pinul de la stanga spre Esc
-        let x_pin = (120..240)
+        let x_pin = (100..240)
             .step_by(2)
             .map(|x| x as f32)
             .find(|&x| {
-                clic(x, 25.0);
+                // capul coloanei e sub bara de sus (56 px), pe randul de 28 px
+                clic(x, 56.0 + 10.0 + 14.0);
                 let gasit = !ui.get_lista_fixata();
                 if gasit {
                     ui.set_lista_fixata(true);
@@ -1595,10 +1632,10 @@ mod teste {
             })
             .expect("pinul raspunde la clic");
         assert!(schimbari.get() >= 1, "pinul anunta schimbarea");
-        clic(x_pin + 28.0, 25.0);
+        clic(x_pin + 26.0, 80.0);
         assert!(ui.get_lista_dreapta(), "⇄ muta coloana pe dreapta");
         ui.set_lista_dreapta(false);
-        clic(x_pin + 56.0, 25.0);
+        clic(x_pin + 52.0, 80.0);
         assert!(ui.get_lista_banda(), "« o strange ca banda");
         let _ = ui.hide();
     }
