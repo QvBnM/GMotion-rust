@@ -154,8 +154,12 @@ fn main() {
     gmotion_fereastra::aplica_limba(&editor_ui, limba);
     let o = app.obiect().expect("un obiect deschis").clone();
     let model = app.model_editor().expect("modelul editorului");
-    // coloana din stanga: lista stransa, ca in aplicatie
+    // coloana din stanga: lista stransa, ca in aplicatie; `--dreapta` /
+    // `--banda` o arata mutata pe dreapta sau stransa ca banda (etapa 16)
+    editor_ui.set_lista_dreapta(a.iter().any(|x| x == "--dreapta"));
+    editor_ui.set_lista_banda(a.iter().any(|x| x == "--banda"));
     gmotion_fereastra::incarca_coloana_lista(&editor_ui, app.lista());
+    gmotion_fereastra::incarca_taburi(&editor_ui, app.taburi(), |_| false);
     incarca_editor(
         &editor_ui,
         &AntetEditor {

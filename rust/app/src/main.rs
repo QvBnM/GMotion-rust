@@ -58,6 +58,9 @@ struct Stare {
     baze_cerute: Option<(bool, Lucru<BazeCitite>)>,
     testare: Option<(bool, Lucru<StareConexiune>)>,
     cautare_servere: Option<(bool, Lucru<Vec<ServerGasit>>)>,
+    /// Starea coloanei din editor citita din sesiune, de pus in fereastra la
+    /// urmatoarea desenare (etapa 16).
+    coloana_noua: Option<gmotion_app::rutare::StareColoana>,
     garda: Option<Lucru<pornire::Citit>>,
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
@@ -224,6 +227,7 @@ fn ruleaza() -> Result<(), String> {
         baze_cerute: None,
         testare: None,
         cautare_servere: None,
+        coloana_noua: None,
         garda: None,
         salvat_la: String::new(),
     }));
@@ -401,6 +405,13 @@ fn ruleaza() -> Result<(), String> {
             // ajutor); comutatorul cheama redesenarea dupa ce o schimba
             let limba = gmotion_fereastra::limba_curenta(&c_ui);
             s.conectare.limba = limba;
+            if let Some(c) = s.coloana_noua.take() {
+                e_ui.set_latime_lista(c.latime);
+                e_ui.set_latime_lista_aleasa(c.latime);
+                e_ui.set_lista_fixata(c.fixata);
+                e_ui.set_lista_dreapta(c.dreapta);
+                e_ui.set_lista_banda(c.banda);
+            }
             c_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
             l_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
             if s.app.is_none() {
@@ -479,13 +490,27 @@ fn ruleaza() -> Result<(), String> {
             }
             gmotion_fereastra::incarca_detalii(&l_ui, &app.panou_detalii().pentru_fereastra());
             if app.ecran() == Ecran::Editor {
-                let pozitie = format!(
+                let mut pozitie = format!(
                     "{} {} {} {}",
                     limba.alege("obiectul", "object"),
                     app.lista().selectat().map_or(0, |p| p + 1),
                     limba.alege("din", "of"),
                     app.lista().vizibile().len()
                 );
+                // ce s-a intamplat cu ultima comanda pe taburi (etapa 16)
+                match app.mesaj_tab() {
+                    Some(gmotion_app::rutare::MesajTab::Capat) => pozitie.push_str(limba.alege(
+                        " · niciun alt obiect nefixat in directia asta",
+                        " · no other unpinned object in this direction",
+                    )),
+                    Some(gmotion_app::rutare::MesajTab::ToateEditate) => {
+                        pozitie.push_str(limba.alege(
+                            " · 8 taburi fixate, toate editate: inchide unul intai",
+                            " · 8 pinned tabs, all edited: close one first",
+                        ))
+                    }
+                    None => {}
+                }
                 // `salvat` se ia inainte: `model_editor` tine un imprumut
                 // pe `app`, iar `s.salvat_la` e tot din `s`
                 let salvat = if s.salvat_la.is_empty() {
@@ -520,6 +545,9 @@ fn ruleaza() -> Result<(), String> {
                         &model,
                     );
                     gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista());
+                    gmotion_fereastra::incarca_taburi(&e_ui, app.taburi(), |c| {
+                        app.are_text_final(c)
+                    });
                     e_ui.set_are_cursor(app.are_cursor());
                     e_ui.set_uneste_cursorul(app.uneste_cursorul());
                     let (editat, _) = app.stare_text_final();
@@ -559,7 +587,15 @@ fn ruleaza() -> Result<(), String> {
 
     let salveaza = {
         let stare = stare.clone();
+        let e_ui = editor_ui.as_weak();
         move || {
+            // coloana listei din editor (etapa 16): starea ei e in fereastra
+            let coloana = e_ui.upgrade().map(|u| gmotion_app::rutare::StareColoana {
+                latime: u.get_latime_lista_aleasa(),
+                fixata: u.get_lista_fixata(),
+                dreapta: u.get_lista_dreapta(),
+                banda: u.get_lista_banda(),
+            });
             let mut s = stare.borrow_mut();
             let referinta = s.referinta.clone();
             // bazele comparate chiar acum, toate, nu doar prima bifata
@@ -594,6 +630,12 @@ fn ruleaza() -> Result<(), String> {
                 });
             revizuire.in_sesiune(&mut sesiune);
             editari.in_sesiune(&mut sesiune);
+            if let Some(a) = s.app.as_ref() {
+                gmotion_app::rutare::taburi_in_sesiune(a.taburi(), &mut sesiune);
+            }
+            if let Some(c) = coloana {
+                c.in_sesiune(&mut sesiune);
+            }
             // se adauga, nu se inlocuiesc: sesiunea tine munca facuta pe
             // toate bazele comparate vreodata cu referinta asta (C3)
             sesiune.adauga_baze(&baze);
@@ -1292,19 +1334,43 @@ fn ruleaza() -> Result<(), String> {
         // din editor (pachetul B)
         let c = comanda.clone();
         editor_ui.on_alege_randul(move |i| c(Comanda::Selecteaza(i.max(0) as usize)));
+        // ---- taburile (etapa 16); regulile sunt in `rutare` / `model_taburi`
+        let c = comanda.clone();
+        editor_ui.on_fixeaza_randul(move |i| {
+            c(Comanda::Selecteaza(i.max(0) as usize));
+            c(Comanda::FixeazaSelectia);
+        });
+        let c = comanda.clone();
+        editor_ui.on_activeaza_tab(move |cod| c(Comanda::ActiveazaTab(usize::try_from(cod).ok())));
+        let c = comanda.clone();
+        editor_ui.on_inchide_tab(move |cod| c(Comanda::InchideTab(usize::try_from(cod).ok())));
+        let c = comanda.clone();
+        editor_ui.on_fixeaza_previzualizarea(move || c(Comanda::FixeazaPrevizualizarea));
+        let c = comanda.clone();
+        editor_ui.on_inchide_tab_activ(move || c(Comanda::InchideTabActiv));
         let c = comanda.clone();
         editor_ui.on_cauta(move |t| c(Comanda::Cauta(t.to_string())));
         let e = editor_ui.as_weak();
         let d = deseneaza.clone();
+        // `[` (si «): coloana devine banda ingusta cu contoare, sau inapoi
+        // (etapa 16); fara coloana deloc, `[` o readuce la latimea trasa
+        let sv = salveaza.clone();
         editor_ui.on_ascunde_lista(move || {
             if let Some(ui) = e.upgrade() {
-                // la redeschidere, coloana revine la latimea trasa ultima data
-                ui.set_latime_lista(if ui.get_latime_lista() > 0.0 {
-                    0.0
+                if ui.get_latime_lista() > 0.0 {
+                    ui.set_lista_banda(!ui.get_lista_banda());
                 } else {
-                    ui.get_latime_lista_aleasa()
-                });
+                    ui.set_latime_lista(ui.get_latime_lista_aleasa());
+                }
             }
+            sv();
+            d();
+        });
+        // pin, partea, banda, latimea: se tin minte in sesiune
+        let sv = salveaza.clone();
+        let d = deseneaza.clone();
+        editor_ui.on_coloana_schimbata(move || {
+            sv();
             d();
         });
         // plierea si alaturat / unificat stau in fereastra; modelul se
@@ -1490,10 +1556,12 @@ fn ruleaza() -> Result<(), String> {
                                 let referinta = r.referinta.clone();
                                 // la recomparare pastram ce s-a revizuit deja;
                                 // la prima comparare, ce s-a salvat in sesiune
-                                let (revizuire, editari) = match st.app.as_mut() {
-                                    Some(a) => {
-                                        (a.revizuire_de_salvat().clone(), a.editari().clone())
-                                    }
+                                let (revizuire, editari, taburi) = match st.app.as_mut() {
+                                    Some(a) => (
+                                        a.revizuire_de_salvat().clone(),
+                                        a.editari().clone(),
+                                        a.taburi().clone(),
+                                    ),
                                     None => {
                                         let salvata =
                                             // cheia sesiunii tine si serverul
@@ -1510,6 +1578,17 @@ fn ruleaza() -> Result<(), String> {
                                                 .as_ref()
                                                 .map(modul::Editari::din_sesiune)
                                                 .unwrap_or_default(),
+                                            // taburile fixate si coloana supravietuiesc
+                                            // inchiderii (etapa 16)
+                                            {
+                                                st.coloana_noua = salvata.as_ref().and_then(
+                                                    gmotion_app::rutare::StareColoana::din_sesiune,
+                                                );
+                                                salvata
+                                                    .as_ref()
+                                                    .map(gmotion_app::rutare::taburi_din_sesiune)
+                                                    .unwrap_or_default()
+                                            },
                                         )
                                     }
                                 };
@@ -1517,7 +1596,8 @@ fn ruleaza() -> Result<(), String> {
                                 st.referinta = referinta;
                                 let mut app =
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
-                                        .cu_editari(editari);
+                                        .cu_editari(editari)
+                                        .cu_taburi(taburi);
                                 // ca la offline: comutatorul porneste din configurare
                                 app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
                                 st.app = Some(app);

@@ -129,6 +129,18 @@ fn main() {
         },
         &model,
     );
+    // `--taburi`: bara de taburi (etapa 16), cu trei fixate, unul editat,
+    // si obiectul capturat in previzualizare
+    if are("--taburi") {
+        use gmotion_fereastra::model_taburi::Taburi;
+        let mut t = Taburi::noi();
+        let k = |n: &str| (a[3].clone(), format!("dbo.{n}"));
+        for n in ["uspFactura", "uspIncarcaTot", "ifClientiDupaAn"] {
+            let _ = t.fixeaza(k(n), |_| false);
+        }
+        t.deschide((a[3].clone(), a[4].clone()));
+        gmotion_fereastra::incarca_taburi(&ui, &t, |c| c.1 == "dbo.uspIncarcaTot");
+    }
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     scrie_png(&fereastra, w, h, &a[5]);

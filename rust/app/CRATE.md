@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 99634a33b86953a1 -->
+<!-- api-hash: d8dffaae5c9d6906 -->
 
 ## Rol
 
@@ -39,7 +39,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul (calculat lenes, o data per comparare) si nota (`PuneNota`) |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
 | `Aplicatie::plan(referinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii; acopera toate bazele comparate |
-| `Aplicatie::{taburi, mesaj_tab, cu_taburi}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
+| `StareColoana` (`in_sesiune`, `din_sesiune`) | latimea, pinul, partea si banda coloanei din editor, in sesiune (etapa 16) |
+| `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |
