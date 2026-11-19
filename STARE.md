@@ -55,7 +55,12 @@ unelte\porneste.bat --server         # ecranul de conectare, gol
    mai micsoreaza peste — recomandat). Cand macheta e in repo: etapa 17 din
    `etape/SABLON.md`, cu criteriile scrise inainte de cod; intra acolo si
    conectarea la 1366x768 (ramasa din 15 C). Logica din 15 F ramane.
-2. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
+2. **Editorul ca in macheta:** `etape/18-editorul-ca-in-macheta.md`
+   (NEPORNITA). Etapa 16 a facut functiile, dar Mihai a gasit ca editorul nu
+   seamana cu `cercetare/machete/sina-si-taburi/macheta.png`. Se bifeaza doar
+   cu captura pusa langa macheta si vazuta de Mihai. Ordinea fata de 17 o
+   alege Mihai.
+3. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
    (singurul rand din `cercetare/lipsuri-portare.md`). De probat intai daca se
    poate in Slint (`TextInput` nu are culori pe bucati).
 

@@ -1206,6 +1206,25 @@ filtrul daca il ascunde), deci toate comenzile care lucreaza pe selectie
 
 ---
 
+## 2026-11-19 — Un ecran din macheta se bifeaza doar pus langa macheta
+
+**Context.** Editorul din etapele 15 B si 16 a fost declarat gata, iar Mihai
+a gasit-o „deloc ca pozele": criteriile cereau functii (ramane in stanga,
+clic schimba obiectul), nu aspectul aratat in macheta.
+
+**Decizie.** Cand o etapa porneste de la o macheta, criteriile cer o
+captura la aceeasi rezolutie pusa langa macheta, diferentele ramase listate
+cu motiv, si Mihai vede perechea inainte de bifa. Aplicat intai la etapa 18 (editorul ca in macheta), care reface aspectul
+etapei 16.
+
+**Alternative.** Test automat de asemanare pe pixeli: fragil si orb la ce
+conteaza (asezarea), deci nu.
+
+**Motiv.** Aceeasi clasa ca „o captura nu dovedeste ca un buton merge":
+o bifa pe functii nu dovedeste ca ecranul arata cum s-a aratat.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana
