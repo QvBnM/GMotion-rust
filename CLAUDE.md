@@ -221,6 +221,12 @@ La fel pentru o etapa: criteriile de terminare din `etape/NN-*.md` se scriu
 **inainte** de a incepe lucrul, si bifa se pune doar cand criteriul a fost
 verificat — nu cand pare facut.
 
+**Un ecran facut dupa o macheta trebuie sa arate ca macheta.** Macheta e
+tinta, nu inspiratie. Criteriile etapei descriu aspectul, nu doar functiile,
+iar bifa cere captura la aceeasi rezolutie pusa langa macheta si „da"-ul lui
+Mihai pe pereche. O diferenta fata de macheta se cere inainte, nu se
+explica dupa (etapa 16 a fost bifata pe functii si nu semana deloc).
+
 Si pentru verificari: **o verificare care n-a fost vazuta cazand nu e o
 verificare.** Cand adaugi una in poarta, incalc-o deliberat o data si uita-te
 daca poarta se face rosie.
