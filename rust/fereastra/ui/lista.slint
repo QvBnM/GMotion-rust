@@ -884,7 +884,7 @@ export component FereastraLista inherits Window {
             // si pictura sunt in Rust (`src/harta.rs`)
             if root.harta.length > 0: Rectangle {
                 height: Math.min(root.harta-inaltime, root.harta-max) + 32px;
-                Rectangle {
+                cartus := Rectangle {
                     x: 16px;
                     width: parent.width - 32px;
                     border-radius: 14px;
@@ -892,12 +892,19 @@ export component FereastraLista inherits Window {
                     border-width: 1px;
                     border-color: Tema.linie;
                     clip: true;
+                    // `chenar`: loc pentru conturul selectiei / al mouse-ului, care
+                    // iese cu 3 px din patrat; fara el, Flickable il taia la
+                    // marginea din stanga si de sus
+                    property <length> chenar: 4px;
                     flick := Flickable {
-                        x: 18px;
-                        y: 16px;
-                        width: parent.width - 36px;
-                        height: parent.height - 32px;
-                        content-height: root.harta-inaltime;
+                        x: 18px - parent.chenar;
+                        y: 16px - parent.chenar;
+                        width: parent.width - 36px + 2 * parent.chenar;
+                        height: parent.height - 32px + 2 * parent.chenar;
+                        content-height: root.harta-inaltime + 2 * parent.chenar;
+                        Rectangle {
+                        x: cartus.chenar;
+                        y: cartus.chenar;
                         for g[gi] in root.harta: Rectangle {
                             x: g.x;
                             y: g.y;
@@ -970,15 +977,17 @@ export component FereastraLista inherits Window {
                             drop-shadow-blur: 8px;
                             drop-shadow-color: Tema.text.with-alpha(0.35);
                         }
+                        }
                     }
-                    // bula: punctul starii si numele, langa patratul de sub mouse;
-                    // la dreapta lui, sau la stanga daca acolo nu incape
+                    // bula: punctul starii si numele, **deasupra** patratului de sub
+                    // mouse (dedesubt, daca sus nu incape), ca sa nu acopere randul
+                    // lui si conturul selectiei de alaturi; aliniata cu patratul,
+                    // mutata spre stanga daca la dreapta nu incape
                     if root.bula != "": Rectangle {
-                        property <length> dreapta: flick.x + flick.content-x + root.hover-x + root.patrat + 10px;
-                        x: self.dreapta + self.width > parent.width - 8px
-                            ? flick.x + flick.content-x + root.hover-x - 10px - self.width
-                            : self.dreapta;
-                        y: flick.y + flick.content-y + root.hover-y + root.patrat / 2 - 14px;
+                        property <length> px: flick.x + parent.chenar + flick.content-x + root.hover-x;
+                        property <length> py: flick.y + parent.chenar + flick.content-y + root.hover-y;
+                        x: Math.max(4px, Math.min(self.px - 6px, parent.width - self.width - 8px));
+                        y: self.py - 28px - 8px >= 4px ? self.py - 28px - 8px : self.py + root.patrat + 8px;
                         width: bl.preferred-width + 20px;
                         height: 28px;
                         border-radius: 7px;
