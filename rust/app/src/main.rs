@@ -15,10 +15,12 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Instant;
 
 use gmotion_app::fir::Lucru;
 use gmotion_app::pornire;
 use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
+use gmotion_fereastra::dublu_clic::DubluClic;
 use gmotion_fereastra::model_conectare::{Conectare, Recenta, ServerGasit, StareConexiune};
 use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
@@ -179,6 +181,15 @@ fn arata<T: ComponentHandle>(nou: &T, celelalte: [&slint::Window; 3]) {
     if !w.is_visible() {
         tracing::debug!(target: "gmotion::app", marime = ?w.size(), pozitie = ?w.position(), "arat alt ecran");
         if let Some(veche) = celelalte.iter().find(|v| v.is_visible()) {
+            // geometria preluata, ca o fereastra care sare sa se vada in jurnal
+            tracing::debug!(
+                target: "gmotion::app",
+                marime = ?veche.size(),
+                pozitie = ?veche.position(),
+                maximizata = veche.is_maximized(),
+                tot_ecranul = veche.is_fullscreen(),
+                "preiau geometria ferestrei de dinainte"
+            );
             if veche.is_fullscreen() {
                 w.set_fullscreen(true);
             } else if veche.is_maximized() {
@@ -1231,9 +1242,17 @@ fn ruleaza() -> Result<(), String> {
             c(Comanda::Deschide)
         });
         let c = comanda.clone();
+        let dc = RefCell::new(DubluClic::default());
         lista_ui.on_clic_rand(move |i| {
             actiune("lista", "clic_rand", &format!("{:?}", (&i,)), false);
-            c(Comanda::ClicPeRand(i.max(0) as usize))
+            c(Comanda::ClicPeRand(i.max(0) as usize));
+            // al doilea clic repede pe acelasi rand deschide obiectul (ca si
+            // inainte: primul clic deschide detaliile, al doilea le inchide)
+            if dc.borrow_mut().apasat(i, Instant::now()) {
+                tracing::debug!(target: "gmotion::actiuni", rand = i, "dublu clic in lista");
+                c(Comanda::Selecteaza(i.max(0) as usize));
+                c(Comanda::Deschide);
+            }
         });
         let c = comanda.clone();
         lista_ui.on_inchide_detalii(move || {
@@ -1421,9 +1440,17 @@ fn ruleaza() -> Result<(), String> {
         let s = stare.clone();
         let l = lista_ui.as_weak();
         let d = deseneaza.clone();
-        lista_ui.on_autofit_coloana(move |cod| {
-            actiune("lista", "autofit_coloana", &format!("{:?}", (&cod,)), false);
-            {
+        let dc = RefCell::new(DubluClic::default());
+        lista_ui.on_clic_margine_coloana(move |cod| {
+            actiune(
+                "lista",
+                "clic_margine_coloana",
+                &format!("{:?}", (&cod,)),
+                false,
+            );
+            // dublul clic pe margine = autofit; clicul simplu nu face nimic
+            if dc.borrow_mut().apasat(cod, Instant::now()) {
+                tracing::debug!(target: "gmotion::actiuni", cod, "autofit coloana");
                 let latime = s.borrow().app.as_ref().map(|a| {
                     gmotion_fereastra::latime_autofit(
                         a.lista(),
@@ -1680,9 +1707,15 @@ fn ruleaza() -> Result<(), String> {
         // clic in coloana din stanga: schimba obiectul pe loc, fara sa pleci
         // din editor (pachetul B)
         let c = comanda.clone();
+        let dc = RefCell::new(DubluClic::default());
         editor_ui.on_alege_randul(move |i| {
             actiune("editor", "alege_randul", &format!("{:?}", (&i,)), false);
-            c(Comanda::Selecteaza(i.max(0) as usize))
+            c(Comanda::Selecteaza(i.max(0) as usize));
+            // dublu clic in coloana: obiectul ramane intr-un tab al lui
+            if dc.borrow_mut().apasat(i, Instant::now()) {
+                tracing::debug!(target: "gmotion::actiuni", rand = i, "dublu clic in coloana");
+                c(Comanda::FixeazaSelectia);
+            }
         });
         // ---- taburile (etapa 16); regulile sunt in `rutare` / `model_taburi`
         let c = comanda.clone();
@@ -1694,9 +1727,15 @@ fn ruleaza() -> Result<(), String> {
             }
         });
         let c = comanda.clone();
+        let dc = RefCell::new(DubluClic::default());
         editor_ui.on_activeaza_tab(move |cod| {
             actiune("editor", "activeaza_tab", &format!("{:?}", (&cod,)), false);
-            c(Comanda::ActiveazaTab(usize::try_from(cod).ok()))
+            c(Comanda::ActiveazaTab(usize::try_from(cod).ok()));
+            // dublu clic pe previzualizare (codul -1): o fixeaza
+            if dc.borrow_mut().apasat(cod, Instant::now()) && cod < 0 {
+                tracing::debug!(target: "gmotion::actiuni", "dublu clic pe previzualizare");
+                c(Comanda::FixeazaPrevizualizarea);
+            }
         });
         let c = comanda.clone();
         editor_ui.on_inchide_tab(move |cod| {
@@ -1924,6 +1963,7 @@ fn ruleaza() -> Result<(), String> {
                                 Ok(x) => x,
                                 Err(e) => (Vec::new(), StareConexiune::Eroare(e)),
                             };
+                            tracing::info!(target: "gmotion::app", sursa, baze = baze.len(), stare = ?stare_noua, "baze citite");
                             if let Some(p) = st.parte(sursa) {
                                 p.baze = baze;
                                 p.stare = stare_noua;
@@ -1936,6 +1976,7 @@ fn ruleaza() -> Result<(), String> {
                             st.testare = None;
                             s_a_schimbat = true;
                             let stare_noua = r.unwrap_or_else(StareConexiune::Eroare);
+                            tracing::info!(target: "gmotion::app", sursa, stare = ?stare_noua, "testul conexiunii s-a terminat");
                             if let Some(p) = st.parte(sursa) {
                                 p.stare = stare_noua;
                             }
@@ -1949,6 +1990,7 @@ fn ruleaza() -> Result<(), String> {
                             s_a_schimbat = true;
                             match r {
                                 Ok(v) if v.is_empty() => {
+                                    tracing::info!(target: "gmotion::app", "niciun server gasit in retea");
                                     if let Some(p) = st.parte(sursa) {
                                         p.servere_gasite.clear();
                                         let l = st_limba;
@@ -1969,6 +2011,7 @@ fn ruleaza() -> Result<(), String> {
                                     }
                                 }
                                 Err(e) => {
+                                    tracing::warn!(target: "gmotion::app", eroare = %e, "cautarea serverelor a esuat");
                                     if let Some(p) = st.parte(sursa) {
                                         p.servere_gasite.clear();
                                         p.stare = StareConexiune::Eroare(e);
@@ -1982,6 +2025,7 @@ fn ruleaza() -> Result<(), String> {
                             st.garda = None;
                             s_a_schimbat = true;
                             let acum = gmotion_platforma::timp::acum();
+                            tracing::info!(target: "gmotion::app", reusita = r.is_ok(), "verificarea de garda s-a terminat");
                             if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
                                 match r {
                                     Ok(x) => dep.aplica_verificarea(x.sursa, x.tinte, &acum),
@@ -2009,9 +2053,16 @@ fn ruleaza() -> Result<(), String> {
                         st.rulare = None;
                         match rezultat {
                             Ok(r) => {
+                                tracing::info!(
+                                    target: "gmotion::app",
+                                    obiecte = r.randuri.len(),
+                                    recomparare = st.app.is_some(),
+                                    "compararea s-a terminat"
+                                );
                                 let referinta = r.referinta.clone();
                                 // la recomparare pastram ce s-a revizuit deja;
                                 // la prima comparare, ce s-a salvat in sesiune
+                                let vederea = st.app.as_ref().map(|a| a.lista().clone());
                                 let (revizuire, editari, taburi) = match st.app.as_mut() {
                                     Some(a) => (
                                         a.revizuire_de_salvat().clone(),
@@ -2054,6 +2105,9 @@ fn ruleaza() -> Result<(), String> {
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
                                         .cu_editari(editari)
                                         .cu_taburi(taburi);
+                                if let Some(v) = &vederea {
+                                    app = app.cu_vederea(v);
+                                }
                                 // ca la offline: comutatorul porneste din configurare
                                 app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
                                 st.app = Some(app);

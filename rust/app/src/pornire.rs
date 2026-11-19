@@ -149,7 +149,7 @@ pub fn instantanee_gasite() -> Vec<std::path::PathBuf> {
             {
                 continue;
             }
-            let cale = cale.canonicalize().unwrap_or(cale);
+            let cale = cale.canonicalize().map(fara_prefix_extins).unwrap_or(cale);
             if gasite.iter().any(|(_, c)| *c == cale) {
                 continue;
             }
@@ -162,6 +162,19 @@ pub fn instantanee_gasite() -> Vec<std::path::PathBuf> {
     }
     gasite.sort_by_key(|g| std::cmp::Reverse(g.0));
     gasite.into_iter().map(|(_, c)| c).take(40).collect()
+}
+
+/// Pe Windows, `canonicalize` intoarce `\\?\C:\...`: se vedea asa in
+/// lista de instantanee si in jurnal. Prefixul se scoate; o cale de retea
+/// (`\\?\UNC\srv\x`) redevine `\\srv\x`.
+fn fara_prefix_extins(cale: std::path::PathBuf) -> std::path::PathBuf {
+    let s = cale.to_string_lossy();
+    let curata = if let Some(r) = s.strip_prefix(r"\\?\UNC\") {
+        Some(format!(r"\\{r}"))
+    } else {
+        s.strip_prefix(r"\\?\").map(str::to_string)
+    };
+    curata.map_or(cale, std::path::PathBuf::from)
 }
 
 /// Verifica o conexiune si intoarce ce a raspuns serverul: editia, sistemul,
@@ -405,6 +418,23 @@ pub fn compara(c: &Conectare) -> Result<Comparata, String> {
 mod teste {
     use super::*;
     use gmotion_fereastra::model_conectare::Acreditari;
+
+    #[test]
+    fn caile_de_instantaneu_nu_mai_au_prefixul_extins() {
+        use std::path::PathBuf;
+        assert_eq!(
+            fara_prefix_extins(PathBuf::from(r"\\?\C:\GMotion\a.json")),
+            PathBuf::from(r"C:\GMotion\a.json")
+        );
+        assert_eq!(
+            fara_prefix_extins(PathBuf::from(r"\\?\UNC\srv\x\a.json")),
+            PathBuf::from(r"\\srv\x\a.json")
+        );
+        assert_eq!(
+            fara_prefix_extins(PathBuf::from("/home/a.json")),
+            PathBuf::from("/home/a.json")
+        );
+    }
 
     #[test]
     fn alegerea_certificatului_ajunge_in_conexiune() {

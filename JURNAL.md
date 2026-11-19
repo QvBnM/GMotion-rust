@@ -1225,6 +1225,27 @@ o bifa pe functii nu dovedeste ca ecranul arata cum s-a aratat.
 
 ---
 
+## 2026-11-19 — Dublul clic se numara in Rust, nu in Slint
+
+**Context.** Jurnalul de sesiune trimis de Mihai de pe Windows arata, in trei
+locuri, doua clicuri simple pe aceeasi tinta, la sub o secunda, fara efect:
+randul din lista (Deschide), randul din coloana editorului (tab nou), tabul.
+Dupa fiecare, Mihai a folosit butonul. `double-clicked` din Slint nu ajunge
+acolo; in backend-ul de test merge, deci nu se poate reproduce aici.
+
+**Decizie.** In `.slint` nu se mai foloseste `double-clicked`. Fiecare clic
+ajunge in Rust, iar `fereastra::dublu_clic::DubluClic` hotaraste: al doilea
+clic pe aceeasi tinta in cel mult 500 ms (implicitul din Windows) e dublu.
+
+**Alternative.** Sa aflam de ce Slint pierde evenimentul pe Windows: fara
+masina Windows aici, ar fi fost ghicit. Dublul clic numarat in `.slint` cu
+`animation-tick()`: acelasi ceas suspect si fara test.
+
+**Motiv.** Un singur loc, testabil, acelasi pe orice platforma. Butoanele
+(Deschide, „+", ◆) raman calea vizibila.
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

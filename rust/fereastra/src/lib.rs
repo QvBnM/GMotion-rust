@@ -9,6 +9,7 @@
 //! Culorile si fonturile vin din `jetoane` (designul aprobat) si se pun in
 //! globalul `Tema` cu [`aplica_tema`] — in `.slint` nu se scrie nicio culoare.
 
+pub mod dublu_clic;
 pub mod harta;
 pub mod jetoane;
 pub mod model_conectare;
@@ -1950,11 +1951,14 @@ mod teste {
         assert_eq!(*apeluri.borrow(), ["clic1"], "al doilea rand e al doilea");
         apeluri.borrow_mut().clear();
 
-        // dublu clic: doua clicuri si deschiderea
+        // dublu clic: din Slint vin doar cele doua clicuri; deschiderea o
+        // hotaraste Rust-ul (`dublu_clic`), fiindca `double-clicked` nu
+        // ajungea pe Windows. Daca Slint ar deschide si el, s-ar deschide
+        // de doua ori.
         std::thread::sleep(std::time::Duration::from_millis(600));
         clic(300.0, y0 + 2.0);
         clic(300.0, y0 + 2.0);
-        assert_eq!(*apeluri.borrow(), ["clic0", "clic0", "deschide"]);
+        assert_eq!(*apeluri.borrow(), ["clic0", "clic0"]);
         apeluri.borrow_mut().clear();
 
         // panoul deschis: Esc il inchide, `o` omite

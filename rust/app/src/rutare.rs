@@ -1143,6 +1143,12 @@ impl Aplicatie {
         self.mesaj_tab
     }
 
+    /// Filtrul, ordinea si selectia listei de dinainte (recomparare).
+    pub fn cu_vederea(mut self, vechi: &Lista) -> Self {
+        self.lista.preia_vederea(vechi);
+        self
+    }
+
     /// Taburile de dinainte (recomparare, sau din sesiune). Cele ale
     /// obiectelor care nu mai difera se inchid.
     pub fn cu_taburi(mut self, mut t: Taburi) -> Self {
@@ -1258,6 +1264,19 @@ mod teste {
             vec![("Client1".to_string(), tinta)],
             Revizuire::noua(),
         )
+    }
+
+    #[test]
+    fn recompararea_pastreaza_filtrul_listei() {
+        let mut veche = aplicatie();
+        veche.comanda(Comanda::Cauta("pB".into()));
+        assert_eq!(veche.lista().vizibile().len(), 1);
+        let noua = aplicatie().cu_vederea(veche.lista());
+        assert_eq!(noua.lista().vizibile().len(), 1, "filtrul ramane");
+        assert_eq!(
+            noua.cheia_curenta().map(|(_, id)| id),
+            Some("dbo.pB".to_string())
+        );
     }
 
     #[test]

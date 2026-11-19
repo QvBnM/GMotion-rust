@@ -152,7 +152,8 @@ component CapColoana inherits Rectangle {
     in property <string> titlu;
     /// Codul coloanei (`Sortare`), pentru tragere si autofit.
     in property <int> coloana;
-    callback autofit();
+    /// Fiecare clic pe margine; dublul clic (autofit) il numara Rust-ul.
+    callback clic-margine();
     // 0 = stretch (coloana „Obiect")
     in property <length> latime;
     in property <bool> sortata;
@@ -187,7 +188,8 @@ component CapColoana inherits Rectangle {
     }
     TouchArea { clicked => { root.apasat(); } }
     // marginea din dreapta: trasa, schimba latimea; dublu clic o potriveste
-    // dupa continut (`autofit`, calculat in Rust)
+    // dupa continut (autofit, calculat in Rust; tot Rust-ul numara dublul
+    // clic, vezi `dublu_clic.rs`)
     if root.latime > 0px: Rectangle {
         x: parent.width - 3px;
         width: 7px;
@@ -200,7 +202,7 @@ component CapColoana inherits Rectangle {
                     Coloane.pune(root.coloana, root.latime + (self.mouse-x - self.pressed-x));
                 }
             }
-            double-clicked => { root.autofit(); }
+            clicked => { root.clic-margine(); }
         }
     }
 }
@@ -352,15 +354,16 @@ component RandTabel inherits Rectangle {
     in property <bool> selectat;
     // coloana Baza apare doar cand chiar sunt mai multe baze comparate
     in property <bool> cu-baza;
+    /// Fiecare clic; dublul clic (Deschide) il numara Rust-ul, din
+    /// `clic-rand`: `double-clicked` din Slint nu ajungea pe Windows.
     callback apasat();
-    callback dublu-clic();
+    callback deschide();
     callback comuta-revizuit();
     height: 34px;
     border-radius: 8px;
     background: root.selectat ? Tema.strat : zona.has-hover ? Tema.suprafata : transparent;
     zona := TouchArea {
         clicked => { root.apasat(); }
-        double-clicked => { root.dublu-clic(); }
     }
     if root.selectat: Rectangle { x: 0; width: 3px; height: 20px; border-radius: 1.5px; background: Tema.accent; }
     // in plan: o crestatura pe marginea din dreapta
@@ -459,7 +462,7 @@ component RandTabel inherits Rectangle {
         border-color: Tema.accent;
         td := Text { text: Texte.deschide + " ›"; font-family: Tema.font-ui; font-size: 12px; font-weight: 500; color: zd.has-hover ? Tema.pe-accent : Tema.accent-text; }
         zd := TouchArea {
-            clicked => { root.dublu-clic(); }
+            clicked => { root.deschide(); }
             changed has-hover => { root.peste-deschide = self.has-hover; }
         }
     }
@@ -612,7 +615,8 @@ export component FereastraLista inherits Window {
     callback adauga-in-plan();
     callback cauta(string);
     callback sorteaza-coloana(int);
-    callback autofit-coloana(int);
+    /// Clic pe marginea unei coloane; doua repezi = autofit (numarate in Rust).
+    callback clic-margine-coloana(int);
     callback alege-starea(int);
     callback schimba-scorul(string, string);
     callback exporta-csv();
@@ -1051,7 +1055,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.obiect-cap + root.rezumat-lista;
                                 coloana: Sortare.nume;
-                                autofit => { root.autofit-coloana(Sortare.nume); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.nume); }
                                 latime: 0px;
                                 sortata: root.coloana-sortata == Sortare.nume;
                                 descrescator: root.sens-descrescator;
@@ -1060,7 +1064,7 @@ export component FereastraLista inherits Window {
                             if root.mai-multe-baze: CapColoana {
                                 titlu: Texte.modificata;
                                 coloana: Sortare.baza;
-                                autofit => { root.autofit-coloana(Sortare.baza); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.baza); }
                                 latime: Coloane.baza;
                                 sortata: root.coloana-sortata == Sortare.baza;
                                 descrescator: root.sens-descrescator;
@@ -1069,7 +1073,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.tip;
                                 coloana: Sortare.tip;
-                                autofit => { root.autofit-coloana(Sortare.tip); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.tip); }
                                 latime: Coloane.tip;
                                 sortata: root.coloana-sortata == Sortare.tip;
                                 descrescator: root.sens-descrescator;
@@ -1078,7 +1082,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.linii;
                                 coloana: Sortare.linii;
-                                autofit => { root.autofit-coloana(Sortare.linii); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.linii); }
                                 latime: Coloane.linii;
                                 sortata: root.coloana-sortata == Sortare.linii;
                                 descrescator: root.sens-descrescator;
@@ -1087,7 +1091,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.similar;
                                 coloana: Sortare.scor;
-                                autofit => { root.autofit-coloana(Sortare.scor); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.scor); }
                                 latime: Coloane.scor;
                                 sortata: root.coloana-sortata == Sortare.scor;
                                 descrescator: root.sens-descrescator;
@@ -1096,7 +1100,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.difera-in;
                                 coloana: Sortare.difera;
-                                autofit => { root.autofit-coloana(Sortare.difera); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.difera); }
                                 latime: Coloane.difera;
                                 sortata: root.coloana-sortata == Sortare.difera;
                                 descrescator: root.sens-descrescator;
@@ -1105,7 +1109,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.revizuit;
                                 coloana: Sortare.revizuit;
-                                autofit => { root.autofit-coloana(Sortare.revizuit); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.revizuit); }
                                 latime: Coloane.revizuit;
                                 sortata: root.coloana-sortata == Sortare.revizuit;
                                 descrescator: root.sens-descrescator;
@@ -1114,7 +1118,7 @@ export component FereastraLista inherits Window {
                             CapColoana {
                                 titlu: Texte.deploy;
                                 coloana: Sortare.deploy;
-                                autofit => { root.autofit-coloana(Sortare.deploy); }
+                                clic-margine => { root.clic-margine-coloana(Sortare.deploy); }
                                 latime: Coloane.deploy;
                                 sortata: root.coloana-sortata == Sortare.deploy;
                                 descrescator: root.sens-descrescator;
@@ -1134,7 +1138,7 @@ export component FereastraLista inherits Window {
                                 root.selectat = i;
                                 root.clic-rand(i);
                             }
-                            dublu-clic => {
+                            deschide => {
                                 root.selectat = i;
                                 root.alege-randul(i);
                                 root.deschide-obiectul();

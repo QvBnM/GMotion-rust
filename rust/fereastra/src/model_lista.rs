@@ -328,6 +328,26 @@ impl Lista {
         }
     }
 
+    /// Filtrul, ordinea si obiectul selectat ale altei liste: dupa o
+    /// recomparare lista arata ca inainte, doar cu datele noi (jurnalul din
+    /// 2026-11-19: filtrele se pierdeau la Recompara). Selectia ramane doar
+    /// daca obiectul mai exista si e vizibil.
+    pub fn preia_vederea(&mut self, alta: &Lista) {
+        self.filtru = alta.filtru.clone();
+        self.ordine = alta.ordine;
+        self.descrescator = alta.descrescator;
+        self.recalculeaza();
+        if let Some(c) = alta.obiect_selectat().map(Obiect::cheie) {
+            if let Some(p) = self
+                .vizibile
+                .iter()
+                .position(|&i| self.obiecte[i].cheie() == c)
+            {
+                self.selectat = Some(p);
+            }
+        }
+    }
+
     /// Cheile randurilor vizibile, in ordinea afisata (pentru `j` / `k`).
     pub fn chei_vizibile(&self) -> Vec<(String, String)> {
         self.vizibile
@@ -676,6 +696,36 @@ mod teste {
 
     fn cheie(nume: &str) -> (String, String) {
         ("Client1".to_string(), format!("dbo.{nume}"))
+    }
+
+    #[test]
+    fn recompararea_pastreaza_filtrul_ordinea_si_selectia() {
+        let mut veche = lista_proba();
+        veche.filtreaza_tip(Some("P".into()));
+        veche.sorteaza(Ordine::Tip);
+        assert!(veche.selecteaza_cheie(&cheie("usp_Import")));
+        // datele noi: un obiect a disparut, unul nou a aparut
+        let mut noua = Lista::noua(vec![
+            obiect("usp_Stoc", "P", Stare::Modificat),
+            obiect("usp_Import", "P", Stare::Modificat),
+            obiect("usp_Nou", "P", Stare::DoarSursa),
+            obiect("vw_Facturi", "V", Stare::Modificat),
+        ]);
+        noua.preia_vederea(&veche);
+        assert_eq!(noua.filtru().tip.as_deref(), Some("P"));
+        assert_eq!(noua.ordine(), Ordine::Tip);
+        assert_eq!(noua.vizibile().len(), 3, "vw_Facturi ramane ascuns");
+        assert_eq!(
+            noua.obiect_selectat().map(Obiect::cheie),
+            Some(cheie("usp_Import"))
+        );
+        // obiectul selectat nu mai exista: selectia nu se inventeaza
+        let mut fara = Lista::noua(vec![obiect("usp_Stoc", "P", Stare::Modificat)]);
+        fara.preia_vederea(&veche);
+        assert_ne!(
+            fara.obiect_selectat().map(Obiect::cheie),
+            Some(cheie("usp_Import"))
+        );
     }
 
     fn lista_proba() -> Lista {

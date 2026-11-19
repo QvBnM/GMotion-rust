@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-19 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (502 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (531 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -45,6 +45,12 @@ unelte\porneste.bat --server         # ecranul de conectare, gol
 ---
 
 ## Urmatorul pas concret
+
+**Proba pe Windows, runda 2.** Primul jurnal (2026-11-19 17:24) a dus la:
+dublu clic numarat in Rust, filtrele pastrate la Recompara, caile de
+instantaneu fara `\\?\`, rezultatele de pe alte fire in jurnal. Neclar din
+jurnal: clicurile repetate pe tabul 0 (26:28-26:37), unde nu stiu ce astepta
+Mihai. Se cere un jurnal nou si o captura cu ora.
 
 **Etapele 15 si 16 sunt incheiate.** Ramane:
 
@@ -123,6 +129,12 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Fara `double-clicked` in `.slint`.** Pe Windows nu ajungea (jurnalul
+  din 2026-11-19). Dublul clic se numara in Rust, cu `dublu_clic::DubluClic`,
+  in handlerul clicului simplu. Daca il pui si in Slint, se deschide de doua ori.
+- **Jurnalul de sesiune** e in `%APPDATA%\GMotion\jurnale\` (ultimele 10).
+  Fiecare actiune are o linie; ce ruleaza pe alt fir (test, baze, comparare)
+  isi scrie si rezultatul. Un buton fara linie in jurnal nu e legat.
 - **Obiectul din tabul activ e mereu selectia listei** (`Lista::selecteaza_cheie`).
   O comanda noua pe „obiectul curent" lucreaza pe selectie, ca toate celelalte;
   nu tine un al doilea „curent" in taburi.

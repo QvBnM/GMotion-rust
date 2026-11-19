@@ -426,8 +426,8 @@ export component EditorDiferente inherits Window {
                         zt := TouchArea {
                             width: parent.width - (t.previzualizare ? 42px : 24px);
                             x: 0;
+                            // dublul clic pe previzualizare (o fixeaza) il numara Rust-ul
                             clicked => { root.activeaza-tab(t.cod); }
-                            double-clicked => { if (t.previzualizare) { root.fixeaza-previzualizarea(); } }
                         }
                     }
                     Rectangle { horizontal-stretch: 1; }
@@ -1100,8 +1100,8 @@ export component EditorDiferente inherits Window {
                         }
                         zr := TouchArea {
                             enabled: r.antet == "";
+                            // dublul clic (tab nou) il numara Rust-ul, din `alege-randul`
                             clicked => { root.alege-randul(r.pozitie); }
-                            double-clicked => { root.fixeaza-randul(r.pozitie); }
                             changed has-hover => {
                                 if (self.has-hover) {
                                     root.detalii-hover = r.schema + "." + r.nume + " · " + r.baza + "\n" + r.tip + " · " + r.plus + " " + r.minus + " · " + r.scor-text + " · " + r.difera-in;
