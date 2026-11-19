@@ -120,6 +120,43 @@ pub enum MesajTab {
     ToateEditate,
 }
 
+/// Coloana listei din editor (etapa 16): latimea trasa, pinul, partea si
+/// banda. Supravietuiesc inchiderii, in sesiune (cheia `coloana`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StareColoana {
+    pub latime: f32,
+    pub fixata: bool,
+    pub dreapta: bool,
+    pub banda: bool,
+}
+
+impl StareColoana {
+    pub fn in_sesiune(&self, s: &mut gmotion_platforma::Sesiune) {
+        s.date.insert(
+            "coloana".to_string(),
+            serde_json::json!({
+                "latime": self.latime,
+                "fixata": self.fixata,
+                "dreapta": self.dreapta,
+                "banda": self.banda,
+            }),
+        );
+    }
+
+    /// Ce s-a salvat; latimea se tine intre 200 si 360 px, ca in fereastra.
+    /// O valoare lipsa sau stricata inseamna implicitul ferestrei.
+    pub fn din_sesiune(s: &gmotion_platforma::Sesiune) -> Option<Self> {
+        let v = s.date.get("coloana")?.as_object()?;
+        let b = |k: &str| v.get(k).and_then(serde_json::Value::as_bool);
+        Some(StareColoana {
+            latime: (v.get("latime")?.as_f64()? as f32).clamp(200.0, 360.0),
+            fixata: b("fixata")?,
+            dreapta: b("dreapta")?,
+            banda: b("banda")?,
+        })
+    }
+}
+
 /// Taburile fixate, in sesiune (cheia `taburi`), ca lista de (baza, obiect).
 pub fn taburi_in_sesiune(t: &Taburi, s: &mut gmotion_platforma::Sesiune) {
     let v = t.de_salvat();
@@ -2105,5 +2142,28 @@ mod teste {
         // fara taburi in sesiune: niciunul, fara eroare
         taburi_in_sesiune(&Taburi::noi(), &mut s);
         assert!(!s.date.contains_key("taburi"));
+    }
+
+    #[test]
+    fn starea_coloanei_trece_prin_sesiune() {
+        let mut s = gmotion_platforma::Sesiune::noua("SRV", "SQL", "Ref", "acum");
+        assert_eq!(
+            StareColoana::din_sesiune(&s),
+            None,
+            "nimic salvat: implicitul"
+        );
+        let c = StareColoana {
+            latime: 900.0,
+            fixata: false,
+            dreapta: true,
+            banda: true,
+        };
+        c.in_sesiune(&mut s);
+        let r = StareColoana::din_sesiune(&s).unwrap();
+        assert_eq!(r.latime, 360.0, "latimea ramane intre 200 si 360");
+        assert!(!r.fixata && r.dreapta && r.banda);
+        s.date
+            .insert("coloana".into(), serde_json::json!("stricat"));
+        assert_eq!(StareColoana::din_sesiune(&s), None);
     }
 }

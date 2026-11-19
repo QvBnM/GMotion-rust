@@ -13,6 +13,12 @@ import { ListView } from "std-widgets.slint";
 import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
 
 export struct RandListaUi {
+    // coloana din editor (etapa 16): un rand cu `antet` nevid e capul unui
+    // grup de stare; `pozitie` e pozitia randului in lista vizibila
+    antet: string,
+    pozitie: int,
+    // numele taiat pe mijloc, pe latimea coloanei (`taie_pe_mijloc`)
+    nume-scurt: string,
     schema: string,
     nume: string,
     // baza comparata in care s-a gasit obiectul

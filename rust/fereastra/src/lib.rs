@@ -474,7 +474,8 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
     lista
         .vizibile()
         .iter()
-        .map(|&i| {
+        .enumerate()
+        .map(|(pozitie, &i)| {
             let o = &lista.obiecte()[i];
             let (plus, minus) = match &o.detalii {
                 Some(d) => (
@@ -484,6 +485,9 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
                 None => (String::new(), String::new()),
             };
             RandListaUi {
+                antet: SharedString::new(),
+                pozitie: pozitie as i32,
+                nume_scurt: o.nume.as_str().into(),
                 schema: o.schema.as_str().into(),
                 nume: o.nume.as_str().into(),
                 baza: o.baza.as_str().into(),
@@ -518,10 +522,61 @@ pub fn incarca_coloana_lista(ui: &EditorDiferente, lista: &model_lista::Lista) {
     let (nerevizuite, vizibile) = lista.rezumat_vizibile();
     ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
     ui.set_selectat_lista(lista.selectat().map_or(0, |p| p as i32));
-    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_lista_ui(
-        lista,
-        limba_curenta(ui),
+    let limba = limba_curenta(ui);
+    // numele incape in latimea coloanei: ce ramane dupa cerc, litera si +/-
+    let caractere = ((ui.get_latime_lista() - 130.0) / 7.3).max(8.0) as usize;
+    ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri_coloana(
+        randuri_lista_ui(lista, limba),
+        caractere,
+        limba,
     ))));
+    ui.set_banda_text(
+        lista
+            .contoare_stari()
+            .iter()
+            .filter(|(s, n)| s.difera() && *n > 0)
+            .map(|(s, n)| format!("{}\n{n}", s.litera()))
+            .collect::<Vec<_>>()
+            .join("\n\n")
+            .into(),
+    );
+}
+
+/// Randurile coloanei din editor (etapa 16): grupate pe stare, in ordinea
+/// din bara laterala, fiecare grup cu capul lui; in grup, ordinea listei.
+/// Numele se taie pe mijloc la `caractere`. `pozitie` ramane pozitia din
+/// lista vizibila, ca selectia sa fie aceeasi in ambele.
+fn randuri_coloana(
+    randuri: Vec<RandListaUi>,
+    caractere: usize,
+    limba: texte::Limba,
+) -> Vec<RandListaUi> {
+    let nume_grup = |stare: i32| match stare {
+        0 => limba.alege("Modificate", "Modified"),
+        1 => limba.alege("Doar in martor", "Only in witness"),
+        2 => limba.alege("Doar in modificata", "Only in modified"),
+        3 => limba.alege("Identice", "Identical"),
+        _ => limba.alege("Criptate", "Encrypted"),
+    };
+    let mut out = Vec::with_capacity(randuri.len() + 5);
+    for stare in 0..5 {
+        let din: Vec<&RandListaUi> = randuri.iter().filter(|r| r.stare == stare).collect();
+        if din.is_empty() {
+            continue;
+        }
+        out.push(RandListaUi {
+            antet: format!("{} {}", nume_grup(stare), din.len()).into(),
+            pozitie: -1,
+            stare,
+            ..Default::default()
+        });
+        for r in din {
+            let mut r = r.clone();
+            r.nume_scurt = model_taburi::taie_pe_mijloc(&r.nume, caractere).into();
+            out.push(r);
+        }
+    }
+    out
 }
 
 /// se cheama o data, la pornire.
@@ -1462,17 +1517,13 @@ mod teste {
             });
         };
         assert_eq!(ui.get_latime_lista(), 300.0);
-        trage(300.0, 420.0);
-        assert_eq!(ui.get_latime_lista(), 420.0, "marginea a urmat mouse-ul");
-        assert_eq!(ui.get_latime_lista_aleasa(), 420.0, "si se tine minte");
-        trage(420.0, 0.0);
+        trage(300.0, 340.0);
+        assert_eq!(ui.get_latime_lista(), 340.0, "marginea a urmat mouse-ul");
+        assert_eq!(ui.get_latime_lista_aleasa(), 340.0, "si se tine minte");
+        trage(340.0, 0.0);
         assert_eq!(ui.get_latime_lista(), 200.0, "nu se strange sub 200 px");
         trage(200.0, 1400.0);
-        assert_eq!(
-            ui.get_latime_lista(),
-            1440.0 - 640.0,
-            "editorul pastreaza loc"
-        );
+        assert_eq!(ui.get_latime_lista(), 360.0, "cel mult 360 px (etapa 16)");
         let _ = ui.hide();
     }
 
@@ -1500,6 +1551,56 @@ mod teste {
         let v = taburi_ui(&t, |_| false);
         assert_eq!(v[0].nume.chars().count(), 22);
         assert!(v[0].nume.ends_with("umeDeProcedura"), "{}", v[0].nume);
+    }
+
+    /// Etapa 16: butoanele din capul coloanei (pin, muta, banda) se apasa cu
+    /// mouse-ul; fiecare schimba starea si o anunta pentru sesiune.
+    #[test]
+    fn butoanele_coloanei_se_apasa_cu_mouse_ul() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::Cell;
+        use std::rc::Rc;
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        ui.show().expect("fereastra se arata");
+        let schimbari = Rc::new(Cell::new(0));
+        let s = schimbari.clone();
+        ui.on_coloana_schimbata(move || s.set(s.get() + 1));
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // capul coloanei: Esc la dreapta, inaintea lui «, ⇄, pinul (24 px
+        // fiecare, cu 4 px intre ele); se cauta pinul de la stanga spre Esc
+        let x_pin = (120..240)
+            .step_by(2)
+            .map(|x| x as f32)
+            .find(|&x| {
+                clic(x, 25.0);
+                let gasit = !ui.get_lista_fixata();
+                if gasit {
+                    ui.set_lista_fixata(true);
+                }
+                gasit
+            })
+            .expect("pinul raspunde la clic");
+        assert!(schimbari.get() >= 1, "pinul anunta schimbarea");
+        clic(x_pin + 28.0, 25.0);
+        assert!(ui.get_lista_dreapta(), "⇄ muta coloana pe dreapta");
+        ui.set_lista_dreapta(false);
+        clic(x_pin + 56.0, 25.0);
+        assert!(ui.get_lista_banda(), "« o strange ca banda");
+        let _ = ui.hide();
     }
 
     /// Apasa o tasta in fereastra, ca un utilizator (apasat si eliberat).
@@ -1880,20 +1981,26 @@ mod teste {
         incarca_lista(&ui_lista, &antet_lista(), &lista);
         incarca_coloana_lista(&ui_editor, &lista);
 
-        assert_eq!(
-            ui_editor.get_randuri_lista().row_count(),
-            ui_lista.get_randuri().row_count()
-        );
-        for i in 0..ui_lista.get_randuri().row_count() {
-            let (a, b) = (
-                ui_lista.get_randuri().row_data(i).unwrap(),
-                ui_editor.get_randuri_lista().row_data(i).unwrap(),
-            );
+        // etapa 16: aceleasi obiecte, grupate pe stare, fiecare grup cu
+        // capul lui; `pozitie` duce la randul din lista mare
+        let coloana: Vec<RandListaUi> = ui_editor.get_randuri_lista().iter().collect();
+        let antete: Vec<&str> = coloana
+            .iter()
+            .filter(|r| !r.antet.is_empty())
+            .map(|r| r.antet.as_str())
+            .collect();
+        assert_eq!(antete, ["Modificate 1", "Doar in martor 1", "Identice 1"]);
+        let obiecte: Vec<&RandListaUi> = coloana.iter().filter(|r| r.antet.is_empty()).collect();
+        assert_eq!(obiecte.len(), ui_lista.get_randuri().row_count());
+        for b in obiecte {
+            let a = ui_lista.get_randuri().row_data(b.pozitie as usize).unwrap();
             assert_eq!(a.nume, b.nume);
             assert_eq!(a.baza, b.baza);
             assert_eq!(a.stare, b.stare);
             assert_eq!(a.scor_text, b.scor_text);
         }
+        // contoarele benzii: doar ce difera
+        assert_eq!(ui_editor.get_banda_text(), "M\n1\n\nS\n1");
         assert_eq!(ui_editor.get_selectat_lista(), 1, "acelasi rand selectat");
         assert_eq!(ui_editor.get_rezumat_lista(), ui_lista.get_rezumat_lista());
     }
