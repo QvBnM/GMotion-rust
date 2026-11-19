@@ -6,6 +6,11 @@
 
 ## Scop
 
+> **Schimbat pe drum (2026-11-19):** arborele ca Object Explorer sta in
+> coloana din stanga a **editorului**; ecranul listei ramane tabelul de
+> dinainte. Criteriile de mai jos despre „lista" se citesc despre coloana
+> editorului.
+
 Prima proba pe bazele reale (GetsBet → CEAAS, 311 obiecte): Mihai a gasit
 lista „o tampenie" si a cerut-o ca Object Explorer din SSMS, cu codul in
 forma ecranului Side by Side. La final, ecranul de dupa comparare e un arbore
@@ -92,6 +97,13 @@ previzualizare exista un buton de wrap.
   stare (etapa 16) a fost inlocuita cu acelasi arbore (`noduri_ui`, comun);
   `j` / `k` din editor merg in ordinea arborelui. Coloana: 320 px implicit,
   200-520 px trasa (numele se citeau taiate la 244).
+
+- **2026-11-19** Mihai: „pe ecranul lista ramane cum era inainte". Lista
+  e iar tabelul cu panoul de detalii la clic, sortarea si coloanele trase
+  (ca inainte de etapa 19), fara butonul „Open" plutitor (dublul clic
+  merge acum, plus „Deschide" din panou). Raman: harta pe `h` (ecran
+  separat), arborele in coloana editorului, wrap-ul in editor, detaliile pe
+  alt fir. `MutaInArbore` a iesit; `j` / `k` din lista merg iar pe tabel.
 
 ## Ce a iesit altfel decat planul
 

@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-app --example captura_lista -- \
-//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--inaltime 900] [--wrap] [--harta]
+//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--inaltime 900] [--harta]
 //!
 //! `BAZE` poate fi o lista separata prin virgula: asa se fotografiaza si
 //! coloana „Baza".
@@ -111,7 +111,6 @@ fn main() {
     // fereastra are marime inainte de incarcare: latimea de wrap vine din ea
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
-    ui.set_impacheteaza(a.iter().any(|x| x == "--wrap"));
     incarca_lista(
         &ui,
         &AntetLista {
@@ -122,7 +121,6 @@ fn main() {
         },
         lista,
     );
-    gmotion_fereastra::incarca_arbore(&ui, app.arbore(), lista);
     gmotion_fereastra::incarca_detalii(&ui, &app.panou_detalii().pentru_fereastra());
     if let Some((sursa, tinta, setari)) = app.texte_obiect() {
         incarca_previzualizare(&ui, sursa, tinta, &setari);

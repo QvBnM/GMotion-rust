@@ -904,6 +904,38 @@ pub struct AntetLista<'a> {
     pub in_plan: usize,
 }
 
+/// Coloana sortata, ca numar pentru `.slint` (`global Sortare`). Ordinea e
+/// aceeasi cu cea din `model_lista::Ordine`; daca una se muta, se muta in
+/// ambele locuri — testul `codurile_de_sortare_se_potrivesc` cade altfel.
+fn cod_ordine(o: model_lista::Ordine) -> i32 {
+    use model_lista::Ordine;
+    match o {
+        Ordine::Nume => 0,
+        Ordine::Tip => 1,
+        Ordine::Linii => 2,
+        Ordine::Scor => 3,
+        Ordine::DiferaIn => 4,
+        Ordine::Revizuire => 5,
+        Ordine::Deploy => 6,
+        Ordine::Baza => 7,
+    }
+}
+
+/// Inversul lui `cod_ordine`: ce coloana a apasat utilizatorul.
+pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
+    use model_lista::Ordine;
+    match c {
+        1 => Ordine::Tip,
+        2 => Ordine::Linii,
+        3 => Ordine::Scor,
+        4 => Ordine::DiferaIn,
+        5 => Ordine::Revizuire,
+        6 => Ordine::Deploy,
+        7 => Ordine::Baza,
+        _ => Ordine::Nume,
+    }
+}
+
 /// Coloana „Deploy" din v3.4: omis bate orice (obiectul e lasat deoparte
 /// deliberat), apoi ce s-a trimis, apoi ce e pregatit.
 fn cod_deploy(o: &model_lista::Obiect) -> i32 {
@@ -917,6 +949,59 @@ fn cod_deploy(o: &model_lista::Obiect) -> i32 {
         Deploy::Nu if o.in_plan => 1,
         Deploy::Nu => 0,
     }
+}
+
+/// Latimea de care are nevoie o coloana ca sa-si arate tot continutul, in
+/// pixeli logici („autofit", dublu clic pe marginea capului).
+///
+/// Latimea unui text nu se poate masura din Slint, deci se socoteste din
+/// numarul de caractere si latimea unui caracter mono la 12px. E o
+/// aproximare deliberata: mai bine cu cateva zeci de pixeli in plus decat un
+/// nume taiat.
+pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) -> f32 {
+    use model_lista::Ordine;
+    const CARACTER: f32 = 7.3;
+    const PADDING: f32 = 20.0;
+    let text = |o: &model_lista::Obiect| -> usize {
+        match coloana {
+            Ordine::Nume => o.id().chars().count(),
+            Ordine::Baza => o.baza.chars().count(),
+            Ordine::Tip => gmotion_core::nume_tip(&o.tip).chars().count(),
+            Ordine::Linii => o.detalii.as_ref().map_or(0, |d| {
+                format!("+{} −{}", d.linii_plus, d.linii_minus)
+                    .chars()
+                    .count()
+            }),
+            Ordine::Scor => 10,
+            Ordine::DiferaIn => o
+                .detalii
+                .as_ref()
+                .map_or(0, |d| d.difera_in.chars().count()),
+            Ordine::Revizuire => 8,
+            Ordine::Deploy => "Versiune noua".len(),
+        }
+    };
+    // doar randurile vizibile: autofit pe ce se vede, ca in orice tabel
+    let maxim = lista
+        .vizibile()
+        .iter()
+        .map(|&i| text(&lista.obiecte()[i]))
+        .max()
+        .unwrap_or(0);
+    // si capul coloanei trebuie sa incapa
+    let cap = match coloana {
+        Ordine::Nume => "Obiect",
+        Ordine::Baza => "Baza",
+        Ordine::Tip => "Tip",
+        Ordine::Linii => "Linii",
+        Ordine::Scor => "Similar",
+        Ordine::DiferaIn => "Difera in",
+        Ordine::Revizuire => "Revizuit",
+        Ordine::Deploy => "Deploy",
+    }
+    .chars()
+    .count();
+    (maxim.max(cap) as f32) * CARACTER + PADDING
 }
 
 /// Umple ecranul listei din modelul ei. Nu calculeaza nimic: filtrele,
@@ -1025,6 +1110,8 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     ui.set_mai_multe_baze(baze.len() > 1);
     let (nerevizuite, vizibile) = lista.rezumat_vizibile();
     ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
+    ui.set_coloana_sortata(cod_ordine(lista.ordine()));
+    ui.set_sens_descrescator(lista.descrescator());
     ui.set_stari(ModelRc::new(VecModel::from(
         model_lista::FiltruRevizuire::TOATE
             .iter()
@@ -1086,22 +1173,8 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     }
 }
 
-/// Arborele din stanga listei (etapa 19), din obiectele vizibile; randul
-/// obiectului selectat se trimite separat, ca arborele sa se deruleze la el.
-pub fn incarca_arbore(
-    ui: &FereastraLista,
-    arbore: &model_arbore::Arbore,
-    lista: &model_lista::Lista,
-) {
-    let (v, nod_selectat) = noduri_ui(arbore, lista, limba_curenta(ui));
-    if let Some(m) = pe_loc(ui.get_noduri(), v) {
-        ui.set_noduri(m);
-    }
-    ui.set_nod_selectat(nod_selectat);
-}
-
 /// Nodurile arborelui pentru `.slint` si randul obiectului selectat (-1 cand
-/// nu se vede). Acelasi arbore in lista si in coloana editorului.
+/// nu se vede), pentru coloana din stanga a editorului.
 fn noduri_ui(
     arbore: &model_arbore::Arbore,
     lista: &model_lista::Lista,
@@ -1135,6 +1208,7 @@ fn noduri_ui(
 /// Ce arata panoul de detalii din lista, pe langa randul selectat. Date
 /// simple: fereastra nu stie de module (impactul vine din `diff-obiecte`).
 pub struct PanouDetalii<'a> {
+    pub deschis: bool,
     /// Baza comparata si `schema.nume` al obiectului; nota se leaga de ele.
     pub baza: &'a str,
     pub obiect: &'a str,
@@ -1149,6 +1223,7 @@ pub struct PanouDetalii<'a> {
 /// rescrisa la fiecare tasta, ar muta cursorul si ar taia spatiul de la
 /// capat pe care tocmai l-ai scris.
 pub fn incarca_detalii(ui: &FereastraLista, p: &PanouDetalii) {
+    ui.set_detalii_deschise(p.deschis);
     ui.set_impact_nivel(p.impact.unwrap_or(-1));
     ui.set_impact_motive(p.motive.into());
     if ui.get_nota_id().as_str() != p.obiect || ui.get_nota_baza().as_str() != p.baza {
@@ -1193,9 +1268,8 @@ pub fn incarca_previzualizare(
             const { std::cell::RefCell::new(None) };
     }
     let limba = limba_curenta(ui);
-    let wrap = ui
-        .get_impacheteaza()
-        .then(|| usize::try_from(ui.get_coloane_wrap()).unwrap_or(0));
+    // wrap-ul e doar in editor; previzualizarea din panou ramane neimpachetata
+    let wrap: Option<usize> = None;
     let acelasi = ULTIMA.with_borrow(|u| {
         u.as_ref().is_some_and(|(a, b, s, l, w)| {
             a == text_sursa
@@ -1945,7 +2019,7 @@ mod teste {
         );
     }
 
-    /// Filtrul pe stare, intervalul de similaritate si
+    /// Capetele de coloana, filtrul pe stare, intervalul de similaritate si
     /// Export CSV cheama fiecare actiunea lui. Un buton desenat si nelegat
     /// arata perfect in captura — asa au trecut etapele 8-11 cu 7 butoane
     /// moarte.
@@ -1960,6 +2034,8 @@ mod teste {
         aplica_limba(&ui, texte::Limba::default());
         let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
         let a = apeluri.clone();
+        ui.on_sorteaza_coloana(move |c| a.borrow_mut().push(format!("sort{c}")));
+        let a = apeluri.clone();
         ui.on_alege_starea(move |i| a.borrow_mut().push(format!("stare{i}")));
         let a = apeluri.clone();
         ui.on_schimba_scorul(move |min, max| a.borrow_mut().push(format!("scor{min}-{max}")));
@@ -1970,6 +2046,7 @@ mod teste {
         let a = apeluri.clone();
         ui.on_pune_vizibilele_in_plan(move |cu| a.borrow_mut().push(format!("plan{cu}")));
 
+        ui.invoke_sorteaza_coloana(cod_ordine(model_lista::Ordine::Scor));
         ui.invoke_alege_starea(2);
         ui.invoke_schimba_scorul("40".into(), "90".into());
         ui.invoke_exporta_csv();
@@ -1989,6 +2066,7 @@ mod teste {
         assert_eq!(
             *apeluri.borrow(),
             [
+                "sort3",
                 "stare2",
                 "scor40-90",
                 "csv",
@@ -2027,32 +2105,38 @@ mod teste {
         );
     }
 
-    /// Etapa 19: clicul pe dosar il inchide, clicul pe obiect il selecteaza,
-    /// `j` cere obiectul urmator din arbore, `o` omite, iar nota primeste
-    /// text — prin mouse si tastatura adevarate (nu prin `invoke_`): un
-    /// `TouchArea` acoperit de alt element ar trece de un test cu `invoke_`.
+    /// Clicul pe rand, dublu clicul, X-ul, Esc, `o` si nota ajung la
+    /// actiunile lor, prin mouse si tastatura adevarate (nu prin `invoke_`):
+    /// un `TouchArea` acoperit de alt element ar trece de un test cu
+    /// `invoke_`, nu si de asta.
     #[test]
-    fn arborele_si_panoul_raspund_la_mouse_si_tastatura() {
+    fn panoul_de_detalii_raspunde_la_mouse_si_tastatura() {
         use slint::platform::{PointerEventButton, WindowEvent};
         use slint::LogicalPosition;
         use std::cell::RefCell;
-        let ui = fereastra_lista();
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w)));
+        let ui = FereastraLista::new().expect("fereastra de test");
+        aplica_tema(&ui, Mod::Luminos);
         ui.window().set_size(slint::PhysicalSize::new(1440, 900));
-        let lista = lista_de_proba();
-        incarca_lista(&ui, &antet_lista(), &lista);
-        incarca_arbore(&ui, &model_arbore::Arbore::default(), &lista);
+        let rand = |nume: &str| RandListaUi {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "procedura".into(),
+            litera: "M".into(),
+            ..Default::default()
+        };
+        ui.set_randuri(ModelRc::new(VecModel::from(vec![rand("pA"), rand("pB")])));
         ui.show().expect("fereastra se arata");
         let apeluri: Rc<RefCell<Vec<String>>> = Rc::default();
         let a = apeluri.clone();
-        ui.on_alege_randul(move |i| a.borrow_mut().push(format!("alege{i}")));
-        let a = apeluri.clone();
-        ui.on_comuta_nod(move |c| a.borrow_mut().push(format!("nod {c}")));
-        let a = apeluri.clone();
-        ui.on_muta_in_arbore(move |p| a.borrow_mut().push(format!("muta{p}")));
-        let a = apeluri.clone();
-        ui.on_comuta_omis(move || a.borrow_mut().push("omite".into()));
+        ui.on_clic_rand(move |i| a.borrow_mut().push(format!("clic{i}")));
         let a = apeluri.clone();
         ui.on_deschide_obiectul(move || a.borrow_mut().push("deschide".into()));
+        let a = apeluri.clone();
+        ui.on_inchide_detalii(move || a.borrow_mut().push("inchide".into()));
+        let a = apeluri.clone();
+        ui.on_comuta_omis(move || a.borrow_mut().push("omite".into()));
         let a = apeluri.clone();
         ui.on_nota_editata(move |b, id, t| a.borrow_mut().push(format!("nota {b}/{id}={t}")));
 
@@ -2069,63 +2153,67 @@ mod teste {
                 button: PointerEventButton::Left,
             });
         };
-        // nodurile: baza, dosar, obiect...; unde e primul rand nu se scrie
-        // de mana (depinde de bara de filtre): se cauta cu clicuri
+        // unde e primul rand nu se scrie de mana (depinde de antet si de
+        // bara de filtre): se cauta, cu clicuri pe coloana „Obiect"
         let y0 = (0..900)
-            .step_by(3)
+            .step_by(4)
             .map(|y| y as f32)
             .find(|&y| {
-                clic(150.0, y);
-                let gasit = apeluri
-                    .borrow()
-                    .last()
-                    .is_some_and(|a| a.starts_with("nod b:"));
+                clic(300.0, y);
+                let gasit = apeluri.borrow().last().is_some_and(|a| a == "clic0");
                 apeluri.borrow_mut().clear();
                 gasit
             })
-            .expect("randul bazei raspunde la clic");
-        // randul dosarului, sub baza (26 px pe rand)
-        clic(150.0, y0 + 26.0);
-        assert!(
-            apeluri
-                .borrow()
-                .last()
-                .is_some_and(|a| a.starts_with("nod d:")),
-            "{:?}",
-            apeluri.borrow()
-        );
-        apeluri.borrow_mut().clear();
-        // primul obiect, sub dosar: se selecteaza (pozitia lui in lista)
-        clic(150.0, y0 + 52.0);
-        let p = ui.get_noduri().row_data(2).expect("al treilea nod").pozitie;
-        assert_eq!(*apeluri.borrow(), [format!("alege{p}")]);
-        apeluri.borrow_mut().clear();
-        // din Slint nu vine deschiderea la dublu clic: o hotaraste Rust-ul
-        std::thread::sleep(std::time::Duration::from_millis(600));
-        clic(150.0, y0 + 52.0);
-        clic(150.0, y0 + 52.0);
-        assert!(!apeluri.borrow().iter().any(|a| a == "deschide"));
+            .expect("primul rand raspunde la clic");
+        clic(300.0, y0 + 34.0);
+        assert_eq!(*apeluri.borrow(), ["clic1"], "al doilea rand e al doilea");
         apeluri.borrow_mut().clear();
 
+        // dublu clic: din Slint vin doar cele doua clicuri; deschiderea o
+        // hotaraste Rust-ul (`dublu_clic`), fiindca `double-clicked` nu
+        // ajungea pe Windows. Daca Slint ar deschide si el, s-ar deschide
+        // de doua ori.
+        std::thread::sleep(std::time::Duration::from_millis(600));
+        clic(300.0, y0 + 2.0);
+        clic(300.0, y0 + 2.0);
+        assert_eq!(*apeluri.borrow(), ["clic0", "clic0"]);
+        apeluri.borrow_mut().clear();
+
+        // panoul deschis: Esc il inchide, `o` omite
+        ui.set_detalii_deschise(true);
+        ui.set_nota_id("dbo.pA".into());
         let tasta = |t: SharedString| {
             ui.window()
                 .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
             ui.window()
                 .dispatch_event(WindowEvent::KeyReleased { text: t });
         };
-        tasta("j".into());
-        tasta("k".into());
+        tasta(slint::platform::Key::Escape.into());
         tasta("o".into());
-        tasta(slint::platform::Key::Return.into());
-        assert_eq!(*apeluri.borrow(), ["muta1", "muta-1", "omite", "deschide"]);
+        assert_eq!(*apeluri.borrow(), ["inchide", "omite"]);
+        apeluri.borrow_mut().clear();
+        ui.set_detalii_deschise(false);
+        tasta(slint::platform::Key::Escape.into());
+        assert!(apeluri.borrow().is_empty(), "Esc fara panou nu face nimic");
+        ui.set_detalii_deschise(true);
+
+        // X-ul din coltul panoului: cautat pe banda de sus a panoului
+        let gasit_x = (1100..1440).step_by(3).any(|x| {
+            (y0 as i32 - 60..y0 as i32 + 10).step_by(3).any(|y| {
+                clic(x as f32, y as f32);
+                let e = apeluri.borrow().last().is_some_and(|a| a == "inchide");
+                e
+            })
+        });
+        assert!(gasit_x, "X-ul inchide panoul: {:?}", apeluri.borrow());
         apeluri.borrow_mut().clear();
 
         // nota: textul tastat ajunge cu obiectul lui
         ui.set_nota("".into());
         ui.set_nota_baza("B1".into());
         ui.set_nota_id("dbo.pB".into());
-        let gasit_nota = (500..1440).step_by(8).any(|x| {
-            (y0 as i32 - 40..y0 as i32 + 80).step_by(4).any(|y| {
+        let gasit_nota = (1000..1440).step_by(6).any(|x| {
+            (y0 as i32..900).step_by(6).any(|y| {
                 clic(x as f32, y as f32);
                 tasta("z".into());
                 let e = apeluri.borrow().iter().any(|a| a.starts_with("nota"));
@@ -2154,15 +2242,11 @@ mod teste {
         incarca_lista(&ui_lista, &antet_lista(), &lista);
         incarca_coloana_lista(&ui_editor, &lista, &model_arbore::Arbore::default());
 
-        // coloana e arborele din lista (Object Explorer): aceleasi noduri,
-        // iar `pozitie` duce la acelasi rand ca in lista mare
-        let noduri_lista: Vec<NodUi> = {
-            incarca_arbore(&ui_lista, &model_arbore::Arbore::default(), &lista);
-            ui_lista.get_noduri().iter().collect()
-        };
+        // coloana e arborele (Object Explorer): baza, dosar, obiecte, iar
+        // `pozitie` duce la acelasi rand ca in lista mare
         let noduri: Vec<NodUi> = ui_editor.get_noduri_lista().iter().collect();
-        assert_eq!(noduri, noduri_lista);
         assert_eq!(noduri[0].fel, 0, "primul nod e baza");
+        assert_eq!(noduri[1].fel, 1, "apoi dosarul");
         let obiecte: Vec<&NodUi> = noduri.iter().filter(|n| n.fel == 2).collect();
         assert_eq!(obiecte.len(), ui_lista.get_randuri().row_count());
         for n in obiecte {
@@ -2176,9 +2260,10 @@ mod teste {
             assert_eq!(a.stare, b.stare);
             assert_eq!(a.scor_text, b.scor_text);
         }
+        let sel = ui_editor.get_nod_selectat_lista();
         assert_eq!(
-            ui_editor.get_nod_selectat_lista(),
-            ui_lista.get_nod_selectat()
+            noduri[sel as usize].pozitie, 1,
+            "nodul selectat e randul selectat"
         );
         // contoarele benzii: doar ce difera
         assert_eq!(ui_editor.get_banda_text(), "M\n1\n\nS\n1");
@@ -2547,6 +2632,8 @@ mod teste {
         lista.filtreaza_scor(30.0, 80.0);
         incarca_lista(&ui, &antet_lista(), &lista);
 
+        assert_eq!(ui.get_coloana_sortata(), 3, "coloana Similar");
+        assert!(!ui.get_sens_descrescator(), "scorul incepe crescator");
         assert_eq!(ui.get_stare_activa(), 0, "Nerevizuite e prima optiune");
         assert_eq!(ui.get_stari().row_count(), 6);
         assert_eq!(ui.get_scor_min(), "30");
@@ -3385,7 +3472,6 @@ mod teste {
         ui.window().set_size(slint::PhysicalSize::new(1440, 900));
         let lista = lista_de_proba();
         incarca_lista(&ui, &antet_lista(), &lista);
-        incarca_arbore(&ui, &model_arbore::Arbore::default(), &lista);
         leaga_harta(&ui);
         ui.show().expect("fereastra se arata");
         let tasta = |t: SharedString| {
@@ -3454,5 +3540,133 @@ mod teste {
         clic(42.0, y + 2.0);
         assert_eq!(*alese.borrow(), [Some(asteptat)]);
         let _ = ui.hide();
+    }
+    /// Codurile de sortare din `.slint` (`global Sortare`) si `Ordine` sunt
+    /// aceeasi lista. Daca una se muta si cealalta nu, clicul pe „Tip" ar
+    /// sorta dupa linii, fara ca nimic sa cada.
+    #[test]
+    fn codurile_de_sortare_se_potrivesc() {
+        use model_lista::Ordine;
+        for o in [
+            Ordine::Nume,
+            Ordine::Tip,
+            Ordine::Linii,
+            Ordine::Scor,
+            Ordine::DiferaIn,
+            Ordine::Revizuire,
+            Ordine::Deploy,
+        ] {
+            assert_eq!(ordine_din_cod(cod_ordine(o)), o, "dus-intors pentru {o:?}");
+        }
+        // un cod necunoscut nu da panica: cade pe sortarea implicita
+        assert_eq!(ordine_din_cod(99), Ordine::Nume);
+    }
+
+    /// Coloanele noi din lista (Similar, Deploy) si starea barei de filtre
+    /// vin din model, nu din desen.
+    #[test]
+    fn autofitul_tine_cont_si_de_cap_si_de_randuri() {
+        use model_lista::Ordine;
+        let mut lista = lista_de_proba();
+        // capul „Baza" e scurt, dar numele bazei e lung
+        let baza = latime_autofit(&lista, Ordine::Baza);
+        assert!(baza > 80.0, "numele bazei nu incape: {baza}");
+        // o coloana fara continut ramane cat capul ei
+        let tip = latime_autofit(&lista, Ordine::Tip);
+        assert!(tip > 20.0 && tip < baza, "{tip} vs {baza}");
+        // pe o lista filtrata la zero ramane latimea capului
+        lista.cauta("nu-exista");
+        let gol = latime_autofit(&lista, Ordine::DiferaIn);
+        assert!(gol > 20.0, "capul coloanei tot trebuie sa incapa: {gol}");
+    }
+
+    /// V9 din `cercetare/audit-qa-2026-11-18.md`: bifa „Revizuit" de pe un
+    /// rand bifa alt obiect. `lista.slint` trimitea `comuta-revizuit(i)`, dar
+    /// legatura din Rust ignora indicele si bifa randul **selectat**; clicul
+    /// pe bifa nu selecteaza randul (TouchArea-ul bifei sta peste cel al
+    /// randului). In plus `Bifa` isi scria singura `bifat`, deci randul arata
+    /// bifat fara sa fie — si un rand reciclat de `ListView` arata apoi
+    /// starea altui obiect.
+    #[test]
+    fn bifa_unui_rand_nu_bifeaza_alt_rand() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        let ui = fereastra_lista();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        let rand = |nume: &str| RandListaUi {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "procedura".into(),
+            litera: "M".into(),
+            ..Default::default()
+        };
+        ui.set_randuri(ModelRc::new(VecModel::from(vec![
+            rand("pA"),
+            rand("pB"),
+            rand("pC"),
+        ])));
+        ui.set_selectat(0);
+        ui.show().expect("fereastra se arata");
+
+        let bifate: Rc<RefCell<Vec<i32>>> = Rc::default();
+        let b = bifate.clone();
+        ui.on_comuta_revizuit(move |i| b.borrow_mut().push(i));
+        let clicuri: Rc<RefCell<Vec<i32>>> = Rc::default();
+        let c = clicuri.clone();
+        ui.on_clic_rand(move |i| c.borrow_mut().push(i));
+
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // primul rand: se cauta pe coloana „Obiect", ca in testul de panou
+        let y0 = (0..900)
+            .step_by(4)
+            .map(|y| y as f32)
+            .find(|&y| {
+                clic(300.0, y);
+                let gasit = clicuri.borrow().last() == Some(&0);
+                clicuri.borrow_mut().clear();
+                gasit
+            })
+            .expect("primul rand raspunde la clic");
+        // bifa randului al treilea: patrat de 13 px in coloana „Revizuit",
+        // deci se cauta si pe latime si pe inaltimea randului
+        let randul = 2usize;
+        let sus = y0 + 34.0 * randul as f32 - 4.0;
+        let mut gasit = false;
+        for x in (600..1440).step_by(3) {
+            for y in 0..12 {
+                clic(x as f32, sus + y as f32 * 3.0);
+                if !bifate.borrow().is_empty() {
+                    gasit = true;
+                    break;
+                }
+            }
+            if gasit {
+                break;
+            }
+        }
+        assert!(gasit, "bifa randului al treilea primeste clicul");
+        assert_eq!(
+            *bifate.borrow(),
+            [randul as i32],
+            "bifa trebuie sa spuna randul ei, nu pe cel selectat"
+        );
+        // si nu-si schimba singura desenul: starea vine din model
+        assert!(
+            !ui.get_randuri().row_data(randul).unwrap().revizuit,
+            "bifa nu se deseneaza bifata inainte sa raspunda modelul"
+        );
     }
 }

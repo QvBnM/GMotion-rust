@@ -570,7 +570,6 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
-            gmotion_fereastra::incarca_arbore(&l_ui, app.arbore(), app.lista());
             if app.refuzat_in_plan() {
                 l_ui.set_mesaj_csv(
                     limba
@@ -1299,26 +1298,27 @@ fn ruleaza() -> Result<(), String> {
             }
         });
         let c = comanda.clone();
-        let dc = RefCell::new(DubluClic::default());
         lista_ui.on_alege_randul(move |i| {
             actiune("lista", "alege_randul", &format!("{:?}", (&i,)), false);
-            c(Comanda::Selecteaza(i.max(0) as usize));
-            // al doilea clic repede pe acelasi obiect din arbore il deschide
+            c(Comanda::Selecteaza(i.max(0) as usize))
+        });
+        let c = comanda.clone();
+        let dc = RefCell::new(DubluClic::default());
+        lista_ui.on_clic_rand(move |i| {
+            actiune("lista", "clic_rand", &format!("{:?}", (&i,)), false);
+            c(Comanda::ClicPeRand(i.max(0) as usize));
+            // al doilea clic repede pe acelasi rand deschide obiectul (ca si
+            // inainte: primul clic deschide detaliile, al doilea le inchide)
             if dc.borrow_mut().apasat(i, Instant::now()) {
-                tracing::debug!(target: "gmotion::actiuni", rand = i, "dublu clic in arbore");
+                tracing::debug!(target: "gmotion::actiuni", rand = i, "dublu clic in lista");
+                c(Comanda::Selecteaza(i.max(0) as usize));
                 c(Comanda::Deschide);
             }
         });
-        // arborele (etapa 19): noduri deschise / inchise, j / k in ordinea lui
         let c = comanda.clone();
-        lista_ui.on_comuta_nod(move |cheie| {
-            actiune("lista", "comuta_nod", &format!("{:?}", (&cheie,)), false);
-            c(Comanda::ComutaNod(cheie.to_string()))
-        });
-        let c = comanda.clone();
-        lista_ui.on_muta_in_arbore(move |pas| {
-            actiune("lista", "muta_in_arbore", &format!("{:?}", (&pas,)), false);
-            c(Comanda::MutaInArbore(pas))
+        lista_ui.on_inchide_detalii(move || {
+            actiune("lista", "inchide_detalii", "", false);
+            c(Comanda::InchideDetalii)
         });
         let c = comanda.clone();
         lista_ui.on_deschide_obiectul(move || {
@@ -1469,6 +1469,46 @@ fn ruleaza() -> Result<(), String> {
                         .and_then(|a| a.lista().contoare_tipuri().get(i).map(|(t, _)| t.clone()))
                 });
                 c(Comanda::FiltreazaTip(tip))
+            }
+        });
+        let c = comanda.clone();
+        // clic pe un cap de coloana: sorteaza dupa ea; al doilea clic inverseaza
+        lista_ui.on_sorteaza_coloana(move |cod| {
+            actiune(
+                "lista",
+                "sorteaza_coloana",
+                &format!("{:?}", (&cod,)),
+                false,
+            );
+            {
+                c(Comanda::Sorteaza(gmotion_fereastra::ordine_din_cod(cod)));
+            }
+        });
+        let s = stare.clone();
+        let l = lista_ui.as_weak();
+        let d = deseneaza.clone();
+        let dc = RefCell::new(DubluClic::default());
+        lista_ui.on_clic_margine_coloana(move |cod| {
+            actiune(
+                "lista",
+                "clic_margine_coloana",
+                &format!("{:?}", (&cod,)),
+                false,
+            );
+            // dublul clic pe margine = autofit; clicul simplu nu face nimic
+            if dc.borrow_mut().apasat(cod, Instant::now()) {
+                tracing::debug!(target: "gmotion::actiuni", cod, "autofit coloana");
+                let latime = s.borrow().app.as_ref().map(|a| {
+                    gmotion_fereastra::latime_autofit(
+                        a.lista(),
+                        gmotion_fereastra::ordine_din_cod(cod),
+                    )
+                });
+                if let (Some(ui), Some(latime)) = (l.upgrade(), latime) {
+                    ui.global::<gmotion_fereastra::Coloane>()
+                        .invoke_pune(cod, latime);
+                }
+                d();
             }
         });
         let s = stare.clone();
@@ -1932,11 +1972,6 @@ fn ruleaza() -> Result<(), String> {
         // mijlocul unei redesenari (cand Rust citeste latimea)
         editor_ui.on_comuta_wrap(move |pornit| {
             actiune("editor", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
-            slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
-        });
-        let d = deseneaza.clone();
-        lista_ui.on_comuta_wrap(move |pornit| {
-            actiune("lista", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
             slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
         });
         let a = alege_tema.clone();

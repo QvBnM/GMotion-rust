@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 6912446420cffcc4 -->
+<!-- api-hash: 8bf253f52b8c19d8 -->
 
 ## Rol
 
@@ -36,12 +36,12 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul; `model_editor` da un `Ref` la modelul tinut minte pe `(obiect, amprenta textului final, unirea cursorului)`, nu-l reface la fiecare desenare (P1) |
 | `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface |
-| `Aplicatie::panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul (calculat lenes, o data per comparare) si nota (`PuneNota`) |
+| `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul (calculat lenes, o data per comparare) si nota (`PuneNota`) |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
 | `Aplicatie::plan(referinta, facut_la)`, `sursa()` | planul de deploy din ce e „in plan" (`Comanda::ComutaInPlan`), cu amprentele compararii; acopera toate bazele comparate |
 | `StareColoana` (`in_sesiune`, `din_sesiune`) | latimea, pinul, partea si banda coloanei din editor, in sesiune (etapa 16) |
 | `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
-| `Aplicatie::arbore()`; comenzile `ComutaNod`, `MutaInArbore` | arborele listei (etapa 19); selectia isi deschide singura dosarul |
+| `Aplicatie::arbore()`; comanda `ComutaNod` | arborele din coloana editorului (etapa 19); selectia isi deschide singura dosarul; `j` / `k` din editor merg in ordinea lui |
 | `Aplicatie::{lucrari_detalii, pune_detalii}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
 | `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea si selectia celei vechi |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
@@ -86,7 +86,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 |---|---|
 | Bifa din editor nu se vede in lista | `comuta_revizuit` din `rutare.rs` |
 | `j` / `k` te intorc in lista | `treci` din `rutare.rs` |
-| Un dosar din arbore se deschide / inchide singur, sau `j` sare aiurea | `Comanda::{ComutaNod, MutaInArbore}` din `rutare.rs`; `model_arbore` din `fereastra` |
+| Panoul de detalii nu se deschide / nu se inchide la clic | `Comanda::ClicPeRand` din `rutare.rs`; in `lista.slint`, `clic-rand` |
+| Un dosar din arborele editorului se deschide / inchide singur | `Comanda::ComutaNod` din `rutare.rs`; `model_arbore` din `fereastra` |
 | Nota apare pe alt obiect | `nota-id` din `lista.slint` si `incarca_detalii` in `gmotion-fereastra` |
 | Obiectul deschis se schimba dupa un filtru | `Lista::recalculeaza` in `gmotion-fereastra` |
 | Fereastra nu porneste pe un server fara GPU | backend-ul Slint: `winit` + `software` |

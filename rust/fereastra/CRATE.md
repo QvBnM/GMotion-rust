@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 3dde1ff0b1554cca -->
+<!-- api-hash: acc1fbcd85094adb -->
 
 ## Rol
 
@@ -9,7 +9,7 @@ RDP pe servere fara GPU). Contine ferestrele si componentele, si modelele lor
 in Rust (ce se deseneaza pe fiecare rand), testabile fara fereastra.
 
 Aspectul e cel din schita aprobata (`cercetare/schita-slint/`, etapa 13):
-conectarea, lista ca arbore (Object Explorer), editorul cu doua panouri si planul de deploy,
+conectarea, lista (tabel, harta pe `h`), editorul cu arborele ca Object Explorer in stanga cu doua panouri si planul de deploy,
 aceleasi pe ambele moduri; capturile sunt in `cercetare/capturi/`. Jetoanele, in doua palete cu aceleasi nume
 (`INTUNECAT`, `LUMINOS`), si fonturile (Geist si Geist Mono, incorporate in
 binar) stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
@@ -41,11 +41,12 @@ si editorul de diferente (etapa 8).
 | `texte::{Limba, Texte, RO, EN, texte}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |
 | `model_lista::Lista::{selecteaza_cheie, chei_vizibile}` | selectia dupa cheie (tabul activat; goleste filtrul daca il ascunde) si ordinea curenta pentru `j` / `k` |
-| `RandUi::{continuare, st_lipsa, dr_lipsa}`; in `.slint`, `impacheteaza` si `coloane-wrap` (editor, lista) | wrap: linia lunga continua pe randuri fara numar, rupta la cuvant; partea mai scurta primeste randuri goale, deci stanga si dreapta raman aliniate |
-| `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_arbore(ui, arbore, lista)`, `incarca_coloana_lista(ui, lista, arbore)`, `NodUi` | arborele ca Object Explorer, in lista si in coloana din stanga editorului: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari |
+| `RandUi::{continuare, st_lipsa, dr_lipsa}`; in `.slint`, `impacheteaza` si `coloane-wrap` (editor) | wrap: linia lunga continua pe randuri fara numar, rupta la cuvant; partea mai scurta primeste randuri goale, deci stanga si dreapta raman aliniate |
+| `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_coloana_lista(ui, lista, arbore)`, `NodUi` | arborele ca Object Explorer, in coloana din stanga editorului: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_la, picteaza_bara, picteaza_bara_la, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}` | harta (`h` din lista, ecran separat): o coloana pe tip, latimi apropiate (`n^0,25`), bara de proportie, patrate pe blocuri de 5 randuri pictate la pixelii fizici, zoom pe trepte ca sa intre in ecran; clic → rand |
 | `incarca_harta(ui, selectat)`, `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | harta in fereastra: deschiderea, reasezarea la redimensionare, bula; calculul patratului e doar in `harta::indice_la` |
 | `model_lista::Lista::{pune_detalii_cheie, chei_fara_detalii}` | detaliile calculate pe alt fir, puse dupa cheie (filtrul se poate schimba intre timp) |
+| `ordine_din_cod(cod)`, `latime_autofit(lista, coloana)` | sortarea pe capul de coloana si latimea ceruta la dublu clic pe marginea lui |
 | `model_lista::Lista::preia_vederea` | filtrul, ordinea si selectia altei liste (recomparare) |
 | `dublu_clic::DubluClic` | dublul clic numarat in Rust din doua clicuri simple pe aceeasi tinta (500 ms); `double-clicked` din Slint nu ajungea pe Windows |
 | `taburi_ui(taburi, editat)`, `incarca_taburi(ui, taburi, editat)`, `TabUi` | bara de taburi a editorului: fixatele, apoi previzualizarea (inclinata); punctul pe cele editate; `+N` cand nu incap |
@@ -54,7 +55,7 @@ si editorul de diferente (etapa 8).
 | `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra; `GardaDeploy::SeVerifica` = recitirea ruleaza pe alt fir (P4) |
 | `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
-| `incarca_detalii(ui, panou)`, `PanouDetalii` | capul obiectului din lista (impact, nota); nota se rescrie doar cand se schimba obiectul |
+| `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, nota); nota se rescrie doar cand se schimba obiectul |
 | `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente |
 | `model_editor::plieaza(model, context, limba) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |

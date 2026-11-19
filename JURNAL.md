@@ -1327,8 +1327,10 @@ Grupurile pe stare din etapa 16 au iesit. Latimea coloanei: 320 px
 implicit, intre 200 si 520 (era 244, intre 200 si 360): un arbore are
 indentare si numele nu mai incapeau.
 
-**De intrebat.** Ce ramane pe ecranul listei: arborele de acum, tabelul de
-dinainte, sau nimic (dupa comparare direct in editor).
+**Raspuns (Mihai, 2026-11-19).** Pe ecranul listei ramane cum era inainte:
+tabelul, cu panoul de detalii. Arborele e doar in editor. Butonul „Open"
+plutitor din randuri nu s-a mai pus inapoi (Mihai il gasise „super aiurea");
+dublul clic merge acum, iar „Deschide" e in panou.
 
 ---
 

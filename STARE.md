@@ -31,9 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/19-lista-ca-object-explorer.md`. Lista e acum un
-arbore ca Object Explorer, cu martor | modificata in dreapta; urmeaza wrap-ul
-si proba lui Mihai. In paralel, etapa 17 (conectarea dupa
+**Etapa activa:** `etape/19-lista-ca-object-explorer.md`. Arborele ca
+Object Explorer e in coloana din stanga a editorului; lista e tabelul de
+dinainte, cu harta pe `h`. Asteapta proba lui Mihai. In paralel, etapa 17 (conectarea dupa
 `cercetare/machete/conectare-noua/`) e facuta, NEPORNITA doar ca stare
 (poarta cere o singura etapa ACTIVA): asteapta „da"-ul lui Mihai pe perechi.
 
@@ -52,13 +52,11 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 Mihai, 2026-11-19): de aratat lui Mihai capturile
 `cercetare/capturi/harta-*.png` si de luat „da"-ul pe ele.
 
-**Proba pe Windows, runda 3 (etapa 19).** Dupa prima proba pe bazele reale:
-motorul strange spatiile din string-uri ca v3.4; lista e arbore ca Object
-Explorer cu martor | modificata in dreapta; wrap („Rupe liniile", `w`);
-„Difera in" se calculeaza pe alt fir. Se cere: proba pe aceleasi baze
-(GetsBet → CEAAS), jurnalul nou, si „da"-ul lui Mihai pe
-`cercetare/capturi/lista-arbore-1920.png` (criteriul de aspect al etapei).
-Previzualizarea sintetica doar cu `--previzualizare`.
+**Proba pe Windows, runda 4 (etapa 19).** Object Explorer e in coloana din
+stanga a editorului (nu in lista); lista e iar tabelul de dinainte, cu harta
+pe `h`. Reparata caderea „RefCell already borrowed" (Unificat cu wrap
+pornit). Se cere: proba pe GetsBet → CEAAS, jurnalul nou, „da"-ul lui Mihai
+pe `cercetare/capturi/editor-arbore.png`.
 
 **Etapele 15 si 16 sunt incheiate.** Ramane:
 
