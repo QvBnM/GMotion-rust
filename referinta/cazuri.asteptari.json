@@ -22,5 +22,13 @@
   "python": null,
   "rust": "diferit",
   "motiv": "difera doar in hinturi de blocare (WITH (NOLOCK)): raman zgomot la comparare, dar obiectul nu mai iese identic, ca o reparatie de concurenta sa se poata deploia (F-M3, decizia lui Mihai, 2026-11-19)"
+ },
+ {
+  "obiect": "dbo.mihai_offline_while_begin",
+  "baza": "Tinta",
+  "camp": "rezumat",
+  "python": "2 modificate, 1 adaugate, 1 sterse",
+  "rust": "1 modificate, 2 adaugate, 2 sterse",
+  "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
  }
 ]

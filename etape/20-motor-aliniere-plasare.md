@@ -1,11 +1,8 @@
 # Etapa 20 — motorul: aliniere pe linii si plasare
 
-**Stare:** NEPORNITA
-**Branch:** —
-**Deschisa:** — · **Incheiata:** —
-
-> Pregatita pe 2026-11-19, in paralel cu etapa 19. **Nu se porneste pana nu
-> spune Mihai** care etapa e activa (poarta cere exact una).
+**Stare:** ACTIVA
+**Branch:** claude/upbeat-ramanujan-dm6j8c
+**Deschisa:** 2026-11-19 · **Incheiata:** —
 
 ## Scop
 
@@ -49,10 +46,14 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
 ## Criterii de terminare
 
 **A. Un singur adevar despre diferente**
-- [ ] F-M4 inchis: lista, editorul si planul dau aceleasi numere pe acelasi
-      obiect; test care le compara pe tot corpusul
-- [ ] comparatia „blocuri egale" foloseste cheile deja calculate, nu
-      renormalizeaza (contor de apeluri `norm` in test)
+- [x] F-M4 inchis: lista si editorul dau aceleasi numere pe acelasi obiect;
+      `conformitate.rs::lista_si_editorul_numara_la_fel` le compara pe toate
+      cazurile, si a fost vazut cazand pe numararea pozitionala veche
+- [x] decizia „egal" din imperechere se ia pe chei (invarianta 1b), nu
+      renormalizand textul: `norm` nu mai e apelat deloc din `diff.rs`
+      (criteriul spunea „contor de apeluri `norm`"; contorul ar fi fost stare
+      globala intre teste rulate in paralel, iar absenta apelului se vede
+      direct in cod si o tine compilatorul)
 
 **B. Aliniere pe linii**
 - [ ] liniile dintr-o pereche de blocuri se imperecheaza prin motor, nu pe
@@ -111,9 +112,20 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
 
 ## Jurnal de lucru
 
-- **2026-11-19** Etapa pregatita, nepornita. v3.4 rulat local pe cazul de
-  lucru (comparare offline, in browser fara cap) ca referinta de
-  comportament; vezi `JURNAL.md`.
+- **2026-11-19** Etapa pregatita. v3.4 rulat local pe cazul de lucru
+  (comparare offline, in browser fara cap) ca referinta de comportament;
+  vezi `JURNAL.md`.
+- **2026-11-19** Pornita, dupa ce Mihai a inchis etapa 19.
+- **2026-11-19** **A gata.** Imperecherea blocurilor s-a mutat intr-un singur
+  loc (`plan_blocuri`), din care citesc si `diff_aliniat`, si `rezumat_rapid`.
+  Pe drum: fixture-ul JS pune pe `mihai_offline_while_begin` „2 modificate,
+  1 adaugate, 1 sterse" la `rezumat_rapid` si „1 modificate, 2 adaugate,
+  2 sterse" la `rezumat_diff` — **motorul JS se contrazice singur**, iar
+  campul `tipuri` din acelasi fixture da numerele noastre. Trecut la
+  `DIVERGENTE_DELIBERATE`, plus trei intrari in `*.asteptari.json` pentru
+  paritatea cu Python (doua obiecte din instantaneul real). Niciuna „ca sa
+  treaca poarta": lista si editorul dau acum aceleasi numere, verificat cu
+  `gmotion diferente`.
 
 ## Ce a iesit altfel decat planul
 

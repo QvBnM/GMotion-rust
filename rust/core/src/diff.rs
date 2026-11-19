@@ -14,7 +14,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 use crate::lexer::Fel;
-use crate::normalizare::{norm, scor_pe_tokeni, tokeni_scor, HINTURI};
+use crate::normalizare::{scor_pe_tokeni, tokeni_scor, HINTURI};
 use crate::segmentare::{cheie_bloc, split_statements};
 use crate::seqmatch::{SequenceMatcher, Tag};
 
@@ -243,46 +243,37 @@ fn perechi_replace(bv: &[String], bn: &[String]) -> Vec<(usize, usize)> {
     perechi
 }
 
-/// Comparatia aliniata, bloc cu bloc.
-// indicele blocului devine `id`-ul stabil al randului, deci nu poate fi
-// inlocuit cu un iterator pe elemente
-#[allow(clippy::needless_range_loop)]
-pub fn diff_aliniat(text_referinta: &str, text_curent: &str) -> Vec<RandDiff> {
-    diff_aliniat_cu(text_referinta, text_curent, false)
+/// Un rand al planului: ce bloc din referinta si ce bloc din tinta ajung pe el.
+///
+/// **Singurul loc in care se decide imperecherea blocurilor.** Si diff-ul
+/// complet, si rezumatul din lista citesc de aici: doua implementari ale
+/// aceleiasi imperecheri inseamna doua numere diferite pentru acelasi obiect
+/// (F-M4 din auditul din 2026-11-18: lista spunea „1 modificate", editorul
+/// „1 adaugate, 1 sterse").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RandPlan {
+    tip: TipDiferenta,
+    /// indicele blocului in referinta
+    i: Option<usize>,
+    /// indicele blocului in tinta
+    j: Option<usize>,
 }
 
-/// Ca [`diff_aliniat`], dar cu optiunea de segmentare „uneste ciclul
-/// cursorului" (`DECLARE ... CURSOR` pana la `DEALLOCATE` intr-un singur
-/// bloc), ca in v3.4.
-#[allow(clippy::needless_range_loop)]
-pub fn diff_aliniat_cu(
-    text_referinta: &str,
-    text_curent: &str,
-    uneste_cursor: bool,
-) -> Vec<RandDiff> {
-    let sv = split_statements(text_referinta, uneste_cursor);
-    let sn = split_statements(text_curent, uneste_cursor);
-    let kv: Vec<String> = sv.iter().map(|b| cheie_bloc(b)).collect();
-    let kn: Vec<String> = sn.iter().map(|b| cheie_bloc(b)).collect();
-
-    let mut randuri: Vec<RandDiff> = Vec::new();
-    let mut contor_inserturi: i64 = 0;
-    let mut urmator_id_insert = || {
-        contor_inserturi += 1;
-        -contor_inserturi
-    };
-
-    for op in SequenceMatcher::new(&kv, &kn).opcodes() {
+/// Imperecherea blocurilor, fara sa se uite in interiorul lor.
+///
+/// Decizia „egal" se ia pe cheile de bloc, nu renormalizand textul: cheie
+/// egala inseamna text normalizat egal (invarianta 1b din `CRATE.md`), iar
+/// cheile sunt deja calculate.
+fn plan_blocuri(sv: &[String], sn: &[String], kv: &[String], kn: &[String]) -> Vec<RandPlan> {
+    let mut plan: Vec<RandPlan> = Vec::new();
+    for op in SequenceMatcher::new(kv, kn).opcodes() {
         match op.tag {
             Tag::Equal => {
                 for k in 0..(op.i2 - op.i1) {
-                    randuri.push(RandDiff {
-                        id: (op.i1 + k) as i64,
+                    plan.push(RandPlan {
                         tip: TipDiferenta::Egal,
-                        stanga: Some(sv[op.i1 + k].clone()),
-                        dreapta: Some(sn[op.j1 + k].clone()),
-                        seg_stanga: None,
-                        seg_dreapta: None,
+                        i: Some(op.i1 + k),
+                        j: Some(op.j1 + k),
                     });
                 }
             }
@@ -291,30 +282,19 @@ pub fn diff_aliniat_cu(
                 let bn = &sn[op.j1..op.j2];
                 let perechi = perechi_replace(bv, bn);
                 let (mut pi, mut ii, mut jj) = (0usize, 0usize, 0usize);
-
                 while ii < bv.len() || jj < bn.len() {
                     let pr = perechi.get(pi).copied();
                     if pr == Some((ii, jj)) {
-                        if norm(&bv[ii]) == norm(&bn[jj]) {
-                            randuri.push(RandDiff {
-                                id: (op.i1 + ii) as i64,
-                                tip: TipDiferenta::Egal,
-                                stanga: Some(bv[ii].clone()),
-                                dreapta: Some(bn[jj].clone()),
-                                seg_stanga: None,
-                                seg_dreapta: None,
-                            });
-                        } else {
-                            let (ss, ds) = diff_intra(&bv[ii], &bn[jj]);
-                            randuri.push(RandDiff {
-                                id: (op.i1 + ii) as i64,
-                                tip: TipDiferenta::Modificat,
-                                stanga: Some(bv[ii].clone()),
-                                dreapta: Some(bn[jj].clone()),
-                                seg_stanga: Some(ss),
-                                seg_dreapta: Some(ds),
-                            });
-                        }
+                        let egal = kv[op.i1 + ii] == kn[op.j1 + jj];
+                        plan.push(RandPlan {
+                            tip: if egal {
+                                TipDiferenta::Egal
+                            } else {
+                                TipDiferenta::Modificat
+                            },
+                            i: Some(op.i1 + ii),
+                            j: Some(op.j1 + jj),
+                        });
                         ii += 1;
                         jj += 1;
                         pi += 1;
@@ -322,25 +302,19 @@ pub fn diff_aliniat_cu(
                     }
                     let (urm_i, urm_j) = pr.unwrap_or((bv.len(), bn.len()));
                     if ii < urm_i {
-                        randuri.push(RandDiff {
-                            id: (op.i1 + ii) as i64,
+                        plan.push(RandPlan {
                             tip: TipDiferenta::Sters,
-                            stanga: Some(bv[ii].clone()),
-                            dreapta: None,
-                            seg_stanga: None,
-                            seg_dreapta: None,
+                            i: Some(op.i1 + ii),
+                            j: None,
                         });
                         ii += 1;
                         continue;
                     }
                     if jj < urm_j {
-                        randuri.push(RandDiff {
-                            id: urmator_id_insert(),
+                        plan.push(RandPlan {
                             tip: TipDiferenta::Adaugat,
-                            stanga: None,
-                            dreapta: Some(bn[jj].clone()),
-                            seg_stanga: None,
-                            seg_dreapta: None,
+                            i: None,
+                            j: Some(op.j1 + jj),
                         });
                         jj += 1;
                         continue;
@@ -350,29 +324,85 @@ pub fn diff_aliniat_cu(
             }
             Tag::Delete => {
                 for k in op.i1..op.i2 {
-                    randuri.push(RandDiff {
-                        id: k as i64,
+                    plan.push(RandPlan {
                         tip: TipDiferenta::Sters,
-                        stanga: Some(sv[k].clone()),
-                        dreapta: None,
-                        seg_stanga: None,
-                        seg_dreapta: None,
+                        i: Some(k),
+                        j: None,
                     });
                 }
             }
             Tag::Insert => {
                 for k in op.j1..op.j2 {
-                    randuri.push(RandDiff {
-                        id: urmator_id_insert(),
+                    plan.push(RandPlan {
                         tip: TipDiferenta::Adaugat,
-                        stanga: None,
-                        dreapta: Some(sn[k].clone()),
-                        seg_stanga: None,
-                        seg_dreapta: None,
+                        i: None,
+                        j: Some(k),
                     });
                 }
             }
         }
+    }
+    plan
+}
+
+/// Blocurile si cheile lor, pentru ambele parti.
+fn blocuri_si_chei(
+    text_referinta: &str,
+    text_curent: &str,
+    uneste_cursor: bool,
+) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
+    let sv = split_statements(text_referinta, uneste_cursor);
+    let sn = split_statements(text_curent, uneste_cursor);
+    let kv: Vec<String> = sv.iter().map(|b| cheie_bloc(b)).collect();
+    let kn: Vec<String> = sn.iter().map(|b| cheie_bloc(b)).collect();
+    (sv, sn, kv, kn)
+}
+
+/// Comparatia aliniata, bloc cu bloc.
+pub fn diff_aliniat(text_referinta: &str, text_curent: &str) -> Vec<RandDiff> {
+    diff_aliniat_cu(text_referinta, text_curent, false)
+}
+
+/// Ca [`diff_aliniat`], dar cu optiunea de segmentare „uneste ciclul
+/// cursorului" (`DECLARE ... CURSOR` pana la `DEALLOCATE` intr-un singur
+/// bloc), ca in v3.4.
+pub fn diff_aliniat_cu(
+    text_referinta: &str,
+    text_curent: &str,
+    uneste_cursor: bool,
+) -> Vec<RandDiff> {
+    let (sv, sn, kv, kn) = blocuri_si_chei(text_referinta, text_curent, uneste_cursor);
+    let plan = plan_blocuri(&sv, &sn, &kv, &kn);
+
+    let mut randuri: Vec<RandDiff> = Vec::with_capacity(plan.len());
+    let mut contor_inserturi: i64 = 0;
+    for r in plan {
+        // `id` STABIL intre recalculari: pozitia blocului in referinta. Randurile
+        // doar-adaugate n-au ancora, deci primesc id-uri negative, unice pe randare.
+        let id = match r.i {
+            Some(i) => i as i64,
+            None => {
+                contor_inserturi += 1;
+                -contor_inserturi
+            }
+        };
+        let stanga = r.i.map(|i| sv[i].clone());
+        let dreapta = r.j.map(|j| sn[j].clone());
+        let (seg_stanga, seg_dreapta) = match (r.tip, r.i, r.j) {
+            (TipDiferenta::Modificat, Some(i), Some(j)) => {
+                let (ss, ds) = diff_intra(&sv[i], &sn[j]);
+                (Some(ss), Some(ds))
+            }
+            _ => (None, None),
+        };
+        randuri.push(RandDiff {
+            id,
+            tip: r.tip,
+            stanga,
+            dreapta,
+            seg_stanga,
+            seg_dreapta,
+        });
     }
 
     randuri
@@ -396,35 +426,21 @@ fn formateaza_rezumat(modificate: usize, adaugate: usize, sterse: usize) -> Stri
     }
 }
 
-/// Rezumat pentru lista: numara doar la nivel de blocuri, fara diferentele din
-/// interiorul lor (partea scumpa). Pe obiecte mari e de ordine de magnitudine
-/// mai rapid decat `diff_aliniat`, cu acelasi rezultat numeric.
+/// Rezumat pentru lista: aceeasi imperechere ca [`diff_aliniat`], dar fara
+/// diferentele din interiorul blocurilor (partea scumpa: token-izare si
+/// `SequenceMatcher` per bloc modificat).
+///
+/// Numerele sunt **identice** cu ale editorului, prin constructie: amandoua
+/// citesc din [`plan_blocuri`].
 pub fn rezumat_rapid(text_referinta: &str, text_curent: &str) -> String {
-    let sv = split_statements(text_referinta, false);
-    let sn = split_statements(text_curent, false);
-    let kv: Vec<String> = sv.iter().map(|b| cheie_bloc(b)).collect();
-    let kn: Vec<String> = sn.iter().map(|b| cheie_bloc(b)).collect();
-
-    let (mut modificate, mut adaugate, mut sterse) = (0usize, 0usize, 0usize);
-    for op in SequenceMatcher::new(&kv, &kn).opcodes() {
-        match op.tag {
-            Tag::Replace => {
-                let comun = (op.i2 - op.i1).min(op.j2 - op.j1);
-                for k in 0..comun {
-                    if norm(&sv[op.i1 + k]) != norm(&sn[op.j1 + k]) {
-                        modificate += 1;
-                    }
-                }
-                sterse += (op.i2 - op.i1) - comun;
-                adaugate += (op.j2 - op.j1) - comun;
-            }
-            Tag::Delete => sterse += op.i2 - op.i1,
-            Tag::Insert => adaugate += op.j2 - op.j1,
-            Tag::Equal => {}
-        }
-    }
-
-    formateaza_rezumat(modificate, adaugate, sterse)
+    let (sv, sn, kv, kn) = blocuri_si_chei(text_referinta, text_curent, false);
+    let plan = plan_blocuri(&sv, &sn, &kv, &kn);
+    let numara = |t: TipDiferenta| plan.iter().filter(|r| r.tip == t).count();
+    formateaza_rezumat(
+        numara(TipDiferenta::Modificat),
+        numara(TipDiferenta::Adaugat),
+        numara(TipDiferenta::Sters),
+    )
 }
 
 /// Rezumat din randurile deja calculate de `diff_aliniat`.

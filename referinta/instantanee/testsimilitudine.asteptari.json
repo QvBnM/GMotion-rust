@@ -6,5 +6,21 @@
     "python": 85.95,
     "rust": 85.07,
     "motiv": "v3.4 trata '-- acesta e doar text' din string ca comentariu si stergea codul de dupa; v4 pastreaza string-ul (majusculele lui raman; spatiile se strang ca in v3.4 din 2026-11-19)"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_ProcesarePlati",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "8 modificate, 5 adaugate",
+    "rust": "7 modificate, 6 adaugate, 1 sterse",
+    "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_RapoarteDinamice",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "4 modificate, 1 sterse",
+    "rust": "2 modificate, 1 adaugate, 2 sterse",
+    "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
   }
 ]

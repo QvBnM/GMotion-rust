@@ -88,6 +88,17 @@ const DIVERGENTE_DELIBERATE: &[(&str, &str, &str)] = &[
         "norm_cur",
         "continutul string-urilor nu se mai trece in litere mici",
     ),
+    (
+        "mihai_offline_while_begin",
+        "rezumat_rapid",
+        // JS imperecheaza pozitional in segmentele `replace` cand numara pentru
+        // lista, dar pe scor cand deseneaza editorul, deci se contrazice singur:
+        // pe cazul asta da „2 modificate, 1 adaugate, 1 sterse" in lista si
+        // „1 modificate, 2 adaugate, 2 sterse" in editor. Numerele noastre sunt
+        // cele din editor, adica exact ce arata campul `tipuri` din acelasi
+        // fixture. Vezi F-M4 din auditul din 2026-11-18 si etapa 20, pachetul A.
+        "rezumatul listei foloseste aceeasi imperechere ca editorul; JS insusi diverge",
+    ),
 ];
 
 #[test]
@@ -175,5 +186,41 @@ fn portul_rust_e_identic_cu_motorul_js() {
         probleme.len(),
         cazuri.len(),
         probleme.join("\n")
+    );
+}
+
+/// Lista si editorul trebuie sa spuna acelasi lucru despre acelasi obiect.
+///
+/// `rezumat_rapid` (lista) si `rezumat_diff` (editorul) numarau pe doua
+/// imperecheri diferite — pozitionala intr-un segment `replace`, respectiv pe
+/// scor — deci pe aceleasi doua texte ieseau „2 modificate" si „1 modificate,
+/// 1 adaugate, 1 sterse". F-M4 din auditul din 2026-11-18. Acum amandoua
+/// citesc din acelasi plan de blocuri; testul tine usa inchisa.
+///
+/// Verificat ca prinde: cu `rezumat_rapid` pe numararea pozitionala veche,
+/// testul cade pe `mihai_offline_while_begin`.
+#[test]
+fn lista_si_editorul_numara_la_fel() {
+    let cazuri: Vec<Caz> = citeste("cazuri.json");
+    let mut nepotriviri: Vec<String> = Vec::new();
+
+    for caz in &cazuri {
+        let referinta = pregateste_afisare(&caz.referinta);
+        let curent = pregateste_afisare(&caz.cur);
+        let lista = rezumat_rapid(&referinta, &curent);
+        let editor = rezumat_diff(&diff_aliniat(&referinta, &curent));
+        if lista != editor {
+            nepotriviri.push(format!(
+                "  {}\n      lista : {}\n      editor: {}",
+                caz.nume, lista, editor
+            ));
+        }
+    }
+
+    assert!(
+        nepotriviri.is_empty(),
+        "{} obiecte pe care lista si editorul le numara diferit:\n{}",
+        nepotriviri.len(),
+        nepotriviri.join("\n")
     );
 }

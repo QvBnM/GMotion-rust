@@ -1417,3 +1417,27 @@ pagina intreaga, iar „comparare offline" face tot diff-ul in browser: se
 incarca pagina intr-un browser fara cap, se umplu `offRef` / `offCur` si se
 cheama `comparaOffline()`. Asa s-au obtinut iesirile cu care am comparat, in
 loc sa le deducem din cod.
+
+---
+
+## 2026-11-19 — Lista numara ca editorul, nu ca v3.4 (F-M4)
+
+**Context.** `rezumat_rapid` (lista) imperechea blocurile pozitional in
+segmentele `replace`, `diff_aliniat` (editorul) pe scor. Pe acelasi obiect
+ieseau numere diferite. Portat asa din JS, unde bug-ul exista: pe
+`mihai_offline_while_begin`, fixture-ul JS are „2 modificate, 1 adaugate,
+1 sterse" la `rezumat_rapid` si „1 modificate, 2 adaugate, 2 sterse" la
+`rezumat_diff`, iar campul `tipuri` din acelasi fixture confirma a doua
+varianta.
+
+**Decizie.** Un singur loc decide imperecherea (`plan_blocuri` din `diff.rs`);
+lista si editorul citesc amandoua de acolo. Numerele raman cele ale editorului
+— cele care descriu randurile desenate.
+
+**Consecinte.** Trei divergente noi fata de v3.4, inregistrate cu motivul lor:
+`DIVERGENTE_DELIBERATE` in `core/tests/conformitate.rs` (fixture-ul JS),
+`referinta/cazuri.asteptari.json` si
+`referinta/instantanee/testsimilitudine.asteptari.json` (paritatea cu Python,
+doua obiecte reale). `rezumat_rapid` nu mai e „de ordine de magnitudine mai
+rapid": sare doar peste diferentele din interiorul blocurilor, nu si peste
+imperechere. Partea scumpa ramane scorul — pachetul E al etapei.

@@ -31,9 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 19 e incheiata; urmatoarele, pregatite:
-17 (conectarea dupa `cercetare/machete/conectare-noua/`, facuta, asteapta
-„da"-ul lui Mihai pe perechi) si 20 (motorul: aliniere pe linii si plasare).
+**Etapa activa:** `etape/20-motor-aliniere-plasare.md` — **numai motor**,
+niciun ecran nou. Etapa 19 e incheiata. Ramane pregatita si 17 (conectarea
+dupa `cercetare/machete/conectare-noua/`, facuta, asteapta „da"-ul lui Mihai
+pe perechi).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -114,10 +115,10 @@ la deschidere), nume case-insensitive intre baze, divergentele Unicode fata de
 JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
-## Pregatit, neinceput: motorul (etapa 20)
+## Etapa activa: motorul (etapa 20)
 
-`etape/20-motor-aliniere-plasare.md`, scrisa pe 2026-11-19 dupa analiza ceruta
-de Mihai. **NEPORNITA** fiindca etapa 19 e activa si poarta cere exact una.
+`etape/20-motor-aliniere-plasare.md`, pornita pe 2026-11-19 dupa ce Mihai a
+inchis etapa 19.
 
 Ce spune, pe scurt: randurile ramase din `lipsuri-portare.md` §4 (drag & drop,
 „Plaseaza aici", liniile de legatura, previzualizarea la hover) nu sunt
@@ -127,7 +128,10 @@ fost portat deloc. Tot acolo intra F-M4 (doua rezumate divergente) si partea
 de motor din P7 (scorul creste cubic; automatul de sufixe da potriviri
 identice de ~75x mai repede).
 
-**Mihai alege care etapa merge prima: 19 sau 20.**
+**Urmatorul pas concret:** pachetul A — un singur rezumat (F-M4): azi lista
+si editorul dau numere diferite pe acelasi obiect, fiindca `rezumat_rapid`
+imperecheaza pozitional in `replace`, iar `diff_aliniat` pe scor. Se unifica,
+cu test pe tot corpusul. Apoi B — alinierea pe linii.
 
 ## Ce astept de la Mihai
 
