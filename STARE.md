@@ -47,12 +47,10 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Etapa 23** (`etape/23-editorul-lizibil.md`), in ordinea pasilor de
-acolo. Sesizarile lui Mihai sunt in capturile din conversatie; cazul real e
-`dbo.rptGenericInventoryObj_SituationAtDate` (Martor CharismaERP_CEAAS,
-Modificata PrezentareSalubrizare) — pentru capturi trebuie un caz sintetic
-cu aceeasi forma (multe `declare` / `set` / `select` consecutive doar in
-Martor, linii lungi, antet cu parametri noi).
+**Etapa 23: facuta, asteapta „da"-ul lui Mihai** pe
+`cercetare/machete/editor-lizibil/capturi/` (editor, tragere, wrap; ambele
+teme). Cu „da"-ul: bifa, `Stare: INCHEIATA`, „Ce a iesit altfel". Daca cere
+schimbari, comenzile de captura sunt in README-ul de acolo.
 
 Dupa 23, candidatii pentru etapa urmatoare (alege Mihai): evidentierea de
 sintaxa **in timp ce scrii**; deciziile vechi (selectorul de fisiere, mediul
@@ -162,6 +160,15 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **O diferenta din editor poate fi mai multe blocuri ale motorului**
+  (`ModelEditor::grupuri`, din `core::grupuri_diferente`). Ce aplica o
+  diferenta se ia din `grupuri[k]`, nu din `blocuri[k]` (acela e doar primul).
+  `gmotion editare` numara la fel; un test care numara blocuri ca diferente
+  e gresit.
+- **Randurile afisate au trei feluri**: 0 cod, 1 pliere, 2 eticheta (deasupra
+  blocului, `diferenta: -1`). O socoteala pe randuri afisate care uita de
+  eticheta greseste cu unu (s-a intamplat de doua ori in etapa 23).
 
 - **Scurtaturile cu litera cer Ctrl, pe ambele ecrane** (Mihai, 2026-11-20):
   o litera singura, scrisa in cautare, ajungea si la `FocusScope` si bifa sau

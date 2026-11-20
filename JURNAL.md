@@ -1556,3 +1556,27 @@ cererea lui Mihai. Ales (b): un camp de text nu foloseste Ctrl+litera
 **Decizie.** Lista: Ctrl+J K, R, I, O, H, F. Editor: Ctrl+J K, N P, R, O, I,
 G, E, U; wrap Ctrl+L (Ctrl+W ramane „inchide tabul"), coloana listei Ctrl+B.
 Sagetile, PageUp / PageDown, F7, Enter, Esc si F1 / F11 raman simple.
+
+---
+
+## 2026-11-20 — Editorul: eticheta pe rand propriu, grupuri, tragere libera
+
+**Context.** Sesizarile lui Mihai pe editor (etapa 23): eticheta blocului
+acoperea codul si se repeta pe randurile rupte; instructiunile consecutive
+doar in Martor apareau ca zeci de diferente; tragerea nu se vedea si nu se
+putea lasa decat pe locul sugerat.
+
+**Decizii.**
+- Eticheta trece pe un rand al ei, deasupra blocului, in ambele panouri.
+  Rastoarna decizia din etapa 21 („pastila peste cod, ca sa nu sara codul"):
+  codul sare acum cu un rand, dar nu mai e acoperit. Ce conta pentru Mihai
+  era sa se poata citi.
+- Instructiunile consecutive fara pereche care merg in acelasi gol sunt o
+  singura diferenta (`core::grupuri_diferente`), alegerea lui Mihai intre
+  „un bloc" si „eticheta comuna". Sageata aplica tot grupul; tragerea ia o
+  singura instructiune, ca sa ramana posibila alegerea fina.
+- Tragerea se poate lasa oriunde: peste un bloc din Modificata il
+  inlocuieste, intre blocuri se insereaza (`core::aplica_blocuri_la`), ca in
+  v3.4 (`renderTargets`). Locul sugerat ramane aprins.
+- Plierea liniilor identice e oprita implicit; comutatorul se tine in
+  configurare, ca tema.
