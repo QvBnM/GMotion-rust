@@ -460,6 +460,9 @@ fn randuri_ui(
 
     let mut randuri = Vec::with_capacity(afisate.len());
     let mut start = vec![-1i32; model.diferente.len()];
+    // unde a ajuns fiecare rand al modelului in lista afisata (plierea si
+    // wrap-ul schimba indicii): din asta ies legaturile din canal
+    let mut afisat_pentru = vec![-1i32; model.randuri.len()];
     for r in &afisate {
         match r {
             RandAfisat::Pliere { eticheta, .. } => randuri.push(RandUi {
@@ -479,9 +482,14 @@ fn randuri_ui(
                 continuare: false,
                 st_lipsa: false,
                 dr_lipsa: false,
+                eticheta: SharedString::new(),
+                fantoma: false,
+                delta_tinta: 0,
+                tinta_gol: false,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
+                afisat_pentru[i] = randuri.len() as i32;
                 let k = a_cata[i];
                 if let Some(k) = k {
                     if start[k] < 0 {
@@ -513,6 +521,12 @@ fn randuri_ui(
                     continuare: false,
                     st_lipsa: false,
                     dr_lipsa: false,
+                    eticheta: SharedString::from(rand.eticheta.as_str()),
+                    fantoma: rand.fantoma,
+                    // se completeaza la final: tinta se stie abia cand se
+                    // cunosc toate randurile afisate
+                    delta_tinta: 0,
+                    tinta_gol: false,
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     pune(
@@ -560,6 +574,26 @@ fn randuri_ui(
     }
     for r in randuri.iter_mut().filter(|r| r.inceput && r.diferenta >= 0) {
         r.linii_bloc = cate.get(r.diferenta as usize).copied().unwrap_or(0);
+    }
+    // legatura din canal: de la primul rand al diferentei la randul unde
+    // ajunge blocul. Pe randuri afisate, nu pe randuri de model — plierea si
+    // wrap-ul le muta.
+    for (k, tinta) in model.tinte.iter().enumerate() {
+        let (Some(tinta), Some(&de_la)) = (tinta, start.get(k)) else {
+            continue;
+        };
+        if de_la < 0 {
+            continue;
+        }
+        let pana_la = afisat_pentru.get(*tinta).copied().unwrap_or(-1);
+        if pana_la < 0 {
+            continue;
+        }
+        let gol = model.randuri.get(*tinta).is_some_and(|r| r.fantoma);
+        if let Some(r) = randuri.get_mut(de_la as usize) {
+            r.delta_tinta = pana_la - de_la;
+            r.tinta_gol = gol;
+        }
     }
     (randuri, start)
 }
@@ -3373,6 +3407,71 @@ mod teste {
 
     /// Etapa 19: linia se rupe dupa un spatiu, iar o bucata care trece de
     /// margine se taie cu culoarea ei;
+    /// Legatura din canal se deseneaza pe randuri **afisate**: plierea si
+    /// wrap-ul muta indicii, iar o legatura calculata pe randurile modelului
+    /// ar arata spre alt loc decat cel desenat.
+    #[test]
+    fn legatura_din_canal_arata_spre_randul_afisat() {
+        let martor = concat!(
+            "CREATE PROC p AS\n\nSELECT 1\n\nSELECT 2\n\nSELECT 3\n\n",
+            "EXEC dbo.doar_in_martor @x = 1\n\nSELECT 4"
+        );
+        let tinta = "CREATE PROC p AS\n\nSELECT 1\n\nSELECT 2\n\nSELECT 3\n\nSELECT 4";
+        let model = model_editor::construieste(martor, tinta);
+        for pliat in [false, true] {
+            let (randuri, start) = randuri_ui(&model, pliat, false, texte::Limba::Romana, None);
+            let k = model
+                .randuri
+                .iter()
+                .position(|r| r.fantoma)
+                .map(|_| 0)
+                .expect("exista o fantoma in model");
+            let _ = k;
+            let cu_legatura: Vec<&RandUi> = randuri.iter().filter(|r| r.delta_tinta != 0).collect();
+            assert!(
+                !cu_legatura.is_empty(),
+                "pliat={pliat}: blocul fara corespondent n-are legatura"
+            );
+            for r in cu_legatura {
+                let i = randuri.iter().position(|x| x == r).unwrap() as i32;
+                let tinta = i + r.delta_tinta;
+                assert!(
+                    tinta >= 0 && (tinta as usize) < randuri.len(),
+                    "pliat={pliat}: legatura iese din lista"
+                );
+                assert!(
+                    randuri[tinta as usize].fantoma || !randuri[tinta as usize].dr_nr.is_empty(),
+                    "pliat={pliat}: legatura cade pe un rand fara nimic in dreapta"
+                );
+            }
+            assert!(start.iter().any(|&s| s >= 0));
+        }
+    }
+
+    /// Pastila spune si unde ajunge blocul, nu doar ce e: altfel sageata din
+    /// canal ramane o actiune despre care nu stii ce face.
+    #[test]
+    fn pastila_blocului_ajunge_in_randul_afisat() {
+        let martor = "CREATE PROC p AS\n\nSELECT 1\n\nEXEC dbo.doar_aici @x = 1";
+        let tinta = "CREATE PROC p(@a int) AS\n\nSELECT 1";
+        let model = model_editor::construieste(martor, tinta);
+        let (randuri, _) = randuri_ui(&model, false, false, texte::Limba::Romana, None);
+        let etichete: Vec<&str> = randuri
+            .iter()
+            .filter(|r| !r.eticheta.is_empty())
+            .map(|r| r.eticheta.as_str())
+            .collect();
+        assert!(
+            etichete.iter().any(|e| e.contains("inlocuieste blocul")),
+            "{etichete:?}"
+        );
+        assert!(
+            etichete.iter().any(|e| e.contains("se insereaza")),
+            "{etichete:?}"
+        );
+        assert!(randuri.iter().any(|r| r.fantoma), "lipseste randul fantoma");
+    }
+
     /// tabul ocupa 4 coloane; fara wrap linia ramane intreaga.
     /// Proba pe Windows: un obiect identic se plia intr-un singur rand si nu
     /// i se vedea codul. Fara diferente nu se pliaza nimic.

@@ -720,6 +720,7 @@ export component EditorDiferente inherits Window {
                                             fond: Tema.panou-sursa;
                                             decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
+                                            eticheta: root.ascunde-diferentele || r.stare == 3 ? "" : r.eticheta;
                                         }
                                         // blocul din sursa se poate **trage**
                                         // peste panoul din dreapta; e acelasi
@@ -756,6 +757,26 @@ export component EditorDiferente inherits Window {
                                         // blocul, ca sa se vada ce bucata din
                                         // stanga merge peste ce bucata din
                                         // dreapta
+                                        // legatura spre locul unde ajunge blocul: cat
+                                        // tine drumul pe verticala, cu un capat plin
+                                        // (inlocuieste un bloc) sau gol (se insereaza)
+                                        if r.inceput && r.delta-tinta != 0 && !root.ascunde-diferentele: Rectangle {
+                                            y: r.delta-tinta > 0 ? parent.height / 2
+                                               : parent.height / 2 + r.delta-tinta * root.inaltime-rand;
+                                            width: 1.5px;
+                                            height: Math.abs(r.delta-tinta) * root.inaltime-rand;
+                                            background: r.tinta-gol ? Tema.del-bara : Tema.mod-bara;
+                                            opacity: 0.75;
+                                        }
+                                        if r.inceput && r.delta-tinta != 0 && !root.ascunde-diferentele: Rectangle {
+                                            y: parent.height / 2 + r.delta-tinta * root.inaltime-rand - 3px;
+                                            width: 6px;
+                                            height: 6px;
+                                            border-radius: 3px;
+                                            background: r.tinta-gol ? Tema.fundal : Tema.mod-bara;
+                                            border-width: r.tinta-gol ? 1.5px : 0px;
+                                            border-color: Tema.del-bara;
+                                        }
                                         if r.inceput && r.stare != 0 && r.linii-bloc > 1 && !root.ascunde-diferentele: Rectangle {
                                             y: root.inaltime-rand / 2;
                                             width: 1px;
@@ -798,6 +819,8 @@ export component EditorDiferente inherits Window {
                                             fara-linie: r.continuare ? r.dr-lipsa : r.dr-nr == "";
                                             decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
+                                            eticheta: root.ascunde-diferentele || r.stare != 3 ? "" : r.eticheta;
+                                            fantoma: r.fantoma && !root.ascunde-diferentele;
                                         }
                                         // unde ajunge blocul tras
                                         // `>= 0` conteaza: randurile de context au

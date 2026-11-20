@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 75a9947c32617dd2 -->
+<!-- api-hash: ec3d3e874c800059 -->
 
 ## Rol
 
@@ -80,6 +80,7 @@ degradeze in tacere.
 ### `plasare`
 | Functie / tip | Ce face |
 |---|---|
+| `plasari(randuri, blocuri_tinta) -> Vec<Plasare>` | unde ajunge **fiecare** bloc care difera, dupa ce cele doua straturi s-au impacat: perechea aleasa de diff bate, `sugereaza` raspunde doar unde nu exista pereche |
 | `sugereaza(randuri, pozitie, blocuri_tinta) -> Option<Sugestie>` | unde ar ajunge blocul din martor: inlocuieste blocul k, sau se insereaza in golul g |
 | `cel_mai_apropiat(text, blocuri, indice_preferat)` | blocul care seamana cel mai bine, cu regula de ambiguitate |
 | `tokeni_potrivire(text)` | token-izarea folosita la potrivire (alta decat cea de la scorul din lista) |

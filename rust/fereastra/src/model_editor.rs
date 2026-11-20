@@ -89,6 +89,13 @@ pub struct Rand {
     /// Pentru linia din dreapta (baza): adusa din sursa, scrisa de tine, sau
     /// neatinsa. Se pune cu [`marcheaza_textul_final`].
     pub marcaj: Marcaj,
+    /// Pastila de pe primul rand al unui bloc care difera: ce e blocul si
+    /// unde ajunge daca il aplici („DOAR IN MARTOR · 46% similar cu blocul
+    /// 4"). Goala pe celelalte randuri.
+    pub eticheta: String,
+    /// Randul nu exista in niciun text: arata unde ar veni un bloc din martor
+    /// care n-are corespondent. Textul lui e in `dreapta`.
+    pub fantoma: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +107,10 @@ pub struct ModelEditor {
     /// Pentru fiecare diferenta (acelasi index ca `diferente`), blocul
     /// motorului: ce primeste `gmotion_core::compune` ca sa o aplice.
     pub blocuri: Vec<usize>,
+    /// Pentru fiecare diferenta, randul din model catre care se duce blocul:
+    /// primul rand al blocului din dreapta pe care il inlocuieste, sau randul
+    /// fantoma unde s-ar insera. Din el se deseneaza legatura din canal.
+    pub tinte: Vec<Option<usize>>,
 }
 
 const CUVINTE_CHEIE: &[&str] = &[
@@ -318,12 +329,54 @@ pub fn construieste(text_ref: &str, text_tinta: &str) -> ModelEditor {
 /// granite ar fi exact bug-ul reparat la etapa 7.
 pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) -> ModelEditor {
     let a = gmotion_core::aliniaza_cu(text_ref, text_tinta, uneste_cursor);
+
+    // Unde ajunge fiecare bloc care difera. Decizia e a motorului
+    // (`gmotion_core::plasare`): in fereastra nu se ia o a doua parere, altfel
+    // „Aplica" ar scrie in alt loc decat arata ecranul.
+    let blocuri_tinta = gmotion_core::split_statements(text_tinta, uneste_cursor);
+    let plasari = gmotion_core::plasare::plasari(&a.diff, &blocuri_tinta);
+
+    // Numarul blocului pe fiecare parte, asa cum il numara omul care se uita:
+    // „blocul 4 din Modificata", nu indicele din motor.
+    let (mut nr_martor, mut nr_modificata) =
+        (vec![0usize; a.diff.len()], vec![0usize; a.diff.len()]);
+    // ordinalul blocului in tinta (ce numara si `plasare`) si drumul invers
+    let mut ordinal_tinta = vec![usize::MAX; a.diff.len()];
+    let mut bloc_al_ordinalului: Vec<usize> = Vec::new();
+    let (mut ns, mut nd) = (0usize, 0usize);
+    for (b, d) in a.diff.iter().enumerate() {
+        if d.stanga.is_some() {
+            ns += 1;
+            nr_martor[b] = ns;
+        }
+        if d.dreapta.is_some() {
+            nd += 1;
+            nr_modificata[b] = nd;
+            ordinal_tinta[b] = bloc_al_ordinalului.len();
+            bloc_al_ordinalului.push(b);
+        }
+    }
+
+    // Blocurile din martor fara corespondent, grupate dupa locul unde ar
+    // ajunge: din ele iese randul-fantoma.
+    let mut fantome: Vec<(usize, Vec<usize>)> = Vec::new();
+    for p in plasari.iter().filter(|p| !p.inlocuieste) {
+        match fantome.iter_mut().find(|(k, _)| *k == p.bloc_tinta) {
+            Some((_, care)) => care.push(p.rand),
+            None => fantome.push((p.bloc_tinta, vec![p.rand])),
+        }
+    }
+
     // Culorile se calculeaza pe blocul intreg, o data: un comentariu sau un
     // sir pe mai multe linii trebuie sa-si pastreze culoarea pe fiecare linie.
     let mut colorate: Vec<[Option<Vec<Vec<Bucata>>>; 2]> = vec![[None, None]; a.diff.len()];
     let mut randuri: Vec<Rand> = Vec::with_capacity(a.randuri.len());
     let mut diferente = Vec::new();
     let mut blocuri = Vec::new();
+    // primul rand din model al fiecarui bloc, si randul fiecarei fantome
+    let mut primul_rand = vec![usize::MAX; a.diff.len()];
+    let mut rand_fantomei: Vec<(usize, usize)> = Vec::new();
+
     for r in &a.randuri {
         let stare = match r.tip {
             TipDiferenta::Egal => Stare::Egal,
@@ -370,10 +423,43 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
         let stanga = parte(&r.stanga, false);
         let dreapta = parte(&r.dreapta, true);
         let inceput_bloc = r.primul_din_bloc && stare != Stare::Egal;
+
+        // randul-fantoma se pune inaintea blocului din tinta in fata caruia
+        // s-ar insera blocul din martor
+        if r.primul_din_bloc {
+            if let Some(b) = r.bloc {
+                let ord = ordinal_tinta[b];
+                if ord != usize::MAX {
+                    if let Some(poz) = fantome.iter().position(|(k, _)| *k == ord) {
+                        let (_, care) = fantome.remove(poz);
+                        rand_fantomei.push((ord, randuri.len()));
+                        randuri.push(rand_fantoma(&care, &nr_martor));
+                    }
+                }
+            }
+        }
+
         if inceput_bloc {
             diferente.push(randuri.len());
             blocuri.push(r.bloc.unwrap_or_default());
         }
+        if let Some(b) = r.bloc {
+            if primul_rand[b] == usize::MAX {
+                primul_rand[b] = randuri.len();
+            }
+        }
+        let eticheta = if inceput_bloc {
+            eticheta_bloc(
+                r.bloc,
+                stare,
+                &plasari,
+                &nr_martor,
+                &nr_modificata,
+                &bloc_al_ordinalului,
+            )
+        } else {
+            String::new()
+        };
         randuri.push(Rand {
             stanga,
             dreapta,
@@ -381,12 +467,121 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
             inceput_bloc,
             bloc: r.bloc,
             marcaj: Marcaj::Niciunul,
+            eticheta,
+            fantoma: false,
         });
     }
+
+    // ce ar ajunge dupa ultimul bloc din tinta se anunta la sfarsit
+    for (ord, care) in fantome {
+        rand_fantomei.push((ord, randuri.len()));
+        randuri.push(rand_fantoma(&care, &nr_martor));
+    }
+
+    // tinta fiecarei diferente, in randuri de model: de acolo pleaca legatura
+    // din canal
+    let tinte = blocuri
+        .iter()
+        .map(|&b| {
+            let p = plasari.iter().find(|p| p.rand == b)?;
+            if p.inlocuieste {
+                let tinta = bloc_al_ordinalului.get(p.bloc_tinta)?;
+                (primul_rand[*tinta] != usize::MAX).then_some(primul_rand[*tinta])
+            } else {
+                rand_fantomei
+                    .iter()
+                    .find(|(ord, _)| *ord == p.bloc_tinta)
+                    .map(|(_, rand)| *rand)
+            }
+        })
+        .collect();
+
     ModelEditor {
         randuri,
         diferente,
         blocuri,
+        tinte,
+    }
+}
+
+/// Randul care arata unde ar veni blocurile din martor care n-au corespondent.
+fn rand_fantoma(care: &[usize], nr_martor: &[usize]) -> Rand {
+    let numere: Vec<String> = care
+        .iter()
+        .map(|&b| nr_martor.get(b).copied().unwrap_or(0).to_string())
+        .collect();
+    let text = if numere.len() == 1 {
+        format!("aici vine blocul {} din Martor, daca il aplici", numere[0])
+    } else {
+        format!(
+            "aici vin blocurile {} din Martor, daca le aplici",
+            numere.join(" si ")
+        )
+    };
+    Rand {
+        stanga: Parte::umplutura(),
+        dreapta: Parte {
+            nr: None,
+            bucati: vec![Bucata {
+                text,
+                sintaxa: Sintaxa::Comentariu,
+                schimbat: false,
+            }],
+        },
+        stare: Stare::Sters,
+        inceput_bloc: false,
+        bloc: None,
+        marcaj: Marcaj::Niciunul,
+        eticheta: String::new(),
+        fantoma: true,
+    }
+}
+
+/// Pastila de pe primul rand al unui bloc: ce e si unde ajunge.
+fn eticheta_bloc(
+    bloc: Option<usize>,
+    stare: Stare,
+    plasari: &[gmotion_core::plasare::Plasare],
+    nr_martor: &[usize],
+    nr_modificata: &[usize],
+    bloc_al_ordinalului: &[usize],
+) -> String {
+    let Some(b) = bloc else {
+        return String::new();
+    };
+    let nume = match stare {
+        Stare::Modificat => format!(
+            "bloc {} · MODIFICAT",
+            nr_martor.get(b).copied().unwrap_or(0)
+        ),
+        Stare::Sters => format!(
+            "bloc {} · DOAR IN MARTOR",
+            nr_martor.get(b).copied().unwrap_or(0)
+        ),
+        Stare::Adaugat => {
+            return format!(
+                "bloc {} · DOAR IN MODIFICATA",
+                nr_modificata.get(b).copied().unwrap_or(0)
+            )
+        }
+        Stare::Egal => return String::new(),
+    };
+    let Some(p) = plasari.iter().find(|p| p.rand == b) else {
+        return nume;
+    };
+    let tinta = bloc_al_ordinalului
+        .get(p.bloc_tinta)
+        .and_then(|&t| nr_modificata.get(t).copied())
+        .unwrap_or(0);
+    if p.inlocuieste {
+        format!("{nume} → inlocuieste blocul {tinta} din Modificata")
+    } else if p.scor >= 40.0 && tinta > 0 {
+        format!(
+            "{nume} · {:.0}% similar cu blocul {tinta} → se insereaza, nu inlocuieste",
+            p.scor
+        )
+    } else {
+        format!("{nume} → fara corespondent: se insereaza")
     }
 }
 
@@ -735,5 +930,91 @@ mod teste {
             bloc.len() >= 2 && bloc.iter().all(|&x| x == Some(0)),
             "{bloc:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod teste_plasare {
+    use super::*;
+
+    const MARTOR: &str = concat!(
+        "CREATE PROCEDURE p\n @DocumentId int\nAS\n",
+        "\tDECLARE @t int\n",
+        "\tEXEC uspAudit_Log @Actiune = 'GetTemplates'\n",
+        "\tSELECT 'RCA.doc' AS Template"
+    );
+    const MODIFICATA: &str = concat!(
+        "CREATE PROCEDURE p(\n @DocumentId INT,\n @UserId INT)\nAS\nBEGIN\n",
+        "\tDECLARE @t INT\n\n",
+        "\tSELECT 'RCA.doc' AS Template,\n\t\tCAST(0 AS BIT) AS Nou\nEND"
+    );
+
+    fn model() -> ModelEditor {
+        construieste(
+            &gmotion_core::pregateste_afisare(MARTOR),
+            &gmotion_core::pregateste_afisare(MODIFICATA),
+        )
+    }
+
+    /// Eticheta spune si ce e blocul, si unde ajunge: fara partea a doua,
+    /// „Aplica" ramane o sageata despre care nu stii ce face.
+    #[test]
+    fn eticheta_spune_unde_ajunge_blocul() {
+        let m = model();
+        let etichete: Vec<&str> = m
+            .randuri
+            .iter()
+            .filter(|r| !r.eticheta.is_empty())
+            .map(|r| r.eticheta.as_str())
+            .collect();
+        assert!(
+            etichete
+                .iter()
+                .any(|e| e.contains("MODIFICAT") && e.contains("inlocuieste blocul")),
+            "{etichete:?}"
+        );
+        assert!(
+            etichete
+                .iter()
+                .any(|e| e.contains("DOAR IN MARTOR") && e.contains("se insereaza")),
+            "{etichete:?}"
+        );
+        // etichetele stau doar pe primul rand al blocului
+        assert!(m
+            .randuri
+            .iter()
+            .all(|r| r.eticheta.is_empty() || r.inceput_bloc));
+    }
+
+    /// Randul-fantoma arata unde ar veni blocul fara corespondent. Fara el,
+    /// „se insereaza" e o promisiune fara loc.
+    #[test]
+    fn exista_rand_fantoma_pentru_blocul_fara_corespondent() {
+        let m = model();
+        let fantome: Vec<&Rand> = m.randuri.iter().filter(|r| r.fantoma).collect();
+        assert_eq!(fantome.len(), 1, "{:?}", fantome);
+        let text = fantome[0].dreapta.text();
+        assert!(text.contains("din Martor"), "{text:?}");
+        assert!(fantome[0].stanga.nr.is_none() && fantome[0].dreapta.nr.is_none());
+    }
+
+    /// Fiecare diferenta stie catre ce rand se duce: de acolo se deseneaza
+    /// legatura din canal.
+    #[test]
+    fn fiecare_diferenta_are_o_tinta_in_model() {
+        let m = model();
+        assert_eq!(m.tinte.len(), m.diferente.len());
+        for (k, tinta) in m.tinte.iter().enumerate() {
+            let Some(t) = tinta else { continue };
+            assert!(*t < m.randuri.len(), "tinta {t} iese din model");
+            let r = &m.randuri[*t];
+            assert!(
+                r.fantoma || r.dreapta.nr.is_some(),
+                "diferenta {k} tinteste un rand fara nimic in dreapta: {r:?}"
+            );
+        }
+        // blocul fara corespondent tinteste fantoma
+        let fantoma = m.randuri.iter().position(|r| r.fantoma).expect("fantoma");
+        assert!(m.tinte.contains(&Some(fantoma)), "{:?}", m.tinte);
     }
 }

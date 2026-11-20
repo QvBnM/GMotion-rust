@@ -173,67 +173,34 @@ pub fn plasari_obiect(referinta: &str, curent: &str) -> Vec<Plasare> {
     let start_martor = gmotion_core::linii_start_blocuri(referinta, &blocuri_martor);
     let start_tinta = gmotion_core::linii_start_blocuri(curent, &blocuri_tinta);
 
-    let mut out = Vec::new();
+    // decizia e a motorului; aici doar se adauga numerele de linie, pe care
+    // `core` nu le are de unde sti (el lucreaza pe blocuri, nu pe text)
+    let mut linie_a_blocului = Vec::new();
     let mut bloc_martor = 0usize;
-    let mut bloc_tinta_urmator = 0usize;
-    for (pozitie, r) in randuri.iter().enumerate() {
-        // blocurile se consuma in ordine, pe fiecare parte
-        let linie_martor = r.stanga.as_ref().map(|_| {
+    for r in &randuri {
+        linie_a_blocului.push(if r.stanga.is_some() {
             let l = start_martor.get(bloc_martor).copied().unwrap_or(0) + 1;
             bloc_martor += 1;
-            l
-        });
-        let perechea_din_tinta = r.dreapta.as_ref().map(|_| {
-            let k = bloc_tinta_urmator;
-            bloc_tinta_urmator += 1;
-            k
-        });
-        let Some(linie_martor) = linie_martor else {
-            continue;
-        };
-        if r.tip == TipDiferenta::Egal {
-            continue;
-        }
-
-        let (inlocuieste, bloc_tinta, scor, randuri_mutate) = match perechea_din_tinta {
-            // diff-ul a imperecheat deja blocurile: aia e plasarea
-            Some(k) => (
-                true,
-                k,
-                gmotion_core::scor_similaritate(
-                    r.stanga.as_deref().unwrap_or(""),
-                    r.dreapta.as_deref().unwrap_or(""),
-                ),
-                vec![pozitie],
-            ),
-            // fara pereche: intrebam stratul de plasare
-            None => {
-                let Some(s) = gmotion_core::plasare::sugereaza(&randuri, pozitie, &blocuri_tinta)
-                else {
-                    continue;
-                };
-                match s.tinta {
-                    gmotion_core::plasare::Tinta::Bloc { indice, scor } => {
-                        (true, indice, scor, s.randuri)
-                    }
-                    gmotion_core::plasare::Tinta::Gol { indice, scor } => {
-                        (false, indice, scor, s.randuri)
-                    }
-                }
-            }
-        };
-
-        out.push(Plasare {
-            rand: pozitie,
-            linie_martor,
-            inlocuieste,
-            bloc_tinta,
-            linie_tinta: start_tinta.get(bloc_tinta).map_or(0, |l| l + 1),
-            scor,
-            randuri_mutate,
+            Some(l)
+        } else {
+            None
         });
     }
-    out
+
+    gmotion_core::plasare::plasari(&randuri, &blocuri_tinta)
+        .into_iter()
+        .filter_map(|p| {
+            Some(Plasare {
+                rand: p.rand,
+                linie_martor: linie_a_blocului.get(p.rand).copied().flatten()?,
+                inlocuieste: p.inlocuieste,
+                bloc_tinta: p.bloc_tinta,
+                linie_tinta: start_tinta.get(p.bloc_tinta).map_or(0, |l| l + 1),
+                scor: p.scor,
+                randuri_mutate: p.randuri,
+            })
+        })
+        .collect()
 }
 
 /// Ce arata lista despre un obiect diferit, dincolo de scor: in ce difera si

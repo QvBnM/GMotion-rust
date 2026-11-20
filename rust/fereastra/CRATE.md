@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 3df0607a743e900b -->
+<!-- api-hash: fd712320dcc1970d -->
 
 ## Rol
 
@@ -57,7 +57,13 @@ si editorul de diferente (etapa 8).
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
 | `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, nota); nota se rescrie doar cand se schimba obiectul |
 | `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
-| `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente |
+| `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente; `tinte` = randul catre care se duce fiecare diferenta |
+
+**Unde ajunge un bloc nu se decide aici.** Modelul intreaba
+`gmotion_core::plasare::plasari` si doar aseaza raspunsul pe ecran: pastila de
+pe bloc (`Rand::eticheta`), randul-fantoma (`Rand::fantoma`) si legatura din
+canal (`ModelEditor::tinte`). O a doua parere in fereastra ar insemna ca
+„Aplica" scrie in alt loc decat arata ecranul.
 | `model_editor::plieaza(model, context, limba) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
 | `model_lista`: `Deploy`, `FiltruRevizuire`, `filtreaza_revizuire`, `filtreaza_scor`, `pune_vizibilele_in_plan`, `pune_deploy`, `progres_deploy`; `Ordine` pe orice coloana, sensul in `descrescator()` | lista la paritate cu v3.4 (etapa 14, C — modelul; ecranul inca nu) |
 | `model_editor::marcheaza_textul_final(model, baza, final, manual)`, `Marcaj` | liniile din baza aduse din sursa sau scrise de tine |

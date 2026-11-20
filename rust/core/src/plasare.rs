@@ -11,7 +11,7 @@
 //! lui, sau se insereaza la inceputul obiectului desi corespondentul exista in
 //! tinta. Simptomul se vede abia dupa „Aplica", in textul final.
 
-use crate::diff::RandDiff;
+use crate::diff::{RandDiff, TipDiferenta};
 use crate::normalizare::{normalizeaza, round_py};
 use crate::seqmatch::SequenceMatcher;
 use once_cell::sync::Lazy;
@@ -235,6 +235,72 @@ pub fn sugereaza(
         text,
         tinta,
     })
+}
+
+/// Unde ajunge un bloc care difera, dupa ce cele doua straturi s-au impacat.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Plasare {
+    /// Pozitia randului in diff.
+    pub rand: usize,
+    /// Inlocuieste blocul `bloc_tinta`, sau se insereaza inaintea lui.
+    pub inlocuieste: bool,
+    /// Indicele blocului din tinta (egal cu numarul de blocuri = la sfarsit).
+    pub bloc_tinta: usize,
+    /// Potrivirea; `-1` cand niciun candidat nu s-a calificat.
+    pub scor: f64,
+    /// Randurile care se muta impreuna.
+    pub randuri: Vec<usize>,
+}
+
+/// Unde ajunge fiecare bloc din martor care difera, in ordinea lor.
+///
+/// **Doua straturi, o singura concluzie.** Cand diff-ul a imperecheat deja
+/// blocul cu unul din tinta (randul e `modificat`), aia e plasarea: perechea
+/// aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
+/// decat arata editorul. [`sugereaza`] raspunde doar pentru blocurile ramase
+/// fara pereche — exact intrebarea pe care diff-ul n-o acopera.
+pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
+    let mut out = Vec::new();
+    let mut bloc_tinta_urmator = 0usize;
+    for (pozitie, r) in randuri.iter().enumerate() {
+        // blocurile din tinta se consuma in ordine
+        let perechea = r.dreapta.as_ref().map(|_| {
+            let k = bloc_tinta_urmator;
+            bloc_tinta_urmator += 1;
+            k
+        });
+        if r.stanga.is_none() || r.tip == TipDiferenta::Egal {
+            continue;
+        }
+        let (inlocuieste, bloc_tinta, scor, mutate) = match perechea {
+            Some(k) => (
+                true,
+                k,
+                crate::normalizare::scor_similaritate(
+                    r.stanga.as_deref().unwrap_or(""),
+                    r.dreapta.as_deref().unwrap_or(""),
+                ),
+                vec![pozitie],
+            ),
+            None => {
+                let Some(s) = sugereaza(randuri, pozitie, blocuri_tinta) else {
+                    continue;
+                };
+                match s.tinta {
+                    Tinta::Bloc { indice, scor } => (true, indice, scor, s.randuri),
+                    Tinta::Gol { indice, scor } => (false, indice, scor, s.randuri),
+                }
+            }
+        };
+        out.push(Plasare {
+            rand: pozitie,
+            inlocuieste,
+            bloc_tinta,
+            scor,
+            randuri: mutate,
+        });
+    }
+    out
 }
 
 #[cfg(test)]

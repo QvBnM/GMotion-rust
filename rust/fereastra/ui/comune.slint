@@ -630,6 +630,15 @@ export struct RandUi {
     // wrap (etapa 19): randul continua linia de deasupra, fara numar; o
     // parte care nu avea linia deloc ramane hasurata si pe continuare
     continuare: bool,
+    // pastila de pe primul rand al blocului: ce e si unde ajunge
+    eticheta: string,
+    // randul nu exista in niciun text: arata unde ar veni un bloc din martor
+    fantoma: bool,
+    // cate randuri afisate mai jos (sau mai sus, daca e negativ) e locul in
+    // care ajunge blocul: din el se deseneaza legatura din canal. 0 = fara
+    delta-tinta: int,
+    // locul e un gol intre blocuri (se insereaza), nu un bloc de inlocuit
+    tinta-gol: bool,
     st-lipsa: bool,
     dr-lipsa: bool,
 }
@@ -696,6 +705,11 @@ export component Jumatate inherits Rectangle {
     // partea nu are linia (blocul e mai scurt aici): hasura, nu fundal gol
     in property <bool> fara-linie;
     in property <image> tigla;
+    // pastila de pe primul rand al blocului („bloc 4 · DOAR IN MARTOR →
+    // fara corespondent: se insereaza")
+    in property <string> eticheta;
+    // randul e fantoma: locul unde ar veni un bloc din martor
+    in property <bool> fantoma;
     // fondul liniilor identice: `cod-fundal` (baza) sau `panou-sursa` (sursa)
     in property <color> fond: Tema.cod-fundal;
     // linia din baza: 0 cum era, 1 adusa din sursa (verde, ca „doar in
@@ -712,6 +726,11 @@ export component Jumatate inherits Rectangle {
               : root.st == 0 ? root.fond
               : Tema.fundal-stare(root.st);
     if root.fara-linie && root.stare != 0: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
+    // randul-fantoma: hasurat, cu o linie sus si una jos, ca sa se vada ca e
+    // un loc, nu cod
+    if root.fantoma: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
+    if root.fantoma: Rectangle { y: 0px; height: 1px; background: Tema.del-bara; }
+    if root.fantoma: Rectangle { y: parent.height - 1px; height: 1px; background: Tema.del-bara; }
     HorizontalLayout {
         // jgheabul si numarul raman pe loc; se muta doar codul (mai jos)
         spacing: 0px;
@@ -766,6 +785,26 @@ export component Jumatate inherits Rectangle {
         width: 1px;
         background: Tema.linie;
     }
+    if root.eticheta != "": Rectangle {
+        // pastila sta in capatul jumatatii, nu in rand: codul nu se muta
+        x: parent.width - self.width - 10px;
+        y: 2px;
+        height: parent.height - 4px;
+        width: pastila-text.preferred-width + 14px;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: Tema.bara-stare(root.st);
+        background: Tema.fundal;
+        pastila-text := Text {
+            text: root.eticheta;
+            font-family: Tema.font-ui;
+            font-size: 10px;
+            font-weight: 600;
+            color: Tema.bara-stare(root.st);
+            vertical-alignment: center;
+        }
+    }
+
 }
 
 

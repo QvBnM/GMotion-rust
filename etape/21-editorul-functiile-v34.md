@@ -22,14 +22,14 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
 
 ## Criterii de terminare
 
-- [ ] **eticheta pe bloc**: ce e (`MODIFICAT` / `DOAR IN MARTOR` /
+- [x] **eticheta pe bloc**: ce e (`MODIFICAT` / `DOAR IN MARTOR` /
       `DOAR IN MODIFICATA`) si unde ajunge („inlocuieste blocul N din
       Modificata", „x% similar cu blocul N", „fara corespondent: se
       insereaza"), din `modul::plasari_obiect`
-- [ ] **maparea in canal**: legatura bloc -> loc, plina cand are corespondent,
+- [x] **maparea in canal**: legatura bloc -> loc, plina cand are corespondent,
       punctata cu capat gol cand nu are. Acelasi obiect cu care lucrezi, nu
       desen decorativ
-- [ ] **randul-fantoma** in Modificata: „aici vin blocurile N si M din Martor,
+- [x] **randul-fantoma** in Modificata: „aici vin blocurile N si M din Martor,
       daca le aplici", la locul calculat
 - [x] **umplutura dintr-un bloc se hasureaza** in culoarea blocului (Mihai,
       2026-11-20) — **exista deja in aplicatie** (`Jumatate.fara-linie` +
@@ -59,6 +59,11 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
 ## Jurnal de lucru
 
 - **2026-11-20** Etapa pregatita. Machetele si cazul lor sunt in repo.
+- **2026-11-20** Eticheta, fantoma si legatura din canal: facute. Decizia
+  „unde ajunge blocul" s-a mutat in `core::plasare::plasari` — fereastra nu
+  depinde de module, deci nu putea chema `modul::plasari_obiect`; acum amandoi
+  citesc din acelasi loc. Pastila se deseneaza peste cod, in capatul
+  jumatatii: altfel codul ar sari din loc cand apare eticheta.
 - **2026-11-20** Pornita. Prima treaba: captura reala a editorului pe cazul
   machetelor, ca sa stim ce lipseste de fapt. Hasura umpluturii exista deja;
   tragerea blocului exista si ea (fara tinte aprinse). Lipsesc: etichetele pe
