@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: c10901e3e35837ef -->
+<!-- api-hash: a97c7cb9ea0cacf3 -->
 
 ## Rol
 
@@ -83,6 +83,7 @@ degradeze in tacere.
 ### `plasare`
 | Functie / tip | Ce face |
 |---|---|
+| `grupuri_diferente(randuri, plasari) -> Vec<Vec<usize>>` | diferentele cum le vede omul: instructiunile consecutive fara pereche care se insereaza in acelasi gol sunt una singura (etapa 23); editorul aplica tot grupul |
 | `plasari(randuri, blocuri_tinta) -> Vec<Plasare>` | unde ajunge **fiecare** bloc care difera, dupa ce cele doua straturi s-au impacat: perechea aleasa de diff bate, `sugereaza` raspunde doar unde nu exista pereche |
 | `sugereaza(randuri, pozitie, blocuri_tinta) -> Option<Sugestie>` | unde ar ajunge blocul din martor: inlocuieste blocul k, sau se insereaza in golul g |
 | `cel_mai_apropiat(text, blocuri, indice_preferat)` | blocul care seamana cel mai bine, cu regula de ambiguitate |

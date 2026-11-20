@@ -2694,11 +2694,12 @@ mod teste {
         model_editor::construieste(&a.join("\n\n"), &b.join("\n\n"))
     }
 
-    /// Doua blocuri care cad in acelasi loc (cazul machetelor: blocurile 4 si
-    /// 5 din Martor, pe acelasi rand-fantoma) aprind amandoua locul la
-    /// tragere. Cu un singur numar pe rand, primul nu aprindea nimic.
+    /// Blocurile 4 si 5 din cazul machetelor cad pe acelasi rand-fantoma si
+    /// sunt consecutive: de la etapa 23 sunt **o singura diferenta**, cu un
+    /// singur loc aprins la tragere (randul-fantoma) si amandoua blocurile in
+    /// grup.
     #[test]
-    fn doua_blocuri_in_acelasi_loc_aprind_amandoua_locul() {
+    fn blocurile_consecutive_spre_acelasi_loc_sunt_o_diferenta() {
         let m = model_editor::construieste(
             &gmotion_core::pregateste_afisare(include_str!(
                 "../../../cercetare/machete/editor-functii/martor.sql"
@@ -2714,8 +2715,8 @@ mod teste {
                 a >= 0 && z == a + 1 && randuri[a as usize].fantoma
             })
             .collect();
-        assert_eq!(spre_fantoma.len(), 2, "{tinte:?}");
-        assert_eq!(tinte[spre_fantoma[0]], tinte[spre_fantoma[1]]);
+        assert_eq!(spre_fantoma.len(), 1, "{tinte:?}");
+        assert_eq!(m.grupuri[spre_fantoma[0]].len(), 2, "{:?}", m.grupuri);
         // blocul care inlocuieste aprinde tot blocul tinta, nu un rand
         let antet = tinte[0];
         assert!(antet.1 - antet.0 > 1, "{antet:?}");

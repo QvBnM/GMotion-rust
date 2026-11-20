@@ -1113,20 +1113,21 @@ impl Aplicatie {
     /// `aplica_blocuri` ca [`Comanda::AplicaDiferenta`], deci arata exact ce
     /// s-ar scrie.
     pub fn previzualizare(&self, k: usize) -> Option<Vec<LiniePrevizualizare>> {
-        let bloc = self.model_editor()?.blocuri.get(k).copied()?;
+        let grup = self.model_editor()?.grupuri.get(k).cloned()?;
         let (sursa, curent) = self.texte_curente()?;
-        let rezultat = gmotion_core::aplica_blocuri(&sursa, &curent, self.uneste_cursorul, &[bloc]);
+        let rezultat = gmotion_core::aplica_blocuri(&sursa, &curent, self.uneste_cursorul, &grup);
         Some(previzualizare(&curent, &rezultat, 2, 12))
     }
 
-    /// Aplica diferenta `k` (indexul din editor) a obiectului curent.
+    /// Aplica diferenta `k` (indexul din editor) a obiectului curent: tot
+    /// grupul ei, daca e un grup de instructiuni consecutive.
     fn aplica(&mut self, k: usize) -> bool {
-        let Some(bloc) = self.model_editor().and_then(|m| m.blocuri.get(k).copied()) else {
+        let Some(grup) = self.model_editor().and_then(|m| m.grupuri.get(k).cloned()) else {
             return false;
         };
         let uneste = self.uneste_cursorul;
         self.schimba_textul(|e, r, a, b| {
-            e.aplica_blocuri(r, a, b, uneste, &[bloc]);
+            e.aplica_blocuri(r, a, b, uneste, &grup);
         })
     }
 
@@ -2188,6 +2189,48 @@ mod teste {
 
         assert!(a.comanda(Comanda::Anuleaza), "Ctrl+Z dupa lasare");
         assert_eq!(a.texte_curente().expect("texte").1, baza);
+    }
+
+    /// Instructiunile consecutive doar in Martor, care merg in acelasi loc,
+    /// sunt o singura diferenta: un „Aplica" le aduce pe toate, in ordine.
+    #[test]
+    fn un_grup_de_instructiuni_se_aplica_dintr_o_data() {
+        const SURSA: &str = "CREATE PROC dbo.pG AS\n\
+            SELECT a FROM dbo.T;\n\
+            DECLARE @x INT;\n\
+            SET @x = 1;\n\
+            SELECT @x;\n\
+            PRINT 'gata';";
+        const BAZA: &str = "CREATE PROC dbo.pG AS\n\
+            SELECT a FROM dbo.T;\n\
+            PRINT 'gata';";
+        let sursa = modul::pregateste(&[obiect_db("pG", SURSA)]);
+        let tinta = modul::pregateste(&[obiect_db("pG", BAZA)]);
+        let c = modul::compara("Ref", &sursa, &[("Client1".into(), tinta.clone())], |_| {});
+        let mut a = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".into(), tinta)],
+            Revizuire::noua(),
+        );
+        a.comanda(Comanda::Deschide);
+        let m = a.model_editor().expect("model");
+        assert_eq!(m.diferente.len(), 1, "trei instructiuni, o diferenta");
+        assert_eq!(m.grupuri[0].len(), 3);
+        drop(m);
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(0))));
+        let (_, curent) = a.texte_curente().expect("texte");
+        let pozitie = |t: &str| {
+            curent
+                .find(t)
+                .unwrap_or_else(|| panic!("{t} lipseste:\n{curent}"))
+        };
+        assert!(
+            pozitie("DECLARE @x") < pozitie("SET @x = 1")
+                && pozitie("SET @x = 1") < pozitie("SELECT @x")
+        );
+        assert!(pozitie("SELECT @x") < pozitie("PRINT 'gata'"));
+        assert_eq!(a.model_editor().expect("model").diferente.len(), 0);
     }
 
     /// Previzualizarea la hover arata exact liniile pe care le-ar scrie

@@ -104,9 +104,13 @@ pub struct ModelEditor {
     /// Indexul randului de inceput al fiecarei diferente, in ordine: pentru
     /// navigarea „anterior / urmator" si pentru minimap.
     pub diferente: Vec<usize>,
-    /// Pentru fiecare diferenta (acelasi index ca `diferente`), blocul
-    /// motorului: ce primeste `gmotion_core::compune` ca sa o aplice.
+    /// Pentru fiecare diferenta (acelasi index ca `diferente`), primul bloc
+    /// al motorului. Tot grupul e in `grupuri`.
     pub blocuri: Vec<usize>,
+    /// Pentru fiecare diferenta, blocurile motorului pe care le aplica:
+    /// unul, sau instructiunile consecutive care merg in acelasi gol
+    /// (`gmotion_core::grupuri_diferente`).
+    pub grupuri: Vec<Vec<usize>>,
     /// Pentru fiecare diferenta, randul din model catre care se duce blocul:
     /// primul rand al blocului din dreapta pe care il inlocuieste, sau randul
     /// fantoma unde s-ar insera. Din el se deseneaza legatura din canal.
@@ -334,6 +338,18 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
     // (`gmotion_core::plasare`): in fereastra nu se ia o a doua parere, altfel
     // „Aplica" ar scrie in alt loc decat arata ecranul.
     let plasari = gmotion_core::plasari_aliniere(&a, text_tinta, uneste_cursor);
+    // diferentele cum le vede omul: instructiunile consecutive care merg in
+    // acelasi gol sunt una (decizia e a motorului, ca si plasarea)
+    let grupuri = gmotion_core::grupuri_diferente(&a.diff, &plasari);
+    // pentru fiecare bloc: grupul lui, si daca e primul din grup
+    let mut grup_al_blocului: Vec<Option<(usize, bool)>> = vec![None; a.diff.len()];
+    for (k, g) in grupuri.iter().enumerate() {
+        for (j, &b) in g.iter().enumerate() {
+            if let Some(x) = grup_al_blocului.get_mut(b) {
+                *x = Some((k, j == 0));
+            }
+        }
+    }
 
     // Numarul blocului pe fiecare parte, asa cum il numara omul care se uita:
     // „blocul 4 din Modificata", nu indicele din motor.
@@ -421,7 +437,12 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
         };
         let stanga = parte(&r.stanga, false);
         let dreapta = parte(&r.dreapta, true);
-        let inceput_bloc = r.primul_din_bloc && stare != Stare::Egal;
+        // un grup incepe o singura diferenta, pe primul lui bloc
+        let inceput_bloc = r.primul_din_bloc
+            && stare != Stare::Egal
+            && r.bloc
+                .and_then(|b| grup_al_blocului.get(b).copied().flatten())
+                .is_none_or(|(_, primul)| primul);
 
         // randul-fantoma se pune inaintea blocului din tinta in fata caruia
         // s-ar insera blocul din martor
@@ -448,14 +469,21 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
             }
         }
         let eticheta = if inceput_bloc {
-            eticheta_bloc(
-                r.bloc,
-                stare,
-                &plasari,
-                &nr_martor,
-                &nr_modificata,
-                &bloc_al_ordinalului,
-            )
+            let grup = r
+                .bloc
+                .and_then(|b| grup_al_blocului.get(b).copied().flatten())
+                .and_then(|(k, _)| grupuri.get(k));
+            match grup {
+                Some(g) if g.len() > 1 => eticheta_grup(g, &plasari, &nr_martor),
+                _ => eticheta_bloc(
+                    r.bloc,
+                    stare,
+                    &plasari,
+                    &nr_martor,
+                    &nr_modificata,
+                    &bloc_al_ordinalului,
+                ),
+            }
         } else {
             String::new()
         };
@@ -499,6 +527,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
         randuri,
         diferente,
         blocuri,
+        grupuri,
         tinte,
     }
 }
@@ -534,6 +563,27 @@ fn rand_fantoma(care: &[usize], nr_martor: &[usize]) -> Rand {
         eticheta: String::new(),
         fantoma: true,
     }
+}
+
+/// Pastila unui grup de instructiuni consecutive doar in Martor, care merg
+/// toate in acelasi loc: o singura eticheta pe tot grupul.
+fn eticheta_grup(
+    grup: &[usize],
+    plasari: &[gmotion_core::plasare::Plasare],
+    nr_martor: &[usize],
+) -> String {
+    let nr = |b: usize| nr_martor.get(b).copied().unwrap_or(0);
+    let (prim, ultim) = (grup[0], grup[grup.len() - 1]);
+    let unde = if plasari.iter().any(|p| p.rand == prim) {
+        "se insereaza impreuna"
+    } else {
+        "fara corespondent"
+    };
+    format!(
+        "blocurile {}-{} · DOAR IN MARTOR → {unde}",
+        nr(prim),
+        nr(ultim)
+    )
 }
 
 /// Pastila de pe primul rand al unui bloc: ce e si unde ajunge.
@@ -747,16 +797,23 @@ pub fn previzualizare(
 /// `None` pe randurile de context. Bara din jgheab e mai lata pe diferenta
 /// curenta, deci randul trebuie sa stie de care diferenta face parte.
 pub fn diferenta_fiecarui_rand(model: &ModelEditor) -> Vec<Option<usize>> {
-    let mut rez = vec![None; model.randuri.len()];
-    for (k, &start) in model.diferente.iter().enumerate() {
-        for (i, r) in model.randuri.iter().enumerate().skip(start) {
-            if r.stare == Stare::Egal || (i > start && r.inceput_bloc) {
-                break;
-            }
-            rez[i] = Some(k);
+    // a cata diferenta e fiecare bloc al motorului (un grup are mai multe)
+    let mut a_blocului: std::collections::HashMap<usize, usize> = Default::default();
+    for (k, g) in model.grupuri.iter().enumerate() {
+        for &b in g {
+            a_blocului.insert(b, k);
         }
     }
-    rez
+    model
+        .randuri
+        .iter()
+        .map(|r| {
+            if r.stare == Stare::Egal {
+                return None;
+            }
+            r.bloc.and_then(|b| a_blocului.get(&b).copied())
+        })
+        .collect()
 }
 
 #[cfg(test)]

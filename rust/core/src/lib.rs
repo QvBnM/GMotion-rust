@@ -45,7 +45,7 @@ pub use diff::{
 pub use normalizare::{
     calc_hash, hinturi, norm, normalizeaza, pregateste_afisare, round_py, scor_similaritate,
 };
-pub use plasare::{plasari, sugereaza, Plasare, Sugestie, Tinta};
+pub use plasare::{grupuri_diferente, plasari, sugereaza, Plasare, Sugestie, Tinta};
 pub use segmentare::{are_cursor, cheie_bloc, linii_start_blocuri, split_statements};
 
 /// Tipurile de obiecte SQL comparate, asa cum apar in `sys.objects.type`.

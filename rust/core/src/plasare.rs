@@ -303,6 +303,38 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
     out
 }
 
+/// Diferentele asa cum le vede omul: fiecare bloc care difera e o
+/// diferenta, in afara de instructiunile **consecutive** fara pereche care se
+/// insereaza in **acelasi gol** — acelea sunt una singura (un `declare`, un
+/// `set` si doua `select` adaugate impreuna nu sunt patru decizii).
+///
+/// Indicii sunt pozitii in `randuri`, ca in [`Plasare::rand`]. Editorul si
+/// `cli` grupeaza de aici, ca sa numere la fel (Mihai, 2026-11-20: „de ce
+/// fiecare linie are propriul bloc?").
+pub fn grupuri_diferente(randuri: &[RandDiff], plasari: &[Plasare]) -> Vec<Vec<usize>> {
+    let gol = |b: usize| {
+        plasari
+            .iter()
+            .find(|p| p.rand == b && !p.inlocuieste && randuri[b].tip == TipDiferenta::Sters)
+            .map(|p| p.bloc_tinta)
+    };
+    let mut out: Vec<Vec<usize>> = Vec::new();
+    for (b, r) in randuri.iter().enumerate() {
+        if r.tip == TipDiferenta::Egal {
+            continue;
+        }
+        let lipit = out
+            .last()
+            .and_then(|g| g.last())
+            .is_some_and(|&ultim| ultim + 1 == b && gol(b).is_some() && gol(b) == gol(ultim));
+        match out.last_mut() {
+            Some(g) if lipit => g.push(b),
+            _ => out.push(vec![b]),
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
@@ -310,6 +342,51 @@ mod teste {
 
     fn pregateste(martor: &str, tinta: &str) -> (Vec<RandDiff>, Vec<String>) {
         (diff_aliniat(martor, tinta), split_statements(tinta, false))
+    }
+
+    /// Instructiunile consecutive adaugate in acelasi loc sunt o singura
+    /// diferenta; un bloc modificat intre ele rupe grupul.
+    #[test]
+    fn instructiunile_consecutive_din_acelasi_gol_sunt_o_diferenta() {
+        let martor = "CREATE PROC dbo.p AS\n\
+                      SELECT a FROM t;\n\
+                      DECLARE @x INT;\n\
+                      SET @x = 1;\n\
+                      SELECT @x;\n\
+                      PRINT 'gata';";
+        let tinta = "CREATE PROC dbo.p AS\n\
+                     SELECT a FROM t;\n\
+                     PRINT 'gata';";
+        let (r, b) = pregateste(martor, tinta);
+        let p = plasari(&r, &b);
+        let g = grupuri_diferente(&r, &p);
+        assert_eq!(g.len(), 1, "{g:?} din {r:?}");
+        assert_eq!(g[0].len(), 3, "declare, set, select");
+
+        // un bloc modificat la mijloc rupe grupul: doua grupuri, plus el
+        let martor2 = "CREATE PROC dbo.p AS\n\
+                       SELECT a FROM t;\n\
+                       DECLARE @x INT;\n\
+                       SET @x = 1;\n\
+                       UPDATE dbo.T SET v = 1, w = 2 WHERE id = 5 AND activ = 1;\n\
+                       DECLARE @y INT;\n\
+                       SET @y = 2;\n\
+                       PRINT 'gata';";
+        let tinta2 = "CREATE PROC dbo.p AS\n\
+                      SELECT a FROM t;\n\
+                      UPDATE dbo.T SET v = 9, w = 2 WHERE id = 5 AND activ = 1;\n\
+                      PRINT 'gata';";
+        let (r, b) = pregateste(martor2, tinta2);
+        let p = plasari(&r, &b);
+        let g = grupuri_diferente(&r, &p);
+        let lungimi: Vec<usize> = g.iter().map(Vec::len).collect();
+        assert_eq!(lungimi, [2, 1, 2], "{g:?} din {r:#?}");
+        for grup in &g {
+            assert!(
+                grup.windows(2).all(|w| w[1] == w[0] + 1),
+                "consecutive: {g:?}"
+            );
+        }
     }
 
     #[test]

@@ -184,13 +184,13 @@ fn main() {
         .and_then(|i| a.get(i + 1))
         .and_then(|x| x.parse::<i32>().ok())
     {
-        let (r2, t2, blocuri) = (r.clone(), t.clone(), model.blocuri.clone());
+        let (r2, t2, grupuri) = (r.clone(), t.clone(), model.grupuri.clone());
         let slab = ui.as_weak();
         ui.on_previzualizeaza(move |k| {
-            let Some(&bloc) = usize::try_from(k).ok().and_then(|k| blocuri.get(k)) else {
+            let Some(grup) = usize::try_from(k).ok().and_then(|k| grupuri.get(k)) else {
                 return;
             };
-            let rez = gmotion_core::aplica_blocuri(&r2, &t2, false, &[bloc]);
+            let rez = gmotion_core::aplica_blocuri(&r2, &t2, false, grup);
             let linii = model_editor::previzualizare(&t2, &rez, 2, 12);
             if let Some(ui) = slab.upgrade() {
                 ui.set_previzualizare_linii(gmotion_fereastra::previzualizare_ui(&linii));

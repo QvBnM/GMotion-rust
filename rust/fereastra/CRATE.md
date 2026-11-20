@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 5208e3304f21c39f -->
+<!-- api-hash: 8d6ecda49f64d291 -->
 
 ## Rol
 
@@ -69,6 +69,11 @@ aprinde **locul calculat de motor**, nu randurile blocului tras: pana la etapa
 se tine **pe diferenta** (`tinte-de-la` / `tinte-pana-la`, randuri afisate), nu
 pe rand: doua blocuri pot cadea pe acelasi rand-fantoma, iar un singur numar
 pe rand il pastra doar pe ultimul.
+
+`ModelEditor::grupuri` tine, pentru fiecare diferenta, blocurile motorului pe
+care le aplica (`core::grupuri_diferente`); eticheta unui bloc sta pe un rand
+al ei (`RandUi::fel == 2`), deasupra blocului, iar legaturile curbe din canal
+se deseneaza in Slint din `start-diferente` si `tinte-de-la` / `tinte-pana-la`.
 
 `randuri_ui_pentru_test` (ascunsa din documentatie) da randurile asa cum ajung
 in Slint, pentru exemple si probe.
