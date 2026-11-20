@@ -67,23 +67,27 @@ martor cu toate deodata.\n\
   Esc                  anuleaza compararea care ruleaza.\n\
 \n\
 LISTA\n\
-  j k / sageti   obiectul urmator, anterior\n\
+  Ctrl+J K / sageti  obiectul urmator, anterior\n\
   Enter          deschide obiectul in editor\n\
-  r              revizuit\n\
-  i              pune sau scoate din planul de deploy\n\
+  Ctrl+R         revizuit\n\
+  Ctrl+I         pune sau scoate din planul de deploy\n\
+  Ctrl+O         omite obiectul\n\
   Ctrl+F         cauta\n\
-  h              harta: toate obiectele dintr-o privire; Esc inapoi\n\
+  Ctrl+H         harta: toate obiectele dintr-o privire; Esc inapoi\n\
   Clic pe capul unei coloane sorteaza; al doilea clic inverseaza.\n\
 \n\
 EDITOR\n\
   Esc            inapoi la lista\n\
-  j k            obiectul urmator, anterior\n\
-  n p            diferenta urmatoare, anterioara\n\
-  u              alaturat / unificat\n\
+  Ctrl+J K       obiectul urmator, anterior (si PageDown, PageUp)\n\
+  Ctrl+N P       diferenta urmatoare, anterioara (si F7, Shift+F7)\n\
+  Ctrl+U         alaturat / unificat\n\
+  Ctrl+L         rupe liniile lungi\n\
   Shift+sageti   deruleaza codul pe orizontala (liniile lungi); Home inapoi\n\
-  e              editeaza textul final de mana\n\
-  g              modul ghidat (fiecare diferenta pe rand)\n\
-  o              omite obiectul\n\
+  Ctrl+E         editeaza textul final de mana\n\
+  Ctrl+G         modul ghidat (fiecare diferenta pe rand)\n\
+  Ctrl+R / I / O revizuit, in plan, omite\n\
+  Ctrl+B         ascunde sau arata coloana listei\n\
+  Ctrl+W         inchide tabul\n\
   Ctrl+Z         anuleaza ultima schimbare a textului final\n\
 \n\
 DEPLOY\n\
@@ -107,23 +111,27 @@ witness with all of them at once.\n\
   Esc                  cancels the running comparison.\n\
 \n\
 LIST\n\
-  j k / arrows   next, previous object\n\
+  Ctrl+J K / arrows  next, previous object\n\
   Enter          open the object in the editor\n\
-  r              reviewed\n\
-  i              add to or remove from the deploy plan\n\
+  Ctrl+R         reviewed\n\
+  Ctrl+I         add to or remove from the deploy plan\n\
+  Ctrl+O         skip the object\n\
   Ctrl+F         search\n\
-  h              map: every object at a glance; Esc back\n\
+  Ctrl+H         map: every object at a glance; Esc back\n\
   Click a column header to sort; a second click reverses.\n\
 \n\
 EDITOR\n\
   Esc            back to the list\n\
-  j k            next, previous object\n\
-  n p            next, previous difference\n\
-  u              side by side / unified\n\
+  Ctrl+J K       next, previous object (also PageDown, PageUp)\n\
+  Ctrl+N P       next, previous difference (also F7, Shift+F7)\n\
+  Ctrl+U         side by side / unified\n\
+  Ctrl+L         wrap long lines\n\
   Shift+arrows   scroll the code horizontally (long lines); Home back\n\
-  e              edit the final text by hand\n\
-  g              guided mode (each difference in turn)\n\
-  o              skip the object\n\
+  Ctrl+E         edit the final text by hand\n\
+  Ctrl+G         guided mode (each difference in turn)\n\
+  Ctrl+R / I / O reviewed, in plan, skip\n\
+  Ctrl+B         hide or show the list column\n\
+  Ctrl+W         close the tab\n\
   Ctrl+Z         undo the last change to the final text\n\
 \n\
 DEPLOY\n\
@@ -1409,14 +1417,18 @@ pub fn incarca_detalii(ui: &FereastraLista, p: &PanouDetalii) {
     }
 }
 
-/// Numele tipului la plural, pentru bara laterala („Proceduri"), ca in
-/// machete. Singularul vine din `gmotion_core::nume_tip`.
+/// Numele tipului la plural, pentru filtrele de tip („Proceduri"), ca in
+/// machete. Pe codul din `sys.objects`, nu pe numele singular: cele trei
+/// feluri de functii (`FN`, `IF`, `TF`) au filtre separate, si toate trei
+/// scriau „Functii" (sesizat de Mihai).
 fn nume_tip_plural(tip: &str, l: texte::Limba) -> &'static str {
-    match gmotion_core::nume_tip(tip) {
-        "procedura" => l.alege("Proceduri", "Procedures"),
-        "view" => l.alege("View-uri", "Views"),
-        "functie" => l.alege("Functii", "Functions"),
-        "trigger" => l.alege("Triggere", "Triggers"),
+    match tip.trim().to_ascii_uppercase().as_str() {
+        "P" => l.alege("Proceduri", "Procedures"),
+        "V" => l.alege("View-uri", "Views"),
+        "FN" => l.alege("Functii scalare", "Scalar functions"),
+        "IF" => l.alege("Functii inline", "Inline functions"),
+        "TF" => l.alege("Functii tabel", "Table functions"),
+        "TR" => l.alege("Triggere", "Triggers"),
         _ => l.alege("Alte obiecte", "Other objects"),
     }
 }
@@ -2059,13 +2071,25 @@ mod teste {
     }
 
     /// Apasa o tasta in fereastra, ca un utilizator (apasat si eliberat).
-    fn apasa(ui: &EditorDiferente, tasta: &str) {
+    fn apasa<T: ComponentHandle>(ui: &T, tasta: &str) {
         use slint::platform::WindowEvent;
         let t: SharedString = tasta.into();
         ui.window()
             .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
         ui.window()
             .dispatch_event(WindowEvent::KeyReleased { text: t });
+    }
+
+    /// O tasta cu Ctrl tinut apasat.
+    fn cu_ctrl<T: ComponentHandle>(ui: &T, t: &str) {
+        use slint::platform::{Key, WindowEvent};
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Control.into(),
+        });
+        apasa(ui, t);
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Control.into(),
+        });
     }
 
     /// Tastele editorului ajung la callback-urile lor: aceleasi pe care le
@@ -2095,7 +2119,7 @@ mod teste {
             on_inapoi_lista => "lista",
             on_obiect_urmator => "j",
             on_obiect_anterior => "k",
-            on_ascunde_lista => "[",
+            on_ascunde_lista => "ctrl+b",
             on_inchide_tab_activ => "ctrl+w",
             on_fixeaza_previzualizarea => "fixeaza-prev",
         );
@@ -2150,10 +2174,19 @@ mod teste {
         );
         apeluri.borrow_mut().clear();
 
+        // o litera singura nu mai face nimic (se scrie in cautare); cu Ctrl, da
         apasa(&ui, "o");
         apasa(&ui, "g");
-        apasa(&ui, "e");
-        assert!(ui.get_editeaza_mod(), "e deschide editarea de mana");
+        apasa(&ui, "j");
+        assert!(
+            apeluri.borrow().is_empty(),
+            "litere fara Ctrl: {:?}",
+            apeluri.borrow()
+        );
+        cu_ctrl(&ui, "o");
+        cu_ctrl(&ui, "g");
+        cu_ctrl(&ui, "e");
+        assert!(ui.get_editeaza_mod(), "Ctrl+E deschide editarea de mana");
         ui.set_editeaza_mod(false);
         ui.invoke_focus_taste();
         // Ctrl+Z: Control tinut apasat, apoi z
@@ -2165,17 +2198,11 @@ mod teste {
         ui.window().dispatch_event(WindowEvent::KeyReleased {
             text: Key::Control.into(),
         });
-        // j / k / [ si Ctrl+W (etapa 16)
-        apasa(&ui, "j");
-        apasa(&ui, "k");
-        apasa(&ui, "[");
-        ui.window().dispatch_event(WindowEvent::KeyPressed {
-            text: Key::Control.into(),
-        });
-        apasa(&ui, "w");
-        ui.window().dispatch_event(WindowEvent::KeyReleased {
-            text: Key::Control.into(),
-        });
+        // Ctrl+J / K / B si Ctrl+W (etapa 16; Ctrl de la 2026-11-20)
+        cu_ctrl(&ui, "j");
+        cu_ctrl(&ui, "k");
+        cu_ctrl(&ui, "b");
+        cu_ctrl(&ui, "w");
         // in modul ghidat, Enter aplica si Esc sare (nu te intoarce in lista)
         ui.set_ghidat(true);
         apasa(&ui, &SharedString::from(Key::Return));
@@ -2189,7 +2216,7 @@ mod teste {
         assert_eq!(
             *apeluri.borrow(),
             [
-                "omite", "ghidat", "editeaza", "anuleaza", "j", "k", "[", "ctrl+w", "aplica",
+                "omite", "ghidat", "editeaza", "anuleaza", "j", "k", "ctrl+b", "ctrl+w", "aplica",
                 "sari", "opreste", "lista"
             ]
         );
@@ -2359,7 +2386,7 @@ mod teste {
         assert_eq!(*apeluri.borrow(), ["clic0", "clic0"]);
         apeluri.borrow_mut().clear();
 
-        // panoul deschis: Esc il inchide, `o` omite
+        // panoul deschis: Esc il inchide, Ctrl+O omite
         ui.set_detalii_deschise(true);
         ui.set_nota_id("dbo.pA".into());
         let tasta = |t: SharedString| {
@@ -2369,7 +2396,7 @@ mod teste {
                 .dispatch_event(WindowEvent::KeyReleased { text: t });
         };
         tasta(slint::platform::Key::Escape.into());
-        tasta("o".into());
+        cu_ctrl(&ui, "o");
         assert_eq!(*apeluri.borrow(), ["inchide", "omite"]);
         apeluri.borrow_mut().clear();
         ui.set_detalii_deschise(false);
@@ -3004,6 +3031,22 @@ mod teste {
         assert!(vazute.contains(&"dbo.p00".to_string()), "{vazute:?}");
         assert!(vazute.contains(&"dbo.fCalc".to_string()), "{vazute:?}");
         let _ = ui.hide();
+    }
+
+    /// Cele trei feluri de functii au filtre separate, deci si nume diferite.
+    #[test]
+    fn felurile_de_functii_au_nume_diferite() {
+        for l in texte::Limba::toate() {
+            let n: std::collections::BTreeSet<&str> = ["P", "V", "FN", "IF", "TF", "TR", "X"]
+                .iter()
+                .map(|t| nume_tip_plural(t, l))
+                .collect();
+            assert_eq!(n.len(), 7, "{l:?}: {n:?}");
+        }
+        assert_eq!(
+            nume_tip_plural("tf ", texte::Limba::Romana),
+            "Functii tabel"
+        );
     }
 
     #[test]
@@ -3970,9 +4013,12 @@ mod teste {
             });
         };
 
-        // `h` o deschide, cu un grup pe tip; Esc o inchide
+        // `h` singur nu face nimic (se scrie in cautare); Ctrl+H o deschide,
+        // cu un grup pe tip; Esc o inchide
         tasta("h".into());
-        assert!(ui.get_arata_harta(), "h deschide harta");
+        assert!(!ui.get_arata_harta(), "h fara Ctrl nu deschide harta");
+        cu_ctrl(&ui, "h");
+        assert!(ui.get_arata_harta(), "Ctrl+H deschide harta");
         let tipuri: std::collections::BTreeSet<String> =
             ui.get_randuri().iter().map(|r| r.tip.to_string()).collect();
         assert_eq!(ui.get_harta().row_count(), tipuri.len());

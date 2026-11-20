@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -372,18 +372,22 @@ export component EditorDiferente inherits Window {
             }
             if (e.modifiers.control && (e.text == "z" || e.text == "Z")) { root.anuleaza(); return accept; }
             if (e.modifiers.control && (e.text == "w" || e.text == "W")) { root.inchide-tab-activ(); return accept; }
-            if (e.text == "[") { root.ascunde-lista(); return accept; }
-            if (e.text == "n" || (e.text == Key.F7 && !e.modifiers.shift)) { root.navigheaza(root.diferenta-curenta + 1); return accept; }
-            if (e.text == "p" || (e.text == Key.F7 && e.modifiers.shift)) { root.navigheaza(root.diferenta-curenta - 1); return accept; }
-            if (e.text == "j" || e.text == Key.PageDown) { root.obiect-urmator(); return accept; }
-            if (e.text == "k" || e.text == Key.PageUp) { root.obiect-anterior(); return accept; }
-            if (e.text == "r") { root.comuta-revizuit(); return accept; }
-            if (e.text == "o") { root.comuta-omis(); return accept; }
-            if (e.text == "i") { root.adauga-in-plan(); return accept; }
-            if (e.text == "g") { if (root.ghidat) { root.ghidat-opreste(); } else { root.ghidat-porneste(); } return accept; }
-            if (e.text == "e") { root.porneste-editarea(); return accept; }
-            if (e.text == "u") { root.alaturat = !root.alaturat; root.comuta-alaturat(root.alaturat); return accept; }
-            if (e.text == "w") { root.impacheteaza = !root.impacheteaza; root.derulare-x = 0px; root.comuta-wrap(root.impacheteaza); return accept; }
+            // Scurtaturile cu litera cer Ctrl (Mihai, 2026-11-20): o litera
+            // singura, scrisa in cautarea din coloana, pornea si actiunea.
+            // Ctrl+W ramane „inchide tabul", deci wrap-ul e pe Ctrl+L, iar
+            // „ascunde lista" ([) pe Ctrl+B.
+            if (e.modifiers.control && (e.text == "b" || e.text == "B")) { root.ascunde-lista(); return accept; }
+            if ((e.modifiers.control && (e.text == "n" || e.text == "N")) || (e.text == Key.F7 && !e.modifiers.shift)) { root.navigheaza(root.diferenta-curenta + 1); return accept; }
+            if ((e.modifiers.control && (e.text == "p" || e.text == "P")) || (e.text == Key.F7 && e.modifiers.shift)) { root.navigheaza(root.diferenta-curenta - 1); return accept; }
+            if ((e.modifiers.control && (e.text == "j" || e.text == "J")) || e.text == Key.PageDown) { root.obiect-urmator(); return accept; }
+            if ((e.modifiers.control && (e.text == "k" || e.text == "K")) || e.text == Key.PageUp) { root.obiect-anterior(); return accept; }
+            if (e.modifiers.control && (e.text == "r" || e.text == "R")) { root.comuta-revizuit(); return accept; }
+            if (e.modifiers.control && (e.text == "o" || e.text == "O")) { root.comuta-omis(); return accept; }
+            if (e.modifiers.control && (e.text == "i" || e.text == "I")) { root.adauga-in-plan(); return accept; }
+            if (e.modifiers.control && (e.text == "g" || e.text == "G")) { if (root.ghidat) { root.ghidat-opreste(); } else { root.ghidat-porneste(); } return accept; }
+            if (e.modifiers.control && (e.text == "e" || e.text == "E")) { root.porneste-editarea(); return accept; }
+            if (e.modifiers.control && (e.text == "u" || e.text == "U")) { root.alaturat = !root.alaturat; root.comuta-alaturat(root.alaturat); return accept; }
+            if (e.modifiers.control && (e.text == "l" || e.text == "L")) { root.impacheteaza = !root.impacheteaza; root.derulare-x = 0px; root.comuta-wrap(root.impacheteaza); return accept; }
             // liniile lungi: Shift + sageti deruleaza codul pe orizontala,
             // Shift+Home il aduce inapoi la inceput (V10)
             if (e.modifiers.shift && e.text == Key.RightArrow) { root.deruleaza(120px); return accept; }
@@ -614,14 +618,14 @@ export component EditorDiferente inherits Window {
                             RandMeniu { text: Texte.reset; activ: root.editat; apasat => { root.reset(); } }
                             RandMeniu { text: Texte.anuleaza-ctrlz; tasta: "Ctrl Z"; activ: root.se-poate-anula; apasat => { root.anuleaza(); } }
                             Rectangle { height: 1px; background: Tema.linie-slaba; }
-                            RandMeniu { text: Texte.editeaza; tasta: "e"; apasat => { root.porneste-editarea(); } }
+                            RandMeniu { text: Texte.editeaza; tasta: "Ctrl E"; apasat => { root.porneste-editarea(); } }
                             RandMeniu {
                                 text: root.ghidat ? Texte.mod-ghidat-pornit : Texte.mod-ghidat;
-                                tasta: "g";
+                                tasta: "Ctrl G";
                                 activ: root.ghidat || root.total-diferente > 0;
                                 apasat => { if (root.ghidat) { root.ghidat-opreste(); } else { root.ghidat-porneste(); } }
                             }
-                            RandMeniu { text: root.omis ? Texte.omis-bifat : Texte.omite; tasta: "o"; apasat => { root.comuta-omis(); } }
+                            RandMeniu { text: root.omis ? Texte.omis-bifat : Texte.omite; tasta: "Ctrl O"; apasat => { root.comuta-omis(); } }
                             Rectangle { height: 1px; background: Tema.linie-slaba; }
                             RandMeniu {
                                 text: root.pliaza-identicul ? Texte.pliaza-identicul-bifat : Texte.pliaza-identicul;
@@ -1135,7 +1139,8 @@ export component EditorDiferente inherits Window {
                         height: 32px;
                         border-radius: 8px;
                         border-width: 1px;
-                        border-color: camp-cauta.has-focus ? Tema.accent : Tema.linie;
+                        border-color: camp-cauta.are-focus ? Tema.accent : Tema.linie;
+                        clip: true;
                         if camp-cauta.text == "": Text {
                             x: 10px;
                             text: Texte.cauta-obiect;
@@ -1144,15 +1149,11 @@ export component EditorDiferente inherits Window {
                             color: Tema.text-tert;
                             vertical-alignment: center;
                         }
-                        camp-cauta := TextInput {
+                        camp-cauta := CampText {
                             x: 10px;
                             width: parent.width - 20px;
-                            font-family: Tema.font-ui;
-                            font-size: 12.5px;
-                            color: Tema.text;
-                            vertical-alignment: center;
-                            single-line: true;
-                            edited => { root.cauta(self.text); }
+                            marime: 12.5px;
+                            edited(t) => { root.cauta(t); }
                         }
                     }
                 }
@@ -1309,8 +1310,8 @@ export component EditorDiferente inherits Window {
                 VerticalLayout { alignment: center; Semn { marime: 17px; } }
                 Despartitor { }
                 VerticalLayout { alignment: center; ButonInsula { height: 32px; text: Texte.lista-scurt; tasta: "Esc"; apasat => { root.inapoi-lista(); } } }
-                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: "‹"; tasta: "k"; apasat => { root.obiect-anterior(); } } }
-                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: "›"; tasta: "j"; apasat => { root.obiect-urmator(); } } }
+                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: "‹"; tasta: "Ctrl K"; apasat => { root.obiect-anterior(); } } }
+                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: "›"; tasta: "Ctrl J"; apasat => { root.obiect-urmator(); } } }
                 Despartitor { }
                 HorizontalLayout {
                     spacing: 8px;
@@ -1337,8 +1338,8 @@ export component EditorDiferente inherits Window {
                     }
                 }
                 Despartitor { }
-                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: root.revizuit ? Texte.revizuit-bifat : Texte.revizuit; tasta: "r"; fel: root.revizuit ? 2 : 0; apasat => { root.comuta-revizuit(); } } }
-                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: root.in-plan ? Texte.in-plan-bifat : Texte.in-plan; tasta: "i"; fel: 1; apasat => { root.adauga-in-plan(); } } }
+                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: root.revizuit ? Texte.revizuit-bifat : Texte.revizuit; tasta: "Ctrl R"; fel: root.revizuit ? 2 : 0; apasat => { root.comuta-revizuit(); } } }
+                VerticalLayout { alignment: center; ButonInsula { height: 32px; text: root.in-plan ? Texte.in-plan-bifat : Texte.in-plan; tasta: "Ctrl I"; fel: 1; apasat => { root.adauga-in-plan(); } } }
                 VerticalLayout { alignment: center; ButonInsula { height: 32px; text: Texte.deploy + " (" + root.numar-deploy + ")"; activ: root.numar-deploy > 0; apasat => { root.deschide-deploy(); } } }
                 VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
                 VerticalLayout { alignment: center; ButonLimba { limbi: root.limbi; aleasa: root.limba-aleasa; alege(i) => { root.alege-limba(i); } } }
@@ -1358,7 +1359,7 @@ export component EditorDiferente inherits Window {
                 padding-left: 16px;
                 padding-right: 16px;
                 spacing: 18px;
-                for k in [{ t: "j k", e: Texte.obiect-mic }, { t: "n p", e: Texte.diferenta-mic }, { t: "e", e: Texte.text-final-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "[", e: Texte.ascunde-lista-mic }, { t: "Ctrl W", e: Texte.inchide-tab-mic }]: HorizontalLayout {
+                for k in [{ t: "Ctrl J K", e: Texte.obiect-mic }, { t: "Ctrl N P", e: Texte.diferenta-mic }, { t: "Ctrl E", e: Texte.text-final-mic }, { t: "Ctrl R", e: Texte.revizuit-mic }, { t: "Ctrl B", e: Texte.ascunde-lista-mic }, { t: "Ctrl W", e: Texte.inchide-tab-mic }]: HorizontalLayout {
                     spacing: 5px;
                     Text { text: k.t; font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: Tema.text-secundar; vertical-alignment: center; }
                     Text { text: k.e; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; }

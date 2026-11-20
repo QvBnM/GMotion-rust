@@ -290,6 +290,37 @@ export global Tema {
     }
 }
 
+// Camp de text pe un rand care se deruleaza dupa cursor: un text mai lung
+// decat campul nu iese din chenar, iar ce scrii la capat ramane vizibil.
+// `TextInput` singur nu face asta (sesizat de Mihai, 2026-11-20).
+export component CampText inherits Rectangle {
+    in-out property <string> text;
+    in property <length> marime: 13px;
+    out property <bool> are-focus: camp.has-focus;
+    // cat e derulat textul spre stanga (<= 0)
+    in-out property <length> dx: 0px;
+    callback edited(string);
+    public function focuseaza() { camp.focus(); }
+    clip: true;
+    camp := TextInput {
+        // cand incape, sta la inceput; altfel nu lasa gol in dreapta
+        x: Math.max(root.width - self.width, Math.min(0px, root.dx));
+        width: Math.max(root.width, self.preferred-width + 2px);
+        height: root.height;
+        text <=> root.text;
+        font-family: Tema.font-ui;
+        font-size: root.marime;
+        color: Tema.text;
+        vertical-alignment: center;
+        single-line: true;
+        edited => { root.edited(self.text); }
+        cursor-position-changed(p) => {
+            if (p.x + self.x > root.width - 2px) { root.dx = root.width - 2px - p.x; }
+            if (p.x + self.x < 0px) { root.dx = -p.x; }
+        }
+    }
+}
+
 export component Despartitor inherits Rectangle {
     width: 1px;
     height: 20px;

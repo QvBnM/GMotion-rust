@@ -1538,3 +1538,21 @@ scoasa din textele catre utilizator).
 
 **Daca devine lent.** Pe baze cu zeci de mii de obiecte mari, calculul se
 muta pe firul compararii, nu inapoi la lenes.
+
+---
+
+## 2026-11-20 — Scurtaturile cu litera cer Ctrl
+
+**Context.** Mihai a scris in cautarea listei si s-au declansat scurtaturile
+de o litera (`r` bifa, `i` in plan, `h` harta...). Litera ajungea si la
+campul de text, si la `FocusScope`-ul ecranului.
+
+**Alternative.** (a) Scurtaturile raman o litera, dar se ignora cat timp un
+camp de text are focus — trebuia tinut minte in fiecare ecran care camp e
+activ, si orice camp nou ar fi reintrodus bug-ul. (b) Toate cer Ctrl, ca in
+cererea lui Mihai. Ales (b): un camp de text nu foloseste Ctrl+litera
+(in afara de A / C / V / X / Z), deci nu se mai pot ciocni.
+
+**Decizie.** Lista: Ctrl+J K, R, I, O, H, F. Editor: Ctrl+J K, N P, R, O, I,
+G, E, U; wrap Ctrl+L (Ctrl+W ramane „inchide tabul"), coloana listei Ctrl+B.
+Sagetile, PageUp / PageDown, F7, Enter, Esc si F1 / F11 raman simple.

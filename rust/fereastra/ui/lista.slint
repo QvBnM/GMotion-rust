@@ -10,7 +10,7 @@
 // clicul pe harta, din `src/harta.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Semn, Chevron, Jumatate, RandUi, Ajutor } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Semn, Chevron, Jumatate, RandUi, Ajutor, CampText } from "comune.slint";
 
 export struct RandListaUi {
     // coloana din editor (etapa 16): un rand cu `antet` nevid e capul unui
@@ -744,21 +744,24 @@ export component FereastraLista inherits Window {
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
-            // harta: `h` o deschide si o inchide, Esc o inchide inaintea oricui
-            if (e.text == "h" && !e.modifiers.control) {
+            // Scurtaturile cu litera cer Ctrl (Mihai, 2026-11-20): o litera
+            // singura, scrisa in cautare, ajungea si aici si bifa, punea in
+            // plan sau deschidea harta. Sagetile, Enter si Esc raman simple.
+            // harta: Ctrl+H o deschide si o inchide, Esc o inchide inaintea oricui
+            if (e.modifiers.control && (e.text == "h" || e.text == "H")) {
                 if (root.arata-harta) { root.arata-harta = false; } else { root.deschide-harta(); }
                 return accept;
             }
             if (e.text == Key.Escape && root.arata-harta) { root.arata-harta = false; return accept; }
             if (root.arata-harta) { return reject; }
-            if (e.text == Key.DownArrow || e.text == "j") { root.muta-selectia(1); return accept; }
-            if (e.text == Key.UpArrow || e.text == "k") { root.muta-selectia(-1); return accept; }
+            if (e.text == Key.DownArrow || (e.modifiers.control && (e.text == "j" || e.text == "J"))) { root.muta-selectia(1); return accept; }
+            if (e.text == Key.UpArrow || (e.modifiers.control && (e.text == "k" || e.text == "K"))) { root.muta-selectia(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
-            if (e.text == "r") { root.comuta-revizuit(root.selectat); return accept; }
-            if (e.text == "i") { root.adauga-in-plan(); return accept; }
-            if (e.text == "o") { root.comuta-omis(); return accept; }
+            if (e.modifiers.control && (e.text == "r" || e.text == "R")) { root.comuta-revizuit(root.selectat); return accept; }
+            if (e.modifiers.control && (e.text == "i" || e.text == "I")) { root.adauga-in-plan(); return accept; }
+            if (e.modifiers.control && (e.text == "o" || e.text == "O")) { root.comuta-omis(); return accept; }
             // Ctrl+F: cursorul in cautare, ca in v3.4
-            if (e.text == "f" && e.modifiers.control) { camp.focus(); return accept; }
+            if (e.modifiers.control && (e.text == "f" || e.text == "F")) { camp.focuseaza(); return accept; }
             if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
             if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
             if (e.text == Key.Escape && root.intreaba-deconectarea) { root.renunta-la-deconectare(); return accept; }
@@ -870,8 +873,10 @@ export component FereastraLista inherits Window {
                         height: 34px;
                         border-radius: 9px;
                         border-width: 1px;
-                        border-color: camp.has-focus ? Tema.accent : Tema.linie;
+                        border-color: camp.are-focus ? Tema.accent : Tema.linie;
                         background: Tema.suprafata;
+                        // un text lung nu iese din camp (sesizat de Mihai)
+                        clip: true;
                         HorizontalLayout {
                             padding-left: 12px;
                             padding-right: 12px;
@@ -881,17 +886,14 @@ export component FereastraLista inherits Window {
                                 commands: "M 6 1.5 A 4.5 4.5 0 1 1 5.99 1.5 M 9.3 9.3 L 12.5 12.5";
                                 stroke: Tema.text-tert; stroke-width: 1.5px; fill: transparent;
                             }
-                            camp := TextInput {
+                            camp := CampText {
+                                horizontal-stretch: 1;
+                                min-width: 0px;
                                 text <=> root.cautare;
-                                font-family: Tema.font-ui;
-                                font-size: 13px;
-                                color: Tema.text;
-                                vertical-alignment: center;
-                                single-line: true;
-                                edited => { root.cauta(self.text); }
+                                edited(t) => { root.cauta(t); }
                             }
                         }
-                        if root.cautare == "" && !camp.has-focus: Text {
+                        if root.cautare == "" && !camp.are-focus: Text {
                             x: 34px;
                             text: Texte.cauta-obiect;
                             font-family: Tema.font-ui;
@@ -1365,7 +1367,7 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "r", e: Texte.revizuit-mic }, { t: "i", e: Texte.in-plan-mic }, { t: "o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
+                    for k in [{ t: "ctrl j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "ctrl r", e: Texte.revizuit-mic }, { t: "ctrl i", e: Texte.in-plan-mic }, { t: "ctrl o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "ctrl h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
                         spacing: 6px;
                         Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
                         Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }

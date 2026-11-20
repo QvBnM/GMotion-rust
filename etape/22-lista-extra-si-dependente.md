@@ -69,6 +69,13 @@ apasa; accesibil din `cli` (CLAUDE.md §3).
   - cu panoul deschis, numele lungi intrau peste coloana Tip (vechi, dar
     agravat de cele doua coloane noi): acum se taie cu „…".
 
+- **2026-11-20** Sesizari ale lui Mihai pe lista, rezolvate in aceeasi etapa:
+  scurtaturile cu o litera (j k r i o h, si n p e g u w [ in editor) se
+  declansau cand scriai in cautare — acum cer Ctrl (Ctrl+L wrap, Ctrl+B
+  coloana listei); textul lung iesea din campul de cautare si nu se derula
+  dupa cursor (`CampText`); cele trei feluri de functii (FN, IF, TF) aveau
+  trei filtre numite toate „Functii".
+
 ## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

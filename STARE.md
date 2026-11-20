@@ -162,6 +162,14 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
 
+- **Scurtaturile cu litera cer Ctrl, pe ambele ecrane** (Mihai, 2026-11-20):
+  o litera singura, scrisa in cautare, ajungea si la `FocusScope` si bifa sau
+  punea in plan. O scurtatura noua se scrie `e.modifiers.control && (e.text
+  == "x" || e.text == "X")`; Ctrl+W e „inchide tabul", deci wrap-ul e Ctrl+L
+  si „ascunde lista" Ctrl+B. Sagetile, Enter, Esc, F-urile raman simple.
+- **Un camp de text pe un rand se scrie cu `CampText`** (`comune.slint`), nu
+  cu `TextInput` gol: acela nu se deruleaza dupa cursor si iese din chenar.
+
 - **„Folosit de" si „Foloseste" nu vin din aceeasi baza.** Primul din
   Modificata (unde loveste deploy-ul), al doilea din Martor (codul care s-ar
   deploia), in afara de Extra. Un test care le asteapta din aceeasi baza e
@@ -347,7 +355,7 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   (`cercetare/schita-slint/`) are butoane pe care aplicatia inca nu le are
   (Aplica toate, Mod ghidat...). Cand le portezi, adaugi logica si butonul
   in acelasi pas, cu test.
-- **Harta e acum un ecran separat** (`h` sau butonul din bara listei),
+- **Harta e acum un ecran separat** (Ctrl+H sau butonul din bara listei),
   desenat peste lista in `lista.slint` (`arata-harta`). Ce patrat e sub
   mouse se decide doar in `harta::indice_la`; Slint trimite coordonatele.
 - **`moved` dintr-un `TouchArea` vine doar cu butonul apasat.** Pentru
