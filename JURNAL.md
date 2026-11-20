@@ -1483,3 +1483,34 @@ acolo nu exista cod; (c) ramane gol.
 
 **Decizie.** (a), aleasa de Mihai. Hasura spune doua lucruri deodata: randul
 tine de bloc, dar nu e cod.
+
+---
+
+## 2026-11-20 — Aplicarea unui bloc trece prin plasare
+
+**Context.** La tragere, ecranul aprindea locul dat de `plasari` („inlocuieste
+blocul N din Modificata"), dar „Aplica" (sageata, lasarea, modul ghidat,
+`cli`) compunea prin `core::compune`, care pune un bloc fara pereche la
+pozitia lui din martor. Pe un bloc mutat in tinta (UPDATE-ul urcat inaintea
+SELECT-urilor), rezultatul era blocul **dublat**: cel vechi ramanea, cel nou
+se insera la sfarsit. Ecranul promitea altceva decat scria.
+
+**Alternative.** (a) Ecranul sa aprinda pozitia din diff, ca `compune` — ar fi
+aruncat stratul de plasare portat la etapa 20 exact unde conteaza. (b)
+Compunerea sa urmeze plasarea, ca in v3.4 (`aplicaBlocDirect`): un bloc fara
+pereche care seamana cu un bloc din tinta il inlocuieste; la inserarea in gol
+vine cu tot grupul lui (`IF ... BEGIN` cu corpul). Ales (b).
+
+**Decizie.** O singura functie in `core`, `aplica_blocuri(stanga, dreapta,
+uneste_cursor, blocuri)`, prin care scriu editorul, tragerea, modul ghidat si
+`cli`; editorul ia plasarea din `plasari_aliniere`, pe aceleasi blocuri.
+`compune` ramane (fara plasare) pentru invarianta „nimic aplicat = dreapta" si
+pentru cine vrea pozitia bruta. Previzualizarea la hover cheama aceeasi
+functie, deci arata exact ce s-ar scrie.
+
+**Consecinta.** „Aplica toate prin blocuri da forma normalizata a stangii" nu
+mai e invarianta pentru `aplica_blocuri`: un bloc fara pereche poate inlocui
+alt bloc. Fuzz-ul cere in schimb ca blocul aplicat sa ajunga intreg si ca din
+dreapta sa nu se piarda mai mult decat blocul inlocuit. „Aplica toate"
+ramane textul exact al sursei. Pe drum: aplicarea nu primea „uneste ciclul
+cursor", deci cu optiunea pornita indicele arata alt bloc decat cel apasat.

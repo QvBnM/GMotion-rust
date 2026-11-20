@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-20 · commit `f671aa8` · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (577 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-20 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (589 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,25 +47,21 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Etapa 21 (`etape/21-editorul-functiile-v34.md`), pasul 4: drag & drop.**
-Facute: eticheta pe bloc, randul-fantoma, legatura din canal, iar la tragere
-se aprinde locul calculat de motor (`core::plasare::plasari`). Ramane din
-pasul 4, in ordinea asta:
+**Etapa 21: functiile sunt facute si testate; asteapta „da"-ul lui Mihai** pe
+perechile macheta | aplicatia din `cercetare/machete/editor-functii/capturi/`
+(`pereche-1-mapare.png`, `pereche-2-trage.png`, `pereche-3-hover.png`;
+capturile aplicatiei si in tema luminoasa). Cu „da"-ul: bifele pe drag & drop
+si previzualizare, `Stare: INCHEIATA`, „Ce a iesit altfel". Daca cere
+schimbari, se fac pe aceleasi capturi (`--trage N`, `--previzualizeaza N`,
+comenzile in README-ul machetelor).
 
-1. de verificat ca **lasarea** blocului scrie exact in locul aprins (acelasi
-   raspuns din `plasari`, nu pozitia mouse-ului), cu test care trage si lasa;
-2. Ctrl+Z dupa lasare, cu test;
-3. abia apoi bifa pe drag & drop, cu captura `--trage N` langa
-   `cercetare/machete/editor-functii/2-drag-si-plaseaza-aici.png`.
+De cerut pe Windows, cand are timp: tragerea unui bloc peste Modificata se
+simte natural? previzualizarea la hover apare fara intarziere pe un obiect
+mare?
 
-Apoi pasii 3, 5, 6 din etapa: previzualizarea la hover, modul ghidat pe
-plasarea reala, „Uneste ciclul cursor" (`comuta-unirea-cursorului` exista in
-`editor.slint`; de verificat ca e legat la `core`).
-
-**Asteapta „da"-ul lui Mihai** (bifa pe ecran cere perechea vazuta de el):
-capturile hartii (`cercetare/capturi/harta-*.png`), perechile conectarii
-(`cercetare/machete/conectare-noua/capturi/pereche-*.png`) si, pe masura ce
-se fac, perechile etapei 21.
+**Tot pe „da"-ul lui Mihai, mai vechi:** capturile hartii
+(`cercetare/capturi/harta-*.png`) si perechile conectarii
+(`cercetare/machete/conectare-noua/capturi/pereche-*.png`).
 
 Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
 (`cercetare/lipsuri-portare.md`). De probat intai daca se poate in Slint
@@ -149,6 +145,18 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Un bloc se scrie doar prin `gmotion_core::aplica_blocuri`.** Editorul
+  intreaba plasarea prin `plasari_aliniere`, pe aceleasi blocuri; `compune`
+  pune blocul la pozitia din diff, fara plasare. Un al treilea drum ar face
+  ecranul sa promita alt loc decat cel in care scrie (bug-ul din etapa 21:
+  blocul mutat iesea dublat). Si `uneste_cursor` trebuie dat la fel peste tot.
+- **Locul aprins la tragere e pe diferenta, nu pe rand** (`tinte-de-la` /
+  `tinte-pana-la`): mai multe blocuri pot cadea pe acelasi rand-fantoma.
+- **Discul containerului se umple din `target/debug/incremental`** (~8 GB
+  dupa o zi). Simptomul e „ld terminated with signal 7 [Bus error]", nu
+  „no space". Se sterge `target/debug/incremental` si `target/debug/examples`;
+  `CARGO_INCREMENTAL=0` il tine mic.
 
 - **Imperecherea blocurilor se decide intr-un singur loc:** `plan_blocuri` din
   `core/src/diff.rs`. Si `diff_aliniat`, si `rezumat_rapid` citesc de acolo.

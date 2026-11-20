@@ -72,6 +72,11 @@ legatura din canal, previzualizarea la hover in modul unificat si „Uneste
 ciclul cursor". Evidentierea de sintaxa **in timp ce scrii** lipseste:
 editarea de mana e text simplu, culorile revin la salvare.
 
+Etapa 21 le-a refacut **in formatul nou**, pe plasarea din motor: eticheta
+pe bloc, legatura din canal, randul-fantoma, locul aprins la tragere,
+previzualizarea la hover pe sageata (ce ar scrie „Aplica"), modul ghidat si
+tragerea scriu acolo unde arata ecranul (`core::aplica_blocuri`).
+
 Exista si merg: navigarea intre diferente (`n`/`p`), obiect anterior/urmator
 (`j`/`k`), Esc inapoi la lista, Revizuit (bifa legata de continut, mai buna
 decat in v3.4), minimap, derulare sincronizata, diferentele in interiorul

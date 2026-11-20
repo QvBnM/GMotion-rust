@@ -22,3 +22,23 @@ Umplutura dintr-un bloc (randul gol din dreptul unei linii care exista doar in
 cealalta parte) e **hasurata** in culoarea blocului — decizia lui Mihai,
 2026-11-20, vezi `JURNAL.md`. Fara hasura, blocul pare rupt in doua si golul
 pare o linie pierduta.
+
+## Capturile aplicatiei (etapa 21)
+
+In `capturi/`, pe acelasi caz, 1600x760, ambele teme, plus perechile
+macheta | aplicatia (`pereche-*.png`, tema intunecata, ca machetele):
+
+```
+cd rust && cargo build --release -p gmotion-fereastra --example captura
+./target/release/examples/captura inst.json CharismaERP_GetsBet CharismaERP_GetsBet_Copy \
+    dbo.uspLeasing2_GetTemplatesMultipleDocuments iesire.png --latime 1600 --inaltime 760 \
+    [--trage 1 | --previzualizeaza 2] [--tema luminos]
+```
+
+`inst.json` e un instantaneu cu `martor.sql` in baza `CharismaERP_GetsBet` si
+`modificata.sql` in `CharismaERP_GetsBet_Copy`. `--previzualizeaza` plimba
+mouse-ul pana ajunge pe sageata, nu pune starea direct.
+
+Abateri fata de machete: in previzualizare, explicatia nu numeste blocul
+(„daca aplici blocul", fara numar — eticheta de pe bloc il spune deja);
+banda „Plaseaza aici" e pe randul-fantoma, nu o banda separata intre blocuri.
