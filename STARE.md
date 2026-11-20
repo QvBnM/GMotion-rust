@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-19 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (539 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-20 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (572 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -141,8 +141,9 @@ previzualizarea la hover. Toate au acum pe cine intreba:
 
 ## Ce astept de la Mihai
 
-**Design-ul nou pentru ecranul de conectare** (macheta), dupa incheierea
-etapei 15, inaintea etapei 16.
+**Care etapa urmeaza: 21 (editorul) sau 17 (conectarea noua).** 17 e facuta si
+asteapta „da"-ul pe perechile macheta | aplicatie; 21 are criteriile si
+machetele-tinta scrise, nepornita.
 
 **Decizii inca deschise** (nu blocheaza nimic): dialogul nativ de fisiere
 (`rfd`); textul ecranului „Despre" (cerut de licenta Slint); implicitul pentru
