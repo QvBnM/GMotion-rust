@@ -821,26 +821,19 @@ export component EditorDiferente inherits Window {
                                             tigla: root.tigla-hasura;
                                             eticheta: root.ascunde-diferentele || r.stare != 3 ? "" : r.eticheta;
                                             fantoma: r.fantoma && !root.ascunde-diferentele;
+                                            // cat tragi un bloc, locul lui se aprinde
+                                            tinta-aprinsa: root.trage-diferenta >= 0 && r.tinta-diferentei == root.trage-diferenta;
+                                            tinta-prima: r.tinta-prima;
+                                            text-plasare: root.trage-x <= root.jgheab ? Texte.trage-peste
+                                                : r.fantoma ? Texte.plaseaza-aici-insereaza
+                                                : Texte.plaseaza-aici-inlocuieste;
                                         }
-                                        // unde ajunge blocul tras
-                                        // `>= 0` conteaza: randurile de context au
-                                        // `diferenta == -1`, adica exact valoarea
-                                        // „nu se trage nimic" — fara asta, zona de
-                                        // plasare se aprindea pe tot panoul
-                                        if root.trage-diferenta >= 0 && root.trage-diferenta == r.diferenta: Rectangle {
-                                            border-radius: 4px;
-                                            border-width: 1.5px;
-                                            border-color: Tema.accent;
-                                            background: Tema.mod-fundal;
-                                            opacity: 0.85;
-                                            if r.inceput: Text {
-                                                text: root.trage-x > root.jgheab ? Texte.plaseaza-aici : Texte.trage-peste;
-                                                font-family: Tema.font-ui;
-                                                font-size: 11.5px;
-                                                font-weight: 500;
-                                                color: Tema.mod-text;
-                                            }
-                                        }
+                                        // Zona de plasare se aprindea pe randurile
+                                        // blocului tras, adica acolo unde ar cadea
+                                        // daca ar cadea pe pozitie. De la etapa 21
+                                        // se aprinde **locul calculat de motor**
+                                        // (`tinta-diferentei`, in `Jumatate`), ca sa
+                                        // nu promita alt loc decat cel in care scrie.
                                     }
                                 }
                                 // unificat: o singura coloana, cu ambele jgheaburi

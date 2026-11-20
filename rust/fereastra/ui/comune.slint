@@ -90,6 +90,8 @@ export global Texte {
     in-out property <string> omite;
     in-out property <string> parola;
     in-out property <string> plaseaza-aici;
+    in-out property <string> plaseaza-aici-insereaza;
+    in-out property <string> plaseaza-aici-inlocuieste;
     in-out property <string> pliaza-identicul;
     in-out property <string> impacheteaza;
     in-out property <string> impacheteaza-bifat;
@@ -639,6 +641,11 @@ export struct RandUi {
     delta-tinta: int,
     // locul e un gol intre blocuri (se insereaza), nu un bloc de inlocuit
     tinta-gol: bool,
+    // randul e locul in care ajunge diferenta cu numarul asta (-1 = niciunul):
+    // cand tragi blocul, locul lui se aprinde
+    tinta-diferentei: int,
+    // primul rand al locului: acolo scrie ce se intampla
+    tinta-prima: bool,
     st-lipsa: bool,
     dr-lipsa: bool,
 }
@@ -710,6 +717,12 @@ export component Jumatate inherits Rectangle {
     in property <string> eticheta;
     // randul e fantoma: locul unde ar veni un bloc din martor
     in property <bool> fantoma;
+    // se trage un bloc si aici ar cadea: se aprinde
+    in property <bool> tinta-aprinsa;
+    // primul rand al tintei: doar acolo scrie ce se intampla, altfel textul
+    // s-ar repeta pe fiecare linie a blocului
+    in property <bool> tinta-prima;
+    in property <string> text-plasare;
     // fondul liniilor identice: `cod-fundal` (baza) sau `panou-sursa` (sursa)
     in property <color> fond: Tema.cod-fundal;
     // linia din baza: 0 cum era, 1 adusa din sursa (verde, ca „doar in
@@ -731,6 +744,30 @@ export component Jumatate inherits Rectangle {
     if root.fantoma: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
     if root.fantoma: Rectangle { y: 0px; height: 1px; background: Tema.del-bara; }
     if root.fantoma: Rectangle { y: parent.height - 1px; height: 1px; background: Tema.del-bara; }
+    // locul in care ar cadea blocul tras: fundal subtire peste tot blocul,
+    // text doar pe primul rand
+    if root.tinta-aprinsa: Rectangle {
+        background: Tema.add-bara.transparentize(0.88);
+        Rectangle { x: 0px; width: 2px; background: Tema.add-bara; }
+    }
+    if root.tinta-aprinsa && root.tinta-prima: Rectangle {
+        x: parent.width - self.width - 10px;
+        y: 2px;
+        height: parent.height - 4px;
+        width: plasare-text.preferred-width + 16px;
+        border-radius: 4px;
+        background: Tema.add-fundal;
+        border-width: 1px;
+        border-color: Tema.add-bara;
+        plasare-text := Text {
+            text: root.text-plasare;
+            font-family: Tema.font-ui;
+            font-size: 11px;
+            font-weight: 600;
+            color: Tema.add-text;
+            vertical-alignment: center;
+        }
+    }
     HorizontalLayout {
         // jgheabul si numarul raman pe loc; se muta doar codul (mai jos)
         spacing: 0px;

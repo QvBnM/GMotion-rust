@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: fd712320dcc1970d -->
+<!-- api-hash: 410b2fc27aac3dae -->
 
 ## Rol
 
@@ -63,7 +63,12 @@ si editorul de diferente (etapa 8).
 `gmotion_core::plasare::plasari` si doar aseaza raspunsul pe ecran: pastila de
 pe bloc (`Rand::eticheta`), randul-fantoma (`Rand::fantoma`) si legatura din
 canal (`ModelEditor::tinte`). O a doua parere in fereastra ar insemna ca
-„Aplica" scrie in alt loc decat arata ecranul.
+„Aplica" scrie in alt loc decat arata ecranul. Cat timp se trage un bloc, se
+aprinde **locul calculat de motor**, nu randurile blocului tras: pana la etapa
+21 zona de plasare se aprindea acolo unde ar fi cazut blocul pe pozitie.
+
+`randuri_ui_pentru_test` (ascunsa din documentatie) da randurile asa cum ajung
+in Slint, pentru exemple si probe.
 | `model_editor::plieaza(model, context, limba) -> Vec<RandAfisat>` | sirurile lungi de linii identice, pliate |
 | `model_lista`: `Deploy`, `FiltruRevizuire`, `filtreaza_revizuire`, `filtreaza_scor`, `pune_vizibilele_in_plan`, `pune_deploy`, `progres_deploy`; `Ordine` pe orice coloana, sensul in `descrescator()` | lista la paritate cu v3.4 (etapa 14, C — modelul; ecranul inca nu) |
 | `model_editor::marcheaza_textul_final(model, baza, final, manual)`, `Marcaj` | liniile din baza aduse din sursa sau scrise de tine |

@@ -2,7 +2,7 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--trage N]
 use std::rc::Rc;
 
 use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
@@ -108,6 +108,14 @@ fn main() {
     if let Some(i) = a.iter().position(|x| x == "--font-mono") {
         ui.global::<gmotion_fereastra::Tema>()
             .set_font_mono(a[i + 1].as_str().into());
+    }
+    // `--trage N`: fotografiaza editorul in timp ce se trage diferenta N,
+    // ca sa se vada tinta aprinsa (criteriul „drag & drop" din etapa 21)
+    if let Some(i) = a.iter().position(|x| x == "--trage") {
+        if let Some(n) = a.get(i + 1).and_then(|x| x.parse::<i32>().ok()) {
+            ui.set_trage_diferenta(n);
+            ui.set_trage_x(80.0);
+        }
     }
     ui.set_alaturat(!are("--unificat"));
     ui.set_pliaza_identicul(!are("--fara-pliere"));

@@ -409,6 +409,12 @@ fn cod_stare(s: Stare) -> i32 {
 /// Randurile de afisat si randul de inceput al fiecarei diferente, **in
 /// coordonatele listei afisate** (plierea schimba indicii, iar navigarea
 /// deruleaza lista, nu modelul).
+/// Numai pentru probe si exemple: randurile asa cum ajung in Slint.
+#[doc(hidden)]
+pub fn randuri_ui_pentru_test(model: &ModelEditor, pliat: bool) -> (Vec<RandUi>, Vec<i32>) {
+    randuri_ui(model, pliat, false, texte::Limba::Romana, None)
+}
+
 fn randuri_ui(
     model: &ModelEditor,
     pliat: bool,
@@ -463,6 +469,8 @@ fn randuri_ui(
     // unde a ajuns fiecare rand al modelului in lista afisata (plierea si
     // wrap-ul schimba indicii): din asta ies legaturile din canal
     let mut afisat_pentru = vec![-1i32; model.randuri.len()];
+    // drumul invers: din randul afisat in cel al modelului
+    let mut model_pentru: Vec<usize> = Vec::with_capacity(afisate.len());
     for r in &afisate {
         match r {
             RandAfisat::Pliere { eticheta, .. } => randuri.push(RandUi {
@@ -486,6 +494,8 @@ fn randuri_ui(
                 fantoma: false,
                 delta_tinta: 0,
                 tinta_gol: false,
+                tinta_diferentei: -1,
+                tinta_prima: false,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -527,6 +537,8 @@ fn randuri_ui(
                     // cunosc toate randurile afisate
                     delta_tinta: 0,
                     tinta_gol: false,
+                    tinta_diferentei: -1,
+                    tinta_prima: false,
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     pune(
@@ -575,6 +587,24 @@ fn randuri_ui(
     for r in randuri.iter_mut().filter(|r| r.inceput && r.diferenta >= 0) {
         r.linii_bloc = cate.get(r.diferenta as usize).copied().unwrap_or(0);
     }
+    // din ce rand al modelului vine fiecare rand afisat
+    for (i, m) in afisat_pentru.iter().enumerate() {
+        if *m >= 0 {
+            while model_pentru.len() <= *m as usize {
+                model_pentru.push(usize::MAX);
+            }
+            model_pentru[*m as usize] = i;
+        }
+    }
+    let model_al_randului = |afisat: usize| -> Option<usize> {
+        afisat_pentru
+            .iter()
+            .enumerate()
+            .filter(|(_, &a)| a >= 0 && a as usize <= afisat)
+            .max_by_key(|(_, &a)| a)
+            .map(|(m, _)| m)
+    };
+
     // legatura din canal: de la primul rand al diferentei la randul unde
     // ajunge blocul. Pe randuri afisate, nu pe randuri de model — plierea si
     // wrap-ul le muta.
@@ -593,6 +623,23 @@ fn randuri_ui(
         if let Some(r) = randuri.get_mut(de_la as usize) {
             r.delta_tinta = pana_la - de_la;
             r.tinta_gol = gol;
+        }
+        // tot blocul tinta se aprinde cat timp se trage, nu doar primul rand:
+        // altfel pare ca blocul ar intra pe o singura linie
+        let bloc_tinta = model.randuri.get(*tinta).and_then(|r| r.bloc);
+        let mut prima_pusa = false;
+        for (i, r) in randuri.iter_mut().enumerate() {
+            let acelasi = match bloc_tinta {
+                Some(b) => model_al_randului(i)
+                    .and_then(|m| model.randuri.get(m))
+                    .is_some_and(|m| m.bloc == Some(b)),
+                None => i as i32 == pana_la,
+            };
+            if acelasi {
+                r.tinta_diferentei = k as i32;
+                r.tinta_prima = !prima_pusa;
+                prima_pusa = true;
+            }
         }
     }
     (randuri, start)
