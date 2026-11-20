@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 54b801e9723895aa -->
+<!-- api-hash: c41d190b2e86ac39 -->
 
 ## Rol
 
@@ -70,6 +70,8 @@ se tine **pe diferenta** (`tinte-de-la` / `tinte-pana-la`, randuri afisate), nu
 pe rand: doua blocuri pot cadea pe acelasi rand-fantoma, iar un singur numar
 pe rand il pastra doar pe ultimul.
 
+Locul unde vin blocurile fara corespondent e partea din dreapta a randurilor
+lor (`Rand::inserare`; primul are `fantoma` si textul), fara rand separat.
 `ModelEditor::grupuri` tine, pentru fiecare diferenta, blocurile motorului pe
 care le aplica (`core::grupuri_diferente`); eticheta unui bloc sta pe un rand
 al ei (`RandUi::fel == 2`), deasupra blocului, iar legaturile curbe din canal

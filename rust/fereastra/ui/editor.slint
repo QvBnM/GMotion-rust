@@ -893,10 +893,10 @@ export component EditorDiferente inherits Window {
                                             width: parent.width;
                                             nr: r.dr-nr;
                                             bucati: r.dr;
-                                            stare: root.ascunde-diferentele ? 0 : r.stare;
+                                            stare: root.ascunde-diferentele || r.inserare ? 0 : r.stare;
                                             marcaj: root.ascunde-diferentele ? 0 : r.dr-marcaj;
                                             curenta: r.diferenta == root.diferenta-curenta;
-                                            fara-linie: r.continuare ? r.dr-lipsa : r.dr-nr == "";
+                                            fara-linie: r.inserare ? false : r.continuare ? r.dr-lipsa : r.dr-nr == "";
                                             decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
                                             eticheta: root.ascunde-diferentele || r.stare != 3 ? "" : r.eticheta;
@@ -1013,8 +1013,10 @@ export component EditorDiferente inherits Window {
                         for t[k] in root.tinte-de-la: Path {
                             property <float> h: root.inaltime-rand / 1px;
                             property <float> y1: (root.start-diferente[k] + 0.5) * self.h + lista.content-y / 1px;
-                            property <float> y2: ((t + root.tinte-pana-la[k]) / 2) * self.h + lista.content-y / 1px;
                             property <bool> gol: t >= 0 && root.randuri[t].fantoma;
+                            // la inserare, spre randul cu textul (in dreptul
+                            // blocului); la inlocuire, spre mijlocul blocului
+                            property <float> y2: (self.gol ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * self.h + lista.content-y / 1px;
                             property <bool> curenta: k == root.diferenta-curenta;
                             visible: t >= 0 && root.start-diferente[k] >= 0
                                 && Math.max(self.y1, self.y2) > -20 && Math.min(self.y1, self.y2) < legaturi.height / 1px + 20;
@@ -1040,7 +1042,7 @@ export component EditorDiferente inherits Window {
                         }
                         // capatul legaturii: plin la inlocuire, gol la inserare
                         for t[k] in root.tinte-de-la: Rectangle {
-                            property <length> y2: ((t + root.tinte-pana-la[k]) / 2) * root.inaltime-rand + lista.content-y;
+                            property <length> y2: (t >= 0 && root.randuri[t].fantoma ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * root.inaltime-rand + lista.content-y;
                             visible: t >= 0 && root.start-diferente[k] >= 0 && self.y2 > -10px && self.y2 < legaturi.height + 10px;
                             x: parent.width - 4px;
                             y: self.y2 - 3px;

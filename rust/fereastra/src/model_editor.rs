@@ -93,9 +93,16 @@ pub struct Rand {
     /// unde ajunge daca il aplici („DOAR IN MARTOR · 46% similar cu blocul
     /// 4"). Goala pe celelalte randuri.
     pub eticheta: String,
-    /// Randul nu exista in niciun text: arata unde ar veni un bloc din martor
-    /// care n-are corespondent. Textul lui e in `dreapta`.
+    /// Primul rand al locului unde ar veni blocurile din martor fara
+    /// corespondent: partea din dreapta poarta textul „aici vin blocurile
+    /// ...", in dreptul lor (nu pe un rand separat, mai jos; sesizat de
+    /// Mihai: golul hasurat si randul-fantoma erau doua locuri pentru acelasi
+    /// lucru). Textul e in `dreapta`, fara numar de linie.
     pub fantoma: bool,
+    /// Partea din dreapta a randului e locul in care s-ar insera blocurile
+    /// din martor (indexul grupului de inserare): se deseneaza curata, fara
+    /// hasura, si se aprinde intreaga la tragere.
+    pub inserare: Option<usize>,
     /// Ce se intampla cu un bloc tras si lasat pe randul asta, in panoul
     /// Modificata: inlocuieste blocul din dreapta al randului, sau se
     /// insereaza inaintea liniei lui (`gmotion_core::aplica_blocuri_la`).
@@ -448,23 +455,6 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
                 .and_then(|b| grup_al_blocului.get(b).copied().flatten())
                 .is_none_or(|(_, primul)| primul);
 
-        // randul-fantoma se pune inaintea blocului din tinta in fata caruia
-        // s-ar insera blocul din martor
-        if r.primul_din_bloc {
-            if let Some(b) = r.bloc {
-                let ord = ordinal_tinta[b];
-                if ord != usize::MAX {
-                    if let Some(poz) = fantome.iter().position(|(k, _)| *k == ord) {
-                        let (_, care) = fantome.remove(poz);
-                        rand_fantomei.push((ord, randuri.len()));
-                        let mut f = rand_fantoma(&care, &nr_martor);
-                        f.loc = Some(gmotion_core::Loc::Insereaza(r.poz_dreapta));
-                        randuri.push(f);
-                    }
-                }
-            }
-        }
-
         if inceput_bloc {
             diferente.push(randuri.len());
             blocuri.push(r.bloc.unwrap_or_default());
@@ -506,16 +496,36 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
             marcaj: Marcaj::Niciunul,
             eticheta,
             fantoma: false,
+            inserare: None,
             loc: Some(loc),
         });
     }
 
-    // ce ar ajunge dupa ultimul bloc din tinta se anunta la sfarsit
-    for (ord, care) in fantome {
-        rand_fantomei.push((ord, randuri.len()));
-        let mut f = rand_fantoma(&care, &nr_martor);
-        f.loc = Some(gmotion_core::Loc::Insereaza(text_tinta.lines().count()));
-        randuri.push(f);
+    // locul unde ar veni blocurile fara corespondent: chiar in dreptul lor,
+    // in dreapta. Primul lor rand poarta textul; toate randurile lor sunt
+    // „inserare" (curate, fara hasura)
+    for (g, (ord, care)) in fantome.iter().enumerate() {
+        let Some(primul) = randuri.iter().position(|r| r.bloc == Some(care[0])) else {
+            continue;
+        };
+        rand_fantomei.push((*ord, primul));
+        let text = text_fantoma(care, &nr_martor);
+        let r = &mut randuri[primul];
+        r.fantoma = true;
+        r.dreapta = Parte {
+            nr: None,
+            bucati: vec![Bucata {
+                text,
+                sintaxa: Sintaxa::Comentariu,
+                schimbat: false,
+            }],
+        };
+        for r in randuri
+            .iter_mut()
+            .filter(|r| r.bloc.is_some_and(|b| care.contains(&b)))
+        {
+            r.inserare = Some(g);
+        }
     }
 
     // tinta fiecarei diferente, in randuri de model: de acolo pleaca legatura
@@ -545,37 +555,25 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
     }
 }
 
-/// Randul care arata unde ar veni blocurile din martor care n-au corespondent.
-fn rand_fantoma(care: &[usize], nr_martor: &[usize]) -> Rand {
-    let numere: Vec<String> = care
+/// Textul locului unde ar veni blocurile din martor care n-au corespondent.
+fn text_fantoma(care: &[usize], nr_martor: &[usize]) -> String {
+    let numere: Vec<usize> = care
         .iter()
-        .map(|&b| nr_martor.get(b).copied().unwrap_or(0).to_string())
+        .map(|&b| nr_martor.get(b).copied().unwrap_or(0))
         .collect();
-    let text = if numere.len() == 1 {
-        format!("aici vine blocul {} din Martor, daca il aplici", numere[0])
-    } else {
-        format!(
+    match numere.as_slice() {
+        [n] => format!("aici vine blocul {n} din Martor, daca il aplici"),
+        [a, .., z] if numere.windows(2).all(|w| w[1] == w[0] + 1) => {
+            format!("aici vin blocurile {a}-{z} din Martor, daca le aplici")
+        }
+        _ => format!(
             "aici vin blocurile {} din Martor, daca le aplici",
-            numere.join(" si ")
-        )
-    };
-    Rand {
-        stanga: Parte::umplutura(),
-        dreapta: Parte {
-            nr: None,
-            bucati: vec![Bucata {
-                text,
-                sintaxa: Sintaxa::Comentariu,
-                schimbat: false,
-            }],
-        },
-        stare: Stare::Sters,
-        inceput_bloc: false,
-        bloc: None,
-        marcaj: Marcaj::Niciunul,
-        eticheta: String::new(),
-        fantoma: true,
-        loc: None,
+            numere
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
     }
 }
 
@@ -1166,8 +1164,9 @@ mod teste_plasare {
             .all(|r| r.eticheta.is_empty() || r.inceput_bloc));
     }
 
-    /// Randul-fantoma arata unde ar veni blocul fara corespondent. Fara el,
-    /// „se insereaza" e o promisiune fara loc.
+    /// Locul unde ar veni blocul fara corespondent e in dreptul lui, in
+    /// dreapta (etapa 23: nu un rand separat, mai jos). Fara el, „se
+    /// insereaza" e o promisiune fara loc.
     #[test]
     fn exista_rand_fantoma_pentru_blocul_fara_corespondent() {
         let m = model();
@@ -1175,7 +1174,16 @@ mod teste_plasare {
         assert_eq!(fantome.len(), 1, "{:?}", fantome);
         let text = fantome[0].dreapta.text();
         assert!(text.contains("din Martor"), "{text:?}");
-        assert!(fantome[0].stanga.nr.is_none() && fantome[0].dreapta.nr.is_none());
+        // in dreptul blocului: linia lui din Martor la stanga, textul la dreapta
+        assert!(fantome[0].stanga.nr.is_some() && fantome[0].dreapta.nr.is_none());
+        assert!(fantome[0].inserare.is_some());
+        assert!(
+            m.randuri
+                .iter()
+                .filter(|r| r.inserare.is_some())
+                .all(|r| r.dreapta.nr.is_none()),
+            "locul de inserare n-are linii din Modificata"
+        );
     }
 
     /// Fiecare diferenta stie catre ce rand se duce: de acolo se deseneaza

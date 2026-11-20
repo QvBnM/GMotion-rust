@@ -68,6 +68,14 @@ se vede tot codul, plierea e un comutator tinut minte.
   - legaturile curbe nu au test propriu: sunt desen, din date testate
     (`start-diferente`, `tinte-*`).
 
+- **2026-11-20** Mihai, pe captura: „nu arata bine" — intrebat ce anume, a
+  ales golul hasurat din dreapta. Blocurile doar in Martor care se insereaza
+  aveau doua locuri: golul hasurat in dreptul lor si, separat, mai jos,
+  randul-fantoma. Acum locul e chiar golul, curat (fara hasura), cu textul
+  „aici vin blocurile 5-8 din Martor" pe primul rand; randul separat a
+  disparut, iar legatura e dreapta. Hasura ramane doar in interiorul
+  blocurilor modificate (decizia lui Mihai din etapa 21).
+
 ## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

@@ -560,6 +560,7 @@ fn randuri_ui_cu_tinte(
                 loc: -1,
                 bloc: -1,
                 text_st: SharedString::new(),
+                inserare: false,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -593,6 +594,7 @@ fn randuri_ui_cu_tinte(
                         loc: -1,
                         bloc: -1,
                         text_st: SharedString::new(),
+                        inserare: false,
                     });
                 }
                 afisat_pentru[i] = randuri.len() as i32;
@@ -646,6 +648,7 @@ fn randuri_ui_cu_tinte(
                         .collect::<String>()
                         .trim()
                         .into(),
+                    inserare: rand.inserare.is_some(),
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     pune(
@@ -737,13 +740,21 @@ fn randuri_ui_cu_tinte(
         let bloc_tinta = model.randuri.get(*tinta).and_then(|r| r.bloc);
         // doar randurile de cod: eticheta blocului urmator ar parea, dupa
         // pozitie, inca un rand al blocului tinta
+        // locul de inserare se aprinde intreg (toate randurile lui), nu doar
+        // randul cu textul
+        let grup_inserare = model.randuri.get(*tinta).and_then(|r| r.inserare);
         let in_loc: Vec<usize> = (0..randuri.len())
             .filter(|&i| randuri[i].fel == 0)
-            .filter(|&i| match bloc_tinta {
-                Some(b) => model_al_randului(i)
+            .filter(|&i| match (grup_inserare, bloc_tinta) {
+                (Some(g), _) => model_al_randului(i)
                     .and_then(|m| model.randuri.get(m))
-                    .is_some_and(|m| m.bloc == Some(b)),
-                None => i as i32 == pana_la,
+                    .is_some_and(|m| m.inserare == Some(g)),
+                (None, b) => match b {
+                    Some(b) => model_al_randului(i)
+                        .and_then(|m| model.randuri.get(m))
+                        .is_some_and(|m| m.bloc == Some(b)),
+                    None => i as i32 == pana_la,
+                },
             })
             .collect();
         if let (Some(&a), Some(&z)) = (in_loc.first(), in_loc.last()) {
@@ -2750,8 +2761,8 @@ mod teste {
         let (randuri, _, tinte) = randuri_ui_cu_tinte(&m, true, false, texte::Limba::Romana, None);
         let spre_fantoma: Vec<usize> = (0..tinte.len())
             .filter(|&k| {
-                let (a, z) = tinte[k];
-                a >= 0 && z == a + 1 && randuri[a as usize].fantoma
+                let (a, _) = tinte[k];
+                a >= 0 && randuri[a as usize].fantoma
             })
             .collect();
         assert_eq!(spre_fantoma.len(), 1, "{tinte:?}");
@@ -3921,29 +3932,32 @@ mod teste {
         let tinta = "CREATE PROC p AS\n\nSELECT 1\n\nSELECT 2\n\nSELECT 3\n\nSELECT 4";
         let model = model_editor::construieste(martor, tinta);
         for pliat in [false, true] {
-            let (randuri, start) = randuri_ui(&model, pliat, false, texte::Limba::Romana, None);
-            let k = model
-                .randuri
+            let (randuri, start, tinte) =
+                randuri_ui_cu_tinte(&model, pliat, false, texte::Limba::Romana, None);
+            // locul unde vine blocul fara corespondent e chiar in dreptul lui
+            // (etapa 23): legatura e dreapta, pe acelasi rand afisat
+            let f = randuri
                 .iter()
                 .position(|r| r.fantoma)
-                .map(|_| 0)
-                .expect("exista o fantoma in model");
-            let _ = k;
-            let cu_legatura: Vec<&RandUi> = randuri.iter().filter(|r| r.delta_tinta != 0).collect();
-            assert!(
-                !cu_legatura.is_empty(),
-                "pliat={pliat}: blocul fara corespondent n-are legatura"
+                .unwrap_or_else(|| panic!("pliat={pliat}: locul de inserare lipseste"));
+            let k = randuri[f].diferenta;
+            assert!(k >= 0, "pliat={pliat}: randul locului e al diferentei");
+            assert_eq!(start[k as usize], f as i32, "pliat={pliat}");
+            assert_eq!(
+                tinte[k as usize].0, f as i32,
+                "pliat={pliat}: tinta in dreptul ei"
             );
-            for r in cu_legatura {
-                let i = randuri.iter().position(|x| x == r).unwrap() as i32;
-                let tinta = i + r.delta_tinta;
+            assert!(randuri[f].inserare && randuri[f].dr_nr.is_empty());
+            // celelalte legaturi cad pe randuri cu ceva in dreapta
+            for (k, &(a, z)) in tinte.iter().enumerate() {
+                if a < 0 {
+                    continue;
+                }
+                assert!(z > a && (z as usize) <= randuri.len(), "pliat={pliat}: {k}");
+                let r = &randuri[a as usize];
                 assert!(
-                    tinta >= 0 && (tinta as usize) < randuri.len(),
-                    "pliat={pliat}: legatura iese din lista"
-                );
-                assert!(
-                    randuri[tinta as usize].fantoma || !randuri[tinta as usize].dr_nr.is_empty(),
-                    "pliat={pliat}: legatura cade pe un rand fara nimic in dreapta"
+                    r.fantoma || !r.dr_nr.is_empty(),
+                    "pliat={pliat}: {k} pe un rand gol"
                 );
             }
             assert!(start.iter().any(|&s| s >= 0));

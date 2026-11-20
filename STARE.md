@@ -166,6 +166,10 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   diferenta se ia din `grupuri[k]`, nu din `blocuri[k]` (acela e doar primul).
   `gmotion editare` numara la fel; un test care numara blocuri ca diferente
   e gresit.
+- **Nu mai exista rand-fantoma separat.** Locul unde vin blocurile fara
+  corespondent e chiar partea din dreapta a randurilor lor (`Rand::inserare`,
+  primul cu `fantoma` si textul). Un test care cauta un rand fara linie in
+  stanga, ca loc de inserare, e scris pe desenul vechi.
 - **Randurile afisate au trei feluri**: 0 cod, 1 pliere, 2 eticheta (deasupra
   blocului, `diferenta: -1`). O socoteala pe randuri afisate care uita de
   eticheta greseste cu unu (s-a intamplat de doua ori in etapa 23).

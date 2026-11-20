@@ -696,6 +696,9 @@ export struct RandUi {
     bloc: int,
     // textul randului din Martor, pentru fantoma care urmeaza mouse-ul
     text-st: string,
+    // partea din dreapta e locul unde s-ar insera blocurile din Martor:
+    // curata, fara hasura (primul rand are si textul, `fantoma`)
+    inserare: bool,
 }
 
 // o linie din previzualizarea la hover: cum ar arata Modificata dupa Aplica
@@ -798,11 +801,11 @@ export component Jumatate inherits Rectangle {
               : root.st == 0 ? root.fond
               : Tema.fundal-stare(root.st);
     if root.fara-linie && root.stare != 0: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
-    // randul-fantoma: hasurat, cu o linie sus si una jos, ca sa se vada ca e
+    // locul unde vin blocurile din martor: fara hasura (Mihai: golul hasurat
+    // si randul separat erau doua locuri pentru acelasi lucru), doar o linie
+    // sus, pe primul rand, langa textul „aici vin blocurile ..."
     // un loc, nu cod
-    if root.fantoma: Hasura { tigla: root.tigla; width: 100%; height: 100%; }
-    if root.fantoma: Rectangle { y: 0px; height: 1px; background: Tema.del-bara; }
-    if root.fantoma: Rectangle { y: parent.height - 1px; height: 1px; background: Tema.del-bara; }
+    if root.fantoma: Rectangle { y: 0px; height: 1px; background: Tema.del-bara; opacity: 0.7; }
     // locul in care ar cadea blocul tras: fundal subtire peste tot blocul,
     // text doar pe primul rand
     if root.tinta-aprinsa: Rectangle {
