@@ -406,6 +406,24 @@ fn cod_stare(s: Stare) -> i32 {
     }
 }
 
+/// Liniile previzualizarii la hover, cum le deseneaza `EditorDiferente`.
+pub fn previzualizare_ui(
+    linii: &[model_editor::LiniePrevizualizare],
+) -> ModelRc<LiniePrevizualizareUi> {
+    ModelRc::new(VecModel::from(
+        linii
+            .iter()
+            .map(|l| LiniePrevizualizareUi {
+                nr: l
+                    .nr
+                    .map_or_else(SharedString::new, |n| n.to_string().into()),
+                text: l.text.as_str().into(),
+                adusa: l.adusa,
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
+
 /// Randurile de afisat si randul de inceput al fiecarei diferente, **in
 /// coordonatele listei afisate** (plierea schimba indicii, iar navigarea
 /// deruleaza lista, nu modelul).
@@ -422,6 +440,23 @@ fn randuri_ui(
     limba: texte::Limba,
     wrap: Option<usize>,
 ) -> (Vec<RandUi>, Vec<i32>) {
+    let (randuri, start, _) = randuri_ui_cu_tinte(model, pliat, unificat, limba, wrap);
+    (randuri, start)
+}
+
+/// Locul in care ajunge fiecare diferenta, pe randuri afisate: `[de_la,
+/// pana_la)`, sau `(-1, -1)` cand n-are loc. Pe diferenta, nu pe rand: doua
+/// blocuri pot cadea in acelasi loc (blocurile 4 si 5 pe acelasi
+/// rand-fantoma), iar un singur numar pe rand il tinea doar pe ultimul.
+type Tinte = Vec<(i32, i32)>;
+
+fn randuri_ui_cu_tinte(
+    model: &ModelEditor,
+    pliat: bool,
+    unificat: bool,
+    limba: texte::Limba,
+    wrap: Option<usize>,
+) -> (Vec<RandUi>, Vec<i32>, Tinte) {
     // un rand al modelului devine unul sau mai multe randuri afisate: cu
     // wrap, linia lunga continua pe randuri fara numar, iar partea mai
     // scurta primeste randuri goale, ca stanga si dreapta sa ramana aliniate
@@ -494,8 +529,6 @@ fn randuri_ui(
                 fantoma: false,
                 delta_tinta: 0,
                 tinta_gol: false,
-                tinta_diferentei: -1,
-                tinta_prima: false,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -537,8 +570,6 @@ fn randuri_ui(
                     // cunosc toate randurile afisate
                     delta_tinta: 0,
                     tinta_gol: false,
-                    tinta_diferentei: -1,
-                    tinta_prima: false,
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     pune(
@@ -608,6 +639,7 @@ fn randuri_ui(
     // legatura din canal: de la primul rand al diferentei la randul unde
     // ajunge blocul. Pe randuri afisate, nu pe randuri de model — plierea si
     // wrap-ul le muta.
+    let mut tinte: Tinte = vec![(-1, -1); model.tinte.len()];
     for (k, tinta) in model.tinte.iter().enumerate() {
         let (Some(tinta), Some(&de_la)) = (tinta, start.get(k)) else {
             continue;
@@ -627,22 +659,19 @@ fn randuri_ui(
         // tot blocul tinta se aprinde cat timp se trage, nu doar primul rand:
         // altfel pare ca blocul ar intra pe o singura linie
         let bloc_tinta = model.randuri.get(*tinta).and_then(|r| r.bloc);
-        let mut prima_pusa = false;
-        for (i, r) in randuri.iter_mut().enumerate() {
-            let acelasi = match bloc_tinta {
+        let in_loc: Vec<usize> = (0..randuri.len())
+            .filter(|&i| match bloc_tinta {
                 Some(b) => model_al_randului(i)
                     .and_then(|m| model.randuri.get(m))
                     .is_some_and(|m| m.bloc == Some(b)),
                 None => i as i32 == pana_la,
-            };
-            if acelasi {
-                r.tinta_diferentei = k as i32;
-                r.tinta_prima = !prima_pusa;
-                prima_pusa = true;
-            }
+            })
+            .collect();
+        if let (Some(&a), Some(&z)) = (in_loc.first(), in_loc.last()) {
+            tinte[k] = (a as i32, z as i32 + 1);
         }
     }
-    (randuri, start)
+    (randuri, start, tinte)
 }
 
 /// Datele afisate in antetul editorului.
@@ -823,7 +852,7 @@ pub fn incarca_coloana_lista(
 
 /// se cheama o data, la pornire.
 pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEditor) {
-    let (randuri, start) = randuri_ui(
+    let (randuri, start, tinte) = randuri_ui_cu_tinte(
         model,
         ui.get_pliaza_identicul(),
         !ui.get_alaturat(),
@@ -884,6 +913,12 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_marcaje(ModelRc::new(VecModel::from(marcaje)));
     ui.set_total_diferente(model.diferente.len() as i32);
     ui.set_start_diferente(ModelRc::new(VecModel::from(start)));
+    ui.set_tinte_de_la(ModelRc::new(VecModel::from(
+        tinte.iter().map(|t| t.0).collect::<Vec<_>>(),
+    )));
+    ui.set_tinte_pana_la(ModelRc::new(VecModel::from(
+        tinte.iter().map(|t| t.1).collect::<Vec<_>>(),
+    )));
     ui.set_diferenta_curenta(0);
     // cu wrap nu mai e nimic de derulat pe orizontala
     ui.set_latime_continut(if ui.get_impacheteaza() {
@@ -2517,11 +2552,133 @@ mod teste {
         );
     }
 
+    fn antet_de_proba() -> AntetEditor<'static> {
+        AntetEditor {
+            id: "Prod/dbo.usp_Test",
+            schema: "dbo",
+            nume: "usp_Test",
+            tip: "procedura",
+            sursa_baza: "Dev",
+            sursa_server: "srv-dev",
+            tinta_baza: "Prod",
+            tinta_server: "srv-prod",
+            stare_obiecte: "obiectul 1 din 2 nerevizuite",
+            revizuit: false,
+            in_plan: false,
+        }
+    }
+
     fn model_de_proba() -> model_editor::ModelEditor {
         let a: Vec<String> = (1..=40).map(|i| format!("SELECT {i}")).collect();
         let mut b = a.clone();
         b[20] = "SELECT 999".to_string();
         model_editor::construieste(&a.join("\n\n"), &b.join("\n\n"))
+    }
+
+    /// Doua blocuri care cad in acelasi loc (cazul machetelor: blocurile 4 si
+    /// 5 din Martor, pe acelasi rand-fantoma) aprind amandoua locul la
+    /// tragere. Cu un singur numar pe rand, primul nu aprindea nimic.
+    #[test]
+    fn doua_blocuri_in_acelasi_loc_aprind_amandoua_locul() {
+        let m = model_editor::construieste(
+            &gmotion_core::pregateste_afisare(include_str!(
+                "../../../cercetare/machete/editor-functii/martor.sql"
+            )),
+            &gmotion_core::pregateste_afisare(include_str!(
+                "../../../cercetare/machete/editor-functii/modificata.sql"
+            )),
+        );
+        let (randuri, _, tinte) = randuri_ui_cu_tinte(&m, true, false, texte::Limba::Romana, None);
+        let spre_fantoma: Vec<usize> = (0..tinte.len())
+            .filter(|&k| {
+                let (a, z) = tinte[k];
+                a >= 0 && z == a + 1 && randuri[a as usize].fantoma
+            })
+            .collect();
+        assert_eq!(spre_fantoma.len(), 2, "{tinte:?}");
+        assert_eq!(tinte[spre_fantoma[0]], tinte[spre_fantoma[1]]);
+        // blocul care inlocuieste aprinde tot blocul tinta, nu un rand
+        let antet = tinte[0];
+        assert!(antet.1 - antet.0 > 1, "{antet:?}");
+    }
+
+    /// Etapa 21, cu mouse-ul: peste sageata din canal apare previzualizarea
+    /// (si dispare cand pleci), iar blocul tras din Martor peste panoul din
+    /// dreapta si lasat acolo cheama `aplica-diferenta` pe blocul lui.
+    #[test]
+    fn hover_pe_sageata_previzualizeaza_si_tragerea_aplica_blocul() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::{Cell, RefCell};
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        incarca_editor(&ui, &antet_de_proba(), &model_de_proba());
+        ui.show().expect("fereastra se arata");
+        let cerute: Rc<RefCell<Vec<i32>>> = Rc::default();
+        let c = cerute.clone();
+        ui.on_previzualizeaza(move |k| c.borrow_mut().push(k));
+        let aplicate: Rc<RefCell<Vec<i32>>> = Rc::default();
+        let a = aplicate.clone();
+        ui.on_aplica_diferenta(move |k| a.borrow_mut().push(k));
+        let muta = |x: f32, y: f32| {
+            ui.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(x, y),
+            });
+        };
+
+        // sageata se cauta cu mouse-ul, ca un om
+        let gasit = Cell::new(None);
+        'cauta: for y in (60..500).step_by(6) {
+            for x in (300..1440).step_by(4) {
+                muta(x as f32, y as f32);
+                if !cerute.borrow().is_empty() {
+                    gasit.set(Some((x as f32, y as f32)));
+                    break 'cauta;
+                }
+            }
+        }
+        let (x, y) = gasit
+            .get()
+            .expect("o sageata care previzualizeaza la hover");
+        assert_eq!(
+            *cerute.borrow(),
+            [0],
+            "previzualizeaza diferenta de sub mouse"
+        );
+        assert_eq!(ui.get_previzualizare_diferenta(), 0);
+        assert!(
+            ui.get_previzualizare_y() > 0.0,
+            "fereastra stie unde sa apara"
+        );
+        ui.set_previzualizare_linii(previzualizare_ui(&[model_editor::LiniePrevizualizare {
+            nr: Some(3),
+            text: "UPDATE t SET a = 1".into(),
+            adusa: true,
+        }]));
+        muta(x, y + 300.0);
+        assert_eq!(ui.get_previzualizare_diferenta(), -1, "pleci, dispare");
+
+        // tragerea: de pe blocul din Martor (stanga sagetii) peste Modificata
+        let (de_la, la) = (
+            LogicalPosition::new(x - 200.0, y),
+            LogicalPosition::new(x + 200.0, y),
+        );
+        ui.window()
+            .dispatch_event(WindowEvent::PointerMoved { position: de_la });
+        ui.window().dispatch_event(WindowEvent::PointerPressed {
+            position: de_la,
+            button: PointerEventButton::Left,
+        });
+        ui.window()
+            .dispatch_event(WindowEvent::PointerMoved { position: la });
+        assert_eq!(ui.get_trage_diferenta(), 0, "cat tragi, blocul e tinut");
+        ui.window().dispatch_event(WindowEvent::PointerReleased {
+            position: la,
+            button: PointerEventButton::Left,
+        });
+        assert_eq!(*aplicate.borrow(), [0], "lasat peste Modificata = aplicat");
+        assert_eq!(ui.get_trage_diferenta(), -1);
+        let _ = ui.hide();
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--trage N]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--trage N] [--previzualizeaza N]
 use std::rc::Rc;
 
 use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
@@ -173,6 +173,43 @@ fn main() {
             },
             &model,
         );
+        fereastra.request_redraw();
+    }
+    // `--previzualizeaza N`: mouse-ul se plimba peste canal pana ajunge pe
+    // sageata diferentei N, ca un om; previzualizarea o calculeaza aceeasi
+    // `aplica_blocuri` ca in aplicatie (criteriul „hover" din etapa 21)
+    if let Some(n) = a
+        .iter()
+        .position(|x| x == "--previzualizeaza")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|x| x.parse::<i32>().ok())
+    {
+        let (r2, t2, blocuri) = (r.clone(), t.clone(), model.blocuri.clone());
+        let slab = ui.as_weak();
+        ui.on_previzualizeaza(move |k| {
+            let Some(&bloc) = usize::try_from(k).ok().and_then(|k| blocuri.get(k)) else {
+                return;
+            };
+            let rez = gmotion_core::aplica_blocuri(&r2, &t2, false, &[bloc]);
+            let linii = model_editor::previzualizare(&t2, &rez, 2, 12);
+            if let Some(ui) = slab.upgrade() {
+                ui.set_previzualizare_linii(gmotion_fereastra::previzualizare_ui(&linii));
+            }
+        });
+        ui.invoke_mergi_la(n);
+        // un cadru, ca pozitiile din ListView sa existe inainte de mouse
+        scrie_png(&fereastra, w, h, &a[5]);
+        'cauta: for y in (60..h - 40).step_by(4) {
+            for x in (w / 3..w).step_by(4) {
+                ui.window()
+                    .dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                        position: slint::LogicalPosition::new(x as f32, y as f32),
+                    });
+                if ui.get_previzualizare_diferenta() == n {
+                    break 'cauta;
+                }
+            }
+        }
         fereastra.request_redraw();
     }
     scrie_png(&fereastra, w, h, &a[5]);

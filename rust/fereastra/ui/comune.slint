@@ -135,6 +135,8 @@ export global Texte {
     in-out property <string> toate-in-plan;
     in-out property <string> toate-starile;
     in-out property <string> trage-peste;
+    in-out property <string> previzualizare;
+    in-out property <string> previzualizare-explicatie;
     in-out property <string> trimis;
     in-out property <string> fisier-per-baza;
     in-out property <string> fisier-per-obiect;
@@ -641,13 +643,16 @@ export struct RandUi {
     delta-tinta: int,
     // locul e un gol intre blocuri (se insereaza), nu un bloc de inlocuit
     tinta-gol: bool,
-    // randul e locul in care ajunge diferenta cu numarul asta (-1 = niciunul):
-    // cand tragi blocul, locul lui se aprinde
-    tinta-diferentei: int,
-    // primul rand al locului: acolo scrie ce se intampla
-    tinta-prima: bool,
     st-lipsa: bool,
     dr-lipsa: bool,
+}
+
+// o linie din previzualizarea la hover: cum ar arata Modificata dupa Aplica
+export struct LiniePrevizualizareUi {
+    nr: string,
+    text: string,
+    // linia vine din blocul aplicat (evidentiata); altfel e context
+    adusa: bool,
 }
 
 export struct MarcajUi {

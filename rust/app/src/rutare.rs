@@ -7,7 +7,9 @@
 //! se testeaza ca atare.
 
 use gmotion_fereastra::model_arbore::Arbore;
-use gmotion_fereastra::model_editor::{construieste_cu, marcheaza_textul_final, ModelEditor};
+use gmotion_fereastra::model_editor::{
+    construieste_cu, marcheaza_textul_final, previzualizare, LiniePrevizualizare, ModelEditor,
+};
 use gmotion_fereastra::model_lista::{
     Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
 };
@@ -1045,6 +1047,17 @@ impl Aplicatie {
         true
     }
 
+    /// Previzualizarea la hover a diferentei `k`: cum ar arata textul final
+    /// daca ai aplica-o, fara sa schimbe nimic. Trece prin aceeasi
+    /// `aplica_blocuri` ca [`Comanda::AplicaDiferenta`], deci arata exact ce
+    /// s-ar scrie.
+    pub fn previzualizare(&self, k: usize) -> Option<Vec<LiniePrevizualizare>> {
+        let bloc = self.model_editor()?.blocuri.get(k).copied()?;
+        let (sursa, curent) = self.texte_curente()?;
+        let rezultat = gmotion_core::aplica_blocuri(&sursa, &curent, self.uneste_cursorul, &[bloc]);
+        Some(previzualizare(&curent, &rezultat, 2, 12))
+    }
+
     /// Aplica diferenta `k` (indexul din editor) a obiectului curent.
     fn aplica(&mut self, k: usize) -> bool {
         let Some(bloc) = self.model_editor().and_then(|m| m.blocuri.get(k).copied()) else {
@@ -2030,6 +2043,38 @@ mod teste {
 
         assert!(a.comanda(Comanda::Anuleaza), "Ctrl+Z dupa lasare");
         assert_eq!(a.texte_curente().expect("texte").1, baza);
+    }
+
+    /// Previzualizarea la hover arata exact liniile pe care le-ar scrie
+    /// „Aplica", si nu schimba nimic.
+    #[test]
+    fn previzualizarea_arata_ce_scrie_aplica_si_nu_schimba_nimic() {
+        let (mut a, baza) = aplicatie_mutat();
+        let (k, _) = diferenta_mutata(&a);
+        let p = a.previzualizare(k).expect("previzualizare");
+        assert_eq!(a.texte_curente().expect("texte").1, baza, "n-a scris nimic");
+        assert!(!a.se_poate_anula(), "nici in istoric");
+        let aduse: Vec<&str> = p
+            .iter()
+            .filter(|l| l.adusa)
+            .map(|l| l.text.as_str())
+            .collect();
+        assert!(
+            aduse.iter().any(|l| l.contains("y = 2")),
+            "se vede blocul adus: {p:?}"
+        );
+        a.comanda(Comanda::AplicaDiferenta(Some(k)));
+        let (_, dupa) = a.texte_curente().expect("texte");
+        let linii: Vec<&str> = dupa.split('\n').collect();
+        for l in p.iter().filter(|l| l.nr.is_some()) {
+            let nr = l.nr.unwrap_or_default();
+            assert_eq!(
+                linii.get(nr - 1).copied(),
+                Some(l.text.as_str()),
+                "linia {nr}"
+            );
+        }
+        assert!(a.previzualizare(99).is_none(), "diferenta inexistenta");
     }
 
     /// Modul ghidat aplica prin aceeasi plasare: aceeasi tinta ca la tragere.

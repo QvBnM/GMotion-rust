@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 8bf253f52b8c19d8 -->
+<!-- api-hash: 3c0f0206217a5abe -->
 
 ## Rol
 
@@ -32,6 +32,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
 | `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran; `SalveazaText { id, text }` duce si cheia obiectului si se refuza daca nu e cel deschis (F-A1) |
+| `Aplicatie::previzualizare(k) -> Option<Vec<LiniePrevizualizare>>` | previzualizarea la hover a diferentei `k`: ce ar scrie „Aplica" (aceeasi `gmotion_core::aplica_blocuri`), fara sa schimbe nimic (etapa 21) |
 | `Aplicatie::id_obiect()` | cheia obiectului deschis, `baza/schema.nume`: pleaca spre fereastra si se intoarce cu textul scris de mana |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul; `model_editor` da un `Ref` la modelul tinut minte pe `(obiect, amprenta textului final, unirea cursorului)`, nu-l reface la fiecare desenare (P1) |

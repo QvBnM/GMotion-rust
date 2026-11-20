@@ -686,6 +686,63 @@ pub fn plieaza(model: &ModelEditor, context: usize, l: Limba) -> Vec<RandAfisat>
     rez
 }
 
+/// O linie din previzualizarea la hover („cum arata Modificata daca aplici").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiniePrevizualizare {
+    /// Numarul liniei in textul rezultat; `None` pe randul „…".
+    pub nr: Option<usize>,
+    pub text: String,
+    /// Linia vine din blocul aplicat (se evidentiaza); altfel e context.
+    pub adusa: bool,
+}
+
+/// Previzualizarea aplicarii unui bloc: liniile din `rezultat` care nu mai
+/// sunt cum erau in `curent`, cu `context` linii neschimbate in jur, cel mult
+/// `max_aduse` evidentiate (restul se rezuma intr-un rand „…").
+///
+/// `rezultat` vine din `gmotion_core::aplica_blocuri`, aceeasi functie ca la
+/// „Aplica": previzualizarea nu are voie sa arate alt text decat cel care se
+/// scrie. Aici doar se taie bucata de aratat (prefixul si sufixul comun pe
+/// linii sunt neschimbate).
+pub fn previzualizare(
+    curent: &str,
+    rezultat: &str,
+    context: usize,
+    max_aduse: usize,
+) -> Vec<LiniePrevizualizare> {
+    let c: Vec<&str> = curent.split('\n').collect();
+    let r: Vec<&str> = rezultat.split('\n').collect();
+    let prefix = c.iter().zip(&r).take_while(|(a, b)| a == b).count();
+    let max_sufix = c.len().min(r.len()) - prefix;
+    let sufix = c
+        .iter()
+        .rev()
+        .zip(r.iter().rev())
+        .take(max_sufix)
+        .take_while(|(a, b)| a == b)
+        .count();
+    let (inceput, sfarsit) = (prefix, r.len() - sufix); // aduse: [inceput, sfarsit)
+    let linie = |i: usize, adusa: bool| LiniePrevizualizare {
+        nr: Some(i + 1),
+        text: r[i].to_string(),
+        adusa,
+    };
+    let mut out: Vec<LiniePrevizualizare> = (inceput.saturating_sub(context)..inceput)
+        .map(|i| linie(i, false))
+        .collect();
+    let aduse = sfarsit - inceput;
+    out.extend((inceput..inceput + aduse.min(max_aduse)).map(|i| linie(i, true)));
+    if aduse > max_aduse {
+        out.push(LiniePrevizualizare {
+            nr: None,
+            text: format!("… +{}", aduse - max_aduse),
+            adusa: true,
+        });
+    }
+    out.extend((sfarsit..(sfarsit + context).min(r.len())).map(|i| linie(i, false)));
+    out
+}
+
 /// Pentru fiecare rand, a cata diferenta e (indexul in `diferente`), sau
 /// `None` pe randurile de context. Bara din jgheab e mai lata pe diferenta
 /// curenta, deci randul trebuie sa stie de care diferenta face parte.
@@ -929,6 +986,59 @@ mod teste {
             bloc.len() >= 2 && bloc.iter().all(|&x| x == Some(0)),
             "{bloc:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod teste_previzualizare {
+    use super::*;
+
+    #[test]
+    fn arata_liniile_aduse_cu_context_in_jur() {
+        let curent = "a\nb\nc\nd\ne\nf";
+        let rezultat = "a\nb\nc\nNOU1\nNOU2\nd\ne\nf";
+        let p = previzualizare(curent, rezultat, 2, 10);
+        let texte: Vec<(&str, bool)> = p.iter().map(|l| (l.text.as_str(), l.adusa)).collect();
+        assert_eq!(
+            texte,
+            vec![
+                ("b", false),
+                ("c", false),
+                ("NOU1", true),
+                ("NOU2", true),
+                ("d", false),
+                ("e", false)
+            ]
+        );
+        assert_eq!(p[2].nr, Some(4), "numarul liniei din rezultat");
+    }
+
+    /// Un bloc inlocuit: linia veche nu apare, cea noua e evidentiata.
+    #[test]
+    fn la_inlocuire_se_vede_doar_textul_nou() {
+        let p = previzualizare("x\nvechi\ny", "x\nnou\ny", 1, 10);
+        let texte: Vec<&str> = p.iter().map(|l| l.text.as_str()).collect();
+        assert_eq!(texte, vec!["x", "nou", "y"]);
+        assert!(p[1].adusa && !p[0].adusa && !p[2].adusa);
+    }
+
+    #[test]
+    fn un_bloc_lung_se_rezuma() {
+        let rezultat = (0..30)
+            .map(|i| format!("l{i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let p = previzualizare("", &rezultat, 2, 5);
+        assert_eq!(p.iter().filter(|l| l.adusa && l.nr.is_some()).count(), 5);
+        assert_eq!(p.last().map(|l| l.text.as_str()), Some("… +25"));
+    }
+
+    /// Aceleasi linii pe ambele parti (prefixul si sufixul se suprapun):
+    /// fara panica, fara nimic evidentiat.
+    #[test]
+    fn fara_schimbare_nu_evidentiaza_nimic() {
+        let p = previzualizare("a\na\na", "a\na\na", 2, 5);
+        assert!(p.iter().all(|l| !l.adusa), "{p:?}");
     }
 }
 

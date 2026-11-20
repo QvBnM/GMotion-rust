@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -174,6 +174,11 @@ export component EditorDiferente inherits Window {
     in property <[RandUi]> randuri;
     in property <[MarcajUi]> marcaje;
     in property <[int]> start-diferente;     // randul de inceput al fiecarei diferente
+    // locul in care ajunge fiecare diferenta, pe randuri afisate: [de-la,
+    // pana-la), -1 cand n-are. Pe diferenta, nu pe rand: doua blocuri pot
+    // cadea in acelasi loc (acelasi rand-fantoma)
+    in property <[int]> tinte-de-la;
+    in property <[int]> tinte-pana-la;
     in property <int> total-diferente;
     in-out property <int> diferenta-curenta: 0;
     in property <image> tigla-hasura;
@@ -227,6 +232,13 @@ export component EditorDiferente inherits Window {
     callback aplica-diferenta(int);
     // blocul tras acum cu mouse-ul (-1 = niciunul) si cat s-a tras spre dreapta
     in-out property <int> trage-diferenta: -1;
+    // previzualizarea la hover pe sageata din canal: ce diferenta, unde
+    // (sub sageata, in coordonatele zonei de cod) si liniile, puse din Rust
+    // de `previzualizeaza`
+    in-out property <int> previzualizare-diferenta: -1;
+    in-out property <length> previzualizare-y;
+    in property <[LiniePrevizualizareUi]> previzualizare-linii;
+    callback previzualizeaza(int);
     in-out property <length> trage-x;
     callback aplica-toate();
     callback reset();
@@ -641,7 +653,7 @@ export component EditorDiferente inherits Window {
             }
             HorizontalLayout {
                 vertical-stretch: 1;
-                Rectangle {
+                zona-cod := Rectangle {
                     width: root.latime-cod;
                     // fondurile panourilor: lipite, fara colturi, pe tot spatiul
                     Rectangle {
@@ -684,7 +696,7 @@ export component EditorDiferente inherits Window {
                         }
                         lista := ListView {
                             vertical-stretch: 1;
-                            for r in root.randuri: Rectangle {
+                            for r[idx] in root.randuri: Rectangle {
                                 height: root.inaltime-rand;
                                 // o pliere: cat s-a ascuns; un clic arata tot
                                 if r.fel == 1: Rectangle {
@@ -797,7 +809,23 @@ export component EditorDiferente inherits Window {
                                                 font-size: 12px;
                                                 color: r.diferenta == root.diferenta-curenta ? Tema.fundal : Tema.mod-text;
                                             }
-                                            za := TouchArea { clicked => { root.aplica-diferenta(r.diferenta); } }
+                                            za := TouchArea {
+                                                clicked => {
+                                                    root.previzualizare-diferenta = -1;
+                                                    root.aplica-diferenta(r.diferenta);
+                                                }
+                                                // previzualizarea: cum ar arata Modificata
+                                                // daca apesi, fara sa apesi
+                                                changed has-hover => {
+                                                    if (self.has-hover) {
+                                                        root.previzualizare-y = self.absolute-position.y + self.height - zona-cod.absolute-position.y;
+                                                        root.previzualizare-diferenta = r.diferenta;
+                                                        root.previzualizeaza(r.diferenta);
+                                                    } else if (root.previzualizare-diferenta == r.diferenta) {
+                                                        root.previzualizare-diferenta = -1;
+                                                    }
+                                                }
+                                            }
                                         }
                                         if r.inceput && r.stare == 0 && r.dr-marcaj == 1 && !root.ascunde-diferentele: Rectangle {
                                             width: 24px;
@@ -822,8 +850,10 @@ export component EditorDiferente inherits Window {
                                             eticheta: root.ascunde-diferentele || r.stare != 3 ? "" : r.eticheta;
                                             fantoma: r.fantoma && !root.ascunde-diferentele;
                                             // cat tragi un bloc, locul lui se aprinde
-                                            tinta-aprinsa: root.trage-diferenta >= 0 && r.tinta-diferentei == root.trage-diferenta;
-                                            tinta-prima: r.tinta-prima;
+                                            tinta-aprinsa: root.trage-diferenta >= 0
+                                                && idx >= root.tinte-de-la[root.trage-diferenta]
+                                                && idx < root.tinte-pana-la[root.trage-diferenta];
+                                            tinta-prima: idx == root.tinte-de-la[root.trage-diferenta];
                                             text-plasare: root.trage-x <= root.jgheab ? Texte.trage-peste
                                                 : r.fantoma ? Texte.plaseaza-aici-insereaza
                                                 : Texte.plaseaza-aici-inlocuieste;
@@ -832,7 +862,7 @@ export component EditorDiferente inherits Window {
                                         // blocului tras, adica acolo unde ar cadea
                                         // daca ar cadea pe pozitie. De la etapa 21
                                         // se aprinde **locul calculat de motor**
-                                        // (`tinta-diferentei`, in `Jumatate`), ca sa
+                                        // (`tinte-de-la` / `tinte-pana-la`), ca sa
                                         // nu promita alt loc decat cel in care scrie.
                                     }
                                 }
@@ -910,6 +940,50 @@ export component EditorDiferente inherits Window {
                                     root.derulare-x = Math.max(0px, Math.min(root.derulare-maxima,
                                         bara-oriz.de_la + (self.mouse-x - self.pressed-x)
                                             * root.derulare-maxima / Math.max(1px, bara-oriz.util - bara-oriz.cursor)));
+                                }
+                            }
+                        }
+                    }
+                    // previzualizarea la hover: peste panoul Martor, sub
+                    // sageata (deasupra, daca jos nu incape). Fara TouchArea:
+                    // nu ia mouse-ul de pe sageata, deci nu clipeste
+                    if root.previzualizare-diferenta >= 0 && root.alaturat && root.trage-diferenta < 0
+                        && !root.editeaza-mod && root.previzualizare-linii.length > 0: Rectangle {
+                        property <length> inaltime: 46px + root.previzualizare-linii.length * 20px + 8px;
+                        x: 40px;
+                        width: Math.max(200px, root.panou - 60px);
+                        height: self.inaltime;
+                        y: root.previzualizare-y + 4px + self.inaltime <= parent.height
+                            ? root.previzualizare-y + 4px
+                            : Math.max(30px, root.previzualizare-y - root.inaltime-rand - self.inaltime - 4px);
+                        border-radius: 8px;
+                        border-width: 1.5px;
+                        border-color: Tema.accent;
+                        background: Tema.suprafata;
+                        clip: true;
+                        VerticalLayout {
+                            Rectangle {
+                                height: 44px;
+                                HorizontalLayout {
+                                    padding-left: 14px;
+                                    padding-right: 14px;
+                                    spacing: 10px;
+                                    Text { text: Texte.previzualizare; font-family: Tema.font-ui; font-size: 12.5px; font-weight: 700; color: Tema.accent-text; vertical-alignment: center; }
+                                    Text { text: "— " + Texte.previzualizare-explicatie; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; wrap: word-wrap; overflow: elide; }
+                                }
+                            }
+                            Rectangle { height: 1px; background: Tema.linie; }
+                            Rectangle { height: 4px; }
+                            for l in root.previzualizare-linii: Rectangle {
+                                height: 20px;
+                                background: l.adusa ? Tema.add-fundal : transparent;
+                                if l.adusa: Rectangle { x: 0px; width: 3px; background: Tema.add-bara; }
+                                HorizontalLayout {
+                                    padding-left: 12px;
+                                    padding-right: 12px;
+                                    spacing: 10px;
+                                    Text { width: 32px; text: l.nr; horizontal-alignment: right; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-tert; vertical-alignment: center; }
+                                    Text { text: l.text; font-family: Tema.font-mono; font-size: 12px; color: l.adusa ? Tema.text : Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                                 }
                             }
                         }

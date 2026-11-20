@@ -1812,6 +1812,20 @@ fn ruleaza() -> Result<(), String> {
             actiune("editor", "deschide_deploy", "", false);
             c(Comanda::DeschideDeploy)
         });
+        // previzualizarea la hover pe sageata: nu e o comanda (nu schimba
+        // nimic, nu redeseneaza), doar umple liniile ferestrei
+        let e = editor_ui.as_weak();
+        let st = stare.clone();
+        editor_ui.on_previzualizeaza(move |k| {
+            actiune("editor", "previzualizeaza", &format!("{:?}", (&k,)), true);
+            let linii = usize::try_from(k)
+                .ok()
+                .and_then(|k| st.borrow().app.as_ref().and_then(|a| a.previzualizare(k)))
+                .unwrap_or_default();
+            if let Some(ui) = e.upgrade() {
+                ui.set_previzualizare_linii(gmotion_fereastra::previzualizare_ui(&linii));
+            }
+        });
         let c = comanda.clone();
         editor_ui.on_cauta(move |t| {
             actiune("editor", "cauta", &format!("{:?}", (&t,)), false);
