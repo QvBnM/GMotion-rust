@@ -445,6 +445,38 @@ pub fn diff_aliniat_cu_raport(
     (randuri, pozitionale)
 }
 
+/// Bucatile schimbate, asezate pe linii: `rezultat[i]` sunt intervalele (in
+/// caractere) marcate pe linia `i` a blocului.
+///
+/// Segmentele din [`RandDiff`] sunt pe bloc, nu pe linie, iar cine deseneaza
+/// are nevoie de ele pe linie. Fara functia asta, fiecare consumator isi face
+/// propria taiere pe `\n` — si a doua implementare a aceleiasi socoteli e
+/// exact ce evitam.
+pub fn marcaje_pe_linii(segmente: &[Segment]) -> Vec<Vec<(usize, usize)>> {
+    let mut linii: Vec<Vec<(usize, usize)>> = vec![Vec::new()];
+    let mut coloana = 0usize;
+    for s in segmente {
+        for (k, bucata) in s.text.split('\n').enumerate() {
+            if k > 0 {
+                linii.push(Vec::new());
+                coloana = 0;
+            }
+            let n = bucata.chars().count();
+            if s.schimbat.is_some() && n > 0 {
+                let linie = linii.last_mut().expect("are mereu o linie");
+                match linie.last_mut() {
+                    // doua marcaje lipite se unesc, altfel ar iesi doua perechi
+                    // de paranteze una langa alta
+                    Some(ultim) if ultim.1 == coloana => ultim.1 = coloana + n,
+                    _ => linie.push((coloana, coloana + n)),
+                }
+            }
+            coloana += n;
+        }
+    }
+    linii
+}
+
 fn formateaza_rezumat(modificate: usize, adaugate: usize, sterse: usize) -> String {
     let mut p: Vec<String> = Vec::with_capacity(3);
     if modificate > 0 {
@@ -672,6 +704,24 @@ mod teste {
             !dreapta.contains("RCA_Multiple.doc"),
             "ce n-a fost atins nu se marcheaza: {dreapta:?}"
         );
+    }
+
+    #[test]
+    fn marcajele_se_taie_pe_linii() {
+        let r = diff_aliniat(
+            "SELECT a\nFROM vechi\nWHERE x = 1",
+            "SELECT a\nFROM nou\nWHERE x = 1",
+        );
+        let seg = r[0].seg_dreapta.as_ref().expect("segmente");
+        let m = marcaje_pe_linii(seg);
+        assert_eq!(m.len(), 3, "trei linii: {m:?}");
+        assert!(m[0].is_empty(), "prima linie e neatinsa: {m:?}");
+        assert!(!m[1].is_empty(), "a doua linie are marcaj: {m:?}");
+        assert!(m[2].is_empty(), "a treia linie e neatinsa: {m:?}");
+        // marcajul cade pe `nou`, in coloanele lui
+        let linie = "FROM nou";
+        let (a, b) = m[1][0];
+        assert_eq!(&linie[a..b], "nou", "{m:?}");
     }
 
     #[test]

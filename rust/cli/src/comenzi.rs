@@ -1119,6 +1119,7 @@ pub fn diferente(
     let text_ref = gmotion_core::pregateste_afisare(&r.definitie);
     let text_tinta = gmotion_core::pregateste_afisare(&c.definitie);
     let (d, rezumat) = modul::diferente_obiect(&text_ref, &text_tinta);
+    let plasari = modul::plasari_obiect(&text_ref, &text_tinta);
 
     match format {
         Format::Json => {
@@ -1129,6 +1130,7 @@ pub fn diferente(
                 baza: &'a str,
                 rezumat: &'a str,
                 randuri: &'a [modul::Diferenta],
+                plasare: &'a [modul::Plasare],
             }
             afisare::scrie_json(&D {
                 obiect,
@@ -1136,13 +1138,15 @@ pub fn diferente(
                 baza,
                 rezumat: &rezumat,
                 randuri: &d,
+                plasare: &plasari,
             })
             .map_err(|e| e.to_string())
         }
         Format::Text => {
             use std::io::IsTerminal;
             let culori = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
-            let (linii, locuri) = text_diferente(&d, &text_ref, &text_tinta, culori);
+            let aliniere = gmotion_core::aliniaza(&text_ref, &text_tinta);
+            let (linii, locuri) = text_diferente(&aliniere, culori);
             println!(
                 "{}",
                 afisare::fara_control(&format!("{obiect}: {referinta} -> {baza}"))
@@ -1161,6 +1165,33 @@ pub fn diferente(
                     }
                 );
             }
+            if !plasari.is_empty() {
+                println!();
+                println!("Plasarea blocurilor din martor, adica ce face Aplica:");
+                for p in &plasari {
+                    let unde = if p.inlocuieste {
+                        format!(
+                            "inlocuieste blocul {} (linia {}), potrivire {:.2}%",
+                            p.bloc_tinta + 1,
+                            p.linie_tinta,
+                            p.scor
+                        )
+                    } else if p.linie_tinta > 0 {
+                        format!(
+                            "fara corespondent: se insereaza inaintea liniei {}",
+                            p.linie_tinta
+                        )
+                    } else {
+                        "fara corespondent: se adauga la sfarsit".to_string()
+                    };
+                    let impreuna = if p.randuri_mutate.len() > 1 {
+                        format!(" (cu {} blocuri)", p.randuri_mutate.len())
+                    } else {
+                        String::new()
+                    };
+                    println!("  linia {:>5} -> {unde}{impreuna}", p.linie_martor);
+                }
+            }
             println!();
             for linie in linii {
                 println!("{linie}");
@@ -1170,35 +1201,22 @@ pub fn diferente(
     }
 }
 
-/// Textul lui `gmotion diferente`: tot obiectul, ca in editorul din v3.4, cu
-/// numerele de linie din referinta si din tinta, plus locurile diferentelor
+/// Textul lui `gmotion diferente`: tot obiectul, ca in editor, cu numerele de
+/// linie din martor si din versiunea modificata, plus locurile diferentelor
 /// (pentru rezumatul de sus).
 ///
-/// Un bloc modificat se arata cu **ambele** versiuni: `-` referinta, `+` baza
-/// comparata. Bucatile schimbate din linie se evidentiaza: pe terminal cu
-/// culoare inversata (rosu / verde), redirectat in fisier cu `[-...-]` /
-/// `{+...+}`, ca `git diff --word-diff`. Pana la a doua rulare pe Windows se
-/// arata doar versiunea noua cu `~`, deci nu se vedea ce s-a schimbat.
-fn text_diferente(
-    d: &[modul::Diferenta],
-    text_ref: &str,
-    text_tinta: &str,
-    culori: bool,
-) -> (Vec<String>, Vec<String>) {
-    // Linia reala de start a fiecarui bloc: segmentarea arunca liniile goale si
-    // blocurile care sunt doar comentariu, deci numararea pe blocuri ar da
-    // numere gresite si ar ascunde liniile acelea. Golurile se completeaza din
-    // textul original, ca context.
-    let start_ref = gmotion_core::linii_start_blocuri(
-        text_ref,
-        &gmotion_core::split_statements(text_ref, false),
-    );
-    let start_tinta = gmotion_core::linii_start_blocuri(
-        text_tinta,
-        &gmotion_core::split_statements(text_tinta, false),
-    );
-    let original_ref: Vec<&str> = text_ref.lines().collect();
-    let original_tinta: Vec<&str> = text_tinta.lines().collect();
+/// Asezarea pe linii vine din `gmotion_core::aliniaza`, nu se recalculeaza
+/// aici: pana la etapa 20, functia asta isi facea propria socoteala cu
+/// `linii_start_blocuri` si umplea singura golurile dintre blocuri — a doua
+/// implementare a aceleiasi logici, adica exact felul in care au divergat
+/// motoarele din v3.4. Acum liniile din interiorul unui bloc modificat sunt
+/// imperecheate intre ele, nu pe pozitie.
+///
+/// Un rand modificat se arata cu **ambele** versiuni: `-` martorul, `+`
+/// versiunea modificata. Bucatile schimbate se evidentiaza: pe terminal cu
+/// culoare inversata, redirectat in fisier cu `[-...-]` / `{+...+}`, ca
+/// `git diff --word-diff`.
+fn text_diferente(a: &gmotion_core::Aliniere, culori: bool) -> (Vec<String>, Vec<String>) {
     const ROSU: &str = "\x1b[31m";
     const VERDE: &str = "\x1b[32m";
     const INVERS: &str = "\x1b[7m";
@@ -1207,33 +1225,40 @@ fn text_diferente(
     // Caracterele de control din cod (venit din baze) nu ajung pe terminal;
     // culorile se adauga abia dupa curatare.
     let curat = |s: &str| afisare::fara_control(s);
-    let evidentiat =
-        |bucati: &Option<Vec<modul::Bucata>>, simplu: &Option<String>, semn: char| -> String {
-            let (deschis, inchis) = match (culori, semn) {
-                (true, _) => (INVERS, FARA_INVERS),
-                (false, '-') => ("[-", "-]"),
-                (false, _) => ("{+", "+}"),
-            };
-            match bucati {
-                Some(b) => b
-                    .iter()
-                    .map(|x| {
-                        let text = curat(&x.text);
-                        if x.marcaj.is_some() {
-                            // marcajul se inchide la capat de linie si se redeschide
-                            // pe urmatoarea, ca fiecare linie sa fie completa
-                            text.split('\n')
-                                .map(|bucata| format!("{deschis}{bucata}{inchis}"))
-                                .collect::<Vec<_>>()
-                                .join("\n")
-                        } else {
-                            text
-                        }
-                    })
-                    .collect(),
-                None => curat(simplu.as_deref().unwrap_or("")),
-            }
+
+    // marcajele pe linii, calculate o data per bloc si parte
+    /// Marcajele unui bloc, pe linii: `[stanga, dreapta]`, calculate la cerere.
+    type MarcajeBloc = [Option<Vec<Vec<(usize, usize)>>>; 2];
+    let mut marcaje: Vec<MarcajeBloc> = vec![[None, None]; a.diff.len()];
+
+    let evidentiat = |text: &str, m: &[(usize, usize)], semn: char| -> String {
+        let (deschis, inchis) = match (culori, semn) {
+            (true, _) => (INVERS, FARA_INVERS),
+            (false, '-') => ("[-", "-]"),
+            (false, _) => ("{+", "+}"),
         };
+        if m.is_empty() {
+            return curat(text);
+        }
+        let caractere: Vec<char> = text.chars().collect();
+        let mut out = String::new();
+        let mut poz = 0usize;
+        for &(x, y) in m {
+            let (x, y) = (x.min(caractere.len()), y.min(caractere.len()));
+            if poz < x {
+                out.push_str(&curat(&caractere[poz..x].iter().collect::<String>()));
+            }
+            out.push_str(deschis);
+            out.push_str(&curat(&caractere[x..y].iter().collect::<String>()));
+            out.push_str(inchis);
+            poz = y;
+        }
+        if poz < caractere.len() {
+            out.push_str(&curat(&caractere[poz..].iter().collect::<String>()));
+        }
+        out
+    };
+
     let rand = |r: Option<usize>, t: Option<usize>, semn: char, text: &str| -> String {
         let nr = |n: Option<usize>| n.map_or("     ".to_string(), |n| format!("{n:>5}"));
         let culoare = match (culori, semn) {
@@ -1245,113 +1270,83 @@ fn text_diferente(
         format!("{} {} {culoare}{semn} {text}{sfarsit}", nr(r), nr(t))
     };
 
-    // Numarul de linie (1-based) al liniei `k` din blocul `b`; daca blocul nu
-    // are start cunoscut, continua dupa ultima linie scrisa.
-    let mut bloc_ref = 0usize;
-    let mut bloc_tinta = 0usize;
-    let (mut ultim_ref, mut ultim_tinta) = (0usize, 0usize);
-    let start = |starturi: &[usize], bloc: &mut usize, ultim: usize| -> usize {
-        let s = starturi.get(*bloc).map_or(ultim, |&s| s.max(ultim));
-        *bloc += 1;
-        s
-    };
-    // Liniile originale dintre doua blocuri (goale sau doar comentariu), ca
-    // context: intervale 0-based, capatul din dreapta exclusiv.
-    let completeaza = |linii: &mut Vec<String>, r: (usize, usize), t: (usize, usize)| {
-        let nr = r.1.saturating_sub(r.0).max(t.1.saturating_sub(t.0));
-        for i in 0..nr {
-            let lr = (r.0 + i < r.1).then_some(r.0 + i);
-            let lt = (t.0 + i < t.1).then_some(t.0 + i);
-            let text = lt
-                .and_then(|k| original_tinta.get(k))
-                .or_else(|| lr.and_then(|k| original_ref.get(k)))
-                .copied()
+    // locurile diferentelor: prima linie a blocului, pe fiecare parte
+    let mut locuri = Vec::new();
+    for (b, d) in a.diff.iter().enumerate() {
+        if d.tip == gmotion_core::TipDiferenta::Egal {
+            continue;
+        }
+        let ale_lui = a.randuri.iter().filter(|r| r.bloc == Some(b));
+        let (mut st, mut dr) = (None, None);
+        for r in ale_lui {
+            st = st.or(r.stanga.as_ref().map(|l| l.nr));
+            dr = dr.or(r.dreapta.as_ref().map(|l| l.nr));
+        }
+        let text = |n: Option<usize>| n.map_or("-".to_string(), |n| n.to_string());
+        locuri.push(format!("{}/{}", text(st), text(dr)));
+    }
+
+    let mut linii = Vec::new();
+    for r in &a.randuri {
+        let mut marcaj = |parte: usize, indice: Option<usize>| -> Vec<(usize, usize)> {
+            // o linie ignorata la comparare (goala sau numai comentariu) n-are
+            // ce sa aiba marcat: normalizarea oricum n-o vede, deci marcajul ar
+            // spune „asta s-a schimbat" despre ceva ce motorul nu numara
+            let (Some(b), Some(i)) = (r.bloc, indice.filter(|_| !r.ignorata)) else {
+                return Vec::new();
+            };
+            let cache = &mut marcaje[b][parte];
+            let m = cache.get_or_insert_with(|| {
+                let seg = if parte == 0 {
+                    a.diff[b].seg_stanga.as_deref()
+                } else {
+                    a.diff[b].seg_dreapta.as_deref()
+                };
+                seg.map(gmotion_core::diff::marcaje_pe_linii)
+                    .unwrap_or_default()
+            });
+            m.get(i).cloned().unwrap_or_default()
+        };
+
+        let m_st = marcaj(0, r.linie_in_bloc_stanga);
+        let m_dr = marcaj(1, r.linie_in_bloc_dreapta);
+        // doua linii imperecheate fara nimic marcat sunt aceeasi linie: se
+        // arata o data, ca si context, chiar daca blocul din jur e modificat
+        let nimic_schimbat =
+            r.stanga.is_some() && r.dreapta.is_some() && m_st.is_empty() && m_dr.is_empty();
+        if r.tip == gmotion_core::TipDiferenta::Egal || nimic_schimbat {
+            let text = r
+                .dreapta
+                .as_ref()
+                .or(r.stanga.as_ref())
+                .map(|l| l.text.as_str())
                 .unwrap_or("");
             linii.push(rand(
-                lr.map(|k| k + 1),
-                lt.map(|k| k + 1),
+                r.stanga.as_ref().map(|l| l.nr),
+                r.dreapta.as_ref().map(|l| l.nr),
                 ' ',
                 &curat(text),
             ));
+            continue;
         }
-    };
-    let mut linii = Vec::new();
-    let mut locuri = Vec::new();
-    for x in d {
-        let are_ref = x.stanga.is_some();
-        let are_tinta = x.dreapta.is_some();
-        let s_ref = if are_ref {
-            start(&start_ref, &mut bloc_ref, ultim_ref)
-        } else {
-            ultim_ref
-        };
-        let s_tinta = if are_tinta {
-            start(&start_tinta, &mut bloc_tinta, ultim_tinta)
-        } else {
-            ultim_tinta
-        };
-        completeaza(&mut linii, (ultim_ref, s_ref), (ultim_tinta, s_tinta));
-        match x.fel {
-            modul::Fel::Egal => {
-                let s: Vec<String> = x
-                    .stanga
-                    .as_deref()
-                    .unwrap_or("")
-                    .lines()
-                    .map(curat)
-                    .collect();
-                let dr: Vec<String> = x
-                    .dreapta
-                    .as_deref()
-                    .unwrap_or("")
-                    .lines()
-                    .map(curat)
-                    .collect();
-                for i in 0..s.len().max(dr.len()) {
-                    let r = (i < s.len()).then_some(s_ref + i + 1);
-                    let t = (i < dr.len()).then_some(s_tinta + i + 1);
-                    let text = dr.get(i).or(s.get(i)).map(String::as_str).unwrap_or("");
-                    linii.push(rand(r, t, ' ', text));
-                }
-                ultim_ref = s_ref + s.len();
-                ultim_tinta = s_tinta + dr.len();
-            }
-            modul::Fel::Sters => {
-                locuri.push(format!("{}/-", s_ref + 1));
-                let text = curat(x.stanga.as_deref().unwrap_or(""));
-                for (i, l) in text.lines().enumerate() {
-                    linii.push(rand(Some(s_ref + i + 1), None, '-', l));
-                }
-                ultim_ref = s_ref + text.lines().count();
-            }
-            modul::Fel::Adaugat => {
-                locuri.push(format!("-/{}", s_tinta + 1));
-                let text = curat(x.dreapta.as_deref().unwrap_or(""));
-                for (i, l) in text.lines().enumerate() {
-                    linii.push(rand(None, Some(s_tinta + i + 1), '+', l));
-                }
-                ultim_tinta = s_tinta + text.lines().count();
-            }
-            modul::Fel::Modificat => {
-                locuri.push(format!("{}/{}", s_ref + 1, s_tinta + 1));
-                let vechi = evidentiat(&x.bucati_stanga, &x.stanga, '-');
-                for (i, l) in vechi.lines().enumerate() {
-                    linii.push(rand(Some(s_ref + i + 1), None, '-', l));
-                }
-                let nou = evidentiat(&x.bucati_dreapta, &x.dreapta, '+');
-                for (i, l) in nou.lines().enumerate() {
-                    linii.push(rand(None, Some(s_tinta + i + 1), '+', l));
-                }
-                ultim_ref = s_ref + vechi.lines().count();
-                ultim_tinta = s_tinta + nou.lines().count();
-            }
+        if let Some(l) = r.stanga.as_ref() {
+            linii.push(rand(
+                Some(l.nr),
+                None,
+                '-',
+                &evidentiat(&l.text, &m_st, '-'),
+            ));
+        }
+        if let Some(l) = r.dreapta.as_ref() {
+            linii.push(rand(
+                None,
+                Some(l.nr),
+                '+',
+                &evidentiat(&l.text, &m_dr, '+'),
+            ));
         }
     }
-    completeaza(
-        &mut linii,
-        (ultim_ref, original_ref.len()),
-        (ultim_tinta, original_tinta.len()),
-    );
+
     (linii, locuri)
 }
 
@@ -1363,8 +1358,8 @@ mod teste {
     fn randul_modificat_arata_ambele_versiuni_si_ce_s_a_schimbat() {
         let a = "SELECT 1\n\nSELECT dbo.ResStr('nu s-au gasit detalii') + x";
         let b = "SELECT 1\n\nEXEC p\n\nSELECT dbo.ResStr('Nu s-au gasit detalii') + x";
-        let (d, _) = modul::diferente_obiect(a, b);
-        let (linii, locuri) = text_diferente(&d, a, b, false);
+        let aliniere = gmotion_core::aliniaza(a, b);
+        let (linii, locuri) = text_diferente(&aliniere, false);
         let vechi = linii
             .iter()
             .find(|l| l.contains("- SELECT dbo"))
@@ -1391,7 +1386,7 @@ mod teste {
         assert!(linii.iter().any(|l| l.trim() == "2     4"), "{linii:#?}");
         assert!(linii.iter().any(|l| l.trim() == "2"), "{linii:#?}");
         assert_eq!(linii.len(), 6, "{linii:#?}");
-        let (cu_culori, _) = text_diferente(&d, a, b, true);
+        let (cu_culori, _) = text_diferente(&aliniere, true);
         assert!(
             cu_culori.iter().any(|l| l.contains("\u{1b}[7mNu")),
             "{cu_culori:#?}"

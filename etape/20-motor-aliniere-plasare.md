@@ -100,7 +100,10 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
       cazand o data
 
 **F. Depanabil fara fereastra**
-- [ ] `gmotion diferente` arata alinierea pe linii si plasarea sugerata
+- [x] `gmotion diferente` arata alinierea pe linii si plasarea sugerata.
+      Randarea din `cli` nu-si mai face propria socoteala cu
+      `linii_start_blocuri` si umplerea golurilor — citeste alinierea
+      motorului, deci a doua implementare a asezarii a disparut
 
 **Comun**
 - [ ] poarta verde; `CRATE.md` sincronizat pentru `core`; `STARE.md`;
@@ -156,6 +159,15 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
   16.000 de linii se compara in 0,53 s in loc de 38 s. Cu scorul ieftin,
   plafonul de imperechere a blocurilor a urcat de la 144 la 4096, si cand tot
   se atinge se raporteaza. Garda de cost e pe pasi, nu pe timp.
+- **2026-11-19** **F gata.** `gmotion diferente` arata plasarea („linia 26 ->
+  inlocuieste blocul 4 (linia 11), potrivire 24%") si deseneaza din alinierea
+  motorului, nu dintr-o asezare proprie. Pe drum s-a vazut ca **doua straturi
+  dadeau raspunsuri diferite** pentru acelasi bloc: diff-ul imperechea
+  `SELECT`-urile, iar plasarea (prag 55) spunea „fara corespondent". Impacate
+  in `modul::plasari_obiect`: perechea aleasa de diff bate, plasarea raspunde
+  doar pentru blocurile ramase fara pereche. Altfel „Aplica" ar fi scris in alt
+  loc decat arata ecranul. Tot aici: `core::marcaje_pe_linii`, ca sa nu-si taie
+  fiecare consumator singur marcajele pe `\n`.
 
 ## Ce a iesit altfel decat planul
 

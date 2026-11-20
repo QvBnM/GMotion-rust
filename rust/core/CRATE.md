@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 5ef2e96f2a38aa7c -->
+<!-- api-hash: 75a9947c32617dd2 -->
 
 ## Rol
 
@@ -55,6 +55,7 @@ proiectul.
 | `diff_aliniat(ref, cur) -> Vec<RandDiff>` | diferentele, cu aliniere prin programare dinamica |
 | `rezumat_rapid(ref, cur)` | rezumatul pentru lista de obiecte |
 | `rezumat_diff(randuri)` | rezumatul dintr-un diff deja calculat |
+| `marcaje_pe_linii(segmente)` | bucatile schimbate, taiate pe liniile blocului — ca sa nu-si faca fiecare consumator propria taiere pe `\n` |
 | `RandDiff`, `Segment`, `FelSchimbare`, `TipDiferenta` | tipurile rezultatului |
 
 ### `aliniere`

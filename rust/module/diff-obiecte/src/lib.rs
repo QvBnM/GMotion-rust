@@ -40,7 +40,10 @@ pub use comparare::{
     Numaratoare, Progres, Rand,
 };
 pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, PasRevenire, Raport};
-pub use diferente::{detalii_obiect, diferente_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj};
+pub use diferente::{
+    detalii_obiect, diferente_obiect, plasari_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj,
+    Plasare,
+};
 pub use editare::{Editari, TextFinal};
 pub use eroare::{Eroare, Rezultat};
 pub use export::{scrie_csv, Stare};

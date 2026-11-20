@@ -129,6 +129,113 @@ pub fn diferente_obiect(referinta: &str, curent: &str) -> (Vec<Diferenta>, Strin
     (randuri.iter().map(Diferenta::din).collect(), rezumat)
 }
 
+/// Unde ar ajunge un bloc din martor, in textul modificat.
+///
+/// Raspunsul vine din `gmotion_core::plasare` (portul stratului din v3.4).
+/// Fara el, „Aplica pe pozitia sugerata", drag & drop, „Plaseaza aici" si
+/// randul-fantoma n-au ce intreba.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Plasare {
+    /// Pozitia randului in lista de diferente (aceeasi ca la `diferente_obiect`).
+    pub rand: usize,
+    /// Linia la care incepe blocul in martor (1-based).
+    pub linie_martor: usize,
+    /// `true` daca blocul inlocuieste un bloc din tinta; `false` daca se
+    /// insereaza intre blocuri, fiindca n-are corespondent.
+    pub inlocuieste: bool,
+    /// Blocul din tinta care se inlocuieste, sau blocul inaintea caruia se
+    /// insereaza (egal cu numarul de blocuri = la sfarsit).
+    pub bloc_tinta: usize,
+    /// Linia la care incepe acel bloc in tinta (1-based), `0` daca se adauga
+    /// la sfarsit.
+    pub linie_tinta: usize,
+    /// Scorul de potrivire; `-1` cand niciun candidat nu s-a calificat.
+    pub scor: f64,
+    /// Randurile care se muta impreuna (un `IF ... BEGIN` isi ia corpul).
+    pub randuri_mutate: Vec<usize>,
+}
+
+/// Plasarea fiecarui bloc din martor care difera, in ordinea lor.
+///
+/// Se calculeaza pe textul **curent** al tintei: in editor textul se schimba
+/// sub tine, deci plasarea se cere din nou dupa fiecare aplicare.
+///
+/// **Doua straturi, o singura concluzie.** Cand diff-ul a imperecheat deja
+/// blocul cu unul din tinta (randul e `modificat`), aia e plasarea: perechea
+/// aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
+/// decat arata editorul. `gmotion_core::plasare` raspunde doar pentru
+/// blocurile ramase fara pereche — exact intrebarea pe care diff-ul n-o
+/// acopera.
+pub fn plasari_obiect(referinta: &str, curent: &str) -> Vec<Plasare> {
+    let randuri = diff_aliniat(referinta, curent);
+    let blocuri_martor = gmotion_core::split_statements(referinta, false);
+    let blocuri_tinta = gmotion_core::split_statements(curent, false);
+    let start_martor = gmotion_core::linii_start_blocuri(referinta, &blocuri_martor);
+    let start_tinta = gmotion_core::linii_start_blocuri(curent, &blocuri_tinta);
+
+    let mut out = Vec::new();
+    let mut bloc_martor = 0usize;
+    let mut bloc_tinta_urmator = 0usize;
+    for (pozitie, r) in randuri.iter().enumerate() {
+        // blocurile se consuma in ordine, pe fiecare parte
+        let linie_martor = r.stanga.as_ref().map(|_| {
+            let l = start_martor.get(bloc_martor).copied().unwrap_or(0) + 1;
+            bloc_martor += 1;
+            l
+        });
+        let perechea_din_tinta = r.dreapta.as_ref().map(|_| {
+            let k = bloc_tinta_urmator;
+            bloc_tinta_urmator += 1;
+            k
+        });
+        let Some(linie_martor) = linie_martor else {
+            continue;
+        };
+        if r.tip == TipDiferenta::Egal {
+            continue;
+        }
+
+        let (inlocuieste, bloc_tinta, scor, randuri_mutate) = match perechea_din_tinta {
+            // diff-ul a imperecheat deja blocurile: aia e plasarea
+            Some(k) => (
+                true,
+                k,
+                gmotion_core::scor_similaritate(
+                    r.stanga.as_deref().unwrap_or(""),
+                    r.dreapta.as_deref().unwrap_or(""),
+                ),
+                vec![pozitie],
+            ),
+            // fara pereche: intrebam stratul de plasare
+            None => {
+                let Some(s) = gmotion_core::plasare::sugereaza(&randuri, pozitie, &blocuri_tinta)
+                else {
+                    continue;
+                };
+                match s.tinta {
+                    gmotion_core::plasare::Tinta::Bloc { indice, scor } => {
+                        (true, indice, scor, s.randuri)
+                    }
+                    gmotion_core::plasare::Tinta::Gol { indice, scor } => {
+                        (false, indice, scor, s.randuri)
+                    }
+                }
+            }
+        };
+
+        out.push(Plasare {
+            rand: pozitie,
+            linie_martor,
+            inlocuieste,
+            bloc_tinta,
+            linie_tinta: start_tinta.get(bloc_tinta).map_or(0, |l| l + 1),
+            scor,
+            randuri_mutate,
+        });
+    }
+    out
+}
+
 /// Ce arata lista despre un obiect diferit, dincolo de scor: in ce difera si
 /// cate linii se adauga / se scot daca se deployeaza.
 ///
@@ -280,5 +387,35 @@ mod teste {
             &[],
         );
         assert_eq!(d.difera_in, "un sir");
+    }
+}
+
+#[cfg(test)]
+mod teste_plasare {
+    use super::*;
+
+    /// Cazul martor / upgrade: antetul cade peste antet, iar blocul fara
+    /// corespondent isi primeste un loc, nu dispare.
+    #[test]
+    fn plasarea_spune_si_linia_din_fiecare_parte() {
+        let martor = "CREATE PROC p AS\n\nSELECT 1\n\nEXEC dbo.doar_in_martor @x = 1";
+        let tinta = "CREATE PROC p(@a INT) AS\n\nSELECT 1";
+        let p = plasari_obiect(martor, tinta);
+        assert!(!p.is_empty(), "trebuie sa existe plasari");
+
+        let antet = &p[0];
+        assert!(antet.inlocuieste, "{antet:?}");
+        assert_eq!(antet.bloc_tinta, 0);
+        assert_eq!(antet.linie_martor, 1);
+        assert_eq!(antet.linie_tinta, 1);
+
+        let fara_corespondent = p
+            .iter()
+            .find(|x| !x.inlocuieste)
+            .expect("blocul fara corespondent");
+        assert_eq!(
+            fara_corespondent.linie_martor, 5,
+            "linia reala din martor: {fara_corespondent:?}"
+        );
     }
 }

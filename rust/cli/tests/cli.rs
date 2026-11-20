@@ -175,6 +175,18 @@ fn fluxul_complet_pe_instantaneu() {
         t.lines().any(|l| l.contains(" + ") && l.contains("{+0+}")),
         "lipseste versiunea noua marcata:\n{t}"
     );
+    // plasarea: unde ajunge blocul daca apesi Aplica. Fara ea, drag & drop si
+    // randul-fantoma din editor n-au ce intreba, si nimic nu se poate depana
+    // din linia de comanda (CLAUDE.md, sectiunea 3).
+    assert!(
+        t.contains("Plasarea blocurilor din martor"),
+        "lipseste plasarea:\n{t}"
+    );
+    assert!(
+        t.lines()
+            .any(|l| l.contains("-> inlocuieste blocul") && l.contains("potrivire")),
+        "plasarea nu spune unde cade blocul:\n{t}"
+    );
 
     // --- deploy ---
     let dep = d.join("dep");

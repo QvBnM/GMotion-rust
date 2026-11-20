@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 5c73eea506ddcf1f -->
+<!-- api-hash: 61be61ef12d6c099 -->
 
 ## Rol
 
@@ -25,7 +25,15 @@ biblioteca** — fara nicio interfata.
 | Zona | Ce ofera |
 |---|---|
 | `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
-| `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `Fel`, `Bucata`, `Marcaj` |
+| `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `plasari_obiect(ref, cur) -> Vec<Plasare>`, `Fel`, `Bucata`, `Marcaj` |
+
+`plasari_obiect` spune unde ajunge fiecare bloc din martor daca apesi
+„Aplica": ce bloc din tinta inlocuieste, sau intre ce blocuri se insereaza
+cand n-are corespondent. **Doua straturi, o singura concluzie:** cand diff-ul
+a imperecheat deja blocurile (randul e `modificat`), aia e plasarea — perechea
+aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
+decat arata editorul. `gmotion_core::plasare` (portul din v3.4) raspunde doar
+pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 | `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
