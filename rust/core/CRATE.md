@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 703f7193d0cd1063 -->
+<!-- api-hash: 5ef2e96f2a38aa7c -->
 
 ## Rol
 
@@ -62,8 +62,9 @@ proiectul.
 |---|---|
 | `aliniaza_cu(a, b, uneste_cursor)`, `diff_aliniat_cu`, `are_cursor(cod)` | varianta cu unirea ciclului de cursor (v3.4): blocul de cursor se ia intreg, de la DECLARE pana la DEALLOCATE |
 | `aliniaza(stanga, dreapta) -> Aliniere` | diff-ul asezat pe linii, cu umplutura si cu liniile dintre blocuri; ce deseneaza editorul |
+| `diff_aliniat_cu_raport(a, b, uneste_cursor)` | ca `diff_aliniat_cu`, plus cate segmente `replace` au ramas pe imperechere pozitionala |
 | `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: „Aplica bloc" |
-| `Aliniere` (`randuri`, `diff`, `diferente()`, `blocuri_nealiniate`), `RandAliniat` (`linie_in_bloc_stanga` / `_dreapta`, `ignorata`), `Linie` | tipurile rezultatului |
+| `Aliniere` (`randuri`, `diff`, `diferente()`, `blocuri_nealiniate`), `RandAliniat` (`linie_in_bloc_stanga` / `_dreapta`, `primul_din_bloc`, `ultimul_din_bloc`, `ignorata`), `Linie` | tipurile rezultatului |
 
 **Liniile a doua blocuri imperecheate se potrivesc intre ele, nu pe pozitie**
 (din 2026-11-19, etapa 20): cheia e forma normalizata a liniei, iar in
@@ -94,7 +95,20 @@ antetul exista.
 
 ### `seqmatch`
 `SequenceMatcher` — port fidel al `difflib.SequenceMatcher` din Python, cu
-`autojunk=False`. `ratio`, `opcodes`, `matching_blocks`, `find_longest_match`.
+`autojunk=False`. `ratio`, `opcodes`, `matching_blocks`, `find_longest_match`,
+`operatii`.
+
+Pe intervale mari (peste 250.000 de perechi), cea mai lunga potrivire se cauta
+cu un **automat de sufixe**, nu cu bucla din difflib: fara `isjunk` si cu
+`autojunk` oprit, „cea mai lunga potrivire" e exact cel mai lung subsir comun,
+iar difflib alege dintre ele pe cel cu `i` minim, apoi `j` minim — ce tine si
+automatul, prin cea mai mica pozitie de final a fiecarei stari. Rezultatul e
+**identic**, verificat element cu element in `teste_automat`; costul scade de
+la cubic la aproape liniar (16.000 de linii: 38 s -> 0,53 s).
+
+`operatii()` numara pasii elementari ai cautarilor facute pe acel matcher.
+Deterministic, deci pe el se poate pune un plafon intr-un test (`tests/cost.rs`)
+care nu devine instabil pe o masina incarcata.
 
 ### `clasificare`
 `clasifica_diferente(ref, tinta) -> Clasificare` (sau `clasifica_randuri` pe randuri deja aliniate) — in ce difera doua versiuni:
@@ -197,7 +211,11 @@ Trei straturi:
    browser fara cap (`unelte/regenereaza-fixture-plasare.sh`). Plasarea nu se
    poate extrage mecanic din `ui.py` ca motorul de diff, fiindca tine de starea
    paginii.
-4. **`tests/invariante.rs`** — fuzz dirijat, 400 de intrari generate
+4. **`tests/cost.rs`** — garda de cost: plafon pe numarul de pasi (nu pe
+   timp) al cautarii, pe un obiect de 8.000 de linii. Vazuta cazand cu
+   automatul de sufixe oprit: 1,43 miliarde de pasi fata de plafonul de 5
+   milioane.
+5. **`tests/invariante.rs`** — fuzz dirijat, 400 de intrari generate
    determinist per test, pe invariantele 2-6. Generatorul nu produce SQL
    aleator, ci formele care pun la incercare invariantele: literale si
    comentarii pe mai multe linii in care o linie **incepe** cu un cuvant cheie,

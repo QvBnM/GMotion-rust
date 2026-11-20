@@ -324,7 +324,6 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
     let mut randuri: Vec<Rand> = Vec::with_capacity(a.randuri.len());
     let mut diferente = Vec::new();
     let mut blocuri = Vec::new();
-    let mut bloc_anterior: Option<usize> = None;
     for r in &a.randuri {
         let stare = match r.tip {
             TipDiferenta::Egal => Stare::Egal,
@@ -370,11 +369,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
         };
         let stanga = parte(&r.stanga, false);
         let dreapta = parte(&r.dreapta, true);
-        // primul rand al blocului, oricare parte l-ar deschide: de cand
-        // liniile se imperecheaza intre ele, blocul poate incepe cu o linie
-        // care exista doar intr-o parte
-        let inceput_bloc = r.bloc.is_some() && r.bloc != bloc_anterior && stare != Stare::Egal;
-        bloc_anterior = r.bloc;
+        let inceput_bloc = r.primul_din_bloc && stare != Stare::Egal;
         if inceput_bloc {
             diferente.push(randuri.len());
             blocuri.push(r.bloc.unwrap_or_default());

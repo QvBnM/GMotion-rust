@@ -41,6 +41,11 @@ pub struct RandAliniat {
     /// dreapta.
     pub linie_in_bloc_stanga: Option<usize>,
     pub linie_in_bloc_dreapta: Option<usize>,
+    /// Primul, respectiv ultimul rand al blocului din care face parte randul.
+    /// Interfata deseneaza chenarul blocului din ele; fara ele ar trebui sa
+    /// se uite la randul vecin, adica sa refaca aici o socoteala a motorului.
+    pub primul_din_bloc: bool,
+    pub ultimul_din_bloc: bool,
     /// Linia e goala sau numai comentariu, deci n-a intrat in imperechere:
     /// normalizarea o ignora cand decide „egal / modificat". Interfata o poate
     /// arata altfel („ignorat la comparare") sau o poate plia.
@@ -60,6 +65,10 @@ pub struct Aliniere {
     /// (`MAX_PRODUS_LINII`): acolo liniile sunt puse pozitional, ca inainte.
     /// Se raporteaza, ca sa nu degradeze in tacere.
     pub blocuri_nealiniate: Vec<usize>,
+    /// Cate segmente `replace` au fost prea mari pentru imperecherea pe scor a
+    /// **blocurilor** (`diff::MAX_PRODUS_ALINIERE`). Acolo „modificat" poate
+    /// insemna doua blocuri fara legatura, imperecheate doar pozitional.
+    pub segmente_pozitionale: usize,
 }
 
 impl Aliniere {
@@ -279,7 +288,8 @@ pub fn aliniaza(text_stanga: &str, text_dreapta: &str) -> Aliniere {
 /// **si** la inceputurile de blocuri — altfel cele doua n-ar mai vorbi despre
 /// aceleasi blocuri.
 pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -> Aliniere {
-    let diff = crate::diff::diff_aliniat_cu(text_stanga, text_dreapta, uneste_cursor);
+    let (diff, segmente_pozitionale) =
+        crate::diff::diff_aliniat_cu_raport(text_stanga, text_dreapta, uneste_cursor);
     let start_st = linii_start_blocuri(text_stanga, &split_statements(text_stanga, uneste_cursor));
     let start_dr =
         linii_start_blocuri(text_dreapta, &split_statements(text_dreapta, uneste_cursor));
@@ -305,6 +315,8 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                 dreapta: ld.map(|k| linie(k, &original_dr)),
                 tip: TipDiferenta::Egal,
                 bloc: None,
+                primul_din_bloc: false,
+                ultimul_din_bloc: false,
                 linie_in_bloc_stanga: None,
                 linie_in_bloc_dreapta: None,
                 ignorata: false,
@@ -378,6 +390,8 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                 .find_map(|(_, d, _)| *d)
                 .unwrap_or(linii_dr.len());
             randuri.push(RandAliniat {
+                primul_din_bloc: k == 0,
+                ultimul_din_bloc: k + 1 == perechi.len(),
                 stanga: linie(is, &linii_st, s_st),
                 poz_dreapta: dreapta
                     .as_ref()
@@ -406,6 +420,7 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
         randuri,
         diff,
         blocuri_nealiniate: nealiniate,
+        segmente_pozitionale,
     }
 }
 
@@ -654,6 +669,38 @@ mod teste_linii {
 #[cfg(test)]
 mod teste_ignorate {
     use super::*;
+
+    /// Chenarul blocului se deseneaza din ce spune motorul, nu dintr-o
+    /// socoteala refacuta in fereastra.
+    #[test]
+    fn motorul_spune_unde_incepe_si_unde_se_termina_blocul() {
+        let a = aliniaza(
+            "SELECT 1\n\nUPDATE t SET a = 1",
+            "SELECT 1\n\nUPDATE t SET a = 2",
+        );
+        let blocuri: Vec<usize> = a.randuri.iter().filter_map(|r| r.bloc).collect();
+        assert!(!blocuri.is_empty());
+        for b in 0..=blocuri.iter().copied().max().unwrap() {
+            let ale_lui: Vec<&RandAliniat> =
+                a.randuri.iter().filter(|r| r.bloc == Some(b)).collect();
+            assert!(ale_lui[0].primul_din_bloc, "blocul {b} nu are inceput");
+            assert!(
+                ale_lui[ale_lui.len() - 1].ultimul_din_bloc,
+                "blocul {b} nu are sfarsit"
+            );
+            assert_eq!(
+                ale_lui.iter().filter(|r| r.primul_din_bloc).count(),
+                1,
+                "blocul {b} incepe de doua ori"
+            );
+        }
+        // randurile dintre blocuri nu sunt ale niciunui bloc
+        assert!(a
+            .randuri
+            .iter()
+            .filter(|r| r.bloc.is_none())
+            .all(|r| !r.primul_din_bloc && !r.ultimul_din_bloc));
+    }
 
     /// Liniile ignorate se vad ca atare, ca interfata sa le poata plia sau
     /// desena altfel — nu ca diferente.

@@ -149,6 +149,13 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
   pe care citirea codului nu le-ar fi dat: golul sugerat poarta scor **-1**
   cand niciun candidat nu s-a calificat (nu 0), si `srcIndices` din v3.4 sunt
   id-uri de rand, nu pozitii.
+- **2026-11-19** **D si E gata.** Motorul spune acum si unde incepe / se
+  termina blocul, iar fereastra nu-si mai face socoteala ei. `seqmatch` cauta
+  cea mai lunga potrivire cu un automat de sufixe peste 250.000 de perechi:
+  acelasi rezultat (verificat element cu element contra buclei difflib), dar
+  16.000 de linii se compara in 0,53 s in loc de 38 s. Cu scorul ieftin,
+  plafonul de imperechere a blocurilor a urcat de la 144 la 4096, si cand tot
+  se atinge se raporteaza. Garda de cost e pe pasi, nu pe timp.
 
 ## Ce a iesit altfel decat planul
 

@@ -43,10 +43,15 @@ static RE_COSMETIC: Lazy<Regex> = Lazy::new(|| {
 /// `replace` se considera o pereche (modificare), nu stergere + adaugare.
 const PRAG_PERECHE: f64 = 44.0;
 
-/// Peste acest produs `n*m` nu mai facem aliniere prin programare dinamica;
-/// pentru segmente mari costul nu se justifica si pastram imperecherea
-/// pozitionala.
-const MAX_PRODUS_ALINIERE: usize = 144;
+/// Peste acest produs `n*m` nu mai facem imperechere prin programare dinamica
+/// intr-un segment `replace`; pastram imperecherea pozitionala.
+///
+/// Era 144 (12x12), de pe vremea cand fiecare scor costa cat o comparatie
+/// difflib completa. De cand `seqmatch` foloseste automatul de sufixe, scorul
+/// e ieftin, iar un segment de 64x64 se imperecheaza corect fara sa se simta.
+/// Cand plafonul chiar se atinge, se **spune**: vezi
+/// [`diff_aliniat_cu_raport`] si `Aliniere::segmente_pozitionale`.
+const MAX_PRODUS_ALINIERE: usize = 4096;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TipDiferenta {
@@ -113,12 +118,14 @@ fn tokeni_in_literal(s: &str) -> Vec<bool> {
         .filter(|g| matches!(g.fel, Fel::Sir | Fel::IdentificatorGhilimele))
         .map(|g| (g.start, g.sfarsit))
         .collect();
+    // segmentele vin in ordinea pozitiei, deci cautare binara: scanarea
+    // liniara pe fiecare token facea functia patratica in blocurile mari
     RE_TOKEN
         .find_iter(s)
         .map(|m| {
-            literale
-                .iter()
-                .any(|&(a, b)| a <= m.start() && m.start() < b)
+            let poz = m.start();
+            let k = literale.partition_point(|&(a, _)| a <= poz);
+            k > 0 && poz < literale[k - 1].1
         })
         .collect()
 }
@@ -271,7 +278,13 @@ struct RandPlan {
 /// Decizia „egal" se ia pe cheile de bloc, nu renormalizand textul: cheie
 /// egala inseamna text normalizat egal (invarianta 1b din `CRATE.md`), iar
 /// cheile sunt deja calculate.
-fn plan_blocuri(sv: &[String], sn: &[String], kv: &[String], kn: &[String]) -> Vec<RandPlan> {
+fn plan_blocuri(
+    sv: &[String],
+    sn: &[String],
+    kv: &[String],
+    kn: &[String],
+    pozitionale: &mut usize,
+) -> Vec<RandPlan> {
     let mut plan: Vec<RandPlan> = Vec::new();
     for op in SequenceMatcher::new(kv, kn).opcodes() {
         match op.tag {
@@ -287,6 +300,9 @@ fn plan_blocuri(sv: &[String], sn: &[String], kv: &[String], kn: &[String]) -> V
             Tag::Replace => {
                 let bv = &sv[op.i1..op.i2];
                 let bn = &sn[op.j1..op.j2];
+                if bv.len() * bn.len() > MAX_PRODUS_ALINIERE {
+                    *pozitionale += 1;
+                }
                 let perechi = perechi_replace(bv, bn);
                 let (mut pi, mut ii, mut jj) = (0usize, 0usize, 0usize);
                 while ii < bv.len() || jj < bn.len() {
@@ -378,8 +394,22 @@ pub fn diff_aliniat_cu(
     text_curent: &str,
     uneste_cursor: bool,
 ) -> Vec<RandDiff> {
+    diff_aliniat_cu_raport(text_referinta, text_curent, uneste_cursor).0
+}
+
+/// Ca [`diff_aliniat_cu`], plus cate segmente `replace` au fost prea mari
+/// pentru imperecherea pe scor si au ramas pe imperechere pozitionala
+/// (`MAX_PRODUS_ALINIERE`). Acolo „modificat" poate insemna de fapt doua
+/// blocuri fara legatura — cine afiseaza trebuie sa poata spune asta, nu sa
+/// degradeze in tacere.
+pub fn diff_aliniat_cu_raport(
+    text_referinta: &str,
+    text_curent: &str,
+    uneste_cursor: bool,
+) -> (Vec<RandDiff>, usize) {
     let (sv, sn, kv, kn) = blocuri_si_chei(text_referinta, text_curent, uneste_cursor);
-    let plan = plan_blocuri(&sv, &sn, &kv, &kn);
+    let mut pozitionale = 0usize;
+    let plan = plan_blocuri(&sv, &sn, &kv, &kn, &mut pozitionale);
 
     let mut randuri: Vec<RandDiff> = Vec::with_capacity(plan.len());
     let mut contor_inserturi: i64 = 0;
@@ -412,7 +442,7 @@ pub fn diff_aliniat_cu(
         });
     }
 
-    randuri
+    (randuri, pozitionale)
 }
 
 fn formateaza_rezumat(modificate: usize, adaugate: usize, sterse: usize) -> String {
@@ -441,7 +471,7 @@ fn formateaza_rezumat(modificate: usize, adaugate: usize, sterse: usize) -> Stri
 /// citesc din [`plan_blocuri`].
 pub fn rezumat_rapid(text_referinta: &str, text_curent: &str) -> String {
     let (sv, sn, kv, kn) = blocuri_si_chei(text_referinta, text_curent, false);
-    let plan = plan_blocuri(&sv, &sn, &kv, &kn);
+    let plan = plan_blocuri(&sv, &sn, &kv, &kn, &mut 0);
     let numara = |t: TipDiferenta| plan.iter().filter(|r| r.tip == t).count();
     formateaza_rezumat(
         numara(TipDiferenta::Modificat),

@@ -45,9 +45,12 @@ impl Clasificare {
 fn feluri_din_interval(lex: &[crate::lexer::Segment], start: usize, sfarsit: usize) -> [bool; 3] {
     // [cod, sir, comentariu]
     let mut f = [false, false, false];
-    for s in lex {
-        if s.sfarsit <= start || s.start >= sfarsit {
-            continue;
+    // segmentele sunt in ordinea pozitiei: sarim direct la primul care atinge
+    // intervalul, in loc sa le parcurgem pe toate pentru fiecare bucata
+    let de_la = lex.partition_point(|s| s.sfarsit <= start);
+    for s in &lex[de_la..] {
+        if s.start >= sfarsit {
+            break;
         }
         match s.fel {
             Fel::Sir => f[1] = true,
