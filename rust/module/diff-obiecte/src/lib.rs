@@ -47,7 +47,7 @@ pub use diferente::{
 pub use editare::{Editari, TextFinal};
 pub use eroare::{Eroare, Rezultat};
 pub use export::{scrie_csv, Stare};
-pub use impact::{Impact, Nivel};
+pub use impact::{Dependente, Impact, Nivel};
 pub use modul::ModulDiffObiecte;
 pub use plan::{amprenta_exacta, FelSchimbare, Parte, Pas, Plan, Schimbare};
 pub use revizuire::{Amprenta, Revizuire};

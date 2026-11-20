@@ -582,7 +582,9 @@ pub struct SchimbariRevizuire<'a> {
 }
 
 /// Impactul estimat al fiecarui obiect care difera (`modul::impact`), cel mai
-/// mare primul. Cu `obiect`, doar el, plus cine il foloseste.
+/// mare primul. Cu `obiect`, doar el, plus cine il foloseste (in baza
+/// comparata) si ce foloseste el (in Martor; la Extra, in baza comparata) —
+/// aceleasi liste ca panoul de detalii din lista.
 pub fn impact(
     args: &ArgumenteSursa,
     referinta: &str,
@@ -591,20 +593,36 @@ pub fn impact(
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-    let folosit: std::collections::BTreeMap<&str, _> = r
+    let dep: std::collections::BTreeMap<&str, modul::Dependente> = r
         .altele
         .iter()
-        .map(|(nume, baza)| (nume.as_str(), modul::impact::folosit_de(baza)))
+        .map(|(nume, baza)| (nume.as_str(), modul::impact::dependente(baza)))
         .collect();
+    let dep_martor = if obiect.is_some() {
+        modul::impact::dependente(&r.referinta)
+    } else {
+        modul::Dependente::default()
+    };
+    let foloseste = |x: &modul::Rand| -> Vec<String> {
+        let de_unde = if x.categorie == modul::Categorie::Extra {
+            dep.get(x.baza.as_str())
+        } else {
+            Some(&dep_martor)
+        };
+        de_unde
+            .and_then(|d| d.foloseste.get(&x.obiect))
+            .cloned()
+            .unwrap_or_default()
+    };
     let mut randuri: Vec<(&modul::Rand, modul::Impact, Vec<String>)> = r
         .comparare
         .randuri
         .iter()
         .filter(|x| obiect.is_none_or(|o| x.obiect.eq_ignore_ascii_case(o)))
         .map(|x| {
-            let cine = folosit
+            let cine = dep
                 .get(x.baza.as_str())
-                .and_then(|m| m.get(&x.obiect))
+                .and_then(|d| d.folosit_de.get(&x.obiect))
                 .cloned()
                 .unwrap_or_default();
             (x, modul::impact::estimeaza(x, cine.len()), cine)
@@ -635,6 +653,7 @@ pub fn impact(
                     });
                     if obiect.is_some() {
                         v["cine_il_foloseste"] = serde_json::json!(cine);
+                        v["foloseste"] = serde_json::json!(foloseste(x));
                     }
                     v
                 })
@@ -654,6 +673,9 @@ pub fn impact(
                 if obiect.is_some() {
                     for c in cine {
                         println!("           folosit de {}", afisare::fara_control(c));
+                    }
+                    for c in foloseste(x) {
+                        println!("           foloseste  {}", afisare::fara_control(&c));
                     }
                 }
             }

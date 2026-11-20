@@ -42,26 +42,46 @@ pub struct Impact {
     pub motive: Vec<String>,
 }
 
-/// Pentru fiecare obiect din baza, cine il foloseste (`schema.nume`, in
-/// ordine). Lexeaza tot codul bazei o data, deci se calculeaza o singura data
-/// si se tine minte de cine il cheama.
-pub fn folosit_de(baza: &Baza) -> BTreeMap<String, Vec<String>> {
+/// Legaturile dintre obiectele unei baze, in ambele sensuri.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Dependente {
+    /// Pentru fiecare obiect, cine il foloseste (`schema.nume`, in ordine).
+    pub folosit_de: BTreeMap<String, Vec<String>>,
+    /// Pentru fiecare obiect, ce obiecte din aceeasi baza foloseste.
+    pub foloseste: BTreeMap<String, Vec<String>>,
+}
+
+/// Legaturile dintre obiectele bazei. Lexeaza tot codul bazei **o data**
+/// (prin `deploy::referinte`, acelasi lexer ca ordinea de deploy), deci se
+/// calculeaza o singura data si se tine minte de cine il cheama.
+pub fn dependente(baza: &Baza) -> Dependente {
     let perechi: Vec<(&str, &str)> = baza
         .iter()
         .map(|(nume, o)| (nume.as_str(), o.definitie.as_str()))
         .collect();
-    let mut cine: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut d = Dependente::default();
     for (i, deps) in crate::deploy::referinte(&perechi).into_iter().enumerate() {
         for j in deps {
-            cine.entry(perechi[j].0.to_string())
+            d.folosit_de
+                .entry(perechi[j].0.to_string())
                 .or_default()
                 .push(perechi[i].0.to_string());
+            d.foloseste
+                .entry(perechi[i].0.to_string())
+                .or_default()
+                .push(perechi[j].0.to_string());
         }
     }
-    for v in cine.values_mut() {
+    for v in d.folosit_de.values_mut().chain(d.foloseste.values_mut()) {
         v.sort();
+        v.dedup();
     }
-    cine
+    d
+}
+
+/// Pentru fiecare obiect din baza, cine il foloseste. Vezi [`dependente`].
+pub fn folosit_de(baza: &Baza) -> BTreeMap<String, Vec<String>> {
+    dependente(baza).folosit_de
 }
 
 /// Estimeaza impactul deploy-ului randului, stiind cate obiecte din baza
@@ -79,7 +99,7 @@ pub fn estimeaza(r: &Rand, folosit_de: usize) -> Impact {
             return Impact {
                 nivel: Nivel::Scazut,
                 folosit_de,
-                motive: vec!["doar in baza: nu se deployeaza".into()],
+                motive: vec!["Extra: nu se deployeaza".into()],
             }
         }
         Categorie::Criptat => {
@@ -182,6 +202,15 @@ mod teste {
         assert_eq!(cine["dbo.a"], vec!["dbo.b"]);
         assert!(!cine.contains_key("dbo.c"));
         assert!(!cine.contains_key("dbo.b"));
+        // si invers: ce foloseste fiecare, o singura data per nume
+        let d = dependente(&baza);
+        assert_eq!(d.foloseste["dbo.b"], vec!["dbo.a", "dbo.f"]);
+        assert_eq!(d.foloseste["dbo.a"], vec!["dbo.f"]);
+        assert!(
+            !d.foloseste.contains_key("dbo.c"),
+            "doar comentarii si siruri"
+        );
+        assert!(!d.foloseste.contains_key("dbo.f"));
     }
 
     #[test]

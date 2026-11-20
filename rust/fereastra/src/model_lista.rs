@@ -26,7 +26,7 @@ impl Stare {
         match self {
             Stare::Modificat => "M",
             Stare::DoarSursa => "S",
-            Stare::DoarBaza => "B",
+            Stare::DoarBaza => "E",
             Stare::Identic => "=",
             Stare::Criptat => "#",
         }
@@ -37,7 +37,7 @@ impl Stare {
         match self {
             Stare::Modificat => "Modificate",
             Stare::DoarSursa => "Doar in sursa",
-            Stare::DoarBaza => "Doar in baza",
+            Stare::DoarBaza => "Extra",
             Stare::Identic => "Identice",
             Stare::Criptat => "Criptate",
         }
@@ -88,6 +88,21 @@ pub enum Deploy {
     Deployat,
     /// Scris intr-un deploy, dar s-a schimbat de atunci: e o versiune noua.
     VersiuneNoua,
+}
+
+/// Impactul estimat al deploy-ului (`diff-obiecte::impact::estimeaza`), in
+/// ordinea gravitatii. Fereastra nu depinde de module, deci nivelul se
+/// copiaza aici; estimarea ramane una singura, acolo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Impact {
+    Scazut,
+    Mediu,
+    Ridicat,
+}
+
+impl Impact {
+    /// Ordinea din filtru: cele grave intai.
+    pub const TOATE: [Impact; 3] = [Impact::Ridicat, Impact::Mediu, Impact::Scazut];
 }
 
 /// Filtrul pe ce ai facut cu obiectul (v3.4: „Stare").
@@ -155,6 +170,10 @@ pub struct Obiect {
     /// Similaritatea cu sursa, 0-100; doar pentru obiectele modificate.
     pub scor: Option<f64>,
     pub deploy: Deploy,
+    /// Cate obiecte din Modificata il folosesc; `None` cand nu s-a calculat.
+    pub folosit_de: Option<usize>,
+    /// Impactul estimat al deploy-ului; `None` la obiectele identice.
+    pub impact: Option<Impact>,
 }
 
 impl Obiect {
@@ -192,13 +211,18 @@ pub enum Ordine {
     /// Revizuit / omis / nerevizuit.
     Revizuire,
     Deploy,
+    /// Cate obiecte il folosesc; implicit, cele mai folosite primele.
+    FolositDe,
+    /// Impactul; implicit, cele mai grave primele.
+    Impact,
 }
 
 impl Ordine {
-    /// Sensul cu care incepe o coloana: liniile, descrescator (cele mai
-    /// schimbate intai); restul, crescator.
+    /// Sensul cu care incepe o coloana: liniile, cine-l foloseste si
+    /// impactul, descrescator (ce conteaza mai mult, intai); restul,
+    /// crescator.
     fn implicit_descrescator(self) -> bool {
-        matches!(self, Ordine::Linii)
+        matches!(self, Ordine::Linii | Ordine::FolositDe | Ordine::Impact)
     }
 }
 
@@ -216,6 +240,8 @@ pub struct Filtru {
     /// criptate) nu se mai vad.
     pub scor_min: f64,
     pub scor_max: f64,
+    /// Doar obiectele cu impactul asta; `None` = toate.
+    pub impact: Option<Impact>,
 }
 
 impl Default for Filtru {
@@ -228,6 +254,7 @@ impl Default for Filtru {
             revizuire: None,
             scor_min: 0.0,
             scor_max: 100.0,
+            impact: None,
         }
     }
 }
@@ -410,6 +437,12 @@ impl Lista {
         let (a, b) = (min.clamp(0.0, 100.0), max.clamp(0.0, 100.0));
         self.filtru.scor_min = a.min(b);
         self.filtru.scor_max = a.max(b);
+        self.recalculeaza();
+    }
+
+    /// Doar obiectele cu impactul `i` (`None` = toate).
+    pub fn filtreaza_impact(&mut self, i: Option<Impact>) {
+        self.filtru.impact = i;
         self.recalculeaza();
     }
 
@@ -627,6 +660,7 @@ impl Lista {
                         || o.scor.is_some_and(|x| {
                             x >= self.filtru.scor_min && x <= self.filtru.scor_max
                         }))
+                    && self.filtru.impact.is_none_or(|i| o.impact == Some(i))
             })
             .map(|(i, _)| i)
             .collect();
@@ -670,6 +704,8 @@ impl Lista {
                 }
                 Ordine::Revizuire => rang_revizuire(a).cmp(&rang_revizuire(b)),
                 Ordine::Deploy => rang_deploy(a).cmp(&rang_deploy(b)),
+                Ordine::FolositDe => o[a].folosit_de.cmp(&o[b].folosit_de),
+                Ordine::Impact => o[a].impact.cmp(&o[b].impact),
             };
             // numele (cu baza) departajeaza mereu crescator, ca ordinea sa fie
             // stabila; `id()` singur nu mai e unic peste mai multe baze
@@ -713,6 +749,14 @@ mod teste {
             omis: false,
             scor: None,
             deploy: Default::default(),
+            // valori diferite intre obiecte, ca sortarea sa aiba ce face
+            folosit_de: Some(nume.len() % 4),
+            impact: match stare {
+                Stare::Modificat => Some(Impact::Ridicat),
+                Stare::DoarSursa => Some(Impact::Mediu),
+                Stare::Identic => None,
+                _ => Some(Impact::Scazut),
+            },
         }
     }
 
@@ -1036,10 +1080,12 @@ mod teste {
                 Deploy::Deployat => 3,
             }
             .to_string(),
+            Ordine::FolositDe => format!("{:06}", o.folosit_de.unwrap_or(0)),
+            Ordine::Impact => format!("{:?}", o.impact.map(|i| i as u8)),
         }
     }
 
-    const COLOANE: [Ordine; 8] = [
+    const COLOANE: [Ordine; 10] = [
         Ordine::Nume,
         Ordine::Tip,
         Ordine::Baza,
@@ -1048,7 +1094,36 @@ mod teste {
         Ordine::DiferaIn,
         Ordine::Revizuire,
         Ordine::Deploy,
+        Ordine::FolositDe,
+        Ordine::Impact,
     ];
+
+    /// Filtrul pe impact se combina cu celelalte; contoarele de stare raman
+    /// pe tot (ca la celelalte filtre).
+    #[test]
+    fn filtrul_pe_impact_se_combina_cu_starea() {
+        let mut l = lista_stari();
+        let toate = l.vizibile().len();
+        let numara = |l: &Lista, i: Impact| {
+            l.vizibile()
+                .iter()
+                .filter(|&&k| l.obiecte()[k].impact == Some(i))
+                .count()
+        };
+        let ridicate = numara(&l, Impact::Ridicat);
+        assert!(ridicate > 0 && ridicate < toate, "date de test cu de toate");
+        l.filtreaza_impact(Some(Impact::Ridicat));
+        assert_eq!(l.vizibile().len(), ridicate);
+        assert!(l
+            .vizibile()
+            .iter()
+            .all(|&k| l.obiecte()[k].impact == Some(Impact::Ridicat)));
+        l.filtreaza_stare(Some(Stare::DoarSursa));
+        assert!(l.vizibile().is_empty(), "nicio DoarSursa nu e Ridicata");
+        l.filtreaza_stare(None);
+        l.filtreaza_impact(None);
+        assert_eq!(l.vizibile().len(), toate);
+    }
 
     #[test]
     fn fiecare_coloana_sorteaza_in_ambele_sensuri() {
@@ -1081,7 +1156,7 @@ mod teste {
             l.sorteaza(coloana);
             assert_eq!(
                 l.descrescator(),
-                coloana == Ordine::Linii,
+                matches!(coloana, Ordine::Linii | Ordine::FolositDe | Ordine::Impact),
                 "{coloana:?}: sensul implicit, nu cel de data trecuta"
             );
         }

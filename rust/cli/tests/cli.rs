@@ -1001,6 +1001,32 @@ fn impactul_arata_cine_foloseste_obiectul() {
     assert_eq!(x["cine_il_foloseste"][0], "dbo.pLocal");
     assert!(x["nivel"].is_string());
 
+    // si invers: pLocal (Extra, doar in Client1) foloseste pClienti, luat
+    // din Client1, singurul loc unde exista pLocal
+    let o = ruleaza(&[
+        "impact",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--obiect",
+        "dbo.pLocal",
+        "--json",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON valid");
+    assert_eq!(v["obiecte"][0]["foloseste"][0], "dbo.pClienti", "{v}");
+    let o = ruleaza(&[
+        "impact",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "--obiect",
+        "dbo.pLocal",
+    ]);
+    assert!(out(&o).contains("foloseste  dbo.pClienti"), "{}", out(&o));
+
     // vFacturi e doar in comentariu: nu e folosit
     let o = ruleaza(&["impact", "--sursa", i, "--referinta", "Referinta"]);
     assert!(o.status.success(), "{}", err(&o));

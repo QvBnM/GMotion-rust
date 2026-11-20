@@ -1536,6 +1536,26 @@ fn ruleaza() -> Result<(), String> {
             }
         });
         let c = comanda.clone();
+        lista_ui.on_alege_impactul(move |i| {
+            actiune("lista", "alege_impactul", &format!("{:?}", (&i,)), false);
+            let f = usize::try_from(i).ok().and_then(|i| {
+                gmotion_fereastra::model_lista::Impact::TOATE
+                    .get(i)
+                    .copied()
+            });
+            c(Comanda::FiltreazaImpact(f));
+        });
+        let c = comanda.clone();
+        lista_ui.on_alege_dependenta(move |nume| {
+            actiune(
+                "lista",
+                "alege_dependenta",
+                &format!("{:?}", (&nume,)),
+                false,
+            );
+            c(Comanda::SelecteazaDependenta(nume.to_string()));
+        });
+        let c = comanda.clone();
         lista_ui.on_schimba_scorul(move |min, max| {
             actiune(
                 "lista",

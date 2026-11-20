@@ -11,7 +11,7 @@ use gmotion_fereastra::model_editor::{
     construieste_cu, marcheaza_textul_final, previzualizare, LiniePrevizualizare, ModelEditor,
 };
 use gmotion_fereastra::model_lista::{
-    Deploy, Detalii, FiltruRevizuire, Lista, Obiect, Ordine, Stare,
+    Deploy, Detalii, FiltruRevizuire, Impact, Lista, Obiect, Ordine, Stare,
 };
 use gmotion_fereastra::model_taburi::{Activ, Cheie, Pas, Refuz, Taburi};
 use gmotion_modul_diff_obiecte::{self as modul, Baza, Editari, Rand, Revizuire, TextFinal};
@@ -75,6 +75,11 @@ pub enum Comanda {
     FiltreazaRevizuire(Option<FiltruRevizuire>),
     /// Intervalul de similaritate, in procente.
     FiltreazaScor(f64, f64),
+    /// Doar obiectele cu impactul asta (`None` = toate).
+    FiltreazaImpact(Option<Impact>),
+    /// Clic pe un nume din „Folosit de" / „Foloseste": obiectul `schema.nume`
+    /// din aceeasi baza devine selectia listei, daca e in lista.
+    SelecteazaDependenta(String),
     /// „In plan" pe tot ce se vede; `true` = si pe ce s-a deployat deja.
     PuneVizibileleInPlan(bool),
     /// Pune sau scoate obiectul selectat din plan.
@@ -197,7 +202,7 @@ pub struct Ghidat {
 }
 
 /// Pentru fiecare obiect al unei baze, cine il foloseste.
-type FolositDe = std::rc::Rc<std::collections::BTreeMap<String, Vec<String>>>;
+type DependenteBaza = std::rc::Rc<modul::Dependente>;
 
 /// Ce arata panoul de detalii al listei (vezi `gmotion_fereastra::PanouDetalii`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -209,6 +214,10 @@ pub struct PanouDetalii {
     pub impact: Option<i32>,
     pub motive: String,
     pub nota: String,
+    /// Cine foloseste obiectul, in Modificata (`schema.nume`).
+    pub folosit_de: Vec<String>,
+    /// Ce foloseste obiectul.
+    pub foloseste: Vec<String>,
 }
 
 impl PanouDetalii {
@@ -221,6 +230,8 @@ impl PanouDetalii {
             impact: self.impact,
             motive: &self.motive,
             nota: &self.nota,
+            folosit_de: &self.folosit_de,
+            foloseste: &self.foloseste,
         }
     }
 }
@@ -258,7 +269,10 @@ pub struct Aplicatie {
     ghidat: Option<Ghidat>,
     /// Cine foloseste fiecare obiect, pe baza comparata; lexarea unei baze
     /// intregi se face o data, la prima cerere pe ea (`impact_obiect`).
-    folosit_de: std::cell::RefCell<std::collections::BTreeMap<String, FolositDe>>,
+    dependente: std::collections::BTreeMap<String, DependenteBaza>,
+    /// Aceleasi legaturi, in Martor: ce **foloseste** un obiect se ia din
+    /// codul care s-ar deploia, deci din Martor (in afara de Extra).
+    dependente_martor: DependenteBaza,
     /// „Uneste ciclul cursor": schimba taierea blocurilor in editor.
     uneste_cursorul: bool,
     /// Modelul editorului, tinut minte pe cheia lui. Se refacea la **fiecare
@@ -324,10 +338,25 @@ impl Aplicatie {
         tinte: Vec<(String, Baza)>,
         revizuire: Revizuire,
     ) -> Self {
+        // Legaturile dintre obiecte, o data per baza: lista le arata pe
+        // fiecare rand (coloanele „Folosit de" si „Impact"), deci nu se mai
+        // pot calcula lenes, la deschiderea panoului.
+        let dependente: std::collections::BTreeMap<String, DependenteBaza> = tinte
+            .iter()
+            .map(|(n, b)| (n.clone(), std::rc::Rc::new(modul::impact::dependente(b))))
+            .collect();
+        let dependente_martor = std::rc::Rc::new(modul::impact::dependente(&sursa));
+        let cati = |baza: &str, id: &str| -> usize {
+            dependente
+                .get(baza)
+                .and_then(|d| d.folosit_de.get(id))
+                .map_or(0, Vec::len)
+        };
         let obiecte: Vec<Obiect> = randuri
             .iter()
             .map(|r| {
                 let (schema, nume) = r.obiect.split_once('.').unwrap_or(("dbo", &r.obiect));
+                let folosit_de = cati(&r.baza, &r.obiect);
                 Obiect {
                     schema: schema.to_string(),
                     nume: nume.to_string(),
@@ -351,6 +380,12 @@ impl Aplicatie {
                     } else {
                         Deploy::Nu
                     },
+                    folosit_de: Some(folosit_de),
+                    impact: Some(match modul::impact::estimeaza(r, folosit_de).nivel {
+                        modul::Nivel::Scazut => Impact::Scazut,
+                        modul::Nivel::Mediu => Impact::Mediu,
+                        modul::Nivel::Ridicat => Impact::Ridicat,
+                    }),
                 }
             })
             .collect();
@@ -380,6 +415,8 @@ impl Aplicatie {
                     omis: false,
                     scor: None,
                     deploy: Deploy::Nu,
+                    folosit_de: Some(cati(nume_baza, id)),
+                    impact: None,
                 });
             }
         }
@@ -398,7 +435,8 @@ impl Aplicatie {
             istoric: Vec::new(),
             diferenta: 0,
             ghidat: None,
-            folosit_de: std::cell::RefCell::default(),
+            dependente,
+            dependente_martor,
             uneste_cursorul: false,
             model: std::cell::RefCell::default(),
             refaceri_model: std::cell::Cell::new(0),
@@ -441,20 +479,25 @@ impl Aplicatie {
     pub fn impact_obiect(&self) -> Option<(modul::Impact, Vec<String>)> {
         let (baza, id) = self.cheia_curenta()?;
         let r = self.rand(&baza, &id)?;
-        let mut cache = self.folosit_de.borrow_mut();
-        if !cache.contains_key(&baza) {
-            let calculat = self
-                .tinta(&baza)
-                .map(modul::impact::folosit_de)
-                .unwrap_or_default();
-            cache.insert(baza.clone(), std::rc::Rc::new(calculat));
-        }
-        let cine = cache
-            .get(&baza)
-            .and_then(|m| m.get(&id))
-            .cloned()
-            .unwrap_or_default();
+        let (cine, _) = self.dependente_obiect()?;
         Some((modul::impact::estimeaza(r, cine.len()), cine))
+    }
+
+    /// Legaturile obiectului selectat: cine il foloseste in Modificata, si ce
+    /// foloseste el (din Martor; pentru Extra, din Modificata, singurul loc
+    /// unde exista).
+    pub fn dependente_obiect(&self) -> Option<(Vec<String>, Vec<String>)> {
+        let (baza, id) = self.cheia_curenta()?;
+        let in_tinta = self.dependente.get(&baza)?;
+        let folosit_de = in_tinta.folosit_de.get(&id).cloned().unwrap_or_default();
+        let extra = self.obiect().is_some_and(|o| o.stare == Stare::DoarBaza);
+        let de_unde = if extra {
+            in_tinta.as_ref()
+        } else {
+            self.dependente_martor.as_ref()
+        };
+        let foloseste = de_unde.foloseste.get(&id).cloned().unwrap_or_default();
+        Some((folosit_de, foloseste))
     }
 
     /// Tot ce arata panoul de detalii, gata de pus in fereastra. Impactul se
@@ -463,6 +506,11 @@ impl Aplicatie {
         let deschis = self.detalii_deschise();
         // doar cu panoul deschis: prima cerere pe o baza o lexeaza toata
         let impact = if deschis { self.impact_obiect() } else { None };
+        let dependente = if deschis {
+            self.dependente_obiect().unwrap_or_default()
+        } else {
+            (Vec::new(), Vec::new())
+        };
         PanouDetalii {
             deschis,
             baza: self.obiect().map(|o| o.baza.clone()).unwrap_or_default(),
@@ -476,6 +524,10 @@ impl Aplicatie {
                 .as_ref()
                 .map(|(i, _)| i.motive.join(" · "))
                 .unwrap_or_default(),
+            // din dependente, nu din impact: si un obiect identic (fara
+            // impact, nu se deployeaza) poate fi folosit de altele
+            folosit_de: dependente.0,
+            foloseste: dependente.1,
             nota: self.nota_obiect().to_string(),
         }
     }
@@ -875,6 +927,15 @@ impl Aplicatie {
             Comanda::Sorteaza(o) => self.lista.sorteaza(o),
             Comanda::FiltreazaRevizuire(f) => self.lista.filtreaza_revizuire(f),
             Comanda::FiltreazaScor(min, max) => self.lista.filtreaza_scor(min, max),
+            Comanda::FiltreazaImpact(i) => self.lista.filtreaza_impact(i),
+            Comanda::SelecteazaDependenta(id) => {
+                if let Some(baza) = self.obiect().map(|o| o.baza.clone()) {
+                    // daca nu e vizibil, `selecteaza_cheie` goleste filtrele;
+                    // daca nu e in lista deloc (identic intr-o comparare
+                    // veche, de pilda), selectia ramane pe loc
+                    self.lista.selecteaza_cheie(&(baza, id));
+                }
+            }
             Comanda::PuneVizibileleInPlan(cu_deployate) => {
                 self.lista.pune_vizibilele_in_plan(cu_deployate);
             }
@@ -1523,6 +1584,90 @@ mod teste {
         assert!(!app.comanda(Comanda::PuneNota("altaBaza".into(), a.clone(), "x".into())));
         assert!(app.comanda(nota("")));
         assert_eq!(app.nota_obiect(), "");
+    }
+
+    /// Etapa 22: fiecare rand din lista stie cine il foloseste si impactul,
+    /// fara sa deschizi panoul; panoul arata **care** obiecte, in ambele
+    /// sensuri; clic pe un nume il selecteaza; filtrul pe impact merge.
+    #[test]
+    fn dependentele_si_impactul_in_lista_si_in_panou() {
+        let sursa = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nEXEC dbo.pA"),
+            obiect_db("pC", "CREATE PROC dbo.pC AS\nEXEC dbo.pA\nEXEC dbo.pB"),
+        ]);
+        let tinta = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 2"),
+            obiect_db("pB", "CREATE PROC dbo.pB AS\nEXEC dbo.pA"),
+            obiect_db("pC", "CREATE PROC dbo.pC AS\nEXEC dbo.pA"),
+            obiect_db("pX", "CREATE PROC dbo.pX AS\nEXEC dbo.pB"),
+        ]);
+        let c = modul::compara("Ref", &sursa, &[("Client1".into(), tinta.clone())], |_| {});
+        let mut app = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".into(), tinta)],
+            Revizuire::noua(),
+        );
+        let rand = |app: &Aplicatie, id: &str| {
+            app.lista()
+                .obiecte()
+                .iter()
+                .find(|o| o.id() == id)
+                .cloned()
+                .unwrap_or_else(|| panic!("{id} lipseste din lista"))
+        };
+        // in Modificata, pA e folosit de pB, pC; pB de pX
+        assert_eq!(rand(&app, "dbo.pA").folosit_de, Some(2));
+        assert_eq!(
+            rand(&app, "dbo.pB").folosit_de,
+            Some(1),
+            "identic, dar folosit"
+        );
+        assert_eq!(
+            rand(&app, "dbo.pB").impact,
+            None,
+            "identicul nu se deployeaza"
+        );
+        assert_eq!(rand(&app, "dbo.pX").stare, Stare::DoarBaza);
+        assert_eq!(rand(&app, "dbo.pX").impact, Some(Impact::Scazut), "Extra");
+        assert!(rand(&app, "dbo.pA").impact.is_some());
+
+        // panoul: pC din Martor foloseste pA si pB (codul care s-ar deploia)
+        app.comanda(Comanda::Filtreaza(None));
+        let p_c = app
+            .lista()
+            .vizibile()
+            .iter()
+            .position(|&i| app.lista().obiecte()[i].id() == "dbo.pC")
+            .expect("pC vizibil");
+        app.comanda(Comanda::ClicPeRand(p_c));
+        let p = app.panou_detalii();
+        assert_eq!(p.foloseste, ["dbo.pA", "dbo.pB"]);
+        assert!(p.folosit_de.is_empty());
+        // Extra: ce foloseste vine din Modificata, singurul loc unde exista
+        app.comanda(Comanda::SelecteazaDependenta("dbo.pX".into()));
+        assert_eq!(app.obiect().map(|o| o.id()), Some("dbo.pX".into()));
+        assert_eq!(app.panou_detalii().foloseste, ["dbo.pB"]);
+        // clic pe „Foloseste: dbo.pB" il selecteaza, chiar daca filtrul il ascundea
+        app.comanda(Comanda::Filtreaza(Some(Stare::DoarBaza)));
+        app.comanda(Comanda::SelecteazaDependenta("dbo.pB".into()));
+        assert_eq!(app.obiect().map(|o| o.id()), Some("dbo.pB".into()));
+        assert_eq!(app.panou_detalii().folosit_de, ["dbo.pX"]);
+        // un nume care nu e in lista lasa selectia pe loc
+        app.comanda(Comanda::SelecteazaDependenta("dbo.nuExista".into()));
+        assert_eq!(app.obiect().map(|o| o.id()), Some("dbo.pB".into()));
+
+        // filtrul pe impact
+        app.comanda(Comanda::Filtreaza(None));
+        app.comanda(Comanda::FiltreazaImpact(Some(Impact::Scazut)));
+        assert!(app
+            .lista()
+            .vizibile()
+            .iter()
+            .all(|&i| app.lista().obiecte()[i].impact == Some(Impact::Scazut)));
+        assert!(!app.lista().vizibile().is_empty());
+        app.comanda(Comanda::FiltreazaImpact(None));
     }
 
     #[test]

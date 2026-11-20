@@ -42,6 +42,10 @@ export struct RandListaUi {
     scor-text: string,
     // 0 neintrodus, 1 pregatit (in plan), 2 trimis, 3 versiune noua, 4 omis
     deploy: int,
+    // cate obiecte din Modificata il folosesc („" = nu se stie)
+    folosit-de: string,
+    // impactul deploy-ului: 0 scazut, 1 mediu, 2 ridicat, -1 fara (identic)
+    impact: int,
 }
 
 export struct CategorieUi {
@@ -109,7 +113,10 @@ export global Coloane {
     in-out property <length> scor: 118px;
     in-out property <length> difera: 124px;
     in-out property <length> revizuit: 62px;
-    in-out property <length> deploy: 100px;
+    // incape „Extra · fara deploy"; varianta lunga, din v3.4, sta in panou
+    in-out property <length> deploy: 130px;
+    in-out property <length> folosit: 76px;
+    in-out property <length> impact: 72px;
     /// Sub atat o coloana nu mai are ce arata.
     out property <length> minim: 48px;
 
@@ -121,6 +128,8 @@ export global Coloane {
         if (coloana == Sortare.difera) { root.difera = Math.max(root.minim, latime); }
         if (coloana == Sortare.revizuit) { root.revizuit = Math.max(root.minim, latime); }
         if (coloana == Sortare.deploy) { root.deploy = Math.max(root.minim, latime); }
+        if (coloana == Sortare.folosit) { root.folosit = Math.max(root.minim, latime); }
+        if (coloana == Sortare.impact) { root.impact = Math.max(root.minim, latime); }
     }
 
     public pure function ia(coloana: int) -> length {
@@ -131,6 +140,8 @@ export global Coloane {
              : coloana == Sortare.difera ? root.difera
              : coloana == Sortare.revizuit ? root.revizuit
              : coloana == Sortare.deploy ? root.deploy
+             : coloana == Sortare.folosit ? root.folosit
+             : coloana == Sortare.impact ? root.impact
              : 0px;
     }
 }
@@ -145,6 +156,8 @@ global Sortare {
     out property <int> revizuit: 5;
     out property <int> deploy: 6;
     out property <int> baza: 7;
+    out property <int> folosit: 8;
+    out property <int> impact: 9;
 }
 
 
@@ -390,11 +403,17 @@ component RandTabel inherits Rectangle {
             }
             Text { text: root.r.litera; font-family: Tema.font-mono; font-size: 12px; font-weight: 500; color: Stari.culoare(root.r.stare); vertical-alignment: center; }
         }
-        HorizontalLayout {
+        // numele nu intra peste coloana Tip cand panoul ingusteaza tabelul:
+        // se taie cu „…", iar ce tot depaseste se decupeaza
+        Rectangle {
             horizontal-stretch: 1;
-            alignment: start;
-            Text { text: root.r.schema + "."; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
-            Text { text: root.r.nume; font-family: Tema.font-mono; font-size: 12.5px; color: root.r.revizuit ? Tema.text-secundar : Tema.text; vertical-alignment: center; overflow: elide; }
+            min-width: 0px;
+            clip: true;
+            HorizontalLayout {
+                padding-right: 8px;
+                Text { text: root.r.schema + "."; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text-tert; vertical-alignment: center; }
+                Text { horizontal-stretch: 1; min-width: 0px; text: root.r.nume; font-family: Tema.font-mono; font-size: 12.5px; color: root.r.revizuit ? Tema.text-secundar : Tema.text; vertical-alignment: center; overflow: elide; }
+            }
         }
         if root.cu-baza: Text { width: Coloane.baza; text: root.r.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
         Text { width: Coloane.tip; text: root.r.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
@@ -428,6 +447,18 @@ component RandTabel inherits Rectangle {
             Text { width: 38px; text: root.r.scor-text; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; horizontal-alignment: right; vertical-alignment: center; }
         }
         Text { width: Coloane.difera; text: root.r.difera-in; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
+        // cine il foloseste: 0 se arata stins, ca sa iasa in fata cele folosite
+        Text { width: Coloane.folosit; text: root.r.folosit-de; font-family: Tema.font-mono; font-size: 12px; color: root.r.folosit-de == "0" ? Tema.text-tert : Tema.text; vertical-alignment: center; }
+        Text {
+            width: Coloane.impact;
+            text: root.r.impact == 2 ? Texte.impact-ridicat : root.r.impact == 1 ? Texte.impact-mediu : root.r.impact == 0 ? Texte.impact-scazut : "";
+            color: root.r.impact == 2 ? Tema.del-text : root.r.impact == 1 ? Tema.mod-text : Tema.text-tert;
+            font-family: Tema.font-ui;
+            font-size: 12.5px;
+            font-weight: root.r.impact == 2 ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+        }
         HorizontalLayout {
             width: Coloane.revizuit;
             alignment: center;
@@ -442,7 +473,8 @@ component RandTabel inherits Rectangle {
         }
         Text {
             width: Coloane.deploy;
-            text: root.r.deploy == 1 ? Texte.pregatit : root.r.deploy == 2 ? Texte.trimis : root.r.deploy == 3 ? Texte.versiune-noua : root.r.deploy == 4 ? Texte.omis : Texte.neintrodus;
+            // Extra (doar in Modificata): nu are ce sa se deployeze, ca in v3.4
+            text: root.r.stare == 2 ? Texte.extra-fara-deploy : root.r.deploy == 1 ? Texte.pregatit : root.r.deploy == 2 ? Texte.trimis : root.r.deploy == 3 ? Texte.versiune-noua : root.r.deploy == 4 ? Texte.omis : Texte.neintrodus;
             color: root.r.deploy == 1 ? Tema.accent-text : root.r.deploy == 2 ? Tema.add-text : root.r.deploy == 3 ? Tema.mod-text : Tema.text-tert;
             font-family: Tema.font-ui;
             font-size: 12.5px;
@@ -484,6 +516,38 @@ component RandDetaliu inherits HorizontalLayout {
     spacing: 8px;
     Text { text: root.eticheta; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; }
     @children
+}
+
+// O lista de nume din panou („Folosit de", „Foloseste"): eticheta la stanga,
+// numele unul sub altul, fiecare se poate apasa (il selecteaza in lista).
+component ListaDependente inherits HorizontalLayout {
+    in property <string> eticheta;
+    in property <[string]> nume;
+    in property <string> rest;
+    callback alege(string);
+    spacing: 8px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    Text { text: root.eticheta; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: top; horizontal-stretch: 1; }
+    VerticalLayout {
+        alignment: start;
+        if root.nume.length == 0: Text { text: Texte.nicio-dependenta; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-tert; horizontal-alignment: right; }
+        for n in root.nume: Rectangle {
+            height: 20px;
+            Text {
+                text: n;
+                font-family: Tema.font-mono;
+                font-size: 12px;
+                color: zn.has-hover ? Tema.accent-text : Tema.text;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                width: parent.width;
+                overflow: elide;
+            }
+            zn := TouchArea { mouse-cursor: pointer; clicked => { root.alege(n); } }
+        }
+        if root.rest != "": Text { text: root.rest; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; horizontal-alignment: right; }
+    }
 }
 
 // Eticheta colorata (stare revizuire, impact): 0 verde, 1 chihlimbar,
@@ -552,6 +616,15 @@ export component FereastraLista inherits Window {
     // filtrul pe stare: indice in `stari`, -1 = toate
     in property <[string]> stari;
     in property <int> stare-activa: -1;
+    // filtrul pe impact: indice in `impacturi` (Ridicat, Mediu, Scazut), -1 = toate
+    in property <[string]> impacturi;
+    in property <int> impact-activ: -1;
+    // panoul: cine foloseste obiectul si ce foloseste el (`schema.nume`);
+    // `-rest` = „+N" cand lista e taiata
+    in property <[string]> folosit-de-lista;
+    in property <string> folosit-de-rest;
+    in property <[string]> foloseste-lista;
+    in property <string> foloseste-rest;
     in-out property <string> scor-min: "0";
     in-out property <string> scor-max: "100";
     in property <string> progres-deployate;   // „8/336"
@@ -612,6 +685,9 @@ export component FereastraLista inherits Window {
     /// Clic pe marginea unei coloane; doua repezi = autofit (numarate in Rust).
     callback clic-margine-coloana(int);
     callback alege-starea(int);
+    callback alege-impactul(int);
+    // clic pe un nume din „Folosit de" / „Foloseste"
+    callback alege-dependenta(string);
     callback schimba-scorul(string, string);
     callback exporta-csv();
     callback pune-vizibilele-in-plan(bool);
@@ -858,6 +934,15 @@ export component FereastraLista inherits Window {
                             alege(i) => { root.alege-starea(i); }
                         }
                     }
+                    VerticalLayout {
+                        alignment: center;
+                        MeniuFiltru {
+                            eticheta: Texte.orice-impact;
+                            optiuni: root.impacturi;
+                            ales: root.impact-activ;
+                            alege(i) => { root.alege-impactul(i); }
+                        }
+                    }
                     // intervalul de similaritate (v3.4: min–max %)
                     VerticalLayout {
                         alignment: center;
@@ -989,6 +1074,24 @@ export component FereastraLista inherits Window {
                                 sortata: root.coloana-sortata == Sortare.difera;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.difera); }
+                            }
+                            CapColoana {
+                                titlu: Texte.coloana-folosit-de;
+                                coloana: Sortare.folosit;
+                                clic-margine => { root.clic-margine-coloana(Sortare.folosit); }
+                                latime: Coloane.folosit;
+                                sortata: root.coloana-sortata == Sortare.folosit;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.folosit); }
+                            }
+                            CapColoana {
+                                titlu: Texte.coloana-impact;
+                                coloana: Sortare.impact;
+                                clic-margine => { root.clic-margine-coloana(Sortare.impact); }
+                                latime: Coloane.impact;
+                                sortata: root.coloana-sortata == Sortare.impact;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.impact); }
                             }
                             CapColoana {
                                 titlu: Texte.revizuit;
@@ -1128,10 +1231,22 @@ export component FereastraLista inherits Window {
                                 wrap: word-wrap;
                                 horizontal-alignment: right;
                             }
+                            ListaDependente {
+                                eticheta: Texte.coloana-folosit-de;
+                                nume: root.folosit-de-lista;
+                                rest: root.folosit-de-rest;
+                                alege(n) => { root.alege-dependenta(n); }
+                            }
+                            ListaDependente {
+                                eticheta: Texte.detalii-foloseste;
+                                nume: root.foloseste-lista;
+                                rest: root.foloseste-rest;
+                                alege(n) => { root.alege-dependenta(n); }
+                            }
                             RandDetaliu {
                                 eticheta: Texte.deploy;
                                 Text {
-                                    text: sel.deploy == 1 ? Texte.pregatit : sel.deploy == 2 ? Texte.trimis : sel.deploy == 3 ? Texte.versiune-noua : sel.deploy == 4 ? Texte.omis : Texte.neintrodus;
+                                    text: sel.stare == 2 ? Texte.extra-nu-se-deployeaza : sel.deploy == 1 ? Texte.pregatit : sel.deploy == 2 ? Texte.trimis : sel.deploy == 3 ? Texte.versiune-noua : sel.deploy == 4 ? Texte.omis : Texte.neintrodus;
                                     color: sel.deploy == 1 ? Tema.accent-text : sel.deploy == 2 ? Tema.add-text : sel.deploy == 3 ? Tema.mod-text : Tema.text-tert;
                                     font-family: Tema.font-ui;
                                     font-size: 12.5px;

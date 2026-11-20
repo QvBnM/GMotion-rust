@@ -216,6 +216,8 @@ mod teste {
             omis: false,
             scor: None,
             deploy: Default::default(),
+            folosit_de: None,
+            impact: None,
         }
     }
 

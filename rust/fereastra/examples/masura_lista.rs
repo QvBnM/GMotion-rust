@@ -57,6 +57,8 @@ fn obiecte(n: usize) -> Vec<model_lista::Obiect> {
                 omis: false,
                 scor: None,
                 deploy: Default::default(),
+                folosit_de: Some(i % 9),
+                impact: None,
             }
         })
         .collect()

@@ -765,6 +765,8 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
                 scor: o.scor.unwrap_or(0.0) as f32 / 100.0,
                 scor_text: o.scor.map_or(String::new(), |x| format!("{x:.0}%")).into(),
                 deploy: cod_deploy(o),
+                folosit_de: o.folosit_de.map_or(String::new(), |n| n.to_string()).into(),
+                impact: o.impact.map_or(-1, |i| i as i32),
             }
         })
         .collect()
@@ -1038,6 +1040,8 @@ fn cod_ordine(o: model_lista::Ordine) -> i32 {
         Ordine::Revizuire => 5,
         Ordine::Deploy => 6,
         Ordine::Baza => 7,
+        Ordine::FolositDe => 8,
+        Ordine::Impact => 9,
     }
 }
 
@@ -1052,6 +1056,8 @@ pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
         5 => Ordine::Revizuire,
         6 => Ordine::Deploy,
         7 => Ordine::Baza,
+        8 => Ordine::FolositDe,
+        9 => Ordine::Impact,
         _ => Ordine::Nume,
     }
 }
@@ -1098,7 +1104,9 @@ pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) 
                 .as_ref()
                 .map_or(0, |d| d.difera_in.chars().count()),
             Ordine::Revizuire => 8,
-            Ordine::Deploy => "Versiune noua".len(),
+            Ordine::Deploy => "Extra · fara deploy".chars().count(),
+            Ordine::FolositDe => o.folosit_de.map_or(1, |n| n.to_string().len()),
+            Ordine::Impact => "Ridicat".len(),
         }
     };
     // doar randurile vizibile: autofit pe ce se vede, ca in orice tabel
@@ -1118,6 +1126,8 @@ pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) 
         Ordine::DiferaIn => "Difera in",
         Ordine::Revizuire => "Revizuit",
         Ordine::Deploy => "Deploy",
+        Ordine::FolositDe => "Folosit de",
+        Ordine::Impact => "Impact",
     }
     .chars()
     .count();
@@ -1238,6 +1248,22 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .map(|&f| eticheta_filtru(f))
             .collect::<Vec<_>>(),
     )));
+    ui.set_impacturi(ModelRc::new(VecModel::from(
+        model_lista::Impact::TOATE
+            .iter()
+            .map(|i| match i {
+                model_lista::Impact::Ridicat => t.get_impact_ridicat(),
+                model_lista::Impact::Mediu => t.get_impact_mediu(),
+                model_lista::Impact::Scazut => t.get_impact_scazut(),
+            })
+            .collect::<Vec<_>>(),
+    )));
+    ui.set_impact_activ(lista.filtru().impact.map_or(-1, |i| {
+        model_lista::Impact::TOATE
+            .iter()
+            .position(|&x| x == i)
+            .map_or(-1, |p| p as i32)
+    }));
     ui.set_stare_activa(lista.filtru().revizuire.map_or(-1, |f| {
         model_lista::FiltruRevizuire::TOATE
             .iter()
@@ -1337,6 +1363,30 @@ pub struct PanouDetalii<'a> {
     pub impact: Option<i32>,
     pub motive: &'a str,
     pub nota: &'a str,
+    /// Cine foloseste obiectul si ce foloseste el (`schema.nume`).
+    pub folosit_de: &'a [String],
+    pub foloseste: &'a [String],
+}
+
+/// Cate nume de dependente incap in panou; restul se spun ca numar.
+const NUME_IN_PANOU: usize = 8;
+
+/// Primele `NUME_IN_PANOU` nume, si „+N" pentru cele ramase.
+fn nume_taiate(nume: &[String]) -> (ModelRc<SharedString>, SharedString) {
+    let arata: Vec<SharedString> = nume
+        .iter()
+        .take(NUME_IN_PANOU)
+        .map(|n| n.as_str().into())
+        .collect();
+    let rest = nume.len().saturating_sub(NUME_IN_PANOU);
+    (
+        ModelRc::new(VecModel::from(arata)),
+        if rest == 0 {
+            SharedString::new()
+        } else {
+            format!("+{rest}").into()
+        },
+    )
 }
 
 /// Umple panoul de detalii. Nota se pune doar cand s-a schimbat obiectul:
@@ -1346,6 +1396,12 @@ pub fn incarca_detalii(ui: &FereastraLista, p: &PanouDetalii) {
     ui.set_detalii_deschise(p.deschis);
     ui.set_impact_nivel(p.impact.unwrap_or(-1));
     ui.set_impact_motive(p.motive.into());
+    let (folosit, rest) = nume_taiate(p.folosit_de);
+    ui.set_folosit_de_lista(folosit);
+    ui.set_folosit_de_rest(rest);
+    let (foloseste, rest) = nume_taiate(p.foloseste);
+    ui.set_foloseste_lista(foloseste);
+    ui.set_foloseste_rest(rest);
     if ui.get_nota_id().as_str() != p.obiect || ui.get_nota_baza().as_str() != p.baza {
         ui.set_nota_baza(p.baza.into());
         ui.set_nota_id(p.obiect.into());
@@ -2166,6 +2222,9 @@ mod teste {
         let a = apeluri.clone();
         ui.on_pune_vizibilele_in_plan(move |cu| a.borrow_mut().push(format!("plan{cu}")));
 
+        let a = apeluri.clone();
+        ui.on_alege_impactul(move |i| a.borrow_mut().push(format!("impact{i}")));
+        ui.invoke_alege_impactul(0);
         ui.invoke_sorteaza_coloana(cod_ordine(model_lista::Ordine::Scor));
         ui.invoke_alege_starea(2);
         ui.invoke_schimba_scorul("40".into(), "90".into());
@@ -2186,6 +2245,7 @@ mod teste {
         assert_eq!(
             *apeluri.borrow(),
             [
+                "impact0",
                 "sort3",
                 "stare2",
                 "scor40-90",
@@ -2845,6 +2905,8 @@ mod teste {
             omis: false,
             scor: None,
             deploy: Default::default(),
+            folosit_de: Some(nume.len() % 3),
+            impact: Some(model_lista::Impact::Mediu),
         };
         model_lista::Lista::noua(vec![
             o("usp_Stoc", "P", Stare::Modificat),
@@ -2860,6 +2922,88 @@ mod teste {
             servere: "srv-dev → srv-prod",
             in_plan: 2,
         }
+    }
+
+    /// Etapa 22, cu mouse-ul: coloanele „Folosit de" si „Impact" vin din
+    /// model, filtrul pe impact se alege din meniu, iar un nume din panou
+    /// („Folosit de" / „Foloseste") se apasa si cere obiectul lui.
+    #[test]
+    fn dependentele_si_impactul_se_vad_si_se_apasa() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        let ui = fereastra_lista();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        let mut lista = lista_de_proba();
+        lista.filtreaza_impact(Some(model_lista::Impact::Mediu));
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let r = ui
+            .get_randuri()
+            .iter()
+            .find(|r| r.nume == "usp_Stoc")
+            .expect("usp_Stoc");
+        assert_eq!(r.folosit_de, "2", "usp_Stoc: 8 % 3");
+        assert_eq!(r.impact, 1, "Mediu");
+        assert_eq!(
+            ui.get_impacturi()
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>(),
+            ["Ridicat", "Mediu", "Scazut"]
+        );
+        assert_eq!(ui.get_impact_activ(), 1);
+
+        let folosit: Vec<String> = (0..11).map(|i| format!("dbo.p{i:02}")).collect();
+        let foloseste = vec!["dbo.fCalc".to_string()];
+        incarca_detalii(
+            &ui,
+            &PanouDetalii {
+                deschis: true,
+                baza: "CharismaProd",
+                obiect: "dbo.usp_Stoc",
+                impact: Some(1),
+                motive: "folosit de 11 obiecte",
+                nota: "",
+                folosit_de: &folosit,
+                foloseste: &foloseste,
+            },
+        );
+        assert_eq!(ui.get_folosit_de_lista().row_count(), NUME_IN_PANOU);
+        assert_eq!(ui.get_folosit_de_rest(), "+3");
+        assert_eq!(ui.get_foloseste_rest(), "");
+
+        ui.show().expect("fereastra se arata");
+        let cerute: Rc<RefCell<Vec<String>>> = Rc::default();
+        let c = cerute.clone();
+        ui.on_alege_dependenta(move |n| c.borrow_mut().push(n.to_string()));
+        let fixat = ui.clone_strong();
+        ui.on_inchide_detalii(move || fixat.set_detalii_deschise(true));
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // numele sunt aliniate la dreapta panoului: se cauta cu clicuri
+        'cauta: for y in (150..880).step_by(5) {
+            for x in [1380.0, 1340.0] {
+                clic(x, y as f32);
+                if cerute.borrow().iter().any(|n| n == "dbo.fCalc") {
+                    break 'cauta;
+                }
+            }
+        }
+        let vazute = cerute.borrow().clone();
+        assert!(vazute.contains(&"dbo.p00".to_string()), "{vazute:?}");
+        assert!(vazute.contains(&"dbo.fCalc".to_string()), "{vazute:?}");
+        let _ = ui.hide();
     }
 
     #[test]
@@ -2945,7 +3089,7 @@ mod teste {
             [
                 "Modificate",
                 "Doar in martor",
-                "Doar in modificata",
+                "Extra",
                 "Identice",
                 "Criptate"
             ]
