@@ -561,6 +561,10 @@ fn randuri_ui_cu_tinte(
                 bloc: -1,
                 text_st: SharedString::new(),
                 inserare: false,
+                cutie_st: false,
+                cutie_dr: false,
+                cutie_jos: false,
+                nr_diferenta: 0,
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -595,6 +599,10 @@ fn randuri_ui_cu_tinte(
                         bloc: -1,
                         text_st: SharedString::new(),
                         inserare: false,
+                        cutie_st: false,
+                        cutie_dr: false,
+                        cutie_jos: false,
+                        nr_diferenta: 0,
                     });
                 }
                 afisat_pentru[i] = randuri.len() as i32;
@@ -649,6 +657,10 @@ fn randuri_ui_cu_tinte(
                         .trim()
                         .into(),
                     inserare: rand.inserare.is_some(),
+                    cutie_st: false,
+                    cutie_dr: false,
+                    cutie_jos: false,
+                    nr_diferenta: 0,
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     pune(
@@ -761,7 +773,48 @@ fn randuri_ui_cu_tinte(
             tinte[k] = (a as i32, z as i32 + 1);
         }
     }
+    marcheaza_cutiile(&mut randuri);
     (randuri, start, tinte)
+}
+
+/// Blocul ca in v3.4 (Mihai, 2026-11-20): o cutie cu chenar in jurul codului
+/// lui, in panoul unde are cod (Martor pentru ce vine de acolo, Modificata
+/// pentru ce e doar acolo, amandoua la modificat), cu eticheta pe randul de
+/// sus al cutiei. Aici se decide doar ce rand e in cutie, pe ce parte, si
+/// care e ultimul; desenul e in `.slint`.
+fn marcheaza_cutiile(randuri: &mut [RandUi]) {
+    // partile pe care are cod un bloc in starea asta (cod_stare)
+    let parti = |stare: i32| match stare {
+        1 => (true, true),
+        2 => (true, false),
+        3 => (false, true),
+        _ => (false, false),
+    };
+    let n = randuri.len();
+    for i in 0..n {
+        let r = &randuri[i];
+        let k = if r.fel == 2 {
+            // eticheta sta deasupra primului rand al blocului
+            randuri.get(i + 1).map_or(-1, |u| u.diferenta)
+        } else if r.fel == 0 {
+            r.diferenta
+        } else {
+            -1
+        };
+        if k < 0 {
+            continue;
+        }
+        let (st, dr) = parti(r.stare);
+        let ultimul = r.fel == 0
+            && !randuri
+                .get(i + 1)
+                .is_some_and(|u| u.fel == 0 && u.diferenta == k);
+        let r = &mut randuri[i];
+        r.cutie_st = st;
+        r.cutie_dr = dr;
+        r.cutie_jos = ultimul;
+        r.nr_diferenta = k + 1;
+    }
 }
 
 /// Datele afisate in antetul editorului.
@@ -4068,6 +4121,42 @@ mod teste {
                 assert_eq!(e + 1, start[k] as usize, "deasupra blocului {k}");
                 assert!(!r[e].eticheta.is_empty() && r[e].diferenta == -1);
             }
+        }
+    }
+
+    /// Cutia blocului: incepe pe randul etichetei, cuprinde randurile de cod
+    /// ale diferentei si se inchide pe ultimul; pe partea unde blocul are cod.
+    #[test]
+    fn cutia_blocului_incepe_la_eticheta_si_se_inchide_pe_ultimul_rand() {
+        let a = format!("CREATE PROC dbo.p AS\nSELECT {} FROM t", "a, ".repeat(30));
+        let b = format!("CREATE PROC dbo.p AS\nSELECT {} FROM u", "a, ".repeat(30));
+        let model = model_editor::construieste(&a, &b);
+        for wrap in [None, Some(20)] {
+            let (r, start) = randuri_ui(&model, false, false, texte::Limba::Romana, wrap);
+            for (k, &s) in start.iter().enumerate() {
+                let s = s as usize;
+                let eticheta = &r[s - 1];
+                assert_eq!(eticheta.fel, 2);
+                assert_eq!(eticheta.nr_diferenta, k as i32 + 1);
+                assert!(
+                    eticheta.cutie_st && eticheta.cutie_dr,
+                    "modificat: ambele parti"
+                );
+                let ale_ei: Vec<usize> = (0..r.len())
+                    .filter(|&i| r[i].fel == 0 && r[i].diferenta == k as i32)
+                    .collect();
+                assert!(ale_ei.iter().all(|&i| r[i].cutie_st && r[i].cutie_dr));
+                let jos: Vec<usize> = ale_ei.iter().copied().filter(|&i| r[i].cutie_jos).collect();
+                assert_eq!(
+                    jos,
+                    [*ale_ei.last().unwrap()],
+                    "{wrap:?}: un singur capat, ultimul"
+                );
+            }
+            assert!(r
+                .iter()
+                .filter(|x| x.diferenta < 0 && x.fel != 2)
+                .all(|x| !x.cutie_st && !x.cutie_dr));
         }
     }
 

@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -752,16 +752,45 @@ export component EditorDiferente inherits Window {
                                 // eticheta blocului, pe randul ei, deasupra blocului:
                                 // in Martor pentru ce vine de acolo, in Modificata
                                 // pentru ce e doar acolo (stare 3)
+                                // antetul cutiei blocului (ca in v3.4): eticheta in
+                                // colt, „1 / 3" in dreapta, chenarul de sus; pe
+                                // fiecare parte unde blocul are cod
                                 if r.fel == 2 && !root.ascunde-diferentele && root.alaturat: HorizontalLayout {
                                     spacing: 0px;
                                     Rectangle {
                                         width: (parent.width - root.jgheab) / 2;
-                                        if r.stare != 3: PastilaBloc { x: 52px; text: r.eticheta; stare: r.stare; }
+                                        if r.cutie-st: Rectangle {
+                                            background: Tema.fundal-stare(r.stare);
+                                            Chenar { stare: r.stare; sus: true; }
+                                            if r.stare != 3: PastilaBloc { x: 8px; text: r.eticheta; stare: r.stare; }
+                                            Text {
+                                                x: parent.width - self.width - 10px;
+                                                text: r.nr-diferenta + " / " + root.total-diferente;
+                                                font-family: Tema.font-mono;
+                                                font-size: 10.5px;
+                                                color: Tema.bara-stare(r.stare);
+                                                vertical-alignment: center;
+                                                height: parent.height;
+                                            }
+                                        }
                                     }
                                     Rectangle { width: root.jgheab; }
                                     Rectangle {
                                         width: (parent.width - root.jgheab) / 2;
-                                        if r.stare == 3: PastilaBloc { x: 52px; text: r.eticheta; stare: r.stare; }
+                                        if r.cutie-dr: Rectangle {
+                                            background: Tema.fundal-stare(r.stare);
+                                            Chenar { stare: r.stare; sus: true; }
+                                            if r.stare == 3: PastilaBloc { x: 8px; text: r.eticheta; stare: r.stare; }
+                                            Text {
+                                                x: parent.width - self.width - 10px;
+                                                text: r.nr-diferenta + " / " + root.total-diferente;
+                                                font-family: Tema.font-mono;
+                                                font-size: 10.5px;
+                                                color: Tema.bara-stare(r.stare);
+                                                vertical-alignment: center;
+                                                height: parent.height;
+                                            }
+                                        }
                                     }
                                 }
                                 if r.fel == 2 && !root.ascunde-diferentele && !root.alaturat: Rectangle {
@@ -785,6 +814,7 @@ export component EditorDiferente inherits Window {
                                             tigla: root.tigla-hasura;
                                             eticheta: root.ascunde-diferentele || r.stare == 3 ? "" : r.eticheta;
                                         }
+                                        if r.cutie-st && !root.ascunde-diferentele: Chenar { stare: r.stare; jos: r.cutie-jos; }
                                         // blocul din sursa se poate **trage**
                                         // peste panoul din dreapta; e acelasi
                                         // lucru ca sageata din canal, doar ca
@@ -913,6 +943,7 @@ export component EditorDiferente inherits Window {
                                                 : r.fantoma ? Texte.plaseaza-aici-insereaza
                                                 : Texte.plaseaza-aici-inlocuieste;
                                         }
+                                        if r.cutie-dr && !root.ascunde-diferentele: Chenar { stare: r.stare; jos: r.cutie-jos; }
                                         // Zona de plasare se aprindea pe randurile
                                         // blocului tras, adica acolo unde ar cadea
                                         // daca ar cadea pe pozitie. De la etapa 21

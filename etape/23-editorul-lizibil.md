@@ -76,6 +76,13 @@ se vede tot codul, plierea e un comutator tinut minte.
   disparut, iar legatura e dreapta. Hasura ramane doar in interiorul
   blocurilor modificate (decizia lui Mihai din etapa 21).
 
+- **2026-11-20** Mihai a precizat: nu hasura era problema, ci cutia
+  blocului. Intrebat, a ales „ca in v3.4": blocul e acum o cutie cu chenar
+  subtire, cu eticheta in coltul de sus si „1 / 3" in dreapta, pe partea
+  (sau partile) unde blocul are cod. Randul etichetei a devenit antetul
+  cutiei. Schimbarea de la golul hasurat (de mai sus) ramane: era tot o
+  dublura.
+
 ## Ce a iesit altfel decat planul
 
 (se completeaza la incheiere)

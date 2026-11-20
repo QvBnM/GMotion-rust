@@ -699,6 +699,13 @@ export struct RandUi {
     // partea din dreapta e locul unde s-ar insera blocurile din Martor:
     // curata, fara hasura (primul rand are si textul, `fantoma`)
     inserare: bool,
+    // cutia blocului, ca in v3.4: randul e in cutie pe partea din stanga /
+    // din dreapta; `cutie-jos` = ultimul rand (chenarul se inchide);
+    // `nr-diferenta` (de la 1) se arata pe randul etichetei, „1 / 3"
+    cutie-st: bool,
+    cutie-dr: bool,
+    cutie-jos: bool,
+    nr-diferenta: int,
 }
 
 // o linie din previzualizarea la hover: cum ar arata Modificata dupa Aplica
@@ -914,6 +921,20 @@ export component Jumatate inherits Rectangle {
 
 }
 
+
+// Chenarul cutiei unui bloc, ca in v3.4, desenat bucata cu bucata pe
+// randurile listei: laturile pe fiecare rand, sus pe randul etichetei, jos pe
+// ultimul rand al blocului. Peste cod, fara sa ia mouse-ul.
+export component Chenar inherits Rectangle {
+    in property <int> stare;
+    in property <bool> sus;
+    in property <bool> jos;
+    property <color> c: Tema.bara-stare(root.stare);
+    Rectangle { x: 0px; width: 1px; background: root.c; }
+    Rectangle { x: parent.width - 1px; width: 1px; background: root.c; }
+    if root.sus: Rectangle { y: 0px; height: 1px; background: root.c; }
+    if root.jos: Rectangle { y: parent.height - 1px; height: 1px; background: root.c; }
+}
 
 // Eticheta unui bloc, pe randul ei de deasupra blocului: ce e si unde
 // ajunge. In culoarea starii, cu marginea ei; textul nu se taie (randul e al
