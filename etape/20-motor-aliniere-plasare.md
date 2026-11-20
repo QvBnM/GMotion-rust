@@ -71,17 +71,19 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
       pe binar cu `gmotion diferente`)
 
 **C. Plasarea (portata din `ui.py`, cu pragurile ei)**
-- [ ] `sugereaza(bloc, blocuri_tinta, indice_preferat)` -> „inlocuieste blocul
-      k" (scor >= 55) sau „insereaza la golul g"
-- [ ] antetul (primul bloc) se potriveste direct cu primul din tinta, fara
+- [x] `sugereaza(randuri, pozitie, blocuri_tinta)` -> „inlocuieste blocul k"
+      (scor >= 55) sau „insereaza la golul g" (`core/src/plasare.rs`)
+- [x] antetul (primul bloc) se potriveste direct cu primul din tinta, fara
       scor — cazul „s-au adaugat parametri si scorul cade sub prag"
-- [ ] regula de ambiguitate: diferenta sub 8 puncte intre primii doi candidati
+- [x] regula de ambiguitate: diferenta sub 8 puncte intre primii doi candidati
       -> decide pozitia (vecin la +-1, scor >= 40); altfel, daca cel mai bun e
       sub 70, nu se sugereaza nimic
-- [ ] teste pe cazurile numite in comentariile v3.4: antet cu parametri noi;
-      doua `UPDATE ... WHERE ...` la 0,4 puncte distanta
-- [ ] harness de paritate: `_sugereaza` din `ui.py` rulat in node, comparat cu
-      Rust pe `referinta/cazuri.json`
+- [x] teste pe cazurile numite in comentariile v3.4: antet cu parametri noi;
+      doua `UPDATE ... WHERE ...` cu scoruri la mai putin de 8 puncte
+- [x] harness de paritate: pagina v3.4 rulata intr-un browser fara cap,
+      `referinta/plasare_js.json` (49 de sugestii, 25 de cazuri), comparat de
+      `core/tests/plasare.rs`. Vazut cazand: 7 nepotriviri inainte de a repara
+      scorul golului (-1, nu 0) si traducerea id -> pozitie
 
 **D. Gruparea pentru afisare**
 - [ ] motorul spune, per linie: blocul, daca e prima/ultima a blocului, si
@@ -139,6 +141,14 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
   concurenta, pragul n-are pe cine sa apere. Paritatea cu Python nu s-a
   clintit. Blocurile prea mari pentru imperecherea pe linii se raporteaza in
   `Aliniere::blocuri_nealiniate`, nu degradeaza in tacere.
+- **2026-11-19** **C gata.** `core/src/plasare.rs`, port 1:1 cu pragurile lui
+  v3.4. Paritatea nu se putea face ca la motorul de diff (plasarea tine de
+  starea paginii, nu se extrage mecanic din `ui.py`), deci fixture-ul se scoate
+  ruland **pagina v3.4 adevarata** intr-un browser fara cap, prin „comparare
+  offline": `unelte/regenereaza-fixture-plasare.sh`. Doua diferente gasite asa,
+  pe care citirea codului nu le-ar fi dat: golul sugerat poarta scor **-1**
+  cand niciun candidat nu s-a calificat (nu 0), si `srcIndices` din v3.4 sunt
+  id-uri de rand, nu pozitii.
 
 ## Ce a iesit altfel decat planul
 

@@ -124,7 +124,7 @@ fn bloc_este_continuat(curent: &str) -> bool {
 
 /// `BEGIN`-uri minus `END`-uri, ignorand `BEGIN TRAN`/`BEGIN TRANSACTION`
 /// (deschid o tranzactie, nu un bloc de instructiuni).
-fn adancime_begin_end(text: &str) -> i32 {
+pub(crate) fn adancime_begin_end(text: &str) -> i32 {
     let n = norm(text);
     let mut deschise = 0i32;
     for m in RE_BEGIN.find_iter(&n) {

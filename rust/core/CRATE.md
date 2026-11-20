@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 293e2f98fe040934 -->
+<!-- api-hash: 703f7193d0cd1063 -->
 
 ## Rol
 
@@ -74,6 +74,23 @@ pozitii in bloc, una pe parte: linia a treia din stanga poate sta langa a
 cincea din dreapta. Peste `MAX_PRODUS_LINII` (4096 de perechi) imperecherea
 cade pe pozitie, iar blocul apare in `Aliniere::blocuri_nealiniate`, ca sa nu
 degradeze in tacere.
+
+### `plasare`
+| Functie / tip | Ce face |
+|---|---|
+| `sugereaza(randuri, pozitie, blocuri_tinta) -> Option<Sugestie>` | unde ar ajunge blocul din martor: inlocuieste blocul k, sau se insereaza in golul g |
+| `cel_mai_apropiat(text, blocuri, indice_preferat)` | blocul care seamana cel mai bine, cu regula de ambiguitate |
+| `tokeni_potrivire(text)` | token-izarea folosita la potrivire (alta decat cea de la scorul din lista) |
+| `Sugestie` (`randuri`, `text`, `tinta`), `Tinta::{Bloc, Gol}` | tipurile rezultatului |
+
+Port 1:1 al stratului de plasare din v3.4 (`mostenire/ui.py`: `_sugereaza`,
+`_celMaiApropiat`, `_gapSugerat`, `_grupPlasare`), cu pragurile lui: **55**
+pentru inlocuire, **8 puncte** diferenta sub care scorul nu mai decide (atunci
+conteaza pozitia, cu vecin la +-1 si scor minim **40**), **70** prag absolut
+sub care se renunta, **6** blocuri plafon la grupare. Antetul (primul rand) se
+potriveste direct cu primul bloc din tinta, fara scor — altfel parametrii noi
+ii scad scorul sub prag si sugestia devine „insereaza la inceput", desi
+antetul exista.
 
 ### `seqmatch`
 `SequenceMatcher` — port fidel al `difflib.SequenceMatcher` din Python, cu
@@ -175,7 +192,12 @@ Trei straturi:
 2. **`tests/conformitate.rs`** — toate cele 24 de cazuri din
    `referinta/cazuri.json`, pe 8 campuri, contra fixture-ului produs de motorul
    JS (`referinta/rezultate_js.json`);
-3. **`tests/invariante.rs`** — fuzz dirijat, 400 de intrari generate
+3. **`tests/plasare.rs`** — paritate cu v3.4 pe plasare: fixture-ul
+   `referinta/plasare_js.json` e scos din pagina v3.4 adevarata, rulata intr-un
+   browser fara cap (`unelte/regenereaza-fixture-plasare.sh`). Plasarea nu se
+   poate extrage mecanic din `ui.py` ca motorul de diff, fiindca tine de starea
+   paginii.
+4. **`tests/invariante.rs`** — fuzz dirijat, 400 de intrari generate
    determinist per test, pe invariantele 2-6. Generatorul nu produce SQL
    aleator, ci formele care pun la incercare invariantele: literale si
    comentarii pe mai multe linii in care o linie **incepe** cu un cuvant cheie,

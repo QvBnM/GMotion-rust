@@ -30,6 +30,7 @@ pub mod clasificare;
 pub mod diff;
 pub mod lexer;
 pub mod normalizare;
+pub mod plasare;
 pub mod segmentare;
 pub mod seqmatch;
 
@@ -41,6 +42,7 @@ pub use diff::{
 pub use normalizare::{
     calc_hash, hinturi, norm, normalizeaza, pregateste_afisare, round_py, scor_similaritate,
 };
+pub use plasare::{sugereaza, Sugestie, Tinta};
 pub use segmentare::{are_cursor, cheie_bloc, linii_start_blocuri, split_statements};
 
 /// Tipurile de obiecte SQL comparate, asa cum apar in `sys.objects.type`.

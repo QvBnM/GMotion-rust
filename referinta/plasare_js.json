@@ -1,0 +1,615 @@
+[
+ {
+  "nume": "header_simplu",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "CREATE PROCEDURE dbo.p_Test\n    @id INT\nAS\nBEGIN"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "    SELECT * FROM Clienti WHERE id = @id\nEND"
+   }
+  ]
+ },
+ {
+  "nume": "declare_in_header",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "CREATE PROCEDURE p AS\nBEGIN"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "DECLARE @x INT"
+   },
+   {
+    "pozitie": 2,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 66.67,
+    "randuri": [
+     2
+    ],
+    "text": "DECLARE @y INT"
+   },
+   {
+    "pozitie": 3,
+    "tip": "blk",
+    "idx": 2,
+    "scor": 100,
+    "randuri": [
+     3
+    ],
+    "text": "SELECT @x = 1\nEND"
+   }
+  ]
+ },
+ {
+  "nume": "hint_lock_cosmetic",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT a FROM t WITH (NOLOCK) WHERE x = 1"
+   }
+  ]
+ },
+ {
+  "nume": "collate_si_paranteze",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT CAST(a AS char(24) ) COLLATE database_default FROM [dbo].[t]"
+   }
+  ]
+ },
+ {
+  "nume": "case_cu_blank_inauntru",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT\n  CASE\n    WHEN a = 1 THEN 'x'\n\n    WHEN a = 2 THEN 'y'\n  END AS v\nFROM t"
+   }
+  ]
+ },
+ {
+  "nume": "string_cu_cuvinte_cheie",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT 'INSERT INTO fake SELECT 1' AS s\nFROM t"
+   }
+  ]
+ },
+ {
+  "nume": "comentariu_bloc_multiline",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT a FROM t"
+   }
+  ]
+ },
+ {
+  "nume": "if_cu_corp",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "IF @x = 1\n    SELECT 1"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "ELSE\n    SELECT 2"
+   }
+  ]
+ },
+ {
+  "nume": "if_begin_end_compus",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "IF @x = 1\nBEGIN"
+   },
+   {
+    "pozitie": 1,
+    "tip": "gap",
+    "idx": 1,
+    "scor": 50,
+    "randuri": [
+     1
+    ],
+    "text": "    SELECT 1"
+   },
+   {
+    "pozitie": 2,
+    "tip": "blk",
+    "idx": 2,
+    "scor": 100,
+    "randuri": [
+     2
+    ],
+    "text": "    UPDATE t SET a = 1\nEND"
+   },
+   {
+    "pozitie": 3,
+    "tip": "blk",
+    "idx": 3,
+    "scor": 100,
+    "randuri": [
+     3
+    ],
+    "text": "SELECT 'dupa'"
+   }
+  ]
+ },
+ {
+  "nume": "union_lipit",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT a FROM t1"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 83.33,
+    "randuri": [
+     1
+    ],
+    "text": "UNION ALL\nSELECT a FROM t2"
+   }
+  ]
+ },
+ {
+  "nume": "insert_select",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "INSERT INTO #tmp (a, b)\nSELECT a, b\nFROM t"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "SELECT * FROM #tmp"
+   }
+  ]
+ },
+ {
+  "nume": "cursor_complet",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "DECLARE c CURSOR FOR\n    SELECT a FROM t"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "OPEN c"
+   },
+   {
+    "pozitie": 2,
+    "tip": "blk",
+    "idx": 2,
+    "scor": 100,
+    "randuri": [
+     2
+    ],
+    "text": "FETCH NEXT FROM c"
+   },
+   {
+    "pozitie": 3,
+    "tip": "blk",
+    "idx": 3,
+    "scor": 100,
+    "randuri": [
+     3
+    ],
+    "text": "WHILE @@FETCH_STATUS = 0\nBEGIN"
+   },
+   {
+    "pozitie": 4,
+    "tip": "blk",
+    "idx": 4,
+    "scor": 100,
+    "randuri": [
+     4
+    ],
+    "text": "    FETCH NEXT FROM c\nEND"
+   },
+   {
+    "pozitie": 5,
+    "tip": "blk",
+    "idx": 5,
+    "scor": 100,
+    "randuri": [
+     5
+    ],
+    "text": "CLOSE c"
+   },
+   {
+    "pozitie": 6,
+    "tip": "blk",
+    "idx": 6,
+    "scor": 100,
+    "randuri": [
+     6
+    ],
+    "text": "DEALLOCATE c"
+   }
+  ]
+ },
+ {
+  "nume": "bloc_sters_complet",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT 1"
+   },
+   {
+    "pozitie": 1,
+    "tip": "gap",
+    "idx": 1,
+    "scor": 25,
+    "randuri": [
+     1
+    ],
+    "text": "UPDATE t SET a = 1"
+   },
+   {
+    "pozitie": 2,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     2
+    ],
+    "text": "SELECT 2"
+   }
+  ]
+ },
+ {
+  "nume": "bloc_adaugat",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT 1"
+   },
+   {
+    "pozitie": 2,
+    "tip": "blk",
+    "idx": 2,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "SELECT 2"
+   }
+  ]
+ },
+ {
+  "nume": "reordonare_blocuri",
+  "sugestii": [
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "UPDATE t SET a = 1"
+   },
+   {
+    "pozitie": 2,
+    "tip": "blk",
+    "idx": 2,
+    "scor": 100,
+    "randuri": [
+     1
+    ],
+    "text": "UPDATE t SET b = 2"
+   },
+   {
+    "pozitie": 3,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     2
+    ],
+    "text": "UPDATE t SET c = 3"
+   }
+  ]
+ },
+ {
+  "nume": "update_aproape_identice",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "UPDATE Stoc SET cantitate = 1 WHERE id = 1"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 90,
+    "randuri": [
+     1
+    ],
+    "text": "UPDATE Stoc SET cantitate = 2 WHERE id = 2"
+   }
+  ]
+ },
+ {
+  "nume": "identice",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT a FROM t WHERE x = 1"
+   }
+  ]
+ },
+ {
+  "nume": "gol_vs_plin",
+  "sugestii": []
+ },
+ {
+  "nume": "ambele_goale",
+  "sugestii": []
+ },
+ {
+  "nume": "rotunjire_bancara",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "a b c d e f g h"
+   }
+  ]
+ },
+ {
+  "nume": "paranteze_multilinie",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "INSERT INTO t (\n    a,\n    b\n)\nVALUES (\n    1,\n    2\n)"
+   }
+  ]
+ },
+ {
+  "nume": "end_singur",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "BEGIN"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 1,
+    "scor": 66.67,
+    "randuri": [
+     1
+    ],
+    "text": "SELECT 1\nEND"
+   }
+  ]
+ },
+ {
+  "nume": "comentariu_linie_dupa_cod",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT a FROM t -- comentariu vechi"
+   }
+  ]
+ },
+ {
+  "nume": "diacritice_si_unicode",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "SELECT N'Mărfuri în stoc' AS descriere FROM t"
+   }
+  ]
+ },
+ {
+  "nume": "mihai_offline_while_begin",
+  "sugestii": [
+   {
+    "pozitie": 0,
+    "tip": "blk",
+    "idx": 0,
+    "scor": 100,
+    "randuri": [
+     0
+    ],
+    "text": "WHile 1=1\nBEgin"
+   },
+   {
+    "pozitie": 1,
+    "tip": "blk",
+    "idx": 3,
+    "scor": 66.67,
+    "randuri": [
+     1
+    ],
+    "text": "Stard end"
+   },
+   {
+    "pozitie": 4,
+    "tip": "blk",
+    "idx": 3,
+    "scor": 100,
+    "randuri": [
+     2
+    ],
+    "text": "END"
+   },
+   {
+    "pozitie": 5,
+    "tip": "gap",
+    "idx": 4,
+    "scor": -1,
+    "randuri": [
+     3
+    ],
+    "text": "Mama 123"
+   }
+  ]
+ }
+]
