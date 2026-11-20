@@ -31,10 +31,11 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/20-motor-aliniere-plasare.md` — **numai motor**,
-niciun ecran nou. Etapa 19 e incheiata. Ramane pregatita si 17 (conectarea
-dupa `cercetare/machete/conectare-noua/`, facuta, asteapta „da"-ul lui Mihai
-pe perechi).
+**Etapa activa:** niciuna. Etapa 20 (motorul) s-a incheiat pe 2026-11-20.
+Pregatite: 16 (editorul: functiile v3.4 in formatul nou — acum au sub ele
+motorul care le lipsea) si 17 (conectarea dupa
+`cercetare/machete/conectare-noua/`, facuta, asteapta „da"-ul lui Mihai pe
+perechi).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -115,23 +116,26 @@ la deschidere), nume case-insensitive intre baze, divergentele Unicode fata de
 JS (in afara de BOM), serverul in cheia sesiunii, nume rezervate Windows ca
 nume de modul, dependentele prin SQL dinamic sau sinonime.
 
-## Etapa activa: motorul (etapa 20)
+## Ce a adus etapa 20 (motorul), pe scurt
 
-`etape/20-motor-aliniere-plasare.md`, pornita pe 2026-11-19 dupa ce Mihai a
-inchis etapa 19.
+Nu e in `git log` doar ca lista de commit-uri, ci ca schimbare de capabilitati:
 
-Ce spune, pe scurt: randurile ramase din `lipsuri-portare.md` §4 (drag & drop,
-„Plaseaza aici", liniile de legatura, previzualizarea la hover) nu sunt
-blocate de Slint, ci de motor — `aliniere.rs` imperecheaza liniile unui bloc
-modificat **pe index**, si stratul de plasare din v3.4 (`_sugereaza`) nu a
-fost portat deloc. Tot acolo intra F-M4 (doua rezumate divergente) si partea
-de motor din P7 (scorul creste cubic; automatul de sufixe da potriviri
-identice de ~75x mai repede).
+- **alinierea coboara la linie** in interiorul unui bloc imperecheat: `AS` sta
+  langa `AS`, nu langa `@UserId INT,`. Liniile goale si comentariile ies din
+  imperechere (normalizarea oricum le ignora) si sunt marcate `ignorata`;
+- **stratul de plasare exista** (`core::plasare`, port 1:1 din v3.4, cu
+  pragurile 55 / 8 / 40 / 70): fara el nu se puteau scrie drag & drop,
+  „Plaseaza aici", randul-fantoma si modul ghidat corect;
+- **lista si editorul numara la fel** (F-M4 inchis);
+- **scorul nu mai e patratic**: 16.000 de linii in 0,53 s in loc de 38 s, cu
+  acelasi rezultat;
+- `gmotion diferente` arata si alinierea pe linii, si plasarea.
 
-**Urmatorul pas concret:** pachetul A — un singur rezumat (F-M4): azi lista
-si editorul dau numere diferite pe acelasi obiect, fiindca `rezumat_rapid`
-imperecheaza pozitional in `replace`, iar `diff_aliniat` pe scor. Se unifica,
-cu test pe tot corpusul. Apoi B — alinierea pe linii.
+Masuratori curente: `cd rust && cargo run --release --example masura_scor`.
+
+**Urmatorul pas concret:** etapa 16 — maparea bloc -> loc in canal, randul
+fantoma „aici va fi adaugat", eticheta pe bloc, drag & drop, previzualizarea la
+hover. Toate au acum pe cine intreba: `modul::plasari_obiect`.
 
 ## Ce astept de la Mihai
 
@@ -149,6 +153,24 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Imperecherea blocurilor se decide intr-un singur loc:** `plan_blocuri` din
+  `core/src/diff.rs`. Si `diff_aliniat`, si `rezumat_rapid` citesc de acolo.
+  Daca numeri diferentele altundeva, lista si editorul redevin doua pareri
+  (F-M4).
+- **Plasarea are doua surse, cu precedenta clara.** Cand diff-ul a imperecheat
+  deja blocul (rand `modificat`), aia e plasarea; `core::plasare` raspunde doar
+  pentru blocurile fara pereche. Vezi `modul::plasari_obiect`. Daca inversezi
+  precedenta, „Aplica" scrie in alt loc decat arata ecranul.
+- **`RandAliniat` are cate o pozitie in bloc pe fiecare parte.** Liniile nu mai
+  sunt imperecheate pe index, deci un singur `linie_in_bloc` ar fi gresit pe
+  una din parti.
+- **Fixture-ul de plasare se regenereaza ruland pagina v3.4**, nu extragand
+  cod: `unelte/regenereaza-fixture-plasare.sh` (cere `node` si `playwright`;
+  poarta sare verificarea daca lipsesc).
+- **Garda de cost (`core/tests/cost.rs`) e pe numarul de pasi, nu pe timp.**
+  Daca o schimbi in masuratoare de timp, devine instabila pe o masina
+  incarcata, si prima oara cand cade nimeni n-o sa o creada.
 
 - **Fara `width: parent.width / N` pe copiii unui layout.** Layout-ul isi ia
   marimea din copii: in 1.19 da „Recursion detected" la rulare (testele o

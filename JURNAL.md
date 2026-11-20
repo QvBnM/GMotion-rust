@@ -1441,3 +1441,28 @@ lista si editorul citesc amandoua de acolo. Numerele raman cele ale editorului
 doua obiecte reale). `rezumat_rapid` nu mai e „de ordine de magnitudine mai
 rapid": sare doar peste diferentele din interiorul blocurilor, nu si peste
 imperechere. Partea scumpa ramane scorul — pachetul E al etapei.
+
+---
+
+## 2026-11-20 — Plasarea: cine raspunde unde cade blocul
+
+**Context.** Dupa portarea stratului de plasare din v3.4, `gmotion diferente`
+a tiparit, una sub alta, doua raspunsuri pentru acelasi bloc: diff-ul
+imperechease cele doua `SELECT` (regula „un bloc fata de un singur bloc"),
+iar plasarea, cu pragul 55 al lui v3.4, spunea „fara corespondent, se insereaza
+inaintea liniei 11".
+
+**Decizie.** Perechea aleasa de diff bate. `gmotion_core::plasare` ramane
+portul fidel al lui v3.4 (si paritatea cu el se verifica mai departe), dar
+`modul::plasari_obiect` il intreaba **doar pentru blocurile ramase fara
+pereche**. Altfel „Aplica" ar scrie in alt loc decat arata editorul.
+
+**Alternative.** (a) Sa coboram pragul plasarii la 44, ca al diff-ului — ar fi
+rupt paritatea cu v3.4 fara sa rezolve cazurile unde pragurile oricum difera.
+(b) Sa ridicam plasarea la rang de adevar unic si sa schimbam imperecherea
+diff-ului dupa ea — ar fi mutat decizia departe de locul unde se vede
+rezultatul. (c) Precedenta de mai sus. Ales (c).
+
+**Consecinta.** Cele doua straturi raman separate si testabile separat:
+`core/tests/plasare.rs` tine paritatea cu v3.4, iar `modul::plasari_obiect`
+tine coerenta cu ce vede utilizatorul.

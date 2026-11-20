@@ -1,8 +1,8 @@
 # Etapa 20 — motorul: aliniere pe linii si plasare
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-19 · **Incheiata:** —
+**Deschisa:** 2026-11-19 · **Incheiata:** 2026-11-20
 
 ## Scop
 
@@ -86,18 +86,23 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
       scorul golului (-1, nu 0) si traducerea id -> pozitie
 
 **D. Gruparea pentru afisare**
-- [ ] motorul spune, per linie: blocul, daca e prima/ultima a blocului, si
-      daca e „ignorata la comparare" — fereastra nu recalculeaza nimic
+- [x] motorul spune, per linie: blocul, daca e prima/ultima a blocului
+      (`primul_din_bloc` / `ultimul_din_bloc`), si daca e „ignorata la
+      comparare" — fereastra le citeste, nu le recalculeaza
 
 **E. Performanta**
-- [ ] `seqmatch::find_longest_match` prin automat de sufixe, cu test care
-      compara **toate** potrivirile cu implementarea difflib (corpus + fuzz)
-- [ ] `tokeni_in_literal` si `clasificare::feluri_din_interval` cu cautare
+- [x] `seqmatch::find_longest_match` prin automat de sufixe peste 250.000 de
+      perechi, cu test care compara potrivirile cu bucla difflib pe 200 de
+      secvente generate si pe lantul recursiv. **16.000 de linii: 38 s ->
+      0,53 s**, cu acelasi scor
+- [x] `tokeni_in_literal` si `clasificare::feluri_din_interval` cu cautare
       binara
-- [ ] `MAX_PRODUS_ALINIERE` ridicat sau inlocuit, acum ca scorul e ieftin;
-      daca tot ramane un plafon, se raporteaza cand se atinge, nu tacut
-- [ ] garda deterministica in poarta: contor de operatii (nu timp), vazuta
-      cazand o data
+- [x] `MAX_PRODUS_ALINIERE` 144 -> 4096, acum ca scorul e ieftin; cand tot se
+      atinge, se spune: `diff_aliniat_cu_raport` si
+      `Aliniere::segmente_pozitionale`
+- [x] garda deterministica: `core/tests/cost.rs`, plafon pe numarul de pasi,
+      nu pe timp. Vazuta cazand cu automatul oprit: 1.431.181.291 de pasi fata
+      de plafonul de 5.000.000
 
 **F. Depanabil fara fereastra**
 - [x] `gmotion diferente` arata alinierea pe linii si plasarea sugerata.
@@ -106,8 +111,8 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
       motorului, deci a doua implementare a asezarii a disparut
 
 **Comun**
-- [ ] poarta verde; `CRATE.md` sincronizat pentru `core`; `STARE.md`;
-      `JURNAL.md`
+- [x] poarta verde; `CRATE.md` sincronizat pentru `core` si pentru
+      `diff-obiecte`; `STARE.md`; `JURNAL.md`
 
 ## Pasi
 
@@ -171,4 +176,38 @@ versiunea upgradata (fisierele, in `JURNAL.md` 2026-11-19).
 
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+**1. Paritatea pe plasare nu se putea face ca pe motorul de diff.** Planul
+spunea „`_sugereaza` rulat in node". Nu merge: plasarea tine de starea paginii
+(`DIF_EL`, textul din editor), nu se extrage mecanic din `ui.py`. Solutia a
+fost sa rulam **pagina v3.4 intreaga** intr-un browser fara cap si sa-i dam
+cazurile prin „comparare offline", care e complet locala. A meritat de doua
+ori: a gasit doua lucruri pe care citirea codului nu le-ar fi dat — golul
+sugerat poarta scor **-1**, nu 0, cand niciun candidat nu s-a calificat, si
+`srcIndices` din v3.4 sunt **id-uri de rand**, nu pozitii.
+
+**2. Doua straturi dadeau raspunsuri diferite pentru acelasi bloc.** Diff-ul
+imperechea cele doua `SELECT` (regula 1x1), iar plasarea, cu pragul 55 al lui
+v3.4, spunea „fara corespondent". S-a vazut abia cand `gmotion diferente` a
+tiparit si una si alta, una sub alta. Daca ramanea asa, „Aplica" ar fi scris
+in alt loc decat arata editorul. Impacate in `modul::plasari_obiect`: perechea
+aleasa de diff bate, plasarea raspunde doar unde nu exista pereche. Lectia:
+doua straturi corecte separat pot fi gresite impreuna, si singurul loc unde se
+vede e o iesire care le arata pe amandoua.
+
+**3. Un criteriu a fost scris gresit.** „Contor de apeluri `norm` in test"
+cerea stare globala intre teste care ruleaza in paralel — exact capcana din
+`CLAUDE.md`. Inlocuit cu ceva pe care il tine compilatorul: `norm` nu mai e
+apelat deloc din `diff.rs`. In schimb, contorul **are** sens unde l-am pus la
+final: in `SequenceMatcher`, pe instanta, nu global — si pe el sta garda de
+cost.
+
+**4. Masuratorile de la deschiderea etapei erau pe un branch vechi.** Intre
+timp, alta sesiune impinsese 58 de commit-uri, inclusiv reparatia P2
+(`linii_start_blocuri`). Una din cele sase dovezi era deci deja rezolvata, iar
+F-M4 si P7 erau deja in auditul lor. Verificat din nou pe codul lor inainte de
+a scrie ceva: din sase constatari, cinci au ramas valabile si una a picat.
+
+**5. Castigul pe scor a fost mai mare decat speram** (38 s -> 0,53 s la 16.000
+de linii, ~72x), dar a cerut si API nou: `operatii()`, ca garda sa fie pe pasi
+si nu pe timp. Alinierea pe linii a costat ~15% in plus la deschiderea
+editorului (129 ms -> 148 ms pe 16.000 de linii) — ieftin pentru ce aduce.

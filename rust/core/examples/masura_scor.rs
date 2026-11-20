@@ -21,11 +21,16 @@ fn main() {
         let b = gmotion_core::pregateste_afisare(&obiect(n, true));
         let t = Instant::now();
         let scor = gmotion_core::scor_similaritate(&a, &b);
+        let ms_scor = t.elapsed().as_secs_f64() * 1000.0;
+        let t = Instant::now();
+        let randuri = gmotion_core::aliniaza(&a, &b).randuri.len();
+        let ms_aliniere = t.elapsed().as_secs_f64() * 1000.0;
         println!(
-            "{:>6} linii  scor {:>6.2}  in {:>8.1} ms",
+            "{:>6} linii  scor {:>6.2} in {:>8.1} ms  |  aliniere {randuri} randuri in {:>8.1} ms",
             a.lines().count(),
             scor,
-            t.elapsed().as_secs_f64() * 1000.0
+            ms_scor,
+            ms_aliniere
         );
     }
 }
