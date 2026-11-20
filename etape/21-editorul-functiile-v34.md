@@ -1,8 +1,8 @@
 # Etapa 21 — editorul: functiile v3.4, in formatul nou
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-20 · **Incheiata:** —
+**Deschisa:** 2026-11-20 · **Incheiata:** 2026-11-20
 
 ## Scop
 
@@ -35,13 +35,11 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
       2026-11-20) — **exista deja in aplicatie** (`Jumatate.fara-linie` +
       `tigla`); golul din machete era al machetei mele, nu al ecranului.
       Verificat pe captura reala, nu pe desen
-- [ ] **drag & drop**: tragi blocul din Martor, se aprind doar tintele legale
+- [x] **drag & drop**: tragi blocul din Martor, se aprind doar tintele legale
       (banda „Plaseaza aici" intre blocuri, contur pe blocul care se poate
-      inlocui), cu Ctrl+Z — **facut si testat, asteapta „da"-ul lui Mihai**
-      pe `capturi/pereche-2-trage.png`
-- [ ] **previzualizare la hover**: rezultatul aplicarii, fara sa aplici —
-      **facut si testat, asteapta „da"-ul lui Mihai** pe
-      `capturi/pereche-3-hover.png`
+      inlocui), cu Ctrl+Z — „da"-ul lui Mihai pe `capturi/pereche-2-trage.png`
+- [x] **previzualizare la hover**: rezultatul aplicarii, fara sa aplici —
+      „da"-ul lui Mihai pe `capturi/pereche-3-hover.png`
 - [x] **modul ghidat** foloseste plasarea reala, nu pozitii ghicite
 - [x] **„Uneste ciclul cursor"** legat (exista in `core`, nefolosit din
       fereastra)
@@ -60,6 +58,8 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
 6. „Uneste ciclul cursor".
 
 ## Jurnal de lucru
+
+- **2026-11-20** Incheiata: Mihai a dat „da" pe cele trei perechi.
 
 - **2026-11-20** Etapa pregatita. Machetele si cazul lor sunt in repo.
 - **2026-11-20** (sesiunea a doua) Lasarea, sageata, modul ghidat si `cli`
@@ -90,9 +90,15 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
 
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere, dupa „da"-urile lui Mihai)
-
 - Pasul cel mai important n-a fost in plan: ecranul si „Aplica" luau doua
   pareri despre unde cade blocul. Fara el, tragerea aprindea corect si scria
   gresit.
 - Modul ghidat n-a cerut cod propriu: trece prin aceeasi aplicare.
+- „Uneste ciclul cursor" era deja legat; criteriul fusese scris pe o stare
+  veche. In schimb aplicarea nu primea optiunea, deci era legat doar pe
+  jumatate — nu se vedea decat aplicand un bloc cu optiunea pornita.
+- Locul aprins la tragere se tinea pe rand; cazul chiar din machete (doua
+  blocuri pe acelasi rand-fantoma) il rupea. Captura `--trage 1` l-a aratat,
+  nu testele.
+- Abateri acceptate de Mihai: explicatia din previzualizare nu numeste
+  blocul; „Plaseaza aici" sta pe randul-fantoma, nu pe o banda separata.

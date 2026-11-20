@@ -31,10 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/21-editorul-functiile-v34.md` — functiile v3.4 din
-editor, in formatul de acum, cu machetele-tinta in
-`cercetare/machete/editor-functii/`. Etapa 20 (motorul) si 17 (conectarea
-noua) s-au incheiat pe 2026-11-20.
+**Etapa activa:** niciuna. Etapa 21 (functiile v3.4 din editor) s-a incheiat
+pe 2026-11-20, cu „da"-ul lui Mihai pe perechile din
+`cercetare/machete/editor-functii/capturi/`. Urmatoarea se deschide din
+`etape/SABLON.md`, dupa ce alege Mihai (mai jos).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -47,13 +47,15 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Etapa 21: functiile sunt facute si testate; asteapta „da"-ul lui Mihai** pe
-perechile macheta | aplicatia din `cercetare/machete/editor-functii/capturi/`
-(`pereche-1-mapare.png`, `pereche-2-trage.png`, `pereche-3-hover.png`;
-capturile aplicatiei si in tema luminoasa). Cu „da"-ul: bifele pe drag & drop
-si previzualizare, `Stare: INCHEIATA`, „Ce a iesit altfel". Daca cere
-schimbari, se fac pe aceleasi capturi (`--trage N`, `--previzualizeaza N`,
-comenzile in README-ul machetelor).
+**Mihai alege urmatoarea etapa.** Candidatii, din ce a ramas deschis:
+
+1. evidentierea de sintaxa **in timp ce scrii** in editare (singurul rand
+   ramas in `cercetare/lipsuri-portare.md` §4); intai o proba daca se poate
+   in Slint (`TextInput` nu are culori pe bucati);
+2. deciziile vechi care blocheaza functii: selectorul de fisiere (`rfd`),
+   mediul PROD / TEST / DEV, `DROP` la deploy, „Ruleaza" din aplicatie;
+3. F-D7 (oprirea deploy-ului intre obiecte), blocat pe proba de SQL de mai
+   jos.
 
 De cerut pe Windows, cand are timp: tragerea unui bloc peste Modificata se
 simte natural? previzualizarea la hover apare fara intarziere pe un obiect
