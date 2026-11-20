@@ -39,6 +39,9 @@ pub struct Configurare {
     /// Limba interfetei aleasa ultima data: `ro`, `en`, sau gol
     /// (implicitul aplicatiei). O scrie comutatorul de limba din fereastra.
     pub limba: String,
+    /// Editorul pliaza sirurile lungi de linii identice. Implicit nu: se vede
+    /// tot codul (Mihai, 2026-11-20); il schimba comutatorul din editor.
+    pub pliaza_identicul: bool,
 }
 
 impl Default for Configurare {
@@ -54,6 +57,7 @@ impl Default for Configurare {
             uneste_cursor: false,
             tema: String::new(),
             limba: String::new(),
+            pliaza_identicul: false,
         }
     }
 }
@@ -142,6 +146,25 @@ impl Configurare {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    /// Plierea liniilor identice: implicit oprita; aleasa, se scrie si se
+    /// citeste inapoi. Un fisier vechi, fara camp, da implicitul.
+    #[test]
+    fn plierea_e_oprita_implicit_si_se_tine_minte() {
+        assert!(!Configurare::default().pliaza_identicul);
+        let d = std::env::temp_dir().join(format!("gmotion-cfg-plier-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("c.json");
+        std::fs::write(&cale, "{\"tema\": \"luminos\"}").unwrap();
+        assert!(!Configurare::citeste(&cale).unwrap().pliaza_identicul);
+        let c = Configurare {
+            pliaza_identicul: true,
+            ..Default::default()
+        };
+        c.scrie(&cale).unwrap();
+        assert!(Configurare::citeste(&cale).unwrap().pliaza_identicul);
+        std::fs::remove_dir_all(&d).ok();
+    }
 
     /// Regresie din audit: BOM-ul pus de Notepad / PowerShell 5 bloca tot.
     #[test]

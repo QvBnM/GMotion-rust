@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -190,7 +190,9 @@ export component EditorDiferente inherits Window {
     // (F-A1 din auditul QA).
     in property <string> obiect-id;
     in-out property <bool> alaturat: true;
-    in-out property <bool> pliaza-identicul: true;
+    // implicit se vede tot codul (Mihai, 2026-11-20); aplicatia pune
+    // alegerea tinuta minte in configurare
+    in-out property <bool> pliaza-identicul: false;
     // wrap (etapa 19): liniile lungi continua pe randul urmator; Rust le
     // rupe la `coloane-wrap` caractere, calculat aici din latimea panoului
     in-out property <bool> impacheteaza: false;
@@ -584,6 +586,14 @@ export component EditorDiferente inherits Window {
                             }
                         }
                     }
+                    // plierea liniilor identice: comutator vizibil, nu doar in meniu
+                    VerticalLayout {
+                        alignment: center;
+                        ButonCap {
+                            text: root.pliaza-identicul ? Texte.pliaza-identicul-bifat : Texte.pliaza-identicul;
+                            apasat => { root.pliaza-identicul = !root.pliaza-identicul; root.comuta-plierea(root.pliaza-identicul); }
+                        }
+                    }
                     // wrap: liniile lungi continua dedesubt, fara derulare
                     VerticalLayout {
                         alignment: center;
@@ -721,6 +731,24 @@ export component EditorDiferente inherits Window {
                                             root.comuta-plierea(false);
                                         }
                                     }
+                                }
+                                // eticheta blocului, pe randul ei, deasupra blocului:
+                                // in Martor pentru ce vine de acolo, in Modificata
+                                // pentru ce e doar acolo (stare 3)
+                                if r.fel == 2 && !root.ascunde-diferentele && root.alaturat: HorizontalLayout {
+                                    spacing: 0px;
+                                    Rectangle {
+                                        width: (parent.width - root.jgheab) / 2;
+                                        if r.stare != 3: PastilaBloc { x: 52px; text: r.eticheta; stare: r.stare; }
+                                    }
+                                    Rectangle { width: root.jgheab; }
+                                    Rectangle {
+                                        width: (parent.width - root.jgheab) / 2;
+                                        if r.stare == 3: PastilaBloc { x: 52px; text: r.eticheta; stare: r.stare; }
+                                    }
+                                }
+                                if r.fel == 2 && !root.ascunde-diferentele && !root.alaturat: Rectangle {
+                                    PastilaBloc { x: 92px; text: r.eticheta; stare: r.stare; }
                                 }
                                 if r.fel == 0 && root.alaturat: HorizontalLayout {
                                     spacing: 0px;

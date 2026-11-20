@@ -335,6 +335,8 @@ fn ruleaza() -> Result<(), String> {
     // setarile din configurare care schimba comportamentul (F-B5)
     stare.borrow_mut().conectare.timeout_conectare_s = Some(cfg.timeout_conectare_s);
     let uneste_implicit = cfg.uneste_cursor;
+    // plierea liniilor identice: ce s-a ales ultima data (implicit, tot codul)
+    editor_ui.set_pliaza_identicul(cfg.pliaza_identicul);
 
     // modul (intunecat / luminos), acelasi pe toate ecranele: argumentul,
     // altfel ce s-a ales ultima data cu butonul de tema, altfel implicitul
@@ -1992,8 +1994,24 @@ fn ruleaza() -> Result<(), String> {
             }
         });
         let d = deseneaza.clone();
-        editor_ui.on_comuta_plierea(move |_| {
-            actiune("editor", "comuta_plierea", "", false);
+        let cale = gmotion_platforma::cai::cale_configurare().ok();
+        editor_ui.on_comuta_plierea(move |pliat| {
+            actiune("editor", "comuta_plierea", &format!("{:?}", (&pliat,)), false);
+            // tinuta minte ca tema: se reciteste configurarea, ca sa nu
+            // suprascrie ce s-a schimbat de mana intre timp
+            if let Some(cale) = cale.as_ref() {
+                match gmotion_platforma::Configurare::citeste(cale) {
+                    Ok(mut c) => {
+                        c.pliaza_identicul = pliat;
+                        if let Err(e) = c.scrie(cale) {
+                            tracing::warn!(target: "gmotion::app", eroare = %e, "plierea nu s-a salvat");
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(target: "gmotion::app", eroare = %e, "plierea nu s-a salvat: configurarea e stricata");
+                    }
+                }
+            }
             d()
         });
         let d = deseneaza.clone();

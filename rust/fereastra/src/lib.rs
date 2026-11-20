@@ -540,6 +540,35 @@ fn randuri_ui_cu_tinte(
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
+                // eticheta blocului sta pe un rand al ei, deasupra, in ambele
+                // panouri: pusa peste cod acoperea linia, iar cu wrap se
+                // repeta pe fiecare bucata (sesizat de Mihai, 2026-11-20).
+                // `diferenta: -1`: randul nu e al blocului (nu se numara in
+                // linia din canal si nu se aprinde la tragere)
+                if !rand.eticheta.is_empty() {
+                    randuri.push(RandUi {
+                        fel: 2,
+                        pliere: SharedString::new(),
+                        st_nr: SharedString::new(),
+                        st: gol(),
+                        dr_nr: SharedString::new(),
+                        dr: gol(),
+                        stare: cod_stare(rand.stare),
+                        diferenta: -1,
+                        dr_marcaj: 0,
+                        inceput: false,
+                        linii_bloc: 0,
+                        pereche: gol(),
+                        pereche_nr: SharedString::new(),
+                        continuare: false,
+                        st_lipsa: false,
+                        dr_lipsa: false,
+                        eticheta: SharedString::from(rand.eticheta.as_str()),
+                        fantoma: false,
+                        delta_tinta: 0,
+                        tinta_gol: false,
+                    });
+                }
                 afisat_pentru[i] = randuri.len() as i32;
                 let k = a_cata[i];
                 if let Some(k) = k {
@@ -572,7 +601,7 @@ fn randuri_ui_cu_tinte(
                     continuare: false,
                     st_lipsa: false,
                     dr_lipsa: false,
-                    eticheta: SharedString::from(rand.eticheta.as_str()),
+                    eticheta: SharedString::new(),
                     fantoma: rand.fantoma,
                     // se completeaza la final: tinta se stie abia cand se
                     // cunosc toate randurile afisate
@@ -667,7 +696,10 @@ fn randuri_ui_cu_tinte(
         // tot blocul tinta se aprinde cat timp se trage, nu doar primul rand:
         // altfel pare ca blocul ar intra pe o singura linie
         let bloc_tinta = model.randuri.get(*tinta).and_then(|r| r.bloc);
+        // doar randurile de cod: eticheta blocului urmator ar parea, dupa
+        // pozitie, inca un rand al blocului tinta
         let in_loc: Vec<usize> = (0..randuri.len())
+            .filter(|&i| randuri[i].fel == 0)
             .filter(|&i| match bloc_tinta {
                 Some(b) => model_al_randului(i)
                     .and_then(|m| model.randuri.get(m))
@@ -2699,6 +2731,8 @@ mod teste {
         use std::cell::{Cell, RefCell};
         let ui = fereastra();
         ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        // pliat, ca diferenta sa fie pe ecran fara derulare
+        ui.set_pliaza_identicul(true);
         incarca_editor(&ui, &antet_de_proba(), &model_de_proba());
         ui.show().expect("fereastra se arata");
         let cerute: Rc<RefCell<Vec<i32>>> = Rc::default();
@@ -2827,7 +2861,13 @@ mod teste {
         incarca_editor(&ui, &antet, &model);
         let intreg = ui.get_randuri().row_count();
         let start_intreg = ui.get_start_diferente().row_data(0).expect("start");
-        assert_eq!(intreg, model.randuri.len());
+        // fiecare bloc cu eticheta are si randul ei, deasupra
+        let etichete = model
+            .randuri
+            .iter()
+            .filter(|r| !r.eticheta.is_empty())
+            .count();
+        assert_eq!(intreg, model.randuri.len() + etichete);
 
         ui.set_pliaza_identicul(true);
         incarca_editor(&ui, &antet, &model);
@@ -3923,6 +3963,29 @@ mod teste {
     /// Cu wrap, linia lunga continua pe randuri fara numar, iar partea mai
     /// scurta primeste randuri goale: stanga si dreapta raman aliniate, iar
     /// blocul diferentei le numara si pe ele.
+    /// Eticheta blocului sta pe randul ei, imediat deasupra primului rand al
+    /// blocului, o singura data; codul nu mai are eticheta peste el, nici pe
+    /// randurile rupte de wrap (sesizat de Mihai: se suprapunea si se repeta).
+    #[test]
+    fn eticheta_e_pe_randul_ei_o_singura_data() {
+        let a = format!("CREATE PROC dbo.p AS\nSELECT {} FROM t", "a, ".repeat(30));
+        let b = format!("CREATE PROC dbo.p AS\nSELECT {} FROM u", "a, ".repeat(30));
+        let model = model_editor::construieste(&a, &b);
+        for wrap in [None, Some(20)] {
+            let (r, start) = randuri_ui(&model, false, false, texte::Limba::Romana, wrap);
+            let etichete: Vec<usize> = (0..r.len()).filter(|&i| r[i].fel == 2).collect();
+            assert_eq!(etichete.len(), model.diferente.len(), "{wrap:?}");
+            assert!(r
+                .iter()
+                .filter(|x| x.fel == 0)
+                .all(|x| x.eticheta.is_empty()));
+            for (k, &e) in etichete.iter().enumerate() {
+                assert_eq!(e + 1, start[k] as usize, "deasupra blocului {k}");
+                assert!(!r[e].eticheta.is_empty() && r[e].diferenta == -1);
+            }
+        }
+    }
+
     #[test]
     fn wrapul_pastreaza_partile_aliniate() {
         let a = format!("CREATE PROC dbo.p AS\nSELECT {} FROM t", "a, ".repeat(30));
