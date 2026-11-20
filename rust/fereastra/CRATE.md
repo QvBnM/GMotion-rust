@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 8d6ecda49f64d291 -->
+<!-- api-hash: 54b801e9723895aa -->
 
 ## Rol
 
@@ -74,6 +74,12 @@ pe rand il pastra doar pe ultimul.
 care le aplica (`core::grupuri_diferente`); eticheta unui bloc sta pe un rand
 al ei (`RandUi::fel == 2`), deasupra blocului, iar legaturile curbe din canal
 se deseneaza in Slint din `start-diferente` si `tinte-de-la` / `tinte-pana-la`.
+
+Tragerea (etapa 23): fiecare rand afisat poarta `loc` — ce se intampla cu un
+bloc lasat pe el, codificat de `loc_ui` / `loc_din_ui` — si `bloc`, blocul
+motorului lui; fereastra cheama `plaseaza(bloc, loc)`, cu `loc` -1 pe locul
+sugerat. Fantoma care urmeaza mouse-ul si conturul locului de sub mouse sunt
+doar desen; decizia e in `core::aplica_blocuri_la`.
 
 `randuri_ui_pentru_test` (ascunsa din documentatie) da randurile asa cum ajung
 in Slint, pentru exemple si probe.

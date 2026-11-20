@@ -96,6 +96,25 @@ impl Editari {
         text
     }
 
+    /// Ca [`Self::aplica_blocuri`], dar blocurile merg unde le-a lasat omul
+    /// (`gmotion_core::aplica_blocuri_la`): tragerea pe alt loc decat cel
+    /// sugerat.
+    pub fn aplica_blocuri_la(
+        &mut self,
+        r: &Rand,
+        text_sursa: &str,
+        text_baza: &str,
+        uneste_cursor: bool,
+        blocuri: &[usize],
+        loc: gmotion_core::Loc,
+    ) -> String {
+        let curent = self.curent(r, text_baza).to_string();
+        let text =
+            gmotion_core::aplica_blocuri_la(text_sursa, &curent, uneste_cursor, blocuri, loc);
+        self.pune(r, text.clone(), false);
+        text
+    }
+
     /// „Aplica toate": textul exact al sursei, nu o compunere — altfel
     /// comentariile si liniile goale dintre blocuri ar ramane din baza.
     pub fn aplica_toate(&mut self, r: &Rand, text_sursa: &str) {

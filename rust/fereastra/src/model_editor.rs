@@ -96,6 +96,10 @@ pub struct Rand {
     /// Randul nu exista in niciun text: arata unde ar veni un bloc din martor
     /// care n-are corespondent. Textul lui e in `dreapta`.
     pub fantoma: bool,
+    /// Ce se intampla cu un bloc tras si lasat pe randul asta, in panoul
+    /// Modificata: inlocuieste blocul din dreapta al randului, sau se
+    /// insereaza inaintea liniei lui (`gmotion_core::aplica_blocuri_la`).
+    pub loc: Option<gmotion_core::Loc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -453,7 +457,9 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
                     if let Some(poz) = fantome.iter().position(|(k, _)| *k == ord) {
                         let (_, care) = fantome.remove(poz);
                         rand_fantomei.push((ord, randuri.len()));
-                        randuri.push(rand_fantoma(&care, &nr_martor));
+                        let mut f = rand_fantoma(&care, &nr_martor);
+                        f.loc = Some(gmotion_core::Loc::Insereaza(r.poz_dreapta));
+                        randuri.push(f);
                     }
                 }
             }
@@ -487,6 +493,10 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
         } else {
             String::new()
         };
+        let loc = match r.bloc {
+            Some(b) if a.diff[b].dreapta.is_some() => gmotion_core::Loc::Inlocuieste(b),
+            _ => gmotion_core::Loc::Insereaza(r.poz_dreapta),
+        };
         randuri.push(Rand {
             stanga,
             dreapta,
@@ -496,13 +506,16 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
             marcaj: Marcaj::Niciunul,
             eticheta,
             fantoma: false,
+            loc: Some(loc),
         });
     }
 
     // ce ar ajunge dupa ultimul bloc din tinta se anunta la sfarsit
     for (ord, care) in fantome {
         rand_fantomei.push((ord, randuri.len()));
-        randuri.push(rand_fantoma(&care, &nr_martor));
+        let mut f = rand_fantoma(&care, &nr_martor);
+        f.loc = Some(gmotion_core::Loc::Insereaza(text_tinta.lines().count()));
+        randuri.push(f);
     }
 
     // tinta fiecarei diferente, in randuri de model: de acolo pleaca legatura
@@ -562,6 +575,7 @@ fn rand_fantoma(care: &[usize], nr_martor: &[usize]) -> Rand {
         marcaj: Marcaj::Niciunul,
         eticheta: String::new(),
         fantoma: true,
+        loc: None,
     }
 }
 

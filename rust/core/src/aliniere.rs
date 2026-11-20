@@ -459,6 +459,86 @@ pub fn aplica_blocuri(
     })
 }
 
+/// Unde lasa omul un bloc tras, cand nu-l lasa pe locul sugerat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Loc {
+    /// Inlocuieste blocul din dreapta cu indexul asta din diff.
+    Inlocuieste(usize),
+    /// Se insereaza inaintea liniei din dreapta cu indexul asta (de la 0;
+    /// numarul de linii = la sfarsit).
+    Insereaza(usize),
+}
+
+/// Ce inseamna „aici" pentru linia `linie` (de la 0) din dreapta: daca e
+/// intr-un bloc din dreapta, il inlocuieste; altfel (linie goala, comentariu
+/// intre blocuri, dupa ultima linie) se insereaza inaintea ei. Asa traduce
+/// `cli` o linie data de om.
+pub fn loc_la_linie(a: &Aliniere, linie: usize) -> Loc {
+    a.randuri
+        .iter()
+        .find(|r| r.dreapta.as_ref().is_some_and(|l| l.nr == linie + 1))
+        .and_then(|r| r.bloc)
+        .filter(|&b| a.diff[b].dreapta.is_some())
+        .map_or(Loc::Insereaza(linie), Loc::Inlocuieste)
+}
+
+/// Liniile din dreapta (de la 0, capat exclus) ale blocului `b` din diff.
+fn linii_dreapta_bloc(a: &Aliniere, b: usize) -> Option<(usize, usize)> {
+    let rr: Vec<&RandAliniat> = a.randuri.iter().filter(|r| r.bloc == Some(b)).collect();
+    let primul = rr.first()?;
+    let inceput = rr
+        .iter()
+        .filter_map(|r| r.dreapta.as_ref().map(|l| l.nr - 1))
+        .min()
+        .unwrap_or(primul.poz_dreapta);
+    let sfarsit = rr
+        .iter()
+        .filter_map(|r| r.dreapta.as_ref().map(|l| l.nr))
+        .max()
+        .unwrap_or(inceput);
+    Some((inceput, sfarsit))
+}
+
+/// Ca [`aplica_blocuri`], dar blocurile merg unde le-a lasat omul (`loc`),
+/// nu unde spune plasarea: tragerea pe alt loc decat cel sugerat. Liniile
+/// blocurilor vin din stanga, in ordine, ca linii originale.
+pub fn aplica_blocuri_la(
+    text_stanga: &str,
+    text_dreapta: &str,
+    uneste_cursor: bool,
+    blocuri: &[usize],
+    loc: Loc,
+) -> String {
+    let a = aliniaza_cu(text_stanga, text_dreapta, uneste_cursor);
+    let original_st: Vec<&str> = text_stanga.lines().collect();
+    let original_dr: Vec<&str> = text_dreapta.lines().collect();
+    let mut ordonate: Vec<usize> = blocuri.to_vec();
+    ordonate.sort_unstable();
+    ordonate.dedup();
+    let aduse: Vec<&str> = ordonate
+        .iter()
+        .flat_map(|&b| a.randuri.iter().filter(move |r| r.bloc == Some(b)))
+        .filter_map(|r| r.stanga.as_ref())
+        .map(|l| {
+            original_st
+                .get(l.nr - 1)
+                .copied()
+                .unwrap_or(l.text.as_str())
+        })
+        .collect();
+    let n = original_dr.len();
+    let (s, e) = match loc {
+        Loc::Inlocuieste(t) => linii_dreapta_bloc(&a, t).unwrap_or((n, n)),
+        Loc::Insereaza(l) => (l.min(n), l.min(n)),
+    };
+    let (s, e) = (s.min(n), e.min(n).max(s.min(n)));
+    let mut iesire: Vec<&str> = Vec::with_capacity(n + aduse.len());
+    iesire.extend_from_slice(&original_dr[..s]);
+    iesire.extend(aduse);
+    iesire.extend_from_slice(&original_dr[e..]);
+    iesire.join("\n")
+}
+
 /// Textul din dreapta, cu blocurile pentru care `aplica` spune `true` luate
 /// din stanga, fiecare la **pozitia lui din diff** (fara plasare).
 ///
@@ -631,6 +711,42 @@ mod teste {
         // compunerea fara plasare ar fi dublat blocul: de-aia exista
         let fara = compune(&a, st, dr, |b| b == p.rand);
         assert_eq!(fara.matches("UPDATE").count(), 2, "{fara}");
+    }
+
+    /// Blocul tras si lasat in alt loc decat cel sugerat: pe un bloc din
+    /// dreapta il inlocuieste, intre blocuri se insereaza acolo.
+    #[test]
+    fn blocul_lasat_oriunde_inlocuieste_sau_se_insereaza_acolo() {
+        let st = "CREATE PROC dbo.p AS\nSELECT 1;\nPRINT 'nou';";
+        let dr = "CREATE PROC dbo.p AS\nSELECT 1;\n\nSELECT 2;";
+        let a = aliniaza(st, dr);
+        let nou = a
+            .diferente()
+            .into_iter()
+            .find(|&b| {
+                a.diff[b]
+                    .stanga
+                    .as_deref()
+                    .is_some_and(|t| t.contains("PRINT"))
+            })
+            .expect("blocul PRINT");
+        // pe linia goala (index 2): se insereaza inaintea ei
+        assert_eq!(loc_la_linie(&a, 2), Loc::Insereaza(2));
+        let rez = aplica_blocuri_la(st, dr, false, &[nou], Loc::Insereaza(2));
+        assert_eq!(
+            rez,
+            "CREATE PROC dbo.p AS\nSELECT 1;\nPRINT 'nou';\n\nSELECT 2;"
+        );
+        // pe SELECT 2 (index 3): il inlocuieste
+        let loc = loc_la_linie(&a, 3);
+        assert!(matches!(loc, Loc::Inlocuieste(_)), "{loc:?}");
+        let rez = aplica_blocuri_la(st, dr, false, &[nou], loc);
+        assert_eq!(rez, "CREATE PROC dbo.p AS\nSELECT 1;\n\nPRINT 'nou';");
+        // la sfarsit
+        let rez = aplica_blocuri_la(st, dr, false, &[nou], Loc::Insereaza(99));
+        assert!(rez.ends_with("SELECT 2;\nPRINT 'nou';"), "{rez}");
+        // fara blocuri: dreapta neatinsa
+        assert_eq!(aplica_blocuri_la(st, dr, false, &[], Loc::Insereaza(1)), dr);
     }
 
     #[test]

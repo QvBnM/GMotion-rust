@@ -77,6 +77,14 @@ pub enum Comanda {
     FiltreazaScor(f64, f64),
     /// Doar obiectele cu impactul asta (`None` = toate).
     FiltreazaImpact(Option<Impact>),
+    /// Un bloc tras si lasat (`bloc`: indexul lui in diff, ca in editor).
+    /// `loc` `None` = lasat pe locul sugerat (ca „Aplica", doar blocul asta);
+    /// altfel unde l-a lasat omul: peste un bloc il inlocuieste, intre
+    /// blocuri se insereaza.
+    Plaseaza {
+        bloc: usize,
+        loc: Option<gmotion_core::Loc>,
+    },
     /// Clic pe un nume din „Folosit de" / „Foloseste": obiectul `schema.nume`
     /// din aceeasi baza devine selectia listei, daca e in lista.
     SelecteazaDependenta(String),
@@ -961,6 +969,15 @@ impl Aplicatie {
             Comanda::AplicaDiferenta(k) => {
                 let k = k.unwrap_or(self.diferenta);
                 return self.aplica(k);
+            }
+            Comanda::Plaseaza { bloc, loc } => {
+                let uneste = self.uneste_cursorul;
+                return self.schimba_textul(|e, r, a, b| {
+                    match loc {
+                        None => e.aplica_blocuri(r, a, b, uneste, &[bloc]),
+                        Some(l) => e.aplica_blocuri_la(r, a, b, uneste, &[bloc], l),
+                    };
+                });
             }
             Comanda::AplicaToate => {
                 let schimbat = self.schimba_textul(|e, r, sursa, _| e.aplica_toate(r, sursa));
@@ -2263,6 +2280,59 @@ mod teste {
             );
         }
         assert!(a.previzualizare(99).is_none(), "diferenta inexistenta");
+    }
+
+    /// Tragerea libera: blocul lasat la sfarsitul Modificatei se insereaza
+    /// acolo; lasat peste alt bloc il inlocuieste; lasat pe locul sugerat e
+    /// ca „Aplica". Ctrl+Z scoate fiecare.
+    #[test]
+    fn blocul_tras_se_lasa_oriunde_si_ctrl_z_il_scoate() {
+        let (mut a, _sursa, baza) = aplicatie_editare();
+        let m = a.model_editor().expect("model");
+        let bloc = m.grupuri[0][0];
+        // locul fiecarui rand vine din model: un rand cu linie intr-un bloc
+        // al Modificatei il inlocuieste
+        let peste = m
+            .randuri
+            .iter()
+            .find(|r| {
+                r.dreapta.nr.is_some() && matches!(r.loc, Some(gmotion_core::Loc::Inlocuieste(_)))
+            })
+            .and_then(|r| r.loc)
+            .expect("un rand care inlocuieste");
+        drop(m);
+        let linii = baza.lines().count();
+
+        // la sfarsit
+        assert!(a.comanda(Comanda::Plaseaza {
+            bloc,
+            loc: Some(gmotion_core::Loc::Insereaza(linii)),
+        }));
+        let (sursa, curent) = a.texte_curente().expect("texte");
+        assert!(
+            curent.starts_with(baza),
+            "Modificata ramane intreaga in fata"
+        );
+        assert!(curent.len() > baza.len(), "si blocul vine la urma");
+        assert!(a.comanda(Comanda::Anuleaza));
+        assert_eq!(a.texte_curente().expect("texte").1, baza);
+
+        // peste un bloc: liniile lui dispar, vin cele ale blocului tras
+        assert!(a.comanda(Comanda::Plaseaza {
+            bloc,
+            loc: Some(peste)
+        }));
+        let (_, curent) = a.texte_curente().expect("texte");
+        assert_ne!(curent, baza);
+        assert!(curent.lines().count() <= linii + sursa.lines().count());
+        assert!(a.comanda(Comanda::Anuleaza));
+
+        // pe locul sugerat: exact ce face „Aplica"
+        assert!(a.comanda(Comanda::Plaseaza { bloc, loc: None }));
+        let lasat = a.texte_curente().expect("texte").1;
+        a.comanda(Comanda::Anuleaza);
+        a.comanda(Comanda::AplicaDiferenta(Some(0)));
+        assert_eq!(a.texte_curente().expect("texte").1, lasat);
     }
 
     /// Modul ghidat aplica prin aceeasi plasare: aceeasi tinta ca la tragere.

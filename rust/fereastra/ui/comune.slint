@@ -135,6 +135,10 @@ export global Texte {
     in-out property <string> toate-in-plan;
     in-out property <string> toate-starile;
     in-out property <string> trage-peste;
+    in-out property <string> lasa-pe-sugerat;
+    in-out property <string> lasa-inlocuieste;
+    in-out property <string> lasa-insereaza;
+    in-out property <string> lasa-nimic;
     in-out property <string> extra-nu-se-deployeaza;
     in-out property <string> extra-fara-deploy;
     in-out property <string> coloana-folosit-de;
@@ -683,6 +687,15 @@ export struct RandUi {
     tinta-gol: bool,
     st-lipsa: bool,
     dr-lipsa: bool,
+    // ce se intampla daca lasi un bloc tras pe randul asta (`loc_ui`):
+    // >= 0 inlocuieste blocul cu indexul asta, <= -2 se insereaza inaintea
+    // liniei -(loc + 2), -1 nimic (eticheta, pliere)
+    loc: int,
+    // blocul motorului din care face parte randul (-1 = context): tragerea
+    // ia doar blocul asta, chiar daca e intr-un grup
+    bloc: int,
+    // textul randului din Martor, pentru fantoma care urmeaza mouse-ul
+    text-st: string,
 }
 
 // o linie din previzualizarea la hover: cum ar arata Modificata dupa Aplica
@@ -766,6 +779,9 @@ export component Jumatate inherits Rectangle {
     // s-ar repeta pe fiecare linie a blocului
     in property <bool> tinta-prima;
     in property <string> text-plasare;
+    // se trage un bloc si mouse-ul e deasupra randului: daca il lasi aici,
+    // ajunge aici (nu neaparat pe locul sugerat)
+    in property <bool> tinta-mouse;
     // fondul liniilor identice: `cod-fundal` (baza) sau `panou-sursa` (sursa)
     in property <color> fond: Tema.cod-fundal;
     // linia din baza: 0 cum era, 1 adusa din sursa (verde, ca „doar in
@@ -793,13 +809,21 @@ export component Jumatate inherits Rectangle {
         background: Tema.add-bara.transparentize(0.88);
         Rectangle { x: 0px; width: 2px; background: Tema.add-bara; }
     }
+    if root.tinta-mouse: Rectangle {
+        background: Tema.accent.transparentize(0.82);
+        border-width: 1px;
+        border-color: Tema.accent;
+        Rectangle { x: 0px; width: 3px; background: Tema.accent; }
+    }
     if root.tinta-aprinsa && root.tinta-prima: Rectangle {
         x: parent.width - self.width - 10px;
         y: 2px;
         height: parent.height - 4px;
         width: plasare-text.preferred-width + 16px;
         border-radius: 4px;
-        background: Tema.add-fundal;
+        // opac: pe randul-fantoma, textul de dedesubt nu trebuie sa se vada
+        // prin el (sesizat de Mihai: se suprapuneau scrisurile)
+        background: Tema.fundal;
         border-width: 1px;
         border-color: Tema.add-bara;
         plasare-text := Text {

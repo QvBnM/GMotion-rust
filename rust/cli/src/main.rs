@@ -200,6 +200,13 @@ enum Comanda {
         #[arg(long, value_name = "1,3", conflicts_with_all = ["aplica_toate", "reset", "din_fisier"])]
         aplica: Option<String>,
 
+        /// Cu `--aplica N` (o singura diferenta): o lasa langa linia asta din
+        /// textul curent al bazei modificate (de la 1), nu pe locul sugerat.
+        /// Pe o linie dintr-un bloc il inlocuieste; altfel se insereaza
+        /// inaintea ei. Ca tragerea in editor.
+        #[arg(long, value_name = "LINIE", requires = "aplica")]
+        la: Option<usize>,
+
         /// Textul final devine exact cel din martor.
         #[arg(long, conflicts_with_all = ["reset", "din_fisier"])]
         aplica_toate: bool,
@@ -363,6 +370,7 @@ fn main() -> std::process::ExitCode {
             baza,
             obiect,
             aplica,
+            la,
             aplica_toate,
             reset,
             din_fisier,
@@ -377,7 +385,10 @@ fn main() -> std::process::ExitCode {
                             .map_err(|_| format!("{n:?} nu e un numar de diferenta"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                comenzi::ActiuneEditare::Aplica(numere)
+                if la.is_some() && numere.len() != 1 {
+                    return Err("--la merge cu o singura diferenta (--aplica N)".to_string());
+                }
+                comenzi::ActiuneEditare::Aplica(numere, *la)
             } else if *aplica_toate {
                 comenzi::ActiuneEditare::AplicaToate
             } else if *reset {

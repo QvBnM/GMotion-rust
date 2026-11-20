@@ -687,12 +687,21 @@ pub fn impact(
     }
 }
 
+/// Alinierea si diferentele asa cum le numara editorul: pe grupuri.
+fn grupuri_editare(sursa: &str, curent: &str) -> (gmotion_core::Aliniere, Vec<Vec<usize>>) {
+    let a = gmotion_core::aliniaza(sursa, curent);
+    let plasari = gmotion_core::plasari_aliniere(&a, curent, false);
+    let grupuri = gmotion_core::grupuri_diferente(&a.diff, &plasari);
+    (a, grupuri)
+}
+
 /// Ce face `editare` cu textul final.
 pub enum ActiuneEditare {
     /// Doar arata diferentele ramase, numerotate.
     Arata,
-    /// Aplica diferentele cu numerele astea (de la 1, ca in editor).
-    Aplica(Vec<usize>),
+    /// Aplica diferentele cu numerele astea (de la 1, ca in editor); cu o
+    /// linie (de la 1), o singura diferenta lasata acolo, nu pe locul sugerat.
+    Aplica(Vec<usize>, Option<usize>),
     AplicaToate,
     Reset,
     /// Textul final, scris de mana, dintr-un fisier.
@@ -744,23 +753,38 @@ pub fn editare(
 
     let schimbat = match actiune {
         ActiuneEditare::Arata => false,
-        ActiuneEditare::Aplica(numere) => {
-            let diferente =
-                gmotion_core::aliniaza(&text_sursa, editari.curent(&rand, &text_baza)).diferente();
+        ActiuneEditare::Aplica(numere, la) => {
+            let curent = editari.curent(&rand, &text_baza).to_string();
+            let (a, grupuri) = grupuri_editare(&text_sursa, &curent);
             let mut blocuri = Vec::new();
             for n in numere {
-                let b = n
+                let g = n
                     .checked_sub(1)
-                    .and_then(|i| diferente.get(i))
+                    .and_then(|i| grupuri.get(i))
                     .ok_or_else(|| {
                         format!(
                             "nu exista diferenta {n}: obiectul are {} diferente ramase",
-                            diferente.len()
+                            grupuri.len()
                         )
                     })?;
-                blocuri.push(*b);
+                blocuri.extend_from_slice(g);
             }
-            editari.aplica_blocuri(&rand, &text_sursa, &text_baza, false, &blocuri);
+            match la {
+                None => {
+                    editari.aplica_blocuri(&rand, &text_sursa, &text_baza, false, &blocuri);
+                }
+                Some(linie) => {
+                    let total = curent.lines().count();
+                    if linie == 0 || linie > total + 1 {
+                        return Err(format!(
+                            "--la {linie}: textul curent are {total} linii (1..={})",
+                            total + 1
+                        ));
+                    }
+                    let loc = gmotion_core::loc_la_linie(&a, linie - 1);
+                    editari.aplica_blocuri_la(&rand, &text_sursa, &text_baza, false, &blocuri, loc);
+                }
+            }
             true
         }
         ActiuneEditare::AplicaToate => {
@@ -785,8 +809,10 @@ pub fn editare(
     }
 
     let curent = editari.curent(&rand, &text_baza).to_string();
-    let a = gmotion_core::aliniaza(&text_sursa, &curent);
-    let diferente = a.diferente();
+    // numerotate ca in editor: instructiunile consecutive care merg in acelasi
+    // gol sunt o singura diferenta (`core::grupuri_diferente`)
+    let (a, grupuri) = grupuri_editare(&text_sursa, &curent);
+    let diferente: Vec<usize> = grupuri.iter().map(|g| g[0]).collect();
     let manual = editari.text_final(&rand).is_some_and(|t| t.manual);
     let editat = editari.text_final(&rand).is_some();
     if format == Format::Json {
@@ -800,6 +826,7 @@ pub fn editare(
                     "tip": d.tip.eticheta(),
                     "sursa": d.stanga,
                     "baza": d.dreapta,
+                    "instructiuni": grupuri[i].len(),
                 })
             })
             .collect();

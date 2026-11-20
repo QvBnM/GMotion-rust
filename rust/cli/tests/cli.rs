@@ -1264,3 +1264,69 @@ fn cli_marcheaza_pe_toate_bazele_exporta_starea_si_nu_amesteca_progresul() {
     );
     std::fs::remove_dir_all(&d).ok();
 }
+
+/// `editare` numara diferentele ca editorul (instructiunile consecutive care
+/// merg in acelasi loc sunt una) si lasa o diferenta unde spune omul
+/// (`--la`), ca tragerea in editor (etapa 23). Pe binarul adevarat.
+#[test]
+fn editarea_numara_pe_grupuri_si_lasa_unde_ii_spui() {
+    let d = dir("editare-la");
+    let inst = d.join("inst.json");
+    let ob = |t: &str| serde_json::json!([{"schema":"dbo","nume":"rptInventar_Situatie","tip":"P","definitie":t}]);
+    let v = serde_json::json!({
+        "versiune": 1, "server": "srv", "creat": "", "nota": "",
+        "baze": {
+            "Martor": ob(include_str!("../../../cercetare/machete/editor-lizibil/martor.sql")),
+            "Modificata": ob(include_str!("../../../cercetare/machete/editor-lizibil/modificata.sql")),
+        }
+    });
+    std::fs::write(&inst, v.to_string()).unwrap();
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let baza = [
+        "editare",
+        "--sursa",
+        i,
+        "--referinta",
+        "Martor",
+        "--baza",
+        "Modificata",
+        "--obiect",
+        "dbo.rptInventar_Situatie",
+    ];
+    let cu = |extra: &[&str], json: bool| {
+        let mut a: Vec<&str> = if json { vec!["--json"] } else { vec![] };
+        a.extend(baza);
+        a.extend_from_slice(extra);
+        ruleaza_in(&a, Some(&date))
+    };
+
+    let o = cu(&[], true);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    let dif = v["diferente"].as_array().unwrap();
+    assert_eq!(dif.len(), 3, "antet, grupul declare/set/select, @SQL: {v}");
+    assert_eq!(dif[1]["instructiuni"], 4, "{v}");
+
+    // --la cere o singura diferenta
+    let o = cu(&["--aplica", "1,2", "--la", "3"], false);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("o singura diferenta"), "{}", err(&o));
+
+    // grupul lasat inaintea liniei 24 (linia goala de dupa `join`)
+    let o = cu(&["--aplica", "2", "--la", "24"], false);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = cu(&["--arata-final"], false);
+    let t = out(&o);
+    let linii: Vec<&str> = t.lines().collect();
+    assert!(linii[22].starts_with("join #Person"), "{t}");
+    assert!(
+        linii[23].starts_with("declare  @InventoryCommissionName"),
+        "{t}"
+    );
+    assert!(
+        linii[26].starts_with("select @InventoryCommissionName = left("),
+        "{t}"
+    );
+    assert_eq!(linii[27], "", "linia goala ramane dupa grup");
+}

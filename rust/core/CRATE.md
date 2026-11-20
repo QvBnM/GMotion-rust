@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: a97c7cb9ea0cacf3 -->
+<!-- api-hash: 90eb9535c068c256 -->
 
 ## Rol
 
@@ -66,6 +66,7 @@ proiectul.
 | `diff_aliniat_cu_raport(a, b, uneste_cursor)` | ca `diff_aliniat_cu`, plus cate segmente `replace` au ramas pe imperechere pozitionala |
 | `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: fiecare la pozitia lui din diff, fara plasare |
 | `aplica_blocuri(stanga, dreapta, uneste_cursor, blocuri) -> String` | **„Aplica bloc"**: blocurile alese, aduse acolo unde spune plasarea (inlocuire sau inserare in gol, cu grupul). Singura cale prin care editorul, tragerea, modul ghidat si `cli` scriu un bloc |
+| `aplica_blocuri_la(stanga, dreapta, uneste_cursor, blocuri, loc)`, `Loc`, `loc_la_linie(aliniere, linie)` | blocul lasat de om in alt loc decat cel sugerat (tragerea in editor, `gmotion editare --la`): peste un bloc din dreapta il inlocuieste, intre blocuri se insereaza (etapa 23) |
 | `compune_plasat(aliniere, stanga, dreapta, plasari, aplica)` | ca `compune`, cu blocurile fara pereche duse unde spun `plasari` |
 | `plasari_aliniere(aliniere, dreapta, uneste_cursor) -> Vec<Plasare>` | plasarea pe o aliniere, cu blocurile tintei taiate la fel; ce intreaba si editorul, ca ecranul sa arate locul in care scrie `aplica_blocuri` |
 | `Aliniere` (`randuri`, `diff`, `diferente()`, `blocuri_nealiniate`), `RandAliniat` (`linie_in_bloc_stanga` / `_dreapta`, `primul_din_bloc`, `ultimul_din_bloc`, `ignorata`), `Linie` | tipurile rezultatului |

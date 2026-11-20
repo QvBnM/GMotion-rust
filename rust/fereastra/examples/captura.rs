@@ -115,6 +115,38 @@ fn main() {
         if let Some(n) = a.get(i + 1).and_then(|x| x.parse::<i32>().ok()) {
             ui.set_trage_diferenta(n);
             ui.set_trage_x(80.0);
+            // blocul luat (primul din grup), textul lui pentru fantoma si,
+            // cu `--sub-mouse R`, randul afisat de sub mouse (etapa 23)
+            if let Some(&bloc) = usize::try_from(n)
+                .ok()
+                .and_then(|k| model.grupuri.get(k))
+                .and_then(|g| g.first())
+            {
+                ui.set_trage_bloc(bloc as i32);
+                let text = model
+                    .randuri
+                    .iter()
+                    .find(|r| r.bloc == Some(bloc) && r.stanga.nr.is_some())
+                    .map(|r| {
+                        r.stanga
+                            .bucati
+                            .iter()
+                            .map(|b| b.text.as_str())
+                            .collect::<String>()
+                    })
+                    .unwrap_or_default();
+                ui.set_trage_text(text.trim().into());
+            }
+            let sub = a
+                .iter()
+                .position(|x| x == "--sub-mouse")
+                .and_then(|i| a.get(i + 1))
+                .and_then(|x| x.parse::<i32>().ok());
+            if let Some(r) = sub {
+                ui.set_trage_rand(r);
+                ui.set_trage_gx(1000.0);
+                ui.set_trage_gy(30.0 + r as f32 * 22.0 + 11.0);
+            }
         }
     }
     ui.set_alaturat(!are("--unificat"));

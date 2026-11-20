@@ -1903,6 +1903,18 @@ fn ruleaza() -> Result<(), String> {
         let c = comanda.clone();
         editor_ui
             .on_aplica_diferenta(move |k| c(Comanda::AplicaDiferenta(usize::try_from(k).ok())));
+        // un bloc tras si lasat: pe locul sugerat (-1) sau unde l-a lasat omul
+        let c = comanda.clone();
+        editor_ui.on_plaseaza(move |bloc, loc| {
+            actiune("editor", "plaseaza", &format!("{:?}", (&bloc, &loc)), false);
+            let Ok(bloc) = usize::try_from(bloc) else {
+                return;
+            };
+            c(Comanda::Plaseaza {
+                bloc,
+                loc: gmotion_fereastra::loc_din_ui(loc),
+            })
+        });
         let c = comanda.clone();
         editor_ui.on_aplica_toate(move || {
             actiune("editor", "aplica_toate", "", false);

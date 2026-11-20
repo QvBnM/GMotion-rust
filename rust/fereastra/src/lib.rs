@@ -432,6 +432,26 @@ pub fn previzualizare_ui(
     ))
 }
 
+/// Locul unde se lasa un bloc, cum il poarta un rand din Slint: >= 0
+/// inlocuieste blocul cu indexul asta, <= -2 se insereaza inaintea liniei
+/// `-(cod + 2)`, -1 nimic. Inversul e [`loc_din_ui`].
+pub fn loc_ui(loc: Option<gmotion_core::Loc>) -> i32 {
+    match loc {
+        Some(gmotion_core::Loc::Inlocuieste(b)) => i32::try_from(b).unwrap_or(-1),
+        Some(gmotion_core::Loc::Insereaza(l)) => i32::try_from(l).map_or(-1, |l| -l - 2),
+        None => -1,
+    }
+}
+
+/// Codul primit inapoi din Slint, ca loc (vezi [`loc_ui`]).
+pub fn loc_din_ui(cod: i32) -> Option<gmotion_core::Loc> {
+    match cod {
+        c if c >= 0 => Some(gmotion_core::Loc::Inlocuieste(c as usize)),
+        c if c <= -2 => Some(gmotion_core::Loc::Insereaza((-c - 2) as usize)),
+        _ => None,
+    }
+}
+
 /// Randurile de afisat si randul de inceput al fiecarei diferente, **in
 /// coordonatele listei afisate** (plierea schimba indicii, iar navigarea
 /// deruleaza lista, nu modelul).
@@ -537,6 +557,9 @@ fn randuri_ui_cu_tinte(
                 fantoma: false,
                 delta_tinta: 0,
                 tinta_gol: false,
+                loc: -1,
+                bloc: -1,
+                text_st: SharedString::new(),
             }),
             &RandAfisat::Linie(i) => {
                 let rand = &model.randuri[i];
@@ -567,6 +590,9 @@ fn randuri_ui_cu_tinte(
                         fantoma: false,
                         delta_tinta: 0,
                         tinta_gol: false,
+                        loc: -1,
+                        bloc: -1,
+                        text_st: SharedString::new(),
                     });
                 }
                 afisat_pentru[i] = randuri.len() as i32;
@@ -607,6 +633,19 @@ fn randuri_ui_cu_tinte(
                     // cunosc toate randurile afisate
                     delta_tinta: 0,
                     tinta_gol: false,
+                    loc: loc_ui(rand.loc),
+                    bloc: match (rand.stare, rand.bloc) {
+                        (Stare::Egal, _) | (_, None) => -1,
+                        (_, Some(b)) => b as i32,
+                    },
+                    text_st: rand
+                        .stanga
+                        .bucati
+                        .iter()
+                        .map(|b| b.text.as_str())
+                        .collect::<String>()
+                        .trim()
+                        .into(),
                 };
                 if !unificat || rand.stare != Stare::Modificat {
                     pune(
@@ -2739,9 +2778,9 @@ mod teste {
         let cerute: Rc<RefCell<Vec<i32>>> = Rc::default();
         let c = cerute.clone();
         ui.on_previzualizeaza(move |k| c.borrow_mut().push(k));
-        let aplicate: Rc<RefCell<Vec<i32>>> = Rc::default();
-        let a = aplicate.clone();
-        ui.on_aplica_diferenta(move |k| a.borrow_mut().push(k));
+        let lasate: Rc<RefCell<Vec<(i32, i32)>>> = Rc::default();
+        let a = lasate.clone();
+        ui.on_plaseaza(move |bloc, loc| a.borrow_mut().push((bloc, loc)));
         let muta = |x: f32, y: f32| {
             ui.window().dispatch_event(WindowEvent::PointerMoved {
                 position: LogicalPosition::new(x, y),
@@ -2794,13 +2833,44 @@ mod teste {
         ui.window()
             .dispatch_event(WindowEvent::PointerMoved { position: la });
         assert_eq!(ui.get_trage_diferenta(), 0, "cat tragi, blocul e tinut");
+        let bloc = ui.get_trage_bloc();
+        assert!(bloc >= 0, "se trage un bloc anume");
+        assert!(ui.get_trage_text() != "", "fantoma arata randul luat");
+        assert!(ui.get_trage_rand() >= 0, "si stie randul de sub mouse");
+        // ce se asteapta la lasare: locul sugerat (-1) sau locul randului
+        let asteptat = if ui.get_trage_pe_sugerat() {
+            -1
+        } else {
+            ui.get_trage_loc()
+        };
+        assert!(asteptat != -1 || ui.get_trage_pe_sugerat());
         ui.window().dispatch_event(WindowEvent::PointerReleased {
             position: la,
             button: PointerEventButton::Left,
         });
-        assert_eq!(*aplicate.borrow(), [0], "lasat peste Modificata = aplicat");
+        assert_eq!(
+            *lasate.borrow(),
+            [(bloc, asteptat)],
+            "lasat peste Modificata"
+        );
         assert_eq!(ui.get_trage_diferenta(), -1);
+        assert_eq!(ui.get_trage_bloc(), -1);
         let _ = ui.hide();
+    }
+
+    #[test]
+    fn locul_ajunge_in_slint_si_inapoi_neschimbat() {
+        use gmotion_core::Loc;
+        for loc in [
+            Loc::Inlocuieste(0),
+            Loc::Inlocuieste(7),
+            Loc::Insereaza(0),
+            Loc::Insereaza(42),
+        ] {
+            assert_eq!(loc_din_ui(loc_ui(Some(loc))), Some(loc));
+        }
+        assert_eq!(loc_ui(None), -1);
+        assert_eq!(loc_din_ui(-1), None);
     }
 
     #[test]
