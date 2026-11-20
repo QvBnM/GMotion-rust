@@ -528,10 +528,10 @@ pub static EN: Texte = Texte {
     toate_bazele: "All databases",
     toate_in_plan: "All in plan",
     toate_starile: "All states",
-    trage_peste: "Drag over the right panel",
+    trage_peste: "Drag over Modified",
     previzualizare: "Preview",
     previzualizare_explicatie:
-        "what the right panel looks like if you apply the block · nothing changes until you press Apply",
+        "what Modified looks like if you apply the block · nothing changes until you press Apply",
     trimis: "Sent",
     fisier_per_baza: "One file per database",
     fisier_per_obiect: "One file per object",
