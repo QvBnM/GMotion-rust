@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-20 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (572 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-20 · commit `f671aa8` · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (577 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -47,32 +47,29 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Harta inapoi, ca ecran separat** (`h` din lista, dupa macheta lui
-Mihai, 2026-11-19): de aratat lui Mihai capturile
-`cercetare/capturi/harta-*.png` si de luat „da"-ul pe ele.
+**Etapa 21 (`etape/21-editorul-functiile-v34.md`), pasul 4: drag & drop.**
+Facute: eticheta pe bloc, randul-fantoma, legatura din canal, iar la tragere
+se aprinde locul calculat de motor (`core::plasare::plasari`). Ramane din
+pasul 4, in ordinea asta:
 
-**Etapa 19 incheiata** (Object Explorer in coloana editorului, lista
-tabel, harta pe `h`, wrap in editor). Mihai trimite sesizari daca apare ceva.
-Ramase de confirmat pe Windows: ca filtrul nu mai trece de 100 ms (detaliile
-sunt acum pe alt fir) si ca nu mai cade la Unificat cu wrap.
+1. de verificat ca **lasarea** blocului scrie exact in locul aprins (acelasi
+   raspuns din `plasari`, nu pozitia mouse-ului), cu test care trage si lasa;
+2. Ctrl+Z dupa lasare, cu test;
+3. abia apoi bifa pe drag & drop, cu captura `--trage N` langa
+   `cercetare/machete/editor-functii/2-drag-si-plaseaza-aici.png`.
 
-**Etapele 15 si 16 sunt incheiate.** Ramane:
+Apoi pasii 3, 5, 6 din etapa: previzualizarea la hover, modul ghidat pe
+plasarea reala, „Uneste ciclul cursor" (`comuta-unirea-cursorului` exista in
+`editor.slint`; de verificat ca e legat la `core`).
 
-1. **Conectarea noua (etapa 17): facuta, asteapta „da"-ul lui Mihai** pe
-   `cercetare/machete/conectare-noua/capturi/pereche-*.png` (macheta |
-   aplicatia, 1440x900, ambele teme). Abaterile, listate in etapa: textele
-   aplicatiei (Martor / Modificata, „Continua"), butonul ⇄ si „Ascunde" din
-   jurnal au disparut (nu erau in macheta). De cerut pe Windows: aceeasi
-   fereastra pe un laptop la 150% si pe un monitor mare, si mutata intre
-   ele — scara trebuie sa se recalculeze la mutare.
-2. **Editorul ca in macheta:** `etape/18-editorul-ca-in-macheta.md`
-   (NEPORNITA). Etapa 16 a facut functiile, dar Mihai a gasit ca editorul nu
-   seamana cu `cercetare/machete/sina-si-taburi/macheta.png`. Se bifeaza doar
-   cu captura pusa langa macheta si vazuta de Mihai. Ordinea fata de 17 o
-   alege Mihai.
-3. Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
-   (singurul rand din `cercetare/lipsuri-portare.md`). De probat intai daca se
-   poate in Slint (`TextInput` nu are culori pe bucati).
+**Asteapta „da"-ul lui Mihai** (bifa pe ecran cere perechea vazuta de el):
+capturile hartii (`cercetare/capturi/harta-*.png`), perechile conectarii
+(`cercetare/machete/conectare-noua/capturi/pereche-*.png`) si, pe masura ce
+se fac, perechile etapei 21.
+
+Fara etapa inca: evidentierea de sintaxa **in timp ce scrii** in editare
+(`cercetare/lipsuri-portare.md`). De probat intai daca se poate in Slint
+(`TextInput` nu are culori pe bucati).
 
 La pornire: `python3 -I unelte/harta-cod.py`, apoi cauti in `HARTA-COD.md`
 si citesti doar intervalul (CLAUDE.md §0).

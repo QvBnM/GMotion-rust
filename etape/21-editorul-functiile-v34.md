@@ -59,6 +59,10 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
 ## Jurnal de lucru
 
 - **2026-11-20** Etapa pregatita. Machetele si cazul lor sunt in repo.
+- **2026-11-20** La tragere se aprinde locul calculat de motor (blocul
+  inlocuit sau randul-fantoma), nu randurile blocului tras. Sesiunea s-a
+  oprit aici; drag & drop ramane nebifat pana se probeaza lasarea in acelasi
+  loc si Ctrl+Z, fiecare cu test.
 - **2026-11-20** Eticheta, fantoma si legatura din canal: facute. Decizia
   „unde ajunge blocul" s-a mutat in `core::plasare::plasari` — fereastra nu
   depinde de module, deci nu putea chema `modul::plasari_obiect`; acum amandoi
