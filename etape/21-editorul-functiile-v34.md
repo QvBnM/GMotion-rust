@@ -1,8 +1,8 @@
 # Etapa 21 — editorul: functiile v3.4, in formatul nou
 
-**Stare:** NEPORNITA
-**Branch:** —
-**Deschisa:** — · **Incheiata:** —
+**Stare:** ACTIVA
+**Branch:** claude/upbeat-ramanujan-dm6j8c
+**Deschisa:** 2026-11-20 · **Incheiata:** —
 
 ## Scop
 
@@ -31,8 +31,10 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
       desen decorativ
 - [ ] **randul-fantoma** in Modificata: „aici vin blocurile N si M din Martor,
       daca le aplici", la locul calculat
-- [ ] **umplutura dintr-un bloc se hasureaza** in culoarea blocului (Mihai,
-      2026-11-20): altfel blocul pare rupt in doua si golul pare linie pierduta
+- [x] **umplutura dintr-un bloc se hasureaza** in culoarea blocului (Mihai,
+      2026-11-20) — **exista deja in aplicatie** (`Jumatate.fara-linie` +
+      `tigla`); golul din machete era al machetei mele, nu al ecranului.
+      Verificat pe captura reala, nu pe desen
 - [ ] **drag & drop**: tragi blocul din Martor, se aprind doar tintele legale
       (banda „Plaseaza aici" intre blocuri, contur pe blocul care se poate
       inlocui), cu Ctrl+Z
@@ -57,6 +59,12 @@ proprie pusa langa macheta si „da"-ul lui Mihai pe pereche (CLAUDE.md §10).
 ## Jurnal de lucru
 
 - **2026-11-20** Etapa pregatita. Machetele si cazul lor sunt in repo.
+- **2026-11-20** Pornita. Prima treaba: captura reala a editorului pe cazul
+  machetelor, ca sa stim ce lipseste de fapt. Hasura umpluturii exista deja;
+  tragerea blocului exista si ea (fara tinte aprinse). Lipsesc: etichetele pe
+  bloc, randul-fantoma, legatura bloc -> loc in canal, previzualizarea la
+  hover, tintele legale la tragere, modul ghidat pe plasarea reala si butonul
+  „Uneste ciclul cursor".
 
 ## Ce a iesit altfel decat planul
 

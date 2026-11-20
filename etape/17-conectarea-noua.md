@@ -1,12 +1,8 @@
 # Etapa 17 — ecranul de conectare dupa macheta noua
 
-**Stare:** NEPORNITA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-19 · **Incheiata:** —
-
-> In lucru in sesiunea `session_01FH9EWVHVrrpH7Qfopnidbk` („Prima pagina
-> GMotion Connect"), in paralel cu etapa 19 (ACTIVA, alta sesiune). Poarta
-> cere o singura etapa ACTIVA; 17 trece in ACTIVA cand se incheie 19.
+**Deschisa:** 2026-11-19 · **Incheiata:** 2026-11-20
 
 ## Scop
 
@@ -41,8 +37,9 @@ jurnalul dedesubt; o singura scara pentru tot ecranul.
       pe fereastra de test)
 - [x] fiecare buton nou are actiune si test care il apasa (bifa, cercurile
       din liste, Setari)
-- [ ] captura la 1440x900 pusa langa macheta, in ambele teme, si „da"-ul lui
-      Mihai pe pereche (CLAUDE.md: un ecran facut dupa macheta arata ca ea)
+- [x] captura la 1440x900 pusa langa macheta, in ambele teme, si „da"-ul lui
+      Mihai pe pereche (CLAUDE.md: un ecran facut dupa macheta arata ca ea) —
+      „Conectare noua a fost facuta" (Mihai, 2026-11-20)
 - [x] poarta verde: `unelte/verifica.sh`
 - [x] `STARE.md` actualizat
 - [x] `JURNAL.md` completat (o singura baza la modificata; certificatul in

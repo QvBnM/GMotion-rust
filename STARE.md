@@ -31,12 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 20 (motorul) s-a incheiat pe 2026-11-20.
-Pregatite: 21 (editorul: functiile v3.4 in formatul nou — acum au sub ele
-motorul care le lipsea; machetele-tinta in
-`cercetare/machete/editor-functii/`) si 17 (conectarea dupa
-`cercetare/machete/conectare-noua/`, facuta, asteapta „da"-ul lui Mihai pe
-perechi).
+**Etapa activa:** `etape/21-editorul-functiile-v34.md` — functiile v3.4 din
+editor, in formatul de acum, cu machetele-tinta in
+`cercetare/machete/editor-functii/`. Etapa 20 (motorul) si 17 (conectarea
+noua) s-au incheiat pe 2026-11-20.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -141,9 +139,7 @@ previzualizarea la hover. Toate au acum pe cine intreba:
 
 ## Ce astept de la Mihai
 
-**Care etapa urmeaza: 21 (editorul) sau 17 (conectarea noua).** 17 e facuta si
-asteapta „da"-ul pe perechile macheta | aplicatie; 21 are criteriile si
-machetele-tinta scrise, nepornita.
+(Nimic care sa blocheze etapa 21.)
 
 **Decizii inca deschise** (nu blocheaza nimic): dialogul nativ de fisiere
 (`rfd`); textul ecranului „Despre" (cerut de licenta Slint); implicitul pentru
