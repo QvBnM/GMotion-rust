@@ -1050,8 +1050,9 @@ impl Aplicatie {
         let Some(bloc) = self.model_editor().and_then(|m| m.blocuri.get(k).copied()) else {
             return false;
         };
+        let uneste = self.uneste_cursorul;
         self.schimba_textul(|e, r, a, b| {
-            e.aplica_blocuri(r, a, b, &[bloc]);
+            e.aplica_blocuri(r, a, b, uneste, &[bloc]);
         })
     }
 
@@ -1953,6 +1954,141 @@ mod teste {
         );
         a.comanda(Comanda::Deschide);
         (a, SURSA, BAZA)
+    }
+
+    /// Un obiect in care UPDATE-ul a urcat in tinta: blocul din sursa iese
+    /// fara pereche, iar plasarea il trimite peste UPDATE-ul din tinta.
+    fn aplicatie_mutat() -> (Aplicatie, &'static str) {
+        const SURSA: &str = "CREATE PROC dbo.pM AS\n\
+            SELECT a FROM dbo.T1;\n\
+            SELECT b FROM dbo.T2;\n\
+            UPDATE dbo.T3 SET x = 1, y = 2, z = 4 WHERE id = 5 AND activ = 1;";
+        const BAZA: &str = "CREATE PROC dbo.pM AS\n\
+            UPDATE dbo.T3 SET x = 1, y = 3, z = 4 WHERE id = 5 AND activ = 1;\n\
+            SELECT a FROM dbo.T1;\n\
+            SELECT b FROM dbo.T2;";
+        let sursa = modul::pregateste(&[obiect_db("pM", SURSA)]);
+        let tinta = modul::pregateste(&[obiect_db("pM", BAZA)]);
+        let c = modul::compara(
+            "Ref",
+            &sursa,
+            &[("Client1".to_string(), tinta.clone())],
+            |_| {},
+        );
+        let mut a = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        );
+        a.comanda(Comanda::Deschide);
+        (a, BAZA)
+    }
+
+    /// Diferenta blocului fara pereche, si randul din model pe care il
+    /// aprinde ecranul cand e tras (`ModelEditor::tinte`).
+    fn diferenta_mutata(a: &Aplicatie) -> (usize, String) {
+        let m = a.model_editor().expect("model");
+        let k = (0..m.diferente.len())
+            .find(|&k| {
+                m.randuri[m.diferente[k]].stare == gmotion_fereastra::model_editor::Stare::Sters
+            })
+            .expect("un bloc doar in sursa");
+        let tinta = m.tinte[k].expect("o tinta aprinsa");
+        let aprins: String = m.randuri[tinta]
+            .dreapta
+            .bucati
+            .iter()
+            .map(|b| b.text.as_str())
+            .collect();
+        (k, aprins)
+    }
+
+    /// Drag & drop: blocul tras ajunge **exact** in locul aprins in timpul
+    /// tragerii (acolo unde inlocuieste), nu inca o data la pozitia lui din
+    /// sursa. Lasarea cheama `aplica-diferenta`, deci asta e comanda.
+    #[test]
+    fn blocul_lasat_ajunge_in_locul_aprins_si_ctrl_z_il_scoate() {
+        let (mut a, baza) = aplicatie_mutat();
+        let (k, aprins) = diferenta_mutata(&a);
+        assert!(
+            aprins.contains("y = 3"),
+            "se aprinde UPDATE-ul din tinta: {aprins}"
+        );
+
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(k))));
+        let (_, curent) = a.texte_curente().expect("texte");
+        assert_eq!(curent.matches("UPDATE").count(), 1, "dublat:\n{curent}");
+        assert!(
+            curent.contains("y = 2") && !curent.contains("y = 3"),
+            "{curent}"
+        );
+        assert!(
+            curent.lines().nth(1).is_some_and(|l| l.contains("UPDATE")),
+            "pe locul aprins:\n{curent}"
+        );
+
+        assert!(a.comanda(Comanda::Anuleaza), "Ctrl+Z dupa lasare");
+        assert_eq!(a.texte_curente().expect("texte").1, baza);
+    }
+
+    /// Modul ghidat aplica prin aceeasi plasare: aceeasi tinta ca la tragere.
+    #[test]
+    fn modul_ghidat_aplica_pe_locul_dat_de_plasare() {
+        let (mut a, _) = aplicatie_mutat();
+        let (k, _) = diferenta_mutata(&a);
+        a.comanda(Comanda::PornesteGhidat);
+        for _ in 0..k {
+            a.comanda(Comanda::GhidatSari);
+        }
+        assert!(a.comanda(Comanda::GhidatAplica));
+        let (_, curent) = a.texte_curente().expect("texte");
+        assert_eq!(curent.matches("UPDATE").count(), 1, "dublat:\n{curent}");
+        assert!(curent.contains("y = 2"), "{curent}");
+    }
+
+    /// Cu „uneste ciclul cursor" pornit, editorul numara alte blocuri; aplicarea
+    /// trebuie sa numere la fel, altfel scrie alt bloc decat cel apasat.
+    #[test]
+    fn cu_cursorul_unit_aplica_blocul_apasat() {
+        const SURSA: &str = "CREATE PROC dbo.pC AS\n\
+            DECLARE c CURSOR FOR SELECT id FROM dbo.T;\n\
+            OPEN c;\n\
+            FETCH NEXT FROM c INTO @id;\n\
+            CLOSE c;\n\
+            DEALLOCATE c;\n\
+            SELECT 1;";
+        let baza = SURSA
+            .replace(
+                "SELECT id FROM dbo.T",
+                "SELECT id FROM dbo.T WHERE activ = 1",
+            )
+            .replace("SELECT 1;", "SELECT 2;");
+        let sursa = modul::pregateste(&[obiect_db("pC", SURSA)]);
+        let tinta = modul::pregateste(&[obiect_db("pC", &baza)]);
+        let c = modul::compara(
+            "Ref",
+            &sursa,
+            &[("Client1".to_string(), tinta.clone())],
+            |_| {},
+        );
+        let mut a = Aplicatie::noua(
+            c.randuri,
+            sursa,
+            vec![("Client1".to_string(), tinta)],
+            Revizuire::noua(),
+        );
+        a.comanda(Comanda::Deschide);
+        a.comanda(Comanda::ComutaUnireaCursorului(true));
+        assert_eq!(a.model_editor().expect("model").diferente.len(), 2);
+        // a doua diferenta e `SELECT 1`; fara aceeasi taiere s-ar aplica alt bloc
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(1))));
+        let (_, curent) = a.texte_curente().expect("texte");
+        assert!(curent.contains("SELECT 1;"), "{curent}");
+        assert!(
+            curent.contains("WHERE activ = 1"),
+            "ciclul ramane neatins:\n{curent}"
+        );
     }
 
     #[test]

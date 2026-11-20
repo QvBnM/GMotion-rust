@@ -333,8 +333,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
     // Unde ajunge fiecare bloc care difera. Decizia e a motorului
     // (`gmotion_core::plasare`): in fereastra nu se ia o a doua parere, altfel
     // „Aplica" ar scrie in alt loc decat arata ecranul.
-    let blocuri_tinta = gmotion_core::split_statements(text_tinta, uneste_cursor);
-    let plasari = gmotion_core::plasare::plasari(&a.diff, &blocuri_tinta);
+    let plasari = gmotion_core::plasari_aliniere(&a, text_tinta, uneste_cursor);
 
     // Numarul blocului pe fiecare parte, asa cum il numara omul care se uita:
     // „blocul 4 din Modificata", nu indicele din motor.

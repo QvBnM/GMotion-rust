@@ -129,8 +129,10 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 8d. **Textul final e legat de amprenta obiectului** (ca bifa): daca sursa
    sau baza s-au schimbat de la editare, nu mai e valabil si nu intra in
    deploy. Un text final egal cu textul bazei nu e editare (se scoate).
-   „Aplica toate" pune textul exact al sursei; „Aplica" compune prin
-   `gmotion_core::compune`, aceeasi aliniere ca editorul.
+   „Aplica toate" pune textul exact al sursei; „Aplica" trece prin
+   `gmotion_core::aplica_blocuri`, aceeasi aliniere si aceeasi plasare ca
+   editorul (si aceeasi optiune `uneste_cursor`, altfel indicele blocului
+   arata alt bloc).
 8e. **Un obiect e ori revizuit, ori omis.** Omisele nu intra in planul facut
    din `cli` fara `--doar`.
 9. **CSV-ul are BOM UTF-8, separator `;`, CRLF si virgula zecimala** — altfel

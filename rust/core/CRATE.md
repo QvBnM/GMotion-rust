@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: ec3d3e874c800059 -->
+<!-- api-hash: c10901e3e35837ef -->
 
 ## Rol
 
@@ -64,7 +64,10 @@ proiectul.
 | `aliniaza_cu(a, b, uneste_cursor)`, `diff_aliniat_cu`, `are_cursor(cod)` | varianta cu unirea ciclului de cursor (v3.4): blocul de cursor se ia intreg, de la DECLARE pana la DEALLOCATE |
 | `aliniaza(stanga, dreapta) -> Aliniere` | diff-ul asezat pe linii, cu umplutura si cu liniile dintre blocuri; ce deseneaza editorul |
 | `diff_aliniat_cu_raport(a, b, uneste_cursor)` | ca `diff_aliniat_cu`, plus cate segmente `replace` au ramas pe imperechere pozitionala |
-| `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: „Aplica bloc" |
+| `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: fiecare la pozitia lui din diff, fara plasare |
+| `aplica_blocuri(stanga, dreapta, uneste_cursor, blocuri) -> String` | **„Aplica bloc"**: blocurile alese, aduse acolo unde spune plasarea (inlocuire sau inserare in gol, cu grupul). Singura cale prin care editorul, tragerea, modul ghidat si `cli` scriu un bloc |
+| `compune_plasat(aliniere, stanga, dreapta, plasari, aplica)` | ca `compune`, cu blocurile fara pereche duse unde spun `plasari` |
+| `plasari_aliniere(aliniere, dreapta, uneste_cursor) -> Vec<Plasare>` | plasarea pe o aliniere, cu blocurile tintei taiate la fel; ce intreaba si editorul, ca ecranul sa arate locul in care scrie `aplica_blocuri` |
 | `Aliniere` (`randuri`, `diff`, `diferente()`, `blocuri_nealiniate`), `RandAliniat` (`linie_in_bloc_stanga` / `_dreapta`, `primul_din_bloc`, `ultimul_din_bloc`, `ignorata`), `Linie` | tipurile rezultatului |
 
 **Liniile a doua blocuri imperecheate se potrivesc intre ele, nu pe pozitie**
@@ -173,6 +176,10 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
    Lucreaza pe liniile originale, nu pe textul blocurilor (care nu e garantat
    subsir, vezi 5). Liniile dintre blocuri (goale, comentarii) raman din
    dreapta. Verificat de fuzz in `tests/invariante.rs`.
+   `aplica_blocuri` (cu plasare) pastreaza prima jumatate; a doua nu se cere,
+   fiindca un bloc fara pereche poate inlocui un bloc din dreapta. Se cere in
+   schimb, tot prin fuzz: blocul aplicat ajunge intreg, iar din dreapta nu se
+   pierde mai mult decat blocul inlocuit.
 5c. **Alinierea pe linii nu schimba ce linii apartin unui bloc**, doar cum se
    aseaza fata in fata. Fiecare linie a blocului apare exact o data, pe partea
    ei: de aia `compune` ramane corect (invarianta 5b) fara sa stie nimic

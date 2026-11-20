@@ -424,8 +424,43 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
     }
 }
 
+/// Unde ajunge fiecare bloc care difera, pe alinierea `a`.
+///
+/// Editorul (ce se aprinde, eticheta, randul-fantoma) si [`aplica_blocuri`]
+/// (ce se scrie) intreaba aici, cu aceleasi blocuri ale tintei: daca ar lua
+/// doua pareri, „Aplica" ar scrie in alt loc decat arata ecranul.
+pub fn plasari_aliniere(
+    a: &Aliniere,
+    text_dreapta: &str,
+    uneste_cursor: bool,
+) -> Vec<crate::plasare::Plasare> {
+    let blocuri_tinta = split_statements(text_dreapta, uneste_cursor);
+    crate::plasare::plasari(&a.diff, &blocuri_tinta)
+}
+
+/// Textul din dreapta, cu blocurile `blocuri` (indexuri in diff, ca in
+/// editor) aduse din stanga **acolo unde spune plasarea**: un bloc fara
+/// pereche care seamana cu un bloc din dreapta il inlocuieste; unul care se
+/// insereaza intr-un gol isi aduce si restul grupului (un `IF ... BEGIN` cu
+/// corpul lui).
+///
+/// E singura cale prin care editorul, modul ghidat, tragerea si `cli` scriu
+/// un bloc.
+pub fn aplica_blocuri(
+    text_stanga: &str,
+    text_dreapta: &str,
+    uneste_cursor: bool,
+    blocuri: &[usize],
+) -> String {
+    let a = aliniaza_cu(text_stanga, text_dreapta, uneste_cursor);
+    let plasari = plasari_aliniere(&a, text_dreapta, uneste_cursor);
+    compune_plasat(&a, text_stanga, text_dreapta, &plasari, |b| {
+        blocuri.contains(&b)
+    })
+}
+
 /// Textul din dreapta, cu blocurile pentru care `aplica` spune `true` luate
-/// din stanga.
+/// din stanga, fiecare la **pozitia lui din diff** (fara plasare).
 ///
 /// Se lucreaza pe **liniile originale**, prin numerele lor: ce nu e aplicat
 /// ramane octet cu octet ce era in dreapta (cu niciun bloc aplicat, rezultatul
@@ -439,49 +474,109 @@ pub fn compune(
     text_dreapta: &str,
     aplica: impl Fn(usize) -> bool,
 ) -> String {
+    compune_plasat(a, text_stanga, text_dreapta, &[], aplica)
+}
+
+/// Ca [`compune`], dar blocurile din stanga fara pereche merg unde spune
+/// `plasari` (vezi [`aplica_blocuri`]).
+pub fn compune_plasat(
+    a: &Aliniere,
+    text_stanga: &str,
+    text_dreapta: &str,
+    plasari: &[crate::plasare::Plasare],
+    aplica: impl Fn(usize) -> bool,
+) -> String {
     let original_st: Vec<&str> = text_stanga.lines().collect();
     let original_dr: Vec<&str> = text_dreapta.lines().collect();
-    let mut iesire: Vec<&str> = Vec::with_capacity(original_dr.len());
-    let mut urmatoarea_dr = 0usize;
-    let mut i = 0;
-    while i < a.randuri.len() {
-        let r = &a.randuri[i];
-        let Some(bloc) = r
-            .bloc
-            .filter(|&b| a.diff[b].tip != TipDiferenta::Egal && aplica(b))
-        else {
-            i += 1;
-            continue;
-        };
-        // tot blocul, ca interval de randuri
-        let j = (i..a.randuri.len())
-            .find(|&k| a.randuri[k].bloc != Some(bloc))
-            .unwrap_or(a.randuri.len());
-        let randuri = &a.randuri[i..j];
-        let inceput = randuri
+
+    // intervalul de randuri al fiecarui bloc din diff
+    let mut interval: Vec<Option<(usize, usize)>> = vec![None; a.diff.len()];
+    for (k, r) in a.randuri.iter().enumerate() {
+        if let Some(b) = r.bloc {
+            let e = interval[b].get_or_insert((k, k + 1));
+            e.1 = k + 1;
+        }
+    }
+    // liniile din dreapta (de la 0, capat exclus) ale unui bloc
+    let linii_dreapta = |b: usize| -> Option<(usize, usize)> {
+        let (i, j) = interval[b]?;
+        let rr = &a.randuri[i..j];
+        let inceput = rr
             .iter()
             .filter_map(|r| r.dreapta.as_ref().map(|l| l.nr - 1))
             .min()
-            .unwrap_or(r.poz_dreapta);
-        let sfarsit = randuri
+            .unwrap_or(a.randuri[i].poz_dreapta);
+        let sfarsit = rr
             .iter()
             .filter_map(|r| r.dreapta.as_ref().map(|l| l.nr))
             .max()
             .unwrap_or(inceput);
-        let inceput = inceput.max(urmatoarea_dr);
-        iesire.extend_from_slice(
-            &original_dr[urmatoarea_dr.min(original_dr.len())..inceput.min(original_dr.len())],
-        );
-        for l in randuri.iter().filter_map(|r| r.stanga.as_ref()) {
-            iesire.push(
-                original_st
-                    .get(l.nr - 1)
-                    .copied()
-                    .unwrap_or(l.text.as_str()),
-            );
+        Some((inceput, sfarsit))
+    };
+    // blocul din diff al fiecarui bloc din dreapta, in ordine (ce numara
+    // `plasare` prin `bloc_tinta`)
+    let al_ordinalului: Vec<usize> = a
+        .diff
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.dreapta.is_some())
+        .map(|(b, _)| b)
+        .collect();
+
+    // ce se aplica: blocurile cerute, plus restul grupului la inserarea in gol
+    let mut aplicate: Vec<usize> = (0..a.diff.len())
+        .filter(|&b| a.diff[b].tip != TipDiferenta::Egal && aplica(b))
+        .collect();
+    let din_grup: Vec<usize> = plasari
+        .iter()
+        .filter(|p| !p.inlocuieste && aplicate.contains(&p.rand))
+        .flat_map(|p| p.randuri.iter().copied())
+        .filter(|&b| a.diff.get(b).is_some_and(|d| d.tip == TipDiferenta::Sters))
+        .collect();
+    aplicate.extend(din_grup);
+    aplicate.sort_unstable();
+    aplicate.dedup();
+
+    // fiecare bloc aplicat devine „inlocuieste liniile [s, e) din dreapta cu
+    // liniile lui din stanga" (s == e: inserare)
+    let mut operatii: Vec<(usize, usize, usize)> = Vec::new(); // (s, e, bloc)
+    for &b in &aplicate {
+        let Some(mut loc) = linii_dreapta(b) else {
+            continue;
+        };
+        if a.diff[b].tip == TipDiferenta::Sters {
+            if let Some(p) = plasari.iter().find(|p| p.rand == b && p.inlocuieste) {
+                if let Some(l) = al_ordinalului
+                    .get(p.bloc_tinta)
+                    .and_then(|&t| linii_dreapta(t))
+                {
+                    loc = l;
+                }
+            }
         }
-        urmatoarea_dr = sfarsit.max(inceput);
-        i = j;
+        operatii.push((loc.0, loc.1, b));
+    }
+    // ordinea pe pozitie; la egalitate, ordinea blocurilor
+    operatii.sort_by_key(|&(s, _, b)| (s, b));
+
+    let mut iesire: Vec<&str> = Vec::with_capacity(original_dr.len());
+    let mut urmatoarea_dr = 0usize;
+    for (s, e, b) in operatii {
+        let s = s.max(urmatoarea_dr);
+        iesire.extend_from_slice(
+            &original_dr[urmatoarea_dr.min(original_dr.len())..s.min(original_dr.len())],
+        );
+        if let Some((i, j)) = interval[b] {
+            for l in a.randuri[i..j].iter().filter_map(|r| r.stanga.as_ref()) {
+                iesire.push(
+                    original_st
+                        .get(l.nr - 1)
+                        .copied()
+                        .unwrap_or(l.text.as_str()),
+                );
+            }
+        }
+        urmatoarea_dr = e.max(s);
     }
     if urmatoarea_dr < original_dr.len() {
         iesire.extend_from_slice(&original_dr[urmatoarea_dr..]);
@@ -498,6 +593,44 @@ mod teste {
             .into_iter()
             .find(|&d| a.diff[d].tip == tip)
             .unwrap_or_else(|| panic!("niciun bloc {tip:?}: {:?}", a.diff))
+    }
+
+    /// Blocul mutat in tinta (aici, UPDATE-ul urcat inaintea SELECT-urilor)
+    /// iese din diff fara pereche. Plasarea il recunoaste in tinta, deci
+    /// „Aplica" trebuie sa-l **inlocuiasca** acolo, nu sa-l mai insereze o
+    /// data la pozitia lui din martor. Ecranul anunta exact inlocuirea.
+    #[test]
+    fn blocul_fara_pereche_inlocuieste_unde_arata_plasarea() {
+        let st = "CREATE PROCEDURE dbo.p AS\n\
+                  SELECT a FROM dbo.T1;\n\
+                  SELECT b FROM dbo.T2;\n\
+                  UPDATE dbo.T3 SET x = 1, y = 2, z = 4 WHERE id = 5 AND activ = 1;";
+        let dr = "CREATE PROCEDURE dbo.p AS\n\
+                  UPDATE dbo.T3 SET x = 1, y = 3, z = 4 WHERE id = 5 AND activ = 1;\n\
+                  SELECT a FROM dbo.T1;\n\
+                  SELECT b FROM dbo.T2;";
+        let a = aliniaza(st, dr);
+        let plasari = plasari_aliniere(&a, dr, false);
+        let p = plasari
+            .iter()
+            .find(|p| a.diff[p.rand].tip == TipDiferenta::Sters)
+            .unwrap_or_else(|| panic!("niciun bloc fara pereche: {:?}", a.diff));
+        assert!(
+            p.inlocuieste,
+            "plasarea trebuia sa gaseasca UPDATE-ul: {p:?}"
+        );
+
+        let rez = aplica_blocuri(st, dr, false, &[p.rand]);
+        assert_eq!(rez.matches("UPDATE").count(), 1, "dublat:\n{rez}");
+        assert!(rez.contains("y = 2") && !rez.contains("y = 3"), "{rez}");
+        // pe locul UPDATE-ului din tinta, nu la sfarsit
+        assert!(
+            rez.lines().nth(1).is_some_and(|l| l.contains("UPDATE")),
+            "{rez}"
+        );
+        // compunerea fara plasare ar fi dublat blocul: de-aia exista
+        let fara = compune(&a, st, dr, |b| b == p.rand);
+        assert_eq!(fara.matches("UPDATE").count(), 2, "{fara}");
     }
 
     #[test]

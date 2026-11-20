@@ -738,7 +738,7 @@ pub fn editare(
                     })?;
                 blocuri.push(*b);
             }
-            editari.aplica_blocuri(&rand, &text_sursa, &text_baza, &blocuri);
+            editari.aplica_blocuri(&rand, &text_sursa, &text_baza, false, &blocuri);
             true
         }
         ActiuneEditare::AplicaToate => {

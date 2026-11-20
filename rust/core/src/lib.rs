@@ -34,7 +34,10 @@ pub mod plasare;
 pub mod segmentare;
 pub mod seqmatch;
 
-pub use aliniere::{aliniaza, aliniaza_cu, compune, Aliniere, Linie, RandAliniat};
+pub use aliniere::{
+    aliniaza, aliniaza_cu, aplica_blocuri, compune, compune_plasat, plasari_aliniere, Aliniere,
+    Linie, RandAliniat,
+};
 pub use diff::{
     diff_aliniat, diff_aliniat_cu, rezumat_diff, rezumat_rapid, FelSchimbare, RandDiff, Segment,
     TipDiferenta,

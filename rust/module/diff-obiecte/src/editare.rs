@@ -7,12 +7,12 @@
 //! editarii (ca bifa de revizuire): daca sursa sau baza s-au schimbat de
 //! atunci, editarea nu mai e valabila si nu mai ajunge in deploy.
 //!
-//! Compunerea vine din `gmotion_core::compune`, aceeasi aliniere pe care o
-//! deseneaza editorul: blocul aplicat e exact blocul vazut.
+//! Compunerea vine din `gmotion_core::aplica_blocuri`, aceeasi aliniere si
+//! aceeasi plasare pe care le deseneaza editorul: blocul aplicat ajunge exact
+//! unde l-a aratat ecranul.
 
 use std::collections::BTreeMap;
 
-use gmotion_core::{aliniaza, compune};
 use gmotion_platforma::Sesiune;
 use serde::{Deserialize, Serialize};
 
@@ -80,17 +80,18 @@ impl Editari {
     }
 
     /// Aplica blocurile `blocuri` (indexuri in diff-ul dintre sursa si textul
-    /// curent, ca in editor) si intoarce textul rezultat.
+    /// curent, ca in editor, cu aceeasi optiune `uneste_cursor`) acolo unde
+    /// spune plasarea (`gmotion_core::aplica_blocuri`) si intoarce textul.
     pub fn aplica_blocuri(
         &mut self,
         r: &Rand,
         text_sursa: &str,
         text_baza: &str,
+        uneste_cursor: bool,
         blocuri: &[usize],
     ) -> String {
         let curent = self.curent(r, text_baza).to_string();
-        let a = aliniaza(text_sursa, &curent);
-        let text = compune(&a, text_sursa, &curent, |b| blocuri.contains(&b));
+        let text = gmotion_core::aplica_blocuri(text_sursa, &curent, uneste_cursor, blocuri);
         self.pune(r, text.clone(), false);
         text
     }
@@ -211,7 +212,7 @@ mod teste {
     const BAZA: &str = "SELECT 1\n\nUPDATE t SET a = 2\n\nDELETE x WHERE id = 2";
 
     fn diferente(sursa: &str, curent: &str) -> Vec<usize> {
-        aliniaza(sursa, curent).diferente()
+        gmotion_core::aliniaza(sursa, curent).diferente()
     }
 
     #[test]
@@ -220,7 +221,7 @@ mod teste {
         let mut e = Editari::noi();
         let d = diferente(SURSA, BAZA);
         assert_eq!(d.len(), 2);
-        let text = e.aplica_blocuri(&r, SURSA, BAZA, &[d[0]]);
+        let text = e.aplica_blocuri(&r, SURSA, BAZA, false, &[d[0]]);
         assert_eq!(
             text,
             "SELECT 1\n\nUPDATE t SET a = 1\n\nDELETE x WHERE id = 2"
@@ -229,7 +230,7 @@ mod teste {
         // al doilea „Aplica" lucreaza pe textul curent: ramane o diferenta
         let d2 = diferente(SURSA, e.curent(&r, BAZA));
         assert_eq!(d2.len(), 1);
-        e.aplica_blocuri(&r, SURSA, BAZA, &[d2[0]]);
+        e.aplica_blocuri(&r, SURSA, BAZA, false, &[d2[0]]);
         assert_eq!(e.curent(&r, BAZA), SURSA);
     }
 
@@ -268,7 +269,7 @@ mod teste {
         let r = rand("a", "b");
         let mut e = Editari::noi();
         // „din tinta" la toate diferentele: compunerea da exact textul bazei
-        let text = e.aplica_blocuri(&r, SURSA, BAZA, &[]);
+        let text = e.aplica_blocuri(&r, SURSA, BAZA, false, &[]);
         assert_eq!(text, BAZA, "nimic adus din sursa");
         assert_eq!(
             e.pentru_deploy(std::slice::from_ref(&r))
@@ -306,7 +307,7 @@ mod teste {
         let mut e = Editari::noi();
         e.pune(&r, format!("{BAZA}\n-- scris de mine"), true);
         let d = diferente(SURSA, e.curent(&r, BAZA));
-        e.aplica_blocuri(&r, SURSA, BAZA, &[d[0]]);
+        e.aplica_blocuri(&r, SURSA, BAZA, false, &[d[0]]);
         assert!(e.text_final(&r).is_some_and(|t| t.manual));
     }
 

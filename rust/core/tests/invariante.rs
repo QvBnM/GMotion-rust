@@ -347,3 +347,46 @@ fn compunerea_pastreaza_dreapta_si_aplica_tot() {
         );
     }
 }
+
+/// Aplicarea prin plasare (`aplica_blocuri`, ce folosesc editorul, tragerea
+/// si modul ghidat): fara nimic aplicat da exact dreapta; cu un singur bloc
+/// aplicat, oricare, liniile lui din stanga ajung toate in rezultat, iar
+/// rezultatul nu pierde linii din dreapta in afara celor inlocuite (nu e mai
+/// scurt decat dreapta minus blocul cel mai mare din ea).
+#[test]
+fn aplicarea_prin_plasare_aduce_blocul_si_nu_strica_restul() {
+    for seed in 0..SEED_URI {
+        let st = gmotion_core::pregateste_afisare(&genereaza(seed, false));
+        let dr = gmotion_core::pregateste_afisare(&genereaza(seed + 10_000, false));
+        assert_eq!(
+            gmotion_core::aplica_blocuri(&st, &dr, false, &[]),
+            dr,
+            "seed {seed}: nimic aplicat"
+        );
+        let a = aliniaza(&st, &dr);
+        let cel_mai_mare = a
+            .diff
+            .iter()
+            .filter_map(|d| d.dreapta.as_ref().map(|t| t.split('\n').count()))
+            .max()
+            .unwrap_or(0);
+        for b in a.diferente() {
+            let rez = gmotion_core::aplica_blocuri(&st, &dr, false, &[b]);
+            // `split`, nu `lines`: un ultim rand gol e tot o linie
+            let linii_rez: Vec<&str> = rez.split('\n').collect();
+            for l in a.randuri.iter().filter(|r| r.bloc == Some(b)) {
+                if let Some(l) = &l.stanga {
+                    assert!(
+                        linii_rez.contains(&l.text.as_str()),
+                        "seed {seed}, bloc {b}: linia {:?} nu a ajuns\n{rez}",
+                        l.text
+                    );
+                }
+            }
+            assert!(
+                linii_rez.len() + cel_mai_mare >= dr.split('\n').count(),
+                "seed {seed}, bloc {b}: s-au pierdut linii\n--- dreapta\n{dr}\n--- rezultat\n{rez}"
+            );
+        }
+    }
+}
