@@ -1,8 +1,8 @@
 # Etapa 22 — lista: Extra, dependentele si impactul
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-20 · **Incheiata:** —
+**Deschisa:** 2026-11-20 · **Incheiata:** 2026-11-20
 
 ## Scop
 
@@ -38,8 +38,8 @@ apasa; accesibil din `cli` (CLAUDE.md §3).
       probat rulandu-l
 - [x] costul: calculul dependentelor pe tot instantaneul de previzualizare
       masurat si scris in jurnalul etapei
-- [ ] captura listei in ambele teme, cu panoul deschis, si „da"-ul lui Mihai
-      — capturile: `cercetare/capturi/lista-dependente-*.png`; **asteapta „da"-ul**
+- [x] captura listei in ambele teme, cu panoul deschis, si „da"-ul lui Mihai
+      — `cercetare/capturi/lista-dependente-*.png`
 - [x] poarta verde: `unelte/verifica.sh`
 - [x] `STARE.md` actualizat
 - [x] `JURNAL.md` completat, daca s-a luat vreo decizie
@@ -52,6 +52,8 @@ apasa; accesibil din `cli` (CLAUDE.md §3).
 3. `cli`, capturi, documente.
 
 ## Jurnal de lucru
+
+- **2026-11-20** Incheiata, cu „da"-ul lui Mihai.
 
 - **2026-11-20** Etapa deschisa, cu criteriile scrise inainte de cod.
 - **2026-11-20** Facut tot, in afara de „da"-ul pe capturi. Ce a iesit pe
@@ -78,4 +80,9 @@ apasa; accesibil din `cli` (CLAUDE.md §3).
 
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+- Calculul lenes al impactului (la deschiderea panoului) nu mai mergea odata
+  ce impactul e coloana: dependentele se calculeaza la construirea listei.
+- Textul lung din v3.4 („Extra — nu se deployeaza") nu incapea in coloana;
+  in tabel e varianta scurta, in panou cea lunga.
+- Sesizarile lui Mihai pe lista (scurtaturi fara Ctrl, cautarea care iesea
+  din camp, trei filtre „Functii") s-au rezolvat in aceeasi etapa.

@@ -31,8 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/22-lista-extra-si-dependente.md` — Extra,
-dependentele si impactul in lista. Etapa 21 (functiile v3.4 din editor) s-a
+**Etapa activa:** `etape/23-editorul-lizibil.md` — etichetele pe rand
+propriu, instructiunile consecutive grupate, plierea ca optiune, legaturile
+curbe, tragerea libera. Etapa 22 (lista: Extra, dependente, impact) s-a
 incheiat pe 2026-11-20.
 
 ```
@@ -46,14 +47,14 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Etapa 22: facuta, asteapta „da"-ul lui Mihai** pe
-`cercetare/capturi/lista-dependente-*.png` (lista cu panoul deschis si
-inchis, ambele teme). Cu „da"-ul: bifa pe captura, `Stare: INCHEIATA`, „Ce a
-iesit altfel". Daca cere schimbari: `captura_detalii` din `app/examples`, pe
-`previzualizare.json`, baza `CharismaERP_Client2_Prod`, obiect
-`dbo.vwClientiActivi`.
+**Etapa 23** (`etape/23-editorul-lizibil.md`), in ordinea pasilor de
+acolo. Sesizarile lui Mihai sunt in capturile din conversatie; cazul real e
+`dbo.rptGenericInventoryObj_SituationAtDate` (Martor CharismaERP_CEAAS,
+Modificata PrezentareSalubrizare) — pentru capturi trebuie un caz sintetic
+cu aceeasi forma (multe `declare` / `set` / `select` consecutive doar in
+Martor, linii lungi, antet cu parametri noi).
 
-Dupa 22, candidatii pentru etapa urmatoare (alege Mihai): evidentierea de
+Dupa 23, candidatii pentru etapa urmatoare (alege Mihai): evidentierea de
 sintaxa **in timp ce scrii**; deciziile vechi (selectorul de fisiere, mediul
 PROD / TEST / DEV, `DROP` la deploy, „Ruleaza" din aplicatie); F-D7, blocat
 pe proba de SQL de mai jos.
