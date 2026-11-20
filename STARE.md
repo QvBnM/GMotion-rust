@@ -58,6 +58,19 @@ sintaxa **in timp ce scrii**; deciziile vechi (selectorul de fisiere, mediul
 PROD / TEST / DEV, `DROP` la deploy, „Ruleaza" din aplicatie); F-D7, blocat
 pe proba de SQL de mai jos.
 
+**Proba pe Windows vechi (cerut de Mihai, 2026-11-20), in asteptare.** Din
+Rust 1.78 executabilul obisnuit cere Windows 10 / Server 2016+; `JURNAL.md`
+(„tinta e si un Server 2012 curat") e deci depasit pana la proba. Varianta
+`x86_64-win7-windows-*` (nightly, `-Z build-std`) compileaza tot workspace-ul
+fara schimbari. Importurile, verificate pe build-ul GNU facut aici:
+`gmotion.exe` n-are nimic peste Windows 7; `gmotion-ui.exe` cere
+`combase.dll` si `api-ms-win-core-winrt-error` (Windows 8+, din `windows-core`,
+adus de `fontique` / Slint), deci fereastra nu porneste pe 2008 R2. Mihai
+construieste cu `unelte\construieste-win7.bat` si ruleaza pe server
+`gmotion.exe --help`, `gmotion.exe compara ...`, `gmotion-ui.exe
+--previzualizare`; imi trebuie versiunea de Windows si ce se intampla la
+fiecare. Dupa proba: etapa cu scriptul in poarta si verificarea importurilor.
+
 De cerut pe Windows, cand are timp: cat dureaza deschiderea listei dupa
 comparare pe baza lui (dependentele se calculeaza acum acolo); tragerea unui
 bloc se simte natural; previzualizarea la hover apare fara intarziere.
