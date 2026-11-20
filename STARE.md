@@ -32,8 +32,9 @@ cd rust && cargo build --release -p gmotion-cli
 ```
 
 **Etapa activa:** niciuna. Etapa 20 (motorul) s-a incheiat pe 2026-11-20.
-Pregatite: 16 (editorul: functiile v3.4 in formatul nou — acum au sub ele
-motorul care le lipsea) si 17 (conectarea dupa
+Pregatite: 21 (editorul: functiile v3.4 in formatul nou — acum au sub ele
+motorul care le lipsea; machetele-tinta in
+`cercetare/machete/editor-functii/`) si 17 (conectarea dupa
 `cercetare/machete/conectare-noua/`, facuta, asteapta „da"-ul lui Mihai pe
 perechi).
 
@@ -133,9 +134,10 @@ Nu e in `git log` doar ca lista de commit-uri, ci ca schimbare de capabilitati:
 
 Masuratori curente: `cd rust && cargo run --release --example masura_scor`.
 
-**Urmatorul pas concret:** etapa 16 — maparea bloc -> loc in canal, randul
-fantoma „aici va fi adaugat", eticheta pe bloc, drag & drop, previzualizarea la
-hover. Toate au acum pe cine intreba: `modul::plasari_obiect`.
+**Urmatorul pas concret:** etapa 21 — maparea bloc -> loc in canal, randul
+fantoma „aici vin blocurile ... din Martor", eticheta pe bloc, drag & drop,
+previzualizarea la hover. Toate au acum pe cine intreba:
+`modul::plasari_obiect`. Tinta: `cercetare/machete/editor-functii/`.
 
 ## Ce astept de la Mihai
 

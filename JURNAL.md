@@ -1466,3 +1466,20 @@ rezultatul. (c) Precedenta de mai sus. Ales (c).
 **Consecinta.** Cele doua straturi raman separate si testabile separat:
 `core/tests/plasare.rs` tine paritatea cu v3.4, iar `modul::plasari_obiect`
 tine coerenta cu ce vede utilizatorul.
+
+---
+
+## 2026-11-20 — Umplutura dintr-un bloc se hasureaza
+
+**Context.** In alaturat, cand o linie exista doar intr-o parte, cealalta
+primeste un rand gol ca sa ramana `AS` langa `AS`. Randul acela nu primea
+fundalul blocului, deci blocul aparea rupt in doua, iar golul semana cu o
+linie pierduta. Prima intrebare a lui Mihai pe machetele etapei 21 a fost
+exact asta: „de ce e gaura aia?".
+
+**Alternative.** (a) hasura discreta in culoarea blocului, ca in v3.4 si
+Araxis; (b) fundalul blocului continuu peste umplutura — nu s-ar mai vedea ca
+acolo nu exista cod; (c) ramane gol.
+
+**Decizie.** (a), aleasa de Mihai. Hasura spune doua lucruri deodata: randul
+tine de bloc, dar nu e cod.
