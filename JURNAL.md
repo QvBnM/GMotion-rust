@@ -1514,3 +1514,27 @@ alt bloc. Fuzz-ul cere in schimb ca blocul aplicat sa ajunga intreg si ca din
 dreapta sa nu se piarda mai mult decat blocul inlocuit. „Aplica toate"
 ramane textul exact al sursei. Pe drum: aplicarea nu primea „uneste ciclul
 cursor", deci cu optiunea pornita indicele arata alt bloc decat cel apasat.
+
+---
+
+## 2026-11-20 — Dependentele, in lista: calculate o data, in ambele sensuri
+
+**Context.** Mihai vrea sa vada in lista cine foloseste fiecare procedura si
+un criteriu de impact (etapa 22). Pana acum `impact::folosit_de` se calcula
+lenes, la deschiderea panoului, si numai intr-un sens.
+
+**Alternative.** (a) Coloana calculata lenes, pe alt fir, ca „Difera in" —
+coloana ar fi aparut goala si apoi s-ar fi umplut, iar sortarea dupa ea ar fi
+mintit pana la final. (b) O data, la construirea listei, pe fiecare baza.
+Ales (b): costa ~0,4 s pe 5.000 de proceduri, fata de ~10,5 s cat tine
+compararea.
+
+**Decizie.** `impact::dependente(baza)` da ambele sensuri dintr-o singura
+lexare (`deploy::referinte`, acelasi lexer ca ordinea de deploy). „Folosit de"
+se ia din Modificata (acolo loveste deploy-ul); „Foloseste" din Martor, fiindca
+acolo e codul care s-ar deploia — in afara de Extra, care exista doar in
+Modificata. Litera lui Extra devine `E` (era `B`, de la „baza", denumire
+scoasa din textele catre utilizator).
+
+**Daca devine lent.** Pe baze cu zeci de mii de obiecte mari, calculul se
+muta pe firul compararii, nu inapoi la lenes.

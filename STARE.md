@@ -31,10 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 21 (functiile v3.4 din editor) s-a incheiat
-pe 2026-11-20, cu „da"-ul lui Mihai pe perechile din
-`cercetare/machete/editor-functii/capturi/`. Urmatoarea se deschide din
-`etape/SABLON.md`, dupa ce alege Mihai (mai jos).
+**Etapa activa:** `etape/22-lista-extra-si-dependente.md` — Extra,
+dependentele si impactul in lista. Etapa 21 (functiile v3.4 din editor) s-a
+incheiat pe 2026-11-20.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -47,19 +46,21 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**Mihai alege urmatoarea etapa.** Candidatii, din ce a ramas deschis:
+**Etapa 22: facuta, asteapta „da"-ul lui Mihai** pe
+`cercetare/capturi/lista-dependente-*.png` (lista cu panoul deschis si
+inchis, ambele teme). Cu „da"-ul: bifa pe captura, `Stare: INCHEIATA`, „Ce a
+iesit altfel". Daca cere schimbari: `captura_detalii` din `app/examples`, pe
+`previzualizare.json`, baza `CharismaERP_Client2_Prod`, obiect
+`dbo.vwClientiActivi`.
 
-1. evidentierea de sintaxa **in timp ce scrii** in editare (singurul rand
-   ramas in `cercetare/lipsuri-portare.md` §4); intai o proba daca se poate
-   in Slint (`TextInput` nu are culori pe bucati);
-2. deciziile vechi care blocheaza functii: selectorul de fisiere (`rfd`),
-   mediul PROD / TEST / DEV, `DROP` la deploy, „Ruleaza" din aplicatie;
-3. F-D7 (oprirea deploy-ului intre obiecte), blocat pe proba de SQL de mai
-   jos.
+Dupa 22, candidatii pentru etapa urmatoare (alege Mihai): evidentierea de
+sintaxa **in timp ce scrii**; deciziile vechi (selectorul de fisiere, mediul
+PROD / TEST / DEV, `DROP` la deploy, „Ruleaza" din aplicatie); F-D7, blocat
+pe proba de SQL de mai jos.
 
-De cerut pe Windows, cand are timp: tragerea unui bloc peste Modificata se
-simte natural? previzualizarea la hover apare fara intarziere pe un obiect
-mare?
+De cerut pe Windows, cand are timp: cat dureaza deschiderea listei dupa
+comparare pe baza lui (dependentele se calculeaza acum acolo); tragerea unui
+bloc se simte natural; previzualizarea la hover apare fara intarziere.
 
 **Tot pe „da"-ul lui Mihai, mai vechi:** capturile hartii
 (`cercetare/capturi/harta-*.png`) si perechile conectarii
@@ -147,6 +148,12 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **„Folosit de" si „Foloseste" nu vin din aceeasi baza.** Primul din
+  Modificata (unde loveste deploy-ul), al doilea din Martor (codul care s-ar
+  deploia), in afara de Extra. Un test care le asteapta din aceeasi baza e
+  gresit, nu codul. Panoul le ia din `dependente_obiect`, nu din impact:
+  obiectele identice n-au impact, dar pot fi folosite.
 
 - **Un bloc se scrie doar prin `gmotion_core::aplica_blocuri`.** Editorul
   intreaba plasarea prin `plasari_aliniere`, pe aceleasi blocuri; `compune`
