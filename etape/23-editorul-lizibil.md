@@ -82,6 +82,11 @@ se vede tot codul, plierea e un comutator tinut minte.
   (sau partile) unde blocul are cod. Randul etichetei a devenit antetul
   cutiei. Schimbarea de la golul hasurat (de mai sus) ramane: era tot o
   dublura.
+- **2026-11-21** Intrerupere: Mihai a aratat, pe captura, un antet fara corp
+  imperecheat „modificat" cu antetul care avea `BEGIN`. Vinovata era
+  segmentarea (`BEGIN` / `END` lipite de vecini), iar „Aplica" pe acel bloc
+  strica obiectul. Reparat in `core/src/segmentare.rs`; decizia si lista
+  completa a golurilor in `JURNAL.md` (2026-11-21).
 
 ## Ce a iesit altfel decat planul
 

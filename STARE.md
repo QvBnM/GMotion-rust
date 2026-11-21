@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-20 · branch `claude/upbeat-ramanujan-dm6j8c`
-**Poarta:** verde (589 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-21 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Poarta:** verde (614 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -46,6 +46,14 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-21, de probat de Mihai:** segmentarea nu mai lipeste `BEGIN` /
+`END` de vecini (vezi `JURNAL.md`). In `gmotion-ui`, pe
+`uspMnfg_WizOnJobLevelBeforeSave` (`CharismaERP_CEAAS` -> `CharismaERP_GetsBet_Copy`):
+antetul trebuie sa fie acum „egal", iar `BEGIN`-ul si corpul diferente
+separate; „Aplica" pe oricare nu mai strica obiectul. Si pe cateva proceduri
+reale cu `IF ... BEGIN ... END`: o instructiune adaugata la capatul unui
+`BEGIN` trebuie sa fie o diferenta singura, fara `END`-ul.
 
 **Etapa 23: facuta, asteapta „da"-ul lui Mihai** pe
 `cercetare/machete/editor-lizibil/capturi/` (editor, tragere, wrap; ambele
@@ -160,6 +168,14 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **`BEGIN` si `END` au blocuri proprii (din 2026-11-21).** Un test sau o
+  asteptare care lipeste `BEGIN` de antet sau `END` de ultima instructiune e
+  scris pe segmentarea veche. Exceptia: `BEGIN`-ul care e corpul unui `IF` /
+  `WHILE` / `ELSE` ramane cu acesta (`asteapta_corp`). Divergenta fata de
+  v3.4 e listata in trei locuri: `DIVERGENTE_DELIBERATE`
+  (`conformitate.rs`), `SEGMENTARE_DIFERITA` (`plasare.rs`) si
+  `testsimilitudine.asteptari.json`.
 
 - **O diferenta din editor poate fi mai multe blocuri ale motorului**
   (`ModelEditor::grupuri`, din `core::grupuri_diferente`). Ce aplica o
