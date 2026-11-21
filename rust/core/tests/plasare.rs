@@ -46,6 +46,19 @@ fn citeste<T: serde::de::DeserializeOwned>(fisier: &str) -> T {
         .unwrap_or_else(|e| panic!("{} nu e JSON valid: {e}", cale.display()))
 }
 
+/// Cazurile in care segmentarea v4 diverge deliberat de v3.4 (`BEGIN` si
+/// `END` au blocuri proprii, JURNAL 2026-11-21; aceleasi cazuri ca in
+/// `DIVERGENTE_DELIBERATE` din `conformitate.rs`). Plasarea lucreaza pe
+/// blocuri, deci pe alte blocuri nu mai are cu ce sa se compare; pentru ele se
+/// cere doar sa diverga in continuare, ca lista sa nu ramana veche.
+const SEGMENTARE_DIFERITA: &[&str] = &[
+    "header_simplu",
+    "declare_in_header",
+    "if_begin_end_compus",
+    "cursor_complet",
+    "end_singur",
+];
+
 #[test]
 fn plasarea_e_identica_cu_v34() {
     let cazuri: Vec<Caz> = citeste("cazuri.json");
@@ -59,6 +72,8 @@ fn plasarea_e_identica_cu_v34() {
     let mut probleme: Vec<String> = Vec::new();
     for (caz, a) in cazuri.iter().zip(&asteptate) {
         assert_eq!(caz.nume, a.nume, "fixture-ul e in alta ordine");
+        let exceptat = SEGMENTARE_DIFERITA.contains(&caz.nume.as_str());
+        let inainte = probleme.len();
         let referinta = pregateste_afisare(&caz.referinta);
         let curent = pregateste_afisare(&caz.cur);
         let randuri = diff_aliniat(&referinta, &curent);
@@ -107,6 +122,16 @@ fn plasarea_e_identica_cu_v34() {
                     "  {} / randul {} [text]: rust {:?}, js {:?}",
                     caz.nume, s.pozitie, got.text, s.text
                 ));
+            }
+        }
+        if exceptat {
+            if probleme.len() == inainte {
+                probleme.push(format!(
+                    "  {}: listat in SEGMENTARE_DIFERITA, dar nu mai diverge — scoate-l din lista",
+                    caz.nume
+                ));
+            } else {
+                probleme.truncate(inainte);
             }
         }
     }

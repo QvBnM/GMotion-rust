@@ -155,8 +155,13 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 2. `scor_similaritate(x, x) == 100.0` pentru orice `x`.
 3. `norm` e idempotenta: `norm(norm(s)) == norm(s)`.
 4. `split_statements` nu taie niciodata in interiorul unui literal, al unui
-   comentariu bloc, al unei paranteze deschise sau al unei stive
-   `CASE` / `BEGIN` / `END`.
+   comentariu bloc, al unei paranteze deschise sau al unui `CASE`.
+4c. Un bloc e o instructiune intreaga si nimic in plus: `BEGIN` si `END` au
+   blocuri proprii (in afara de `BEGIN`-ul care e corpul unui `IF` / `WHILE` /
+   `ELSE`), iar o instructiune neterminata (`IF` fara corp, `INSERT` fara
+   sursa, `UPDATE` fara `SET`, `MERGE` fara `;`, CTE fara instructiunea lui)
+   nu se rupe. De aici: o diferenta aplicata singura nu dezechilibreaza
+   `BEGIN` / `END` (`tests/invariante.rs`, `aplicarea_unui_bloc_nu_strica_structura`).
 4b. **Granitele le da `lexer`, si aici.** Pana la auditul QA segmentarea avea
    un al doilea lexer, care nu stia de `[...]`, `"..."` si `@`: un `[Case]`
    deschidea un `CASE` care nu se mai inchidea, deci tot obiectul devenea un
@@ -198,6 +203,7 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 | Scor absurd | `scor_similaritate` sau `round_py` | `src/normalizare.rs` |
 | Bloc taiat in mijlocul unui string / comentariu / `CASE` | urmarirea stivei si a literalelor | `src/segmentare.rs` |
 | `UNION`, cursor `FOR`, `INSERT ... SELECT` rupt in doua | `bloc_este_continuat` si uniunile de blocuri | `src/segmentare.rs` |
+| Bloc „modificat" doar printr-un `BEGIN` / `END` lipit; „Aplica" pierde sau dubleaza un `END` | `RE_INCEPUT_INSTRUCTIUNE`, `asteapta_corp` | `src/segmentare.rs` |
 | Blocul desenat la alta linie decat cea reala; „Aplica" schimba alte linii | `linii_start_blocuri` sau `aliniaza` | `src/segmentare.rs`, `src/aliniere.rs` |
 | Numar de blocuri diferit de ce arata editorul | segmentare — clasa de bug care a produs toate divergentele din v3.4 | `src/segmentare.rs` |
 | „sters + adaugat" in loc de „modificat" | alinierea `perechi_replace` (un bloc fata de un singur bloc se imperecheaza intotdeauna) | `src/diff.rs` |

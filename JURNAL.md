@@ -1348,6 +1348,45 @@ neatins, pentru executabilul final; „vedem atunci" (Mihai).
 
 ---
 
+## 2026-11-21 — Segmentarea da fiecarui BEGIN, END si fiecarei instructiuni blocul ei
+
+**Context.** Mihai a vazut in editor un antet fara corp (`CREATE ... AS`, 7
+linii) imperecheat „modificat" cu antetul din tinta, care avea si `BEGIN`.
+Cauza era segmentarea, nu compararea: `BEGIN` nu pornea bloc, deci se lipea
+de antet, iar `END` se lipea de ultima instructiune. „Aplica" pe un astfel de
+bloc stergea sau dubla un `BEGIN`/`END` si strica obiectul. O sonda (o
+instructiune adaugata in fiecare punct valid al unor proceduri tipice, apoi
+fiecare bloc aplicat singur) a gasit 452 de aplicari care dezechilibrau
+`BEGIN`/`END`. Din aceeasi clasa: `SET NOCOUNT ON`, `COMMIT`/`ROLLBACK`/
+`BEGIN TRAN`, `BEGIN TRY`/`END CATCH`, `WITH` (CTE), `GOTO`/etichete,
+`WAITFOR`, `ALTER` nu porneau bloc; invers, `MERGE` se rupea la
+`WHEN ... THEN UPDATE`, `INSERT ... EXEC` inghitea instructiunile urmatoare,
+`UPDATE t` + `SET @v = ...` se rupea in doua, iar `IF EXISTS (...)` pe mai
+multe linii isi pierdea `BEGIN`-ul.
+
+**Alternative.** (a) Antetul se inchide la `AS`, restul ramane ca in JS
+(repara doar cazul vazut, nu `END`-ul lipit, care e mai frecvent);
+(b) se repara la aplicare, in `compune`, mutand `BEGIN`/`END` inapoi
+(a doua logica peste segmentare: exact ce interzice „un singur motor");
+(c) fiecare instructiune, inclusiv `BEGIN` si `END`, isi are blocul, iar
+instructiunile neterminate (`IF` fara corp, `INSERT` fara sursa, `UPDATE`
+fara `SET`, `MERGE` fara `;`, CTE fara instructiunea lui) nu se rup.
+
+**Motiv.** (c). Granita de bloc e unitatea pe care o aplica utilizatorul, deci
+trebuie sa fie o instructiune intreaga si nimic in plus. Corpul unui `IF`
+ramane cu `IF`-ul (si `BEGIN`-ul lui), ca inainte.
+
+**Consecinte.** Divergenta deliberata fata de motorul JS din v3.4 pe 5 cazuri
+din `referinta/cazuri.json` (`blocuri_*`, `tipuri`), listate in
+`DIVERGENTE_DELIBERATE`; fixture-ul nu se regenereaza. Mai multe blocuri
+(cam +20%). Plasarea nu se mai compara cu v3.4 pe
+aceleasi 5 cazuri (`SEGMENTARE_DIFERITA` in `core/tests/plasare.rs`): pe alte
+blocuri n-are cu ce. Invarianta `aplicarea_unui_bloc_nu_strica_structura`
+aplica fiecare diferenta ca editorul (grup + `aplica_blocuri`) si a fost vazuta
+cazand pe codul vechi (261 de aplicari stricate).
+
+---
+
 ## Coduri de eroare — registru
 
 Un cod alocat nu se refoloseste si nu se renumeroteaza, ca sa ramana

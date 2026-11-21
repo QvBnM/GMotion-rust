@@ -19,6 +19,7 @@ lipsea.
 | Scorul de similaritate pare absurd | `scor_similaritate` sau rotunjirea bancara | `rust/core/src/normalizare.rs` |
 | Blocuri taiate in mijlocul unui string / comentariu / `CASE` | urmarirea literalelor si a stivei in segmentare | `rust/core/src/segmentare.rs` |
 | Un `UNION`, cursor `FOR` sau `INSERT ... SELECT` apare rupt in doua | `bloc_este_continuat`, `uneste_blocuri_compuse`, `uneste_cicluri_cursor` | `rust/core/src/segmentare.rs` |
+| Bloc „modificat" doar printr-un `BEGIN` / `END` lipit; „Aplica" pierde sau dubleaza un `END` | `RE_INCEPUT_INSTRUCTIUNE`, `asteapta_corp` | `rust/core/src/segmentare.rs` |
 | Numar de blocuri diferit de ce arata editorul | segmentare — e exact clasa de bug care a produs toate divergentele din v3.4 | `rust/core/src/segmentare.rs` |
 | Blocuri imperecheate gresit (se vede ca „sters + adaugat" in loc de „modificat") | alinierea prin programare dinamica, `perechi_replace` | `rust/core/src/diff.rs` |
 | Rezumat gresit („2 sterse" care nu exista) | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `rust/core/src/diff.rs` |

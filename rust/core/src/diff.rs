@@ -670,8 +670,8 @@ mod teste {
         let modificata = concat!(
             "SELECT 'RCA_Multiple.doc' AS Template,\n",
             "       CAST(0 AS BIT) AS SaveOnLocalDisk,\n",
-            "       NULL AS LocalDiskSavePath\n",
-            "END"
+            "       NULL AS LocalDiskSavePath,\n",
+            "       NULL AS LocalDiskSaveName"
         );
         assert!(
             scor_similaritate(martor, modificata) < PRAG_PERECHE,

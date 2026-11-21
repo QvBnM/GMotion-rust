@@ -99,6 +99,81 @@ const DIVERGENTE_DELIBERATE: &[(&str, &str, &str)] = &[
         // fixture. Vezi F-M4 din auditul din 2026-11-18 si etapa 20, pachetul A.
         "rezumatul listei foloseste aceeasi imperechere ca editorul; JS insusi diverge",
     ),
+    (
+        "header_simplu",
+        "blocuri_ref",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "header_simplu",
+        "blocuri_cur",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "header_simplu",
+        "tipuri",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "declare_in_header",
+        "blocuri_ref",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "declare_in_header",
+        "blocuri_cur",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "declare_in_header",
+        "tipuri",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "if_begin_end_compus",
+        "blocuri_ref",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "if_begin_end_compus",
+        "blocuri_cur",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "if_begin_end_compus",
+        "tipuri",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "cursor_complet",
+        "blocuri_ref",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "cursor_complet",
+        "blocuri_cur",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "cursor_complet",
+        "tipuri",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "end_singur",
+        "blocuri_ref",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "end_singur",
+        "blocuri_cur",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
+    (
+        "end_singur",
+        "tipuri",
+        "BEGIN si END au blocuri proprii (JURNAL 2026-11-21)",
+    ),
 ];
 
 #[test]

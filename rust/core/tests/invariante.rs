@@ -390,3 +390,82 @@ fn aplicarea_prin_plasare_aduce_blocul_si_nu_strica_restul() {
         }
     }
 }
+/// Proceduri tipice; `@@` marcheaza un loc unde o instructiune noua e valida
+/// fara sa schimbe structura (nu intre `IF` si corpul lui, nu in mijlocul unui
+/// `INSERT ... SELECT`). In original linia `@@` dispare.
+const PROCEDURI_CU_PUNCTE: &[&str] = &[
+    "CREATE PROCEDURE dbo.p1\n(\n@a int\n)\nAS\n@@\nBEGIN\n@@\nSET NOCOUNT ON\n@@\ndeclare @x int = null\n@@\nIF @x = 1\nBEGIN\n@@\nSELECT 1\n@@\nUPDATE t SET c = 1\n@@\nEND\n@@\nELSE\nBEGIN\n@@\nSELECT 2\n@@\nEND\n@@\nWHILE @x < 10\nBEGIN\n@@\nSET @x = @x + 1\n@@\nEND\n@@\nRETURN 0\n@@\nEND",
+    "CREATE PROCEDURE dbo.p2\nAS\n@@\nSET NOCOUNT ON\n@@\nBEGIN TRY\n@@\nBEGIN TRAN\n@@\nUPDATE t SET c = 1\n@@\nCOMMIT TRAN\n@@\nEND TRY\n@@\nBEGIN CATCH\n@@\nROLLBACK TRAN\n@@\nTHROW\n@@\nEND CATCH\n@@",
+    "CREATE PROCEDURE dbo.p3\nAS\nBEGIN\n@@\n;WITH c AS (\nSELECT 1 AS x\n)\nSELECT * FROM c\n@@\nWAITFOR DELAY '00:00:01'\n@@\neticheta:\n@@\nGOTO eticheta\n@@\nEND",
+    "CREATE TRIGGER dbo.tr1 ON dbo.t\nAFTER INSERT\nAS\n@@\nBEGIN\n@@\nIF UPDATE(c)\nBEGIN\n@@\nINSERT INTO log (id)\nSELECT id FROM inserted\n@@\nEND\n@@\nEND",
+    "CREATE PROCEDURE dbo.p4\nAS\nBEGIN\n@@\nMERGE dbo.t AS d\nUSING dbo.s AS s ON d.id = s.id\nWHEN MATCHED THEN\nUPDATE SET d.c = s.c\nWHEN NOT MATCHED THEN\nINSERT (id, c) VALUES (s.id, s.c);\n@@\nINSERT INTO #r\nEXEC dbo.altul\n@@\nUPDATE t\nSET @v = c = c + 1\n@@\nEND",
+    "CREATE PROCEDURE dbo.p5 @a int\nAS\nBEGIN\n@@\nIF EXISTS (\nSELECT 1 FROM t WHERE id = @a\n)\nBEGIN\n@@\nDELETE FROM t WHERE id = @a\n@@\nEND\n@@\nIF @a = 1\nAND @a > 0\nSELECT 'unu'\n@@\nELSE IF @a = 2\nSELECT 'doi'\n@@\nELSE\nBEGIN\n@@\nSELECT CASE\nWHEN @a > 3 THEN 'mare'\nELSE 'mic'\nEND AS m\n@@\nEND ELSE\nSELECT 'x'\n@@\nIF @a IS NULL RETURN\n@@\nSELECT 3\n@@\nEND",
+    "CREATE PROCEDURE dbo.p6\nAS\nBEGIN\n@@\nDECLARE c CURSOR FOR\nSELECT id FROM t\n@@\nOPEN c\n@@\nWHILE @@FETCH_STATUS = 0\nBEGIN\n@@\nPRINT @id\n@@\nEND\n@@\nCLOSE c\n@@\nDEALLOCATE c\n@@\nEND",
+];
+
+/// `BEGIN`-uri + `CASE`-uri minus `END`-uri, si paranteze deschise minus
+/// inchise, pe textul normalizat.
+fn echilibru(t: &str) -> (i64, i64) {
+    let n = norm(t);
+    let cuvinte: Vec<&str> = n
+        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '@'))
+        .collect();
+    let numar = |kw: &[&str]| cuvinte.iter().filter(|w| kw.contains(w)).count() as i64;
+    let paranteze = n.matches('(').count() as i64 - n.matches(')').count() as i64;
+    (numar(&["begin", "case"]) - numar(&["end"]), paranteze)
+}
+
+/// Doua versiuni care difera printr-o singura instructiune adaugata: orice
+/// diferenta din editor (grup de blocuri), aplicata **singura**, lasa `BEGIN`/`END` si parantezele
+/// echilibrate. Pana pe 2026-11-21 `BEGIN` se lipea de antet si `END` de
+/// ultima instructiune, iar „Aplica" pe un bloc „modificat" sterge sau
+/// dubla un `END`: 452 de aplicari stricate pe acest corpus (vezi
+/// `JURNAL.md`, 2026-11-21).
+#[test]
+fn aplicarea_unui_bloc_nu_strica_structura() {
+    let noi = ["SELECT 99 AS nou", "SET @z = 1", "EXEC dbo.altceva @a = 1"];
+    let mut stricate: Vec<String> = Vec::new();
+    for proc in PROCEDURI_CU_PUNCTE {
+        let linii: Vec<&str> = proc.lines().collect();
+        let original: String = linii
+            .iter()
+            .filter(|l| **l != "@@")
+            .copied()
+            .collect::<Vec<_>>()
+            .join("\n");
+        let puncte: Vec<usize> = (0..linii.len()).filter(|&i| linii[i] == "@@").collect();
+        for &p in &puncte {
+            for nou in noi {
+                let mutat: String = linii
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, l)| *i == p || **l != "@@")
+                    .map(|(i, l)| if i == p { nou } else { *l })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                for (st, dr) in [(&original, &mutat), (&mutat, &original)] {
+                    // ca editorul: o diferenta e un grup de blocuri, scris
+                    // prin `aplica_blocuri`, unde spune plasarea
+                    let a = gmotion_core::aliniaza_cu(st, dr, false);
+                    let plasari = gmotion_core::plasari_aliniere(&a, dr, false);
+                    for g in gmotion_core::grupuri_diferente(&a.diff, &plasari) {
+                        let rez = gmotion_core::aplica_blocuri(st, dr, false, &g);
+                        if echilibru(&rez) != echilibru(dr) {
+                            let d = g[0];
+                            stricate.push(format!(
+                                "{nou:?} la linia {p}: grup {g:?}, primul {:?}\n    stanga: {:?}\n    dreapta: {:?}",
+                                a.diff[d].tip, a.diff[d].stanga, a.diff[d].dreapta
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        stricate.is_empty(),
+        "{} aplicari stricate, primele:\n{}",
+        stricate.len(),
+        stricate[..stricate.len().min(5)].join("\n")
+    );
+}

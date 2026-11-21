@@ -23,6 +23,11 @@ use crate::normalizare::norm;
 
 /// Instructiunile pe care se taie un bloc nou. `CREATE` si `DECLARE` sunt
 /// incluse - lipsa lor in `mostenire/motor.py` e una din cauzele divergentei.
+///
+/// `BEGIN`, `END`, tranzactiile, `SET <optiune> ON|OFF`, `WITH` (CTE) si
+/// celelalte de pe ultimele randuri au intrat pe 2026-11-21: pana atunci se
+/// lipeau de instructiunea vecina, iar „Aplica" pe acel bloc muta sau pierdea
+/// un `BEGIN`/`END` (vezi `JURNAL.md`, 2026-11-21).
 static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(concat!(
         r"(?i)^\s*(?:",
@@ -30,13 +35,40 @@ static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
         r"IF\b|ELSE\b|WHILE\b|RETURN\b|PRINT\b|RAISERROR\b|THROW\b|",
         r"OPEN\b|CLOSE\b|FETCH\b|DEALLOCATE\b|",
         r"TRUNCATE\b|DROP\b|GRANT\b|DENY\b|REVOKE\b|UNION\b|",
-        r"CREATE\b|DECLARE\b",
+        r"CREATE\b|DECLARE\b|",
+        r"BEGIN\b|END\b|COMMIT\b|ROLLBACK\b|SAVE\s+TRAN|",
+        r"BREAK\b|CONTINUE\b|GOTO\b|WAITFOR\b|ALTER\b|BULK\s+INSERT\b|DBCC\b|",
+        r"(?:ENABLE|DISABLE)\s+TRIGGER\b|",
+        r"SET\s+TRANSACTION\s+ISOLATION\b|",
+        r"SET\s+IDENTITY_INSERT\s+\S+\s+(?:ON|OFF)\b|",
+        r"SET\s+STATISTICS\s+\w+(?:\s*,\s*\w+)*\s+(?:ON|OFF)\b|",
+        r"SET\s+(?:DATEFIRST|DATEFORMAT|DEADLOCK_PRIORITY|LANGUAGE|LOCK_TIMEOUT|ROWCOUNT|TEXTSIZE|CONTEXT_INFO)\s+[^=\s]|",
+        r"SET\s+\w+(?:\s*,\s*\w+)*\s+(?:ON|OFF)\s*;?\s*$|",
+        r"[A-Za-z_][0-9A-Za-z_]*:\s*$|",
+        r";?\s*WITH\s+[0-9A-Za-z_#\[\]]+\s*(?:\([^)]*\)\s*)?AS\s*(?:\(|$)",
         r")"
     ))
     .unwrap()
 });
 
-static RE_CORP_CONTROL: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^(if|else|while)\b").unwrap());
+/// Inceputul unui CTE: blocul lui asteapta instructiunea care il foloseste.
+static RE_CTE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^;?\s*with\b").unwrap());
+/// O linie de control (`IF`, `WHILE`, `ELSE`, eventual dupa un `END`): corpul
+/// ei e urmatoarea instructiune, care nu porneste bloc nou.
+static RE_CONTROL: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^\s*(?:end\s+)?(?:else|if|while)\b").unwrap());
+static RE_CUVANT_CONTROL: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^\s*(?:end|else|if|while)\b").unwrap());
+/// O instructiune pe aceeasi linie cu conditia: `IF @x = 1 RETURN`.
+static RE_CORP_PE_LINIE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(concat!(
+        r"(?i)(?:^|[\s)])(?:select|insert|update|delete|merge|set|exec|execute|return|",
+        r"print|raiserror|throw|begin|break|continue|goto|declare|waitfor|truncate|",
+        r"open|close|fetch|deallocate|drop|create|alter|commit|rollback)\b"
+    ))
+    .unwrap()
+});
+static RE_FUNCTIE_UPDATE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bupdate\s*\(").unwrap());
 // Caracterul dinainte nu are voie sa fie parte de identificator: `@case`,
 // `#case` si `a.case` sunt nume de variabila / coloana, nu cuvinte cheie.
 // `[Case]` si `"Case"` nici nu ajung aici: linia curatata le inlocuieste cu
@@ -48,8 +80,14 @@ static RE_UNION_LA_FINAL: Lazy<Regex> =
 static RE_CURSOR: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bcursor\b").unwrap());
 static RE_FOR_LA_FINAL: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bfor\s*$").unwrap());
 static RE_INCEPE_INSERT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^insert\b").unwrap());
+static RE_SURSA_INSERT: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)\b(?:select|exec|execute)\b").unwrap());
+static RE_INCEPE_UPDATE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^update\b").unwrap());
+static RE_SET: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bset\b").unwrap());
+static RE_POATE_CONTINUA: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^(?:declare|insert|update|merge)\b").unwrap());
+static RE_INCEPE_MERGE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^merge\b").unwrap());
 static RE_PUNCT_VIRGULA_FINAL: Lazy<Regex> = Lazy::new(|| Regex::new(r";\s*$").unwrap());
-static RE_SELECT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bselect\b").unwrap());
 static RE_BEGIN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bbegin\b").unwrap());
 static RE_TRAN_DUPA_BEGIN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)^\s*tran(?:saction)?\b").unwrap());
@@ -99,9 +137,14 @@ fn actualizeaza_stiva(linie_curata: &str, stiva: &mut Vec<String>) {
     }
 }
 
-/// Blocul curent e inca neterminat, deci urmatoarea instructiune nu porneste un
-/// bloc nou: un `DECLARE ... CURSOR FOR` asteapta corpul, iar un
-/// `INSERT INTO ... ` fara `VALUES` asteapta `SELECT`-ul propriu.
+/// Instructiunea curenta e inca neterminata, deci urmatoarea instructiune nu
+/// porneste un bloc nou: un `DECLARE ... CURSOR FOR` asteapta corpul, un
+/// `INSERT INTO ...` asteapta `SELECT`-ul sau `EXEC`-ul propriu, un `UPDATE t`
+/// asteapta `SET`-ul, iar un `MERGE` tine pana la `;` (obligatoriu in T-SQL),
+/// fiindca ramurile lui `WHEN ... THEN UPDATE / INSERT` incep cu cuvinte cheie.
+///
+/// Primeste doar instructiunea curenta (de la ultima linie care a pornit una),
+/// nu tot blocul: altfel `IF @x = 1` + `UPDATE t` n-ar mai astepta `SET`-ul.
 fn bloc_este_continuat(curent: &str) -> bool {
     let n = norm(curent);
     if n.is_empty() {
@@ -110,16 +153,68 @@ fn bloc_este_continuat(curent: &str) -> bool {
     if RE_CURSOR.is_match(&n) && RE_FOR_LA_FINAL.is_match(&n) {
         return true;
     }
+    if RE_INCEPE_MERGE.is_match(&n) {
+        return !RE_PUNCT_VIRGULA_FINAL.is_match(&n);
+    }
+    if RE_INCEPE_UPDATE.is_match(&n) && !RE_SET.is_match(&n) {
+        return true;
+    }
     if RE_INCEPE_INSERT.is_match(&n)
         && !n.contains("values")
         && !RE_PUNCT_VIRGULA_FINAL.is_match(&n)
     {
-        // Odata ce SELECT-ul propriu al acestui INSERT a aparut, urmatoarea
+        // Odata ce sursa acestui INSERT (SELECT sau EXEC) a aparut, urmatoarea
         // instructiune e una noua. Fara conditia asta, INSERT-ul ar inghiti tot
         // restul obiectului, fiindca in acest dialect nu apar VALUES sau `;`.
-        return !RE_SELECT.is_match(&n);
+        return !RE_SURSA_INSERT.is_match(&n);
     }
     false
+}
+
+/// [`bloc_este_continuat`] pe liniile instructiunii curente, cu un filtru
+/// ieftin inainte: doar `DECLARE`, `INSERT`, `UPDATE` si `MERGE` pot ramane
+/// neterminate, deci restul nu se mai lipesc si normalizeaza.
+fn instructiune_neterminata(linii: &[&str]) -> bool {
+    let Some(prima) = linii.iter().map(|l| l.trim_start()).find(|l| !l.is_empty()) else {
+        return false;
+    };
+    if !RE_POATE_CONTINUA.is_match(prima) {
+        return false;
+    }
+    bloc_este_continuat(&linii.join("\n"))
+}
+
+/// Linia (fara literale si comentarii) e o linie de control al carei corp nu
+/// e pe aceeasi linie: `IF @x = 1`, `ELSE`, `END ELSE`, `ELSE IF @x = 2`.
+/// `IF @x = 1 RETURN` si `ELSE BEGIN` isi au corpul pe linie.
+fn asteapta_corp(linie_curata: &str) -> bool {
+    if !RE_CONTROL.is_match(linie_curata) {
+        return false;
+    }
+    let mut rest = RE_FUNCTIE_UPDATE
+        .replace_all(linie_curata, "f(")
+        .into_owned();
+    while let Some(m) = RE_CUVANT_CONTROL.find(&rest) {
+        rest = rest[m.end()..].to_string();
+    }
+    // doar textul din afara parantezelor: `IF EXISTS (SELECT ...)` nu are corp
+    let mut adancime = 0i32;
+    let exterior: String = rest
+        .chars()
+        .map(|c| {
+            match c {
+                '(' => adancime += 1,
+                ')' => adancime -= 1,
+                _ => {}
+            }
+            if adancime > 0 || c == ')' {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
+    !RE_CORP_PE_LINIE.is_match(&exterior)
 }
 
 /// `BEGIN`-uri minus `END`-uri, ignorand `BEGIN TRAN`/`BEGIN TRANSACTION`
@@ -247,8 +342,13 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
 
     let mut blocuri: Vec<String> = Vec::new();
     let mut curent: Vec<&str> = Vec::new();
+    // indexul in `curent` al liniei care a pornit instructiunea curenta
+    let mut inceput_instructiune = 0usize;
     let mut in_antet = true;
-    let mut linie_anterioara = String::new();
+    // linia de control anterioara (`IF ...`, `ELSE`) inca asteapta corpul
+    let mut corp_asteptat = false;
+    // un `WITH` (CTE) inca asteapta instructiunea care il foloseste
+    let mut cte_asteptat = false;
     let mut adancime_paranteze: i32 = 0;
     let mut stiva_case: Vec<String> = Vec::new();
     // liniile curatate, din lexer: aceleasi pozitii, fara siruri si comentarii
@@ -293,7 +393,12 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         }
 
         if s.is_empty() {
-            if in_construct {
+            // o linie goala intre `IF` si corpul lui, sau intre `INSERT INTO`
+            // si `SELECT`-ul lui, nu desparte instructiunea
+            let neterminat = corp_asteptat
+                || cte_asteptat
+                || instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]);
+            if in_construct || neterminat {
                 curent.push(linie);
             } else if !in_antet && !curent.is_empty() {
                 blocuri.push(curent.join("\n"));
@@ -301,32 +406,34 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
             } else if in_antet && !curent.is_empty() {
                 curent.push(linie);
             }
-            linie_anterioara.clear();
             actualizeaza_stiva(curata, &mut stiva_case);
             continue;
         }
 
-        // `bloc_este_continuat` normalizeaza tot blocul acumulat, deci evaluarea
-        // lui la fiecare linie face segmentarea patratica in dimensiunea
-        // blocului. E o functie pura si conteaza doar in conditia de mai jos,
-        // asa ca o evaluam ultima, dupa ce celelalte doua au trecut.
-        let porneste_instructiune = RE_INCEPUT_INSTRUCTIUNE.is_match(s)
-            && !RE_CORP_CONTROL.is_match(&linie_anterioara)
-            && !in_construct
-            && !bloc_este_continuat(&curent.join("\n"));
+        // continuarea aceleiasi instructiuni (`INSERT INTO` + `SELECT`) vs o
+        // instructiune noua lipita de cea dinainte (corpul unui `IF`,
+        // instructiunea care foloseste un CTE)
+        let incepe = RE_INCEPUT_INSTRUCTIUNE.is_match(s) && !in_construct;
+        let continuare = incepe
+            && !corp_asteptat
+            && !cte_asteptat
+            && instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]);
+        let lipita = incepe && (corp_asteptat || cte_asteptat || continuare);
 
-        if porneste_instructiune {
+        if incepe && !lipita {
             in_antet = false;
             if !curent.is_empty() {
                 blocuri.push(curent.join("\n"));
                 curent.clear();
             }
-            curent.push(linie);
-        } else {
-            curent.push(linie);
         }
-
-        linie_anterioara = s.to_string();
+        if incepe && !continuare {
+            inceput_instructiune = curent.len();
+            // CTE-ul a primit instructiunea lui; un `WITH` nou il reporneste
+            cte_asteptat = !lipita && RE_CTE.is_match(s);
+            corp_asteptat = asteapta_corp(curata);
+        }
+        curent.push(linie);
         actualizeaza_stiva(curata, &mut stiva_case);
     }
     if !curent.is_empty() {
@@ -489,10 +596,13 @@ mod teste {
         assert_eq!(linii_start_blocuri(cod, &blocuri), vec![3]);
     }
 
+    /// Pana pe 2026-11-21 antetul lua `BEGIN`-ul, iar ultima instructiune
+    /// lua `END`-ul. Un antet fara corp (`CREATE ... AS`) se imperechea atunci
+    /// „modificat" cu antetul cu `BEGIN`, iar „Aplica" stergea `BEGIN`-ul.
     #[test]
-    fn antetul_sta_lipit_de_begin() {
+    fn begin_si_end_au_blocuri_proprii() {
         let b = split_statements("CREATE PROCEDURE p AS\nBEGIN\nSELECT 1\nEND", false);
-        assert_eq!(b, vec!["CREATE PROCEDURE p AS\nBEGIN", "SELECT 1\nEND"]);
+        assert_eq!(b, vec!["CREATE PROCEDURE p AS", "BEGIN", "SELECT 1", "END"]);
     }
 
     #[test]
@@ -610,5 +720,123 @@ mod teste {
             2,
             "liniile goale dintr-un CASE nu despart blocuri"
         );
+    }
+
+    // Regulile din 2026-11-21: fiecare instructiune isi are blocul, iar
+    // instructiunile neterminate nu se rup (JURNAL 2026-11-21).
+
+    #[test]
+    fn instructiunile_de_tranzactie_si_optiunile_au_blocuri_proprii() {
+        let b = split_statements(
+            "AS\nSET NOCOUNT ON\nSET XACT_ABORT, NOCOUNT ON\nSET TRANSACTION ISOLATION LEVEL READ COMMITTED\nBEGIN TRAN\nUPDATE t SET a = 1\nCOMMIT TRAN\nROLLBACK\nSAVE TRAN x",
+            false,
+        );
+        assert_eq!(b.len(), 9, "{b:?}");
+    }
+
+    #[test]
+    fn set_in_update_nu_porneste_bloc() {
+        let b = split_statements(
+            "UPDATE t\nSET Language = 'ro', NOCOUNT = 1\nWHERE id = 1",
+            false,
+        );
+        assert_eq!(b.len(), 1, "{b:?}");
+        let b = split_statements("UPDATE t\nSET @v = c = c + 1\nSELECT 1", false);
+        assert_eq!(b, vec!["UPDATE t\nSET @v = c = c + 1", "SELECT 1"]);
+    }
+
+    #[test]
+    fn insert_exec_nu_inghite_restul() {
+        let b = split_statements("INSERT INTO #r\nEXEC dbo.p\nSELECT 1", false);
+        assert_eq!(b, vec!["INSERT INTO #r\nEXEC dbo.p", "SELECT 1"]);
+    }
+
+    #[test]
+    fn merge_tine_pana_la_punct_si_virgula() {
+        let cod = "MERGE t AS d\nUSING s ON d.id = s.id\nWHEN MATCHED THEN\nUPDATE SET d.c = s.c\nWHEN NOT MATCHED THEN\nINSERT (id) VALUES (s.id);\nSELECT 1";
+        let b = split_statements(cod, false);
+        assert_eq!(b.len(), 2, "{b:?}");
+        assert!(b[1] == "SELECT 1");
+    }
+
+    #[test]
+    fn cte_ramane_cu_instructiunea_care_il_foloseste() {
+        let b = split_statements(
+            "SELECT 0\n;WITH c AS (\nSELECT 1 AS x\n)\nSELECT * FROM c\nSELECT 2",
+            false,
+        );
+        assert_eq!(
+            b,
+            vec![
+                "SELECT 0",
+                ";WITH c AS (\nSELECT 1 AS x\n)\nSELECT * FROM c",
+                "SELECT 2"
+            ]
+        );
+    }
+
+    #[test]
+    fn eticheta_si_goto_au_blocuri_proprii() {
+        let b = split_statements("SELECT 1\neticheta:\nSELECT 2\nGOTO eticheta", false);
+        assert_eq!(b.len(), 4, "{b:?}");
+    }
+
+    #[test]
+    fn begin_ramane_cu_if_si_dupa_conditie_pe_mai_multe_linii() {
+        let b = split_statements(
+            "IF EXISTS (\nSELECT 1 FROM t\n)\nBEGIN\nSELECT 2\nEND",
+            false,
+        );
+        assert_eq!(
+            b,
+            vec!["IF EXISTS (\nSELECT 1 FROM t\n)\nBEGIN", "SELECT 2", "END"]
+        );
+        let b = split_statements("IF @a = 1\nAND @b = 2\nSELECT 1\nSELECT 2", false);
+        assert_eq!(b, vec!["IF @a = 1\nAND @b = 2\nSELECT 1", "SELECT 2"]);
+        let b = split_statements("IF @a = 1\n\nSELECT 1", false);
+        assert_eq!(b.len(), 1, "linia goala nu rupe IF-ul de corp: {b:?}");
+    }
+
+    #[test]
+    fn corpul_pe_aceeasi_linie_nu_lipeste_urmatoarea_instructiune() {
+        let b = split_statements("IF @a IS NULL RETURN\nSELECT 1", false);
+        assert_eq!(b.len(), 2, "{b:?}");
+        let b = split_statements("IF UPDATE(c)\nSELECT 1\nSELECT 2", false);
+        assert_eq!(b, vec!["IF UPDATE(c)\nSELECT 1", "SELECT 2"]);
+        let b = split_statements("END ELSE\nSELECT 1\nSELECT 2", false);
+        assert_eq!(b, vec!["END ELSE\nSELECT 1", "SELECT 2"]);
+        let b = split_statements("ELSE IF @a = 2\nSELECT 1\nSELECT 2", false);
+        assert_eq!(b, vec!["ELSE IF @a = 2\nSELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn end_din_case_nu_porneste_bloc() {
+        let b = split_statements("SELECT CASE\nWHEN a = 1 THEN 'x'\nEND AS v\nFROM t", false);
+        assert_eq!(b.len(), 1, "{b:?}");
+    }
+
+    #[test]
+    fn asteapta_corp_recunoaste_liniile_de_control() {
+        assert!(asteapta_corp("IF @x = 1"));
+        assert!(asteapta_corp("ELSE"));
+        assert!(asteapta_corp("END ELSE"));
+        assert!(asteapta_corp("WHILE @@FETCH_STATUS = 0"));
+        assert!(asteapta_corp("IF EXISTS (SELECT 1 FROM t)"));
+        assert!(asteapta_corp("IF @reset = 1"));
+        assert!(!asteapta_corp("IF @x = 1 RETURN"));
+        assert!(!asteapta_corp("ELSE BEGIN"));
+        assert!(!asteapta_corp("SELECT 1"));
+    }
+
+    /// Captura lui Mihai, 2026-11-21: martorul are doar antetul, modificata
+    /// are si corpul. Antetul trebuie sa iasa „egal", nu „modificat" prin
+    /// `BEGIN`-ul lipit de el.
+    #[test]
+    fn antetul_fara_corp_e_egal_cu_antetul_cu_corp() {
+        let antet = "CREATE PROCEDURE p\n(\n@a int\n)\nAS";
+        let cu_corp = format!("{antet}\nBEGIN\n declare @x int = null\n\n SELECT 1\nEND");
+        let r = crate::diff_aliniat(antet, &cu_corp);
+        assert_eq!(r[0].tip, crate::TipDiferenta::Egal, "{r:?}");
+        assert!(r[1..].iter().all(|x| x.tip == crate::TipDiferenta::Adaugat));
     }
 }

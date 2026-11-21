@@ -12,8 +12,8 @@
     "baza": "CharismaERP_GetsBet_Copy",
     "camp": "rezumat",
     "python": "8 modificate, 5 adaugate",
-    "rust": "7 modificate, 6 adaugate, 1 sterse",
-    "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
+    "rust": "6 modificate, 8 adaugate, 1 sterse",
+    "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere; din 2026-11-21 si: segmentarea v4 da blocuri proprii lui BEGIN/END si tranzactiilor, tine intregi CTE-ul si MERGE-ul (JURNAL 2026-11-21); verificat 2026-11-21 cu `gmotion diferente`"
   },
   {
     "obiect": "dbo.TESTSIMILITUDINE_RapoarteDinamice",
@@ -22,5 +22,45 @@
     "python": "4 modificate, 1 sterse",
     "rust": "2 modificate, 1 adaugate, 2 sterse",
     "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_AnalizaVanzari",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "5 modificate",
+    "rust": "3 modificate",
+    "motiv": "segmentarea v4 da blocuri proprii lui BEGIN/END si tranzactiilor, tine intregi CTE-ul si MERGE-ul (JURNAL 2026-11-21); verificat 2026-11-21 cu `gmotion diferente`"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_CaseK_Mixt",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "12 modificate, 4 adaugate, 1 sterse",
+    "rust": "10 modificate, 3 adaugate",
+    "motiv": "segmentarea v4 da blocuri proprii lui BEGIN/END si tranzactiilor, tine intregi CTE-ul si MERGE-ul (JURNAL 2026-11-21); verificat 2026-11-21 cu `gmotion diferente`"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_CaseN_MegaMixt",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "15 modificate, 1 adaugate, 1 sterse",
+    "rust": "13 modificate",
+    "motiv": "segmentarea v4 da blocuri proprii lui BEGIN/END si tranzactiilor, tine intregi CTE-ul si MERGE-ul (JURNAL 2026-11-21); verificat 2026-11-21 cu `gmotion diferente`"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_CaseE_CTEMultiplu",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "4 modificate",
+    "rust": "2 modificate",
+    "motiv": "segmentarea v4 da blocuri proprii lui BEGIN/END si tranzactiilor, tine intregi CTE-ul si MERGE-ul (JURNAL 2026-11-21); verificat 2026-11-21 cu `gmotion diferente`"
+  },
+  {
+    "obiect": "dbo.TESTSIMILITUDINE_CaseJ_MergeUsing",
+    "baza": "CharismaERP_GetsBet_Copy",
+    "camp": "rezumat",
+    "python": "3 modificate, 1 adaugate",
+    "rust": "2 modificate",
+    "motiv": "segmentarea v4 da blocuri proprii lui BEGIN/END si tranzactiilor, tine intregi CTE-ul si MERGE-ul (JURNAL 2026-11-21); verificat 2026-11-21 cu `gmotion diferente`"
   }
 ]
