@@ -1,8 +1,8 @@
 # Etapa 23 — editorul lizibil: etichete, grupuri, legaturi, tragere libera
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/upbeat-ramanujan-dm6j8c
-**Deschisa:** 2026-11-20 · **Incheiata:** —
+**Deschisa:** 2026-11-20 · **Incheiata:** 2026-11-22
 
 ## Scop
 
@@ -38,8 +38,8 @@ se vede tot codul, plierea e un comutator tinut minte.
       il inlocuieste; lasat intre blocuri: se insereaza acolo. Ctrl+Z il
       scoate. Logica in `core`, accesibila din `cli`
 - [x] fiecare are test (in model si cu mouse-ul / tastatura, unde se apasa)
-- [ ] capturi in ambele teme pe cazul din sesizare si „da"-ul lui Mihai —
-      `cercetare/machete/editor-lizibil/capturi/`; **asteapta „da"-ul**
+- [x] capturi in ambele teme pe cazul din sesizare si „da"-ul lui Mihai —
+      `cercetare/machete/editor-lizibil/capturi/` („da" pe 2026-11-22)
 - [x] poarta verde: `unelte/verifica.sh`
 - [x] `STARE.md` actualizat
 - [x] `JURNAL.md` completat, daca s-a luat vreo decizie
@@ -87,7 +87,14 @@ se vede tot codul, plierea e un comutator tinut minte.
   segmentarea (`BEGIN` / `END` lipite de vecini), iar „Aplica" pe acel bloc
   strica obiectul. Reparat in `core/src/segmentare.rs`; decizia si lista
   completa a golurilor in `JURNAL.md` (2026-11-21).
+- **2026-11-22** „Da"-ul lui Mihai pe capturi. Etapa incheiata.
 
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+- Cerinta „eticheta pe rand propriu" s-a dovedit a fi, de fapt, „blocul ca
+  cutie, ca in v3.4": doua iteratii pe captura pana sa iasa la iveala.
+  Intrebarea „ce anume nu arata bine" trebuia pusa inainte de prima varianta.
+- Randul-fantoma separat a disparut cu totul; locul de inserare e golul din
+  dreapta.
+- O eroare de segmentare (`BEGIN` / `END` lipite de vecini) a iesit la
+  suprafata abia cand editorul a devenit lizibil; reparata in `core`.

@@ -6,7 +6,7 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-21 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Actualizat:** 2026-11-22 · branch `claude/clever-cerf-hjk2qh`
 **Poarta:** verde (614 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
@@ -31,10 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/23-editorul-lizibil.md` — etichetele pe rand
-propriu, instructiunile consecutive grupate, plierea ca optiune, legaturile
-curbe, tragerea libera. Etapa 22 (lista: Extra, dependente, impact) s-a
-incheiat pe 2026-11-20.
+**Etapa activa:** `etape/24-remedieri-evaluare.md` — remedierile dupa
+evaluarea din 2026-11-22: oprirea deploy-ului intre obiecte, revenirea,
+fereastra (P8, F-A), spargerea `main.rs`, obiectele unilaterale. Etapa 23 s-a
+incheiat pe 2026-11-22, cu „da"-ul lui Mihai.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
