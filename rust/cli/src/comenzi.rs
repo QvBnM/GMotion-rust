@@ -894,7 +894,7 @@ pub fn export(
         iesire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
     // starea de revizuire vine din sesiune: altfel „Rezolvat" si „Omis" ies
     // mereu NU, iar exportul minte despre munca facuta (F-C2 din auditul QA)
-    let (revizuire, _) = salvate(args, referinta);
+    let (revizuire, _) = salvate(args, referinta)?;
     let n = modul::scrie_csv(&cale, &r.comparare.randuri, |i| {
         r.comparare
             .randuri
@@ -910,12 +910,12 @@ pub fn export(
 }
 
 /// Planul din compararea de acum: randurile alese (toate, sau `--doar`).
-fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> modul::Plan {
+fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<modul::Plan, String> {
     let filtru = doar.map(lista);
     // ce s-a omis (in fereastra sau cu `revizuire --omite`) nu intra in deploy,
     // ca in v3.4; cu `--doar` se poate cere totusi explicit
-    let omise = salvate(args, &r.comparare.referinta).0;
-    modul::Plan::din_comparare(
+    let omise = salvate(args, &r.comparare.referinta)?.0;
+    Ok(modul::Plan::din_comparare(
         &r.comparare,
         &r.referinta,
         &r.altele,
@@ -924,7 +924,7 @@ fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> modul::Pla
             None => !omise.e_omis(rand),
         },
         &acum(),
-    )
+    ))
 }
 
 /// Dupa un deploy scris: obiectele din plan se tin minte ca deployate, cu
@@ -966,23 +966,29 @@ fn marcheaza_deployatele(
     }
 }
 
-/// Revizuirea (cu omisele) si textele finale salvate pentru referinta. Lipsa
-/// sesiunii sau o sesiune de neinteles dau stari goale: deploy-ul merge si
-/// fara ele, cu codul din referinta.
-fn salvate(args: &ArgumenteSursa, referinta: &str) -> (modul::Revizuire, modul::Editari) {
-    gmotion_platforma::Sesiuni::pentru_modul(modul::NUME)
-        .ok()
-        .and_then(|s| {
-            let id = args.identitate().ok()?;
-            s.incarca(&id, referinta).ok().flatten()
-        })
+/// Revizuirea (cu omisele) si textele finale salvate pentru referinta.
+///
+/// Lipsa sesiunii da stari goale: deploy-ul merge si fara ea, cu codul din
+/// referinta. O sesiune care **exista** dar nu se poate citi opreste comanda:
+/// altfel obiectele omise ar ajunge in deploy si textele finale s-ar pierde,
+/// fara niciun semn (B1 din `cercetare/audit-qa-2026-11-22.md`).
+fn salvate(
+    args: &ArgumenteSursa,
+    referinta: &str,
+) -> Result<(modul::Revizuire, modul::Editari), String> {
+    let sesiuni =
+        gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
+    let id = args.identitate()?;
+    Ok(sesiuni
+        .incarca(&id, referinta)
+        .map_err(|e| e.to_string())?
         .map(|s| {
             (
                 modul::Revizuire::din_sesiune(&s),
                 modul::Editari::din_sesiune(&s),
             )
         })
-        .unwrap_or_default()
+        .unwrap_or_default())
 }
 
 /// Scrie planul de deploy, cu amprentele de acum, ca sa fie verificat de
@@ -996,7 +1002,7 @@ pub fn plan(
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-    let p = plan_din(args, &r, doar);
+    let p = plan_din(args, &r, doar)?;
     if p.pasi.is_empty() {
         return Err(modul::Eroare::NimicDeDeployat.to_string());
     }
@@ -1066,13 +1072,13 @@ pub fn deploy(
         }
         None => {
             let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-            (plan_din(args, &r, doar), r)
+            (plan_din(args, &r, doar)?, r)
         }
     };
 
     // textele finale facute in editor (sau cu `gmotion editare`), daca sunt
     // inca valabile pentru obiectele de acum
-    let texte_finale = salvate(args, referinta)
+    let texte_finale = salvate(args, referinta)?
         .1
         .pentru_deploy(&r.comparare.randuri);
     let cu_text_final = plan

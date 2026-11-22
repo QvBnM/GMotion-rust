@@ -1330,3 +1330,88 @@ fn editarea_numara_pe_grupuri_si_lasa_unde_ii_spui() {
     );
     assert_eq!(linii[27], "", "linia goala ramane dupa grup");
 }
+
+/// B1 din `cercetare/audit-qa-2026-11-22.md`: o sesiune care exista dar nu se
+/// poate citi opreste deploy-ul, planul si exportul. Inainte, deploy-ul iesea
+/// cu 0 si scria si obiectele omise.
+#[test]
+fn sesiunea_care_nu_se_citeste_opreste_deploy_ul() {
+    let d = dir("sesiune-stricata");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let o = ruleaza_in(
+        &[
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--omite",
+            "dbo.pStoc",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let _ = cauta_sesiunea(&date);
+    fn sesiuni(dir: &Path, gasite: &mut Vec<PathBuf>) {
+        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let cale = e.path();
+            if cale.is_dir() {
+                sesiuni(&cale, gasite);
+            } else if cale.extension().is_some_and(|x| x == "dat") {
+                gasite.push(cale);
+            }
+        }
+    }
+    let mut gasite = Vec::new();
+    sesiuni(&date, &mut gasite);
+    let text = std::fs::read(&gasite[0]).unwrap();
+    std::fs::write(&gasite[0], &text[..text.len() / 2]).unwrap();
+
+    let iesire = d.join("out");
+    let iesire_s = iesire.to_str().unwrap();
+    let csv = d.join("e.csv");
+    let plan = d.join("plan.json");
+    for args in [
+        vec![
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire_s,
+        ],
+        vec![
+            "plan",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-o",
+            plan.to_str().unwrap(),
+        ],
+        vec![
+            "export",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-o",
+            csv.to_str().unwrap(),
+        ],
+    ] {
+        let o = ruleaza_in(&args, Some(&date));
+        assert!(
+            !o.status.success(),
+            "{}: trebuia sa cada pe sesiunea stricata\n{}",
+            args[0],
+            err(&o)
+        );
+        assert!(err(&o).contains("GM-PLAT-"), "{}: {}", args[0], err(&o));
+    }
+    assert!(!iesire.exists(), "niciun script scris");
+    assert!(!plan.exists() && !csv.exists());
+}
