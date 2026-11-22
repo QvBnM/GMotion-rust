@@ -224,6 +224,7 @@ mod teste {
             categorie: Categorie::Diferit,
             hash_referinta: Some(hr.into()),
             hash_curent: Some(hc.into()),
+            modificat: None,
         }
     }
 

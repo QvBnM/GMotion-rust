@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 6db98174a84ad1a4 -->
+<!-- api-hash: 5c87aa3757aee917 -->
 
 ## Rol
 
@@ -34,7 +34,7 @@ si editorul de diferente (etapa 8).
 | `scara::{scara, ScaraFereastra, REFERINTA, MINIM, MAXIM, SISTEM_MARIT}`, `leaga_scara(ui)` | scara unica a conectarii: `min(latime/1440, inaltime/900)` intre 0,85 si 1,3; cu sistemul marit la 125%+ minimul e 1; se pune pe fereastra ca factor de scala (sistem x scara) la fiecare redimensionare |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
-| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire, Impact}` | modelul listei; cheia unui rand e `(baza, schema.nume)`; `Obiect::{folosit_de, impact}` vin din `diff-obiecte::impact` (fereastra doar le arata, sorteaza si filtreaza: `Ordine::{FolositDe, Impact}`, `Lista::filtreaza_impact`) |
+| `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire, Impact}` | modelul listei; cheia unui rand e `(baza, schema.nume)`; `Obiect::{folosit_de, impact}` vin din `diff-obiecte::impact` (fereastra doar le arata, sorteaza si filtreaza: `Ordine::{FolositDe, Impact}`, `Lista::filtreaza_impact`); `Obiect::modificat` si `Ordine::Modificat`: coloana „Ultima modificare", recentele intai (etapa 25) |
 | `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
 | `ajutor(limba)`, `AJUTOR`, `AJUTOR_EN` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
 | `limba_curenta(ui)` | limba pusa de ultimul `aplica_limba`; textele facute in Rust o urmeaza (`model_deploy`, editorul, lista, conectarea) |

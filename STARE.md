@@ -31,8 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 24 (remedierile dupa evaluarea din
-2026-11-22) s-a incheiat; urmatoarea o alege Mihai.
+**Etapa activa:** `etape/25-ce-a-ramas-din-portare.md` — progres la
+Recompara, „Ultima modificare", „Despre", dialogul nativ (`rfd`), evidentierea
+in timp ce scrii.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare

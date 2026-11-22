@@ -46,6 +46,8 @@ export struct RandListaUi {
     folosit-de: string,
     // impactul deploy-ului: 0 scazut, 1 mediu, 2 ridicat, -1 fara (identic)
     impact: int,
+    // ultima modificare, „2026-11-22 10:32"; goala cand nu se stie
+    modificat: string,
 }
 
 export struct CategorieUi {
@@ -117,6 +119,7 @@ export global Coloane {
     in-out property <length> deploy: 130px;
     in-out property <length> folosit: 76px;
     in-out property <length> impact: 72px;
+    in-out property <length> modificat: 132px;
     /// Sub atat o coloana nu mai are ce arata.
     out property <length> minim: 48px;
 
@@ -130,6 +133,7 @@ export global Coloane {
         if (coloana == Sortare.deploy) { root.deploy = Math.max(root.minim, latime); }
         if (coloana == Sortare.folosit) { root.folosit = Math.max(root.minim, latime); }
         if (coloana == Sortare.impact) { root.impact = Math.max(root.minim, latime); }
+        if (coloana == Sortare.modificat) { root.modificat = Math.max(root.minim, latime); }
     }
 
     public pure function ia(coloana: int) -> length {
@@ -142,6 +146,7 @@ export global Coloane {
              : coloana == Sortare.deploy ? root.deploy
              : coloana == Sortare.folosit ? root.folosit
              : coloana == Sortare.impact ? root.impact
+             : coloana == Sortare.modificat ? root.modificat
              : 0px;
     }
 }
@@ -158,6 +163,7 @@ global Sortare {
     out property <int> baza: 7;
     out property <int> folosit: 8;
     out property <int> impact: 9;
+    out property <int> modificat: 10;
 }
 
 
@@ -459,6 +465,7 @@ component RandTabel inherits Rectangle {
             vertical-alignment: center;
             overflow: elide;
         }
+        Text { width: Coloane.modificat; text: root.r.modificat; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
         HorizontalLayout {
             width: Coloane.revizuit;
             alignment: center;
@@ -657,6 +664,11 @@ export component FereastraLista inherits Window {
     in property <image> tigla-hasura;
 
     callback recompara();
+    callback anuleaza-recompararea();
+    // recompararea pe alt fir: textul pasului si cat s-a facut (0..1)
+    in property <bool> recompara-ruleaza;
+    in property <string> recompara-text;
+    in property <float> recompara-fractie;
     callback ajutor();
     in property <string> text-ajutor;
     in-out property <bool> arata-ajutorul;
@@ -858,7 +870,25 @@ export component FereastraLista inherits Window {
                         }
                     }
                     VerticalLayout { alignment: center; Buton { text: Texte.harta-tasta; apasat => { root.deschide-harta(); } } }
-                    VerticalLayout { alignment: center; Buton { text: Texte.recompara; apasat => { root.recompara(); } } }
+                    if !root.recompara-ruleaza: VerticalLayout { alignment: center; Buton { text: Texte.recompara; apasat => { root.recompara(); } } }
+                    // cat ruleaza recompararea: ce se citeste, cat, si Anuleaza;
+                    // lista de dedesubt ramane cea de dinainte (etapa 25)
+                    if root.recompara-ruleaza: HorizontalLayout {
+                        spacing: 8px;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 5px;
+                            width: 220px;
+                            Text { text: root.recompara-text; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; overflow: elide; }
+                            Rectangle {
+                                height: 3px;
+                                border-radius: 1.5px;
+                                background: Tema.strat;
+                                Rectangle { x: 0; width: parent.width * Math.max(0.02, root.recompara-fractie); border-radius: 1.5px; background: Tema.accent; }
+                            }
+                        }
+                        VerticalLayout { alignment: center; Buton { text: Texte.opreste; apasat => { root.anuleaza-recompararea(); } } }
+                    }
                     VerticalLayout { alignment: center; Buton { text: Texte.ajutor-tasta; apasat => { root.arata-ajutorul = true; root.ajutor(); } } }
                     VerticalLayout { alignment: center; Buton { text: Texte.deconecteaza; apasat => { root.cere-deconectarea(); } } }
                 }
@@ -1094,6 +1124,15 @@ export component FereastraLista inherits Window {
                                 sortata: root.coloana-sortata == Sortare.impact;
                                 descrescator: root.sens-descrescator;
                                 apasat => { root.sorteaza-coloana(Sortare.impact); }
+                            }
+                            CapColoana {
+                                titlu: Texte.coloana-modificat;
+                                coloana: Sortare.modificat;
+                                clic-margine => { root.clic-margine-coloana(Sortare.modificat); }
+                                latime: Coloane.modificat;
+                                sortata: root.coloana-sortata == Sortare.modificat;
+                                descrescator: root.sens-descrescator;
+                                apasat => { root.sorteaza-coloana(Sortare.modificat); }
                             }
                             CapColoana {
                                 titlu: Texte.revizuit;

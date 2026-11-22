@@ -62,6 +62,11 @@ pub struct Rand {
     /// valabil pentru el.
     pub hash_referinta: Option<String>,
     pub hash_curent: Option<String>,
+    /// Ultima modificare (`sys.objects.modify_date`) a obiectului din baza
+    /// comparata; pentru `Lipsa`, a celui din martor. Coloana „Ultima
+    /// modificare" din v3.4. `None` cand sursa nu o stie (instantaneu vechi).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modificat: Option<String>,
 }
 
 /// Cat de departe a ajuns compararea. Platforma o publica prin metoda comuna
@@ -104,6 +109,8 @@ pub struct ObiectPregatit {
     /// Hinturile de blocare (`gmotion_core::hinturi`): normalizarea le sterge,
     /// deci un obiect care difera doar prin ele ar iesi identic (F-M3).
     pub hinturi: String,
+    /// `Obiect::modificat`, purtat pana pe `Rand`.
+    pub modificat: Option<String>,
 }
 
 impl ObiectPregatit {
@@ -116,6 +123,7 @@ impl ObiectPregatit {
             afisare: pregateste_afisare(&o.definitie),
             hash: calc_hash(&normalizat),
             hinturi: hinturi(&o.definitie),
+            modificat: o.modificat.clone(),
         }
     }
 }
@@ -275,6 +283,7 @@ pub fn compara_cu_oprire(
                     categorie: Categorie::Lipsa,
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: None,
+                    modificat: r.modificat.clone(),
                 });
                 id += 1;
                 continue;
@@ -291,6 +300,7 @@ pub fn compara_cu_oprire(
                     categorie: Categorie::Criptat,
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: Some(c.hash.clone()),
+                    modificat: c.modificat.clone(),
                 });
                 id += 1;
                 continue;
@@ -317,6 +327,7 @@ pub fn compara_cu_oprire(
                     categorie: Categorie::Diferit,
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: Some(c.hash.clone()),
+                    modificat: c.modificat.clone(),
                 });
                 id += 1;
                 continue;
@@ -333,6 +344,7 @@ pub fn compara_cu_oprire(
                 categorie: Categorie::Diferit,
                 hash_referinta: Some(r.hash.clone()),
                 hash_curent: Some(c.hash.clone()),
+                modificat: c.modificat.clone(),
             });
             id += 1;
         }
@@ -360,6 +372,7 @@ pub fn compara_cu_oprire(
                 categorie: Categorie::Extra,
                 hash_referinta: None,
                 hash_curent: Some(o.hash.clone()),
+                modificat: o.modificat.clone(),
             });
             id += 1;
         }
@@ -394,11 +407,48 @@ mod teste {
             tip: "P".into(),
             definitie: def.into(),
             setari: None,
+            modificat: None,
         }
     }
 
     fn fara_progres() -> impl FnMut(Progres) {
         |_| {}
+    }
+
+    /// Etapa 25: randul poarta ultima modificare a obiectului din baza
+    /// comparata; pentru cel lipsa din ea, a celui din martor.
+    #[test]
+    fn randul_poarta_ultima_modificare() {
+        let cu = |nume: &str, def: &str, cand: &str| Obiect {
+            modificat: Some(cand.into()),
+            ..ob(nume, def)
+        };
+        let r = pregateste(&[
+            cu("pDif", "SELECT 1", "2026-01-01 00:00:00"),
+            cu("pLipsa", "SELECT 2", "2026-02-02 00:00:00"),
+        ]);
+        let c = pregateste(&[
+            cu("pDif", "SELECT 9", "2026-03-03 00:00:00"),
+            cu("pExtra", "SELECT 3", "2026-04-04 00:00:00"),
+        ]);
+        let rez = compara("R", &r, &[("C".into(), c)], fara_progres());
+        let cand = |n: &str| {
+            rez.randuri
+                .iter()
+                .find(|x| x.obiect == format!("dbo.{n}"))
+                .and_then(|x| x.modificat.clone())
+        };
+        assert_eq!(
+            cand("pDif").as_deref(),
+            Some("2026-03-03 00:00:00"),
+            "din baza comparata"
+        );
+        assert_eq!(
+            cand("pLipsa").as_deref(),
+            Some("2026-02-02 00:00:00"),
+            "din martor"
+        );
+        assert_eq!(cand("pExtra").as_deref(), Some("2026-04-04 00:00:00"));
     }
 
     #[test]
@@ -620,6 +670,7 @@ mod teste {
                 tip: "P".into(),
                 definitie: def.into(),
                 setari: None,
+                modificat: None,
             }])
         };
         let r = o("CREATE PROC dbo.pH AS SELECT a FROM t WITH (NOLOCK)");
@@ -650,6 +701,7 @@ mod teste {
             tip: "P".into(),
             definitie: cod.into(),
             setari: Some(on),
+            modificat: None,
         }]);
         let t = pregateste(&[Obiect {
             schema: "dbo".into(),
@@ -660,6 +712,7 @@ mod teste {
                 quoted_identifier: false,
                 ..on
             }),
+            modificat: None,
         }]);
         let c = compara("Ref", &r, &[("Tinta".to_string(), t)], |_| {});
         assert_eq!(c.numaratoare.identice, 0, "setarile nu sunt o bagatela");

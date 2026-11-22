@@ -713,6 +713,15 @@ impl Stare {
         };
     }
 
+    /// Recompararea care ruleaza, pentru bara listei: textul pasului (cu
+    /// timpul) si cat s-a facut. `None` cand nu ruleaza nimic sau cand e prima
+    /// comparare (aceea se vede pe ecranul de conectare).
+    pub fn progres_recomparare(&self, limba: gmotion_core::Limba) -> Option<(String, f32)> {
+        self.app.as_ref()?;
+        let r = self.rulare.as_ref()?;
+        Some((format!("{} · {}", r.text_in(limba), r.timp()), r.fractie()))
+    }
+
     /// Ce scrie in bara listei: un „In plan" refuzat bate mesajul tinut.
     pub fn text_bara_lista(&self, limba: gmotion_core::Limba) -> String {
         self.app
@@ -1279,6 +1288,35 @@ mod teste {
         asteapta(&mut s);
         assert!(s.mesaj_lista.is_empty());
         assert_eq!(s.app.as_ref().unwrap().lista().in_plan().len(), 1);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// Etapa 25: recompararea isi arata progresul pe lista, iar Anuleaza o
+    /// opreste si lasa lista veche.
+    #[test]
+    fn recompararea_are_progres_pe_lista_si_se_poate_anula() {
+        let (mut s, d) = stare("progres-recomparare");
+        s.compara();
+        assert!(
+            s.progres_recomparare(gmotion_core::Limba::Romana).is_none(),
+            "prima comparare se vede pe conectare"
+        );
+        asteapta(&mut s);
+        assert!(s.progres_recomparare(gmotion_core::Limba::Romana).is_none());
+        s.compara();
+        let (text, fractie) = s
+            .progres_recomparare(gmotion_core::Limba::Romana)
+            .expect("ruleaza");
+        assert!(!text.is_empty() && (0.0..=1.0).contains(&fractie), "{text}");
+        s.anuleaza();
+        assert!(s
+            .progres_recomparare(gmotion_core::Limba::Romana)
+            .unwrap()
+            .0
+            .starts_with("se opreste"));
+        asteapta(&mut s);
+        assert!(s.app.is_some(), "lista ramane, oricum s-ar fi terminat");
+        assert!(s.progres_recomparare(gmotion_core::Limba::Romana).is_none());
         std::fs::remove_dir_all(&d).ok();
     }
 

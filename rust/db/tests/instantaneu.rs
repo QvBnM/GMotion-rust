@@ -13,6 +13,7 @@ fn obiect(schema: &str, nume: &str, tip: &str, def: &str) -> Obiect {
         tip: tip.into(),
         definitie: def.into(),
         setari: None,
+        modificat: None,
     }
 }
 
@@ -205,4 +206,29 @@ fn obiectele_din_fixture_intra_direct_in_motor() {
     let hash_r = gmotion_core::calc_hash(&gmotion_core::normalizeaza(&r.definitie));
     let hash_c = gmotion_core::calc_hash(&gmotion_core::normalizeaza(&c.definitie));
     assert_ne!(hash_r, hash_c);
+}
+
+/// Etapa 25: ultima modificare intra si iese din instantaneu; unul scris
+/// inainte (fara camp) se citeste mai departe, cu `None`.
+#[test]
+fn ultima_modificare_trece_prin_instantaneu_iar_cele_vechi_merg() {
+    let dir = dir_temporar("modificat");
+    let cale = dir.join("i.json");
+    let mut o = obiect("dbo", "p", "P", "CREATE PROC dbo.p AS SELECT 1");
+    o.modificat = Some("2026-11-22 10:32:15".into());
+    let mut i = Instantaneu::nou("SRV", "2026-11-22T10:00:00Z");
+    i.baze.insert("B".into(), vec![o.clone()]);
+    i.scrie(&cale).unwrap();
+    let citit = Instantaneu::citeste(&cale).unwrap();
+    assert_eq!(citit.baze["B"][0].modificat, o.modificat);
+
+    std::fs::write(
+        &cale,
+        r#"{"versiune":1,"server":"S","creat":"x","nota":"","baze":{"B":[
+          {"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROC dbo.p AS SELECT 1"}]}}"#,
+    )
+    .unwrap();
+    let vechi = Instantaneu::citeste(&cale).unwrap();
+    assert_eq!(vechi.baze["B"][0].modificat, None);
+    std::fs::remove_dir_all(&dir).ok();
 }

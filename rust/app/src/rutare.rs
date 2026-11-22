@@ -394,6 +394,7 @@ impl Aplicatie {
                         modul::Nivel::Mediu => Impact::Mediu,
                         modul::Nivel::Ridicat => Impact::Ridicat,
                     }),
+                    modificat: r.modificat.clone(),
                 }
             })
             .collect();
@@ -425,6 +426,7 @@ impl Aplicatie {
                     deploy: Deploy::Nu,
                     folosit_de: Some(cati(nume_baza, id)),
                     impact: None,
+                    modificat: tinta.get(id).and_then(|o| o.modificat.clone()),
                 });
             }
         }
@@ -1430,6 +1432,7 @@ mod teste {
             tip: "P".into(),
             definitie: definitie.into(),
             setari: None,
+            modificat: None,
         }
     }
 
@@ -1870,7 +1873,8 @@ mod teste {
         a.comanda(Comanda::ComutaOmis);
         a.exporta_csv(&cale).unwrap();
         let text = std::fs::read_to_string(&cale).unwrap();
-        assert!(text.trim_end().ends_with("NU;DA"), "coloana Omis: {text}");
+        // Omis, apoi Ultima modificare (goala: aplicatia de test n-o stie)
+        assert!(text.trim_end().ends_with("NU;DA;"), "coloana Omis: {text}");
         // o lista filtrata la zero nu scrie un fisier gol, da eroare
         a.comanda(Comanda::Cauta("nu-exista".into()));
         assert!(a.exporta_csv(&cale).is_err());

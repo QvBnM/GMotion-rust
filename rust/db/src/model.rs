@@ -28,6 +28,11 @@ pub struct Obiect {
     /// scrise inainte de 2026-11-17, care nu le aveau.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub setari: Option<Setari>,
+    /// `sys.objects.modify_date`, ca `AAAA-LL-ZZ HH:MM:SS` (ora serverului):
+    /// coloana „Ultima modificare" din lista, ca in v3.4. `None` in
+    /// instantaneele scrise inainte de etapa 25 si in codul lipit offline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modificat: Option<String>,
 }
 
 /// Setarile de sesiune pe care SQL Server le retine la crearea unui modul
@@ -198,6 +203,7 @@ mod teste {
             tip: "P".into(),
             definitie: "CREATE PROCEDURE dbo.pClienti AS SELECT 1".into(),
             setari: None,
+            modificat: None,
         };
         assert_eq!(o.id(), "dbo.pClienti");
     }
@@ -214,6 +220,7 @@ mod teste {
             tip: "P".into(),
             definitie: "d".into(),
             setari: None,
+            modificat: None,
         };
         accepta_serializabil(&o);
     }

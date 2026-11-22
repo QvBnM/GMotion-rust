@@ -18,6 +18,7 @@ fn ob(nume: &str, tip: &str, def: &str) -> Obiect {
         tip: tip.into(),
         definitie: def.into(),
         setari: None,
+        modificat: None,
     }
 }
 

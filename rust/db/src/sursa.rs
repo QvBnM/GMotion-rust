@@ -102,6 +102,7 @@ mod teste {
                 tip: "P".into(),
                 definitie: "SELECT 1".into(),
                 setari: None,
+                modificat: None,
             }])
         }
     }

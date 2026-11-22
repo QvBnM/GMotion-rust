@@ -15,7 +15,7 @@ use crate::eroare::{Eroare, Rezultat};
 /// diacriticele.
 const BOM: &[u8] = &[0xEF, 0xBB, 0xBF];
 
-const CAP: [&str; 8] = [
+const CAP: [&str; 9] = [
     "Obiect",
     "Baza",
     "Tip",
@@ -24,6 +24,9 @@ const CAP: [&str; 8] = [
     "Diferente",
     "Rezolvat",
     "Omis",
+    // nu era in exportul v3.4; la sfarsit, ca o foaie care citeste dupa
+    // pozitie coloanele vechi sa nu se strice (etapa 25)
+    "Ultima modificare",
 ];
 
 /// Un camp CSV: se pun ghilimele doar daca e nevoie, iar ghilimelele din
@@ -91,6 +94,7 @@ pub fn scrie_csv(cale: &Path, randuri: &[Rand], stare: impl Fn(usize) -> Stare) 
             camp(&r.rezumat),
             if s.rezolvat { "DA" } else { "NU" }.to_string(),
             if s.omis { "DA" } else { "NU" }.to_string(),
+            camp(r.modificat.as_deref().unwrap_or("")),
         ];
         scrie(rand.join(";").as_bytes())?;
         scrie(b"\r\n")?;
@@ -118,6 +122,7 @@ mod teste {
             },
             hash_referinta: None,
             hash_curent: None,
+            modificat: None,
         }
     }
 
@@ -207,10 +212,9 @@ mod teste {
         let d = std::env::temp_dir().join(format!("gmotion-csv-stare-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let cale = d.join("e.csv");
-        let randuri = [
-            rand(0, "dbo.pA", Some(1.0), "x"),
-            rand(1, "dbo.pB", Some(2.0), "y"),
-        ];
+        let mut b = rand(1, "dbo.pB", Some(2.0), "y");
+        b.modificat = Some("2026-11-22 10:32:15".into());
+        let randuri = [rand(0, "dbo.pA", Some(1.0), "x"), b];
         scrie_csv(&cale, &randuri, |id| Stare {
             rezolvat: id == 0,
             omis: id == 1,
@@ -218,8 +222,18 @@ mod teste {
         .unwrap();
         let text = String::from_utf8(std::fs::read(&cale).unwrap()[3..].to_vec()).unwrap();
         let linii: Vec<&str> = text.lines().collect();
-        assert!(linii[1].ends_with("DA;NU"), "{}", linii[1]);
-        assert!(linii[2].ends_with("NU;DA"), "{}", linii[2]);
+        assert!(
+            linii[0].ends_with(";Omis;Ultima modificare"),
+            "{}",
+            linii[0]
+        );
+        // Rezolvat, Omis, apoi Ultima modificare
+        assert!(linii[1].ends_with("DA;NU;"), "{}", linii[1]);
+        assert!(
+            linii[2].ends_with("NU;DA;2026-11-22 10:32:15"),
+            "{}",
+            linii[2]
+        );
         std::fs::remove_dir_all(&d).ok();
     }
 

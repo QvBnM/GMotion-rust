@@ -218,6 +218,7 @@ mod teste {
             deploy: Default::default(),
             folosit_de: None,
             impact: None,
+            modificat: None,
         }
     }
 

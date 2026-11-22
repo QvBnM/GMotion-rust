@@ -341,6 +341,7 @@ fn ruleaza() -> Result<(), String> {
             let referinta = s.referinta.clone();
             let baze = s.baze();
             let bara = s.text_bara_lista(limba);
+            let progres = s.progres_recomparare(limba);
             // antetul arata o singura tinta: cu mai multe, cate sunt
             let baza = match baze.as_slice() {
                 [una] => una.clone(),
@@ -363,6 +364,11 @@ fn ruleaza() -> Result<(), String> {
                 app.lista(),
             );
             l_ui.set_mesaj_csv(bara.into());
+            l_ui.set_recompara_ruleaza(progres.is_some());
+            if let Some((text, fractie)) = progres {
+                l_ui.set_recompara_text(text.into());
+                l_ui.set_recompara_fractie(fractie);
+            }
             match app.texte_obiect() {
                 Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
                 None => goleste_previzualizarea(&l_ui),
@@ -740,6 +746,7 @@ fn ruleaza() -> Result<(), String> {
         });
         // recompararea: acelasi drum ca prima comparare, revizuirea ramane
         pe_stare!(lista_ui.on_recompara(|st| st.compara()));
+        pe_stare!(lista_ui.on_anuleaza_recompararea(|st| st.anuleaza()));
         limba_si_tema!(lista_ui, "lista");
         // indicele randului apasat, nu cel selectat (V9)
         pe_comanda!(lista_ui.on_comuta_revizuit(|i| match indice(i) {

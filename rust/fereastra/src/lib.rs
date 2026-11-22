@@ -910,6 +910,12 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
                 deploy: cod_deploy(o),
                 folosit_de: o.folosit_de.map_or(String::new(), |n| n.to_string()).into(),
                 impact: o.impact.map_or(-1, |i| i as i32),
+                // fara secunde: in lista ajunge minutul
+                modificat: o
+                    .modificat
+                    .as_deref()
+                    .map_or("", |m| m.get(..16).unwrap_or(m))
+                    .into(),
             }
         })
         .collect()
@@ -1185,6 +1191,7 @@ fn cod_ordine(o: model_lista::Ordine) -> i32 {
         Ordine::Baza => 7,
         Ordine::FolositDe => 8,
         Ordine::Impact => 9,
+        Ordine::Modificat => 10,
     }
 }
 
@@ -1201,6 +1208,7 @@ pub fn ordine_din_cod(c: i32) -> model_lista::Ordine {
         7 => Ordine::Baza,
         8 => Ordine::FolositDe,
         9 => Ordine::Impact,
+        10 => Ordine::Modificat,
         _ => Ordine::Nume,
     }
 }
@@ -1250,6 +1258,7 @@ pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) 
             Ordine::Deploy => "Extra · fara deploy".chars().count(),
             Ordine::FolositDe => o.folosit_de.map_or(1, |n| n.to_string().len()),
             Ordine::Impact => "Ridicat".len(),
+            Ordine::Modificat => o.modificat.as_deref().map_or(0, |m| m.chars().count()),
         }
     };
     // doar randurile vizibile: autofit pe ce se vede, ca in orice tabel
@@ -1271,6 +1280,7 @@ pub fn latime_autofit(lista: &model_lista::Lista, coloana: model_lista::Ordine) 
         Ordine::Deploy => "Deploy",
         Ordine::FolositDe => "Folosit de",
         Ordine::Impact => "Impact",
+        Ordine::Modificat => "Ultima modificare",
     }
     .chars()
     .count();
@@ -3131,6 +3141,7 @@ mod teste {
             deploy: Default::default(),
             folosit_de: Some(nume.len() % 3),
             impact: Some(model_lista::Impact::Mediu),
+            modificat: None,
         };
         model_lista::Lista::noua(vec![
             o("usp_Stoc", "P", Stare::Modificat),
@@ -3287,6 +3298,7 @@ mod teste {
             deploy: Deploy::Nu,
             folosit_de: None,
             impact: None,
+            modificat: None,
         };
         let ui = fereastra_lista();
         let o_baza =
@@ -3300,6 +3312,47 @@ mod teste {
             ui.get_mai_multe_baze(),
             "C2 e comparata, chiar daca e identica"
         );
+    }
+
+    /// Etapa 25: coloana „Ultima modificare" arata minutul si sorteaza cele
+    /// mai recente primele.
+    #[test]
+    fn ultima_modificare_se_arata_la_minut_si_sorteaza_recentele_intai() {
+        use model_lista::{Deploy, Obiect, Ordine, Stare};
+        let ob = |nume: &str, cand: Option<&str>| Obiect {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            baza: "C1".into(),
+            tip: "P".into(),
+            stare: Stare::Modificat,
+            detalii: None,
+            revizuit: false,
+            in_plan: false,
+            omis: false,
+            scor: None,
+            deploy: Deploy::Nu,
+            folosit_de: None,
+            impact: None,
+            modificat: cand.map(str::to_string),
+        };
+        let ui = fereastra_lista();
+        let mut l = model_lista::Lista::noua(vec![
+            ob("pVechi", Some("2025-01-01 08:00:00")),
+            ob("pNou", Some("2026-11-22 10:32:15")),
+            ob("pNestiut", None),
+        ]);
+        l.sorteaza(ordine_din_cod(10));
+        assert_eq!(l.ordine(), Ordine::Modificat);
+        incarca_lista(&ui, &antet_lista(), &l);
+        let randuri: Vec<(String, String)> = ui
+            .get_randuri()
+            .iter()
+            .map(|r| (r.nume.to_string(), r.modificat.to_string()))
+            .collect();
+        assert_eq!(randuri[0], ("pNou".into(), "2026-11-22 10:32".into()));
+        assert_eq!(randuri[1].0, "pVechi");
+        assert_eq!(randuri[2], ("pNestiut".into(), String::new()));
+        assert_eq!(ui.get_coloana_sortata(), 10);
     }
 
     #[test]

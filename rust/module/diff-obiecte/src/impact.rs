@@ -172,6 +172,7 @@ mod teste {
             categorie,
             hash_referinta: None,
             hash_curent: None,
+            modificat: None,
         }
     }
 
@@ -183,6 +184,7 @@ mod teste {
             tip: "P".into(),
             definitie: cod.into(),
             setari: None,
+            modificat: None,
         }
     }
 

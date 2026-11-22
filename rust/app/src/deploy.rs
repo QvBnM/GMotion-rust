@@ -338,6 +338,7 @@ mod teste {
                 tip: if nume.starts_with("vw") { "V" } else { "P" }.into(),
                 definitie: (*def).into(),
                 setari: None,
+                modificat: None,
             })
             .collect();
         modul::pregateste(&v)

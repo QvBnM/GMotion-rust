@@ -174,6 +174,10 @@ pub struct Obiect {
     pub folosit_de: Option<usize>,
     /// Impactul estimat al deploy-ului; `None` la obiectele identice.
     pub impact: Option<Impact>,
+    /// Ultima modificare a obiectului din baza comparata (`AAAA-LL-ZZ
+    /// HH:MM:SS`); pentru „doar in Martor", a celui din martor. `None` cand
+    /// sursa nu o stie (instantaneu vechi, cod lipit).
+    pub modificat: Option<String>,
 }
 
 impl Obiect {
@@ -215,6 +219,8 @@ pub enum Ordine {
     FolositDe,
     /// Impactul; implicit, cele mai grave primele.
     Impact,
+    /// Ultima modificare; implicit, cele mai recente primele (etapa 25).
+    Modificat,
 }
 
 impl Ordine {
@@ -222,7 +228,10 @@ impl Ordine {
     /// impactul, descrescator (ce conteaza mai mult, intai); restul,
     /// crescator.
     fn implicit_descrescator(self) -> bool {
-        matches!(self, Ordine::Linii | Ordine::FolositDe | Ordine::Impact)
+        matches!(
+            self,
+            Ordine::Linii | Ordine::FolositDe | Ordine::Impact | Ordine::Modificat
+        )
     }
 }
 
@@ -726,6 +735,7 @@ impl Lista {
                 Ordine::Deploy => rang_deploy(a).cmp(&rang_deploy(b)),
                 Ordine::FolositDe => o[a].folosit_de.cmp(&o[b].folosit_de),
                 Ordine::Impact => o[a].impact.cmp(&o[b].impact),
+                Ordine::Modificat => o[a].modificat.cmp(&o[b].modificat),
             };
             // numele (cu baza) departajeaza mereu crescator, ca ordinea sa fie
             // stabila; `id()` singur nu mai e unic peste mai multe baze
@@ -777,6 +787,7 @@ mod teste {
                 Stare::Identic => None,
                 _ => Some(Impact::Scazut),
             },
+            modificat: None,
         }
     }
 
@@ -1150,10 +1161,11 @@ mod teste {
             .to_string(),
             Ordine::FolositDe => format!("{:06}", o.folosit_de.unwrap_or(0)),
             Ordine::Impact => format!("{:?}", o.impact.map(|i| i as u8)),
+            Ordine::Modificat => o.modificat.clone().unwrap_or_default(),
         }
     }
 
-    const COLOANE: [Ordine; 10] = [
+    const COLOANE: [Ordine; 11] = [
         Ordine::Nume,
         Ordine::Tip,
         Ordine::Baza,
@@ -1164,6 +1176,7 @@ mod teste {
         Ordine::Deploy,
         Ordine::FolositDe,
         Ordine::Impact,
+        Ordine::Modificat,
     ];
 
     /// Filtrul pe impact se combina cu celelalte; contoarele de stare raman
@@ -1224,7 +1237,10 @@ mod teste {
             l.sorteaza(coloana);
             assert_eq!(
                 l.descrescator(),
-                matches!(coloana, Ordine::Linii | Ordine::FolositDe | Ordine::Impact),
+                matches!(
+                    coloana,
+                    Ordine::Linii | Ordine::FolositDe | Ordine::Impact | Ordine::Modificat
+                ),
                 "{coloana:?}: sensul implicit, nu cel de data trecuta"
             );
         }
