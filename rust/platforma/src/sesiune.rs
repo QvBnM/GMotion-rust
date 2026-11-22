@@ -143,6 +143,17 @@ impl Sesiuni {
         })
     }
 
+    /// Sesiunile unui modul intr-un director dat, nu in cel de date al
+    /// aplicatiei. Pentru teste: fara el, un test al starii aplicatiei ar
+    /// trebui sa schimbe `GMOTION_DIR_DATE`, adica mediul procesului comun.
+    pub fn in_director(modul: &str, director: PathBuf) -> Rezultat<Self> {
+        valideaza_identificator(modul)?;
+        Ok(Sesiuni {
+            modul: modul.to_string(),
+            director,
+        })
+    }
+
     pub fn modul(&self) -> &str {
         &self.modul
     }
@@ -340,6 +351,19 @@ impl Sesiuni {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn sesiunile_dintr_un_director_dat_se_salveaza_acolo() {
+        let d = std::env::temp_dir().join(format!("gmotion-in-director-{}", std::process::id()));
+        std::fs::remove_dir_all(&d).ok();
+        let s = Sesiuni::in_director("diff-obiecte", d.clone()).unwrap();
+        assert_eq!(s.director(), &d);
+        let cale = s.salveaza(&Sesiune::noua("SRV", "SQL", "Ref", "")).unwrap();
+        assert!(cale.starts_with(&d), "{}", cale.display());
+        assert!(s.incarca("SRV", "Ref").unwrap().is_some());
+        assert!(Sesiuni::in_director("../afara", d.clone()).is_err());
+        std::fs::remove_dir_all(&d).ok();
+    }
 
     #[test]
     fn slug_curata_si_e_stabil() {
