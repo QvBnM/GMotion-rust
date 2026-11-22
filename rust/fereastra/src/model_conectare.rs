@@ -278,6 +278,11 @@ pub struct Conectare {
     /// de baze. Copia se face in `sincronizeaza`, nu se citeste de doua ori:
     /// restul aplicatiei vede tot doua parti complete.
     pub aceeasi_conexiune: bool,
+    /// De ce n-a mers ultima comparare (sau ca a fost anulata), langa
+    /// butonul Compara. Camp propriu: pus pe starea martorului, orice eroare
+    /// (si „baza X nu exista" la modificata) cerea „conecteaza-te la martor"
+    /// (F-A12).
+    pub eroare_comparare: Option<String>,
 }
 
 impl Conectare {

@@ -360,6 +360,15 @@ impl Lista {
     /// 2026-11-19: filtrele se pierdeau la Recompara). Selectia ramane doar
     /// daca obiectul mai exista si e vizibil.
     pub fn preia_vederea(&mut self, alta: &Lista) {
+        // „in plan" ramane pe obiectele care inca se pot deploia: altfel o
+        // recomparare golea planul facut pana atunci (F-A8; si v3.4 il pastra)
+        let in_plan: std::collections::BTreeSet<(String, String)> =
+            alta.in_plan().into_iter().collect();
+        for o in self.obiecte.iter_mut() {
+            if o.se_poate_deploia() && in_plan.contains(&o.cheie()) {
+                o.in_plan = true;
+            }
+        }
         self.filtru = alta.filtru.clone();
         self.ordine = alta.ordine;
         self.descrescator = alta.descrescator;
@@ -542,6 +551,17 @@ impl Lista {
     pub fn pune_detalii_cheie(&mut self, cheie: &(String, String), d: Detalii) {
         if let Some(o) = self.obiecte.iter_mut().find(|o| &o.cheie() == cheie) {
             o.detalii = Some(d);
+        }
+    }
+
+    /// Au sosit detalii (de pe firul lor): daca lista e sortata dupa ele
+    /// („Linii", „Difera in"), ordinea se reface, cu selectia pe acelasi
+    /// obiect. Altfel randurile sosite tarziu ramaneau pe locul unui 0 si
+    /// „cele mai schimbate intai" mintea (F-A6). Se cheama o data pe tura de
+    /// detalii, nu pe fiecare: resortarea costa cat lista.
+    pub fn detalii_sosite(&mut self) {
+        if matches!(self.ordine, Ordine::Linii | Ordine::DiferaIn) {
+            self.recalculeaza();
         }
     }
 
@@ -809,6 +829,54 @@ mod teste {
             fara.obiect_selectat().map(Obiect::cheie),
             Some(cheie("usp_Import"))
         );
+    }
+
+    #[test]
+    fn detaliile_sosite_tarziu_resorteaza_lista_pe_linii() {
+        let mut l = Lista::noua(
+            (0..80)
+                .map(|i| obiect(&format!("p{i:02}"), "P", Stare::Modificat))
+                .collect(),
+        );
+        l.sorteaza(Ordine::Linii);
+        let d = |n: usize| Detalii {
+            difera_in: String::new(),
+            linii_plus: n,
+            linii_minus: 0,
+        };
+        // detaliile primelor 60 au venit, pe al 70-lea abia acum
+        for i in 0..60 {
+            l.pune_detalii_cheie(&cheie(&format!("p{i:02}")), d(1));
+        }
+        l.detalii_sosite();
+        l.pune_detalii_cheie(&cheie("p70"), d(500));
+        assert_ne!(l.obiect(0).map(Obiect::id), Some("dbo.p70".to_string()));
+        l.detalii_sosite();
+        assert_eq!(
+            l.obiect(0).map(Obiect::id),
+            Some("dbo.p70".to_string()),
+            "cel mai schimbat e primul, chiar daca a venit ultimul"
+        );
+    }
+
+    #[test]
+    fn recompararea_pastreaza_planul_pe_ce_se_mai_poate_deploia() {
+        let mut veche = Lista::noua(vec![
+            obiect("usp_Stoc", "P", Stare::Modificat),
+            obiect("usp_Import", "P", Stare::Modificat),
+            obiect("vw_Facturi", "V", Stare::Modificat),
+        ]);
+        for p in 0..3 {
+            assert!(veche.comuta_in_plan(p));
+        }
+        // usp_Import a devenit identic, vw_Facturi a disparut din martor
+        let mut noua = Lista::noua(vec![
+            obiect("usp_Stoc", "P", Stare::Modificat),
+            obiect("usp_Import", "P", Stare::Identic),
+            obiect("vw_Facturi", "V", Stare::DoarBaza),
+        ]);
+        noua.preia_vederea(&veche);
+        assert_eq!(noua.in_plan(), [cheie("usp_Stoc")]);
     }
 
     fn lista_proba() -> Lista {

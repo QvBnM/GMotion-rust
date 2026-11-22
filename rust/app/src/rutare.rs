@@ -770,6 +770,11 @@ impl Aplicatie {
         self.lista.pune_detalii_cheie(cheie, d);
     }
 
+    /// O tura de detalii s-a terminat: lista sortata dupa ele se reface (F-A6).
+    pub fn detalii_sosite(&mut self) {
+        self.lista.detalii_sosite();
+    }
+
     /// Calculeaza detaliile („Difera in", `+N −M`) pentru randurile de pe
     /// ecran, daca lipsesc. Restul listei ramane necalculat.
     pub fn asigura_detalii(&mut self, de_la: usize, pana_la: usize) {
@@ -1493,6 +1498,21 @@ mod teste {
                 .collect()
         };
         assert_eq!(detalii(&app), detalii(&pe_loc));
+
+        // sortata dupa Linii, lista urmeaza detaliile sosite (F-A6)
+        app.comanda(Comanda::Sorteaza(
+            gmotion_fereastra::model_lista::Ordine::Linii,
+        ));
+        let mai_multe = (
+            app.lista().obiect(1).unwrap().cheie(),
+            Detalii {
+                linii_plus: 1000,
+                ..Detalii::default()
+            },
+        );
+        app.pune_detalii(&mai_multe.0, mai_multe.1);
+        app.detalii_sosite();
+        assert_eq!(app.lista().obiect(0).unwrap().cheie(), mai_multe.0);
     }
 
     /// Proba pe Windows (2026-11-19): cautarea din coloana editorului

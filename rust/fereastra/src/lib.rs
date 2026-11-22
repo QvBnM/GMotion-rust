@@ -1380,7 +1380,19 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .map(|(b, _)| SharedString::from(b.as_str()))
             .collect::<Vec<_>>(),
     )));
-    ui.set_mai_multe_baze(baze.len() > 1);
+    // coloana Baza: dupa bazele comparate, nu dupa cele cu diferente. Cu
+    // doua baze si diferente doar intr-una, coloana disparea, iar randurile
+    // nu mai spuneau din ce baza sunt (F-A17).
+    ui.set_mai_multe_baze(
+        baze.len() > 1
+            || lista
+                .obiecte()
+                .iter()
+                .map(|o| o.baza.as_str())
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                > 1,
+    );
     let (nerevizuite, vizibile) = lista.rezumat_vizibile();
     ui.set_rezumat_lista(format!("{nerevizuite} {} {vizibile}", t.get_nerevizuite_din()).into());
     ui.set_coloana_sortata(cod_ordine(lista.ordine()));
@@ -1413,6 +1425,12 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .position(|&x| x == f)
             .map_or(-1, |i| i as i32)
     }));
+    // campul cautarii urmeaza filtrul: dupa o conectare noua nu mai arata
+    // textul de dinainte, care nu mai filtreaza nimic (F-A16). Doar cand
+    // difera, ca scrisul in camp sa nu-si piarda cursorul.
+    if ui.get_cautare().as_str() != lista.filtru().cautare {
+        ui.set_cautare(lista.filtru().cautare.as_str().into());
+    }
     ui.set_scor_min(format!("{:.0}", lista.filtru().scor_min).into());
     ui.set_scor_max(format!("{:.0}", lista.filtru().scor_max).into());
     let (deployate, total_deploy) = lista.progres_deploy();
@@ -1458,6 +1476,9 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             ui.set_obiect_nume(SharedString::new());
             ui.set_ce_difera(SharedString::new());
             ui.set_obiect_revizuit(false);
+            // nimic selectat: butonul nu poate ramane „In plan ✓" de la
+            // obiectul de dinainte (F-A16)
+            ui.set_obiect_in_plan(false);
         }
     }
 }
@@ -1894,6 +1915,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         }
         .into(),
     );
+    ui.set_eroare_comparare(c.eroare_comparare.as_deref().unwrap_or("").into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
     ui.set_ce_lipseste(
@@ -3221,6 +3243,62 @@ mod teste {
         assert_eq!(
             nume_tip_plural("tf ", texte::Limba::Romana),
             "Functii tabel"
+        );
+    }
+
+    /// F-A16: campul cautarii si butonul „In plan" nu raman de la lista de
+    /// dinainte (o conectare noua aduce o lista fara cautare si fara
+    /// selectie).
+    #[test]
+    fn lista_noua_nu_pastreaza_cautarea_si_planul_celei_vechi() {
+        let ui = fereastra_lista();
+        let mut veche = lista_de_proba();
+        veche.cauta("Stoc");
+        incarca_lista(&ui, &antet_lista(), &veche);
+        assert_eq!(ui.get_cautare(), "Stoc");
+        ui.set_obiect_in_plan(true);
+
+        let noua = model_lista::Lista::noua(Vec::new());
+        incarca_lista(&ui, &antet_lista(), &noua);
+        assert_eq!(
+            ui.get_cautare(),
+            "",
+            "cautarea veche nu mai filtreaza nimic"
+        );
+        assert!(!ui.get_obiect_in_plan(), "nimic selectat, nimic in plan");
+    }
+
+    /// F-A17: doua baze comparate, diferente doar intr-una — coloana Baza
+    /// ramane, altfel randurile nu spun din ce baza sunt.
+    #[test]
+    fn coloana_baza_ramane_cand_doar_o_baza_are_diferente() {
+        use model_lista::{Deploy, Obiect, Stare};
+        let ob = |baza: &str, stare: Stare| Obiect {
+            schema: "dbo".into(),
+            nume: "p".into(),
+            baza: baza.into(),
+            tip: "P".into(),
+            stare,
+            detalii: None,
+            revizuit: false,
+            in_plan: false,
+            omis: false,
+            scor: None,
+            deploy: Deploy::Nu,
+            folosit_de: None,
+            impact: None,
+        };
+        let ui = fereastra_lista();
+        let o_baza =
+            model_lista::Lista::noua(vec![ob("C1", Stare::Modificat), ob("C1", Stare::Identic)]);
+        incarca_lista(&ui, &antet_lista(), &o_baza);
+        assert!(!ui.get_mai_multe_baze());
+        let doua =
+            model_lista::Lista::noua(vec![ob("C1", Stare::Modificat), ob("C2", Stare::Identic)]);
+        incarca_lista(&ui, &antet_lista(), &doua);
+        assert!(
+            ui.get_mai_multe_baze(),
+            "C2 e comparata, chiar daca e identica"
         );
     }
 

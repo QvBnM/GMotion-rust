@@ -62,6 +62,10 @@ pub struct Stare {
     /// „Uneste ciclul cursor" din configurare: cu el porneste fiecare
     /// comparare (F-B5).
     pub uneste_implicit: bool,
+    /// Bara de mesaje a listei: exportul CSV, o recomparare esuata sau
+    /// anulata. Pe ecranul listei, o eroare pusa pe formularul de conectare
+    /// nu se vedea deloc (F-A8).
+    pub mesaj_lista: String,
 }
 
 /// Ce s-a intamplat cu compararea care rula, la o bataie de ceas.
@@ -94,6 +98,7 @@ impl Stare {
             detalii: None,
             salvat_la: String::new(),
             uneste_implicit: false,
+            mesaj_lista: String::new(),
         }
     }
 
@@ -186,6 +191,10 @@ impl Stare {
         self.deploy = None;
         self.rulare = None;
         self.referinta = String::new();
+        // nimic de la conexiunea de dinainte nu ramane pe ecran (F-A16)
+        self.salvat_la = String::new();
+        self.mesaj_lista = String::new();
+        self.conectare.eroare_comparare = None;
         self.conectare.recente = recente(&self.sesiuni);
         tracing::info!(target: "gmotion::app", "deconectat");
     }
@@ -212,7 +221,7 @@ impl Stare {
             ),
             None => {
                 // cheia sesiunii tine si serverul
-                let salvata = self.sesiuni.incarca(&r.server, &referinta).ok().flatten();
+                let salvata = self.sesiune_salvata(&r.server, &referinta);
                 // taburile fixate si coloana supravietuiesc inchiderii (etapa 16)
                 self.coloana_noua = salvata.as_ref().and_then(StareColoana::din_sesiune);
                 (
@@ -245,6 +254,39 @@ impl Stare {
         self.app = Some(app);
     }
 
+    /// Sesiunea salvata pentru `server` / `referinta`. Una care nu se poate
+    /// citi nu se mai inlocuieste tacut la prima salvare: se pune deoparte
+    /// (`.corupt`) si se spune pe lista (F-A15).
+    fn sesiune_salvata(
+        &mut self,
+        server: &str,
+        referinta: &str,
+    ) -> Option<gmotion_platforma::Sesiune> {
+        match self.sesiuni.incarca(server, referinta) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(target: "gmotion::app", eroare = %e, "sesiunea salvata nu se poate citi");
+                let l = self.conectare.limba;
+                let unde = match self.sesiuni.pune_deoparte(server, referinta) {
+                    Ok(Some(c)) => format!(
+                        " {} {}.",
+                        l.alege("Copia ei e in", "A copy is in"),
+                        c.display()
+                    ),
+                    _ => String::new(),
+                };
+                self.mesaj_lista = format!(
+                    "{}: {e}.{unde}",
+                    l.alege(
+                        "Progresul salvat nu s-a putut citi, revizuirea porneste de la zero",
+                        "The saved progress could not be read, the review starts over"
+                    )
+                );
+                None
+            }
+        }
+    }
+
     /// Compararea de pe celalalt fir, la o bataie de ceas.
     pub fn verifica_compararea(&mut self) -> Progres {
         let gata = match self.rulare.as_mut() {
@@ -255,19 +297,52 @@ impl Stare {
             return Progres::InCurs;
         };
         self.rulare = None;
-        match rezultat {
-            Ok(r) => self.primeste_compararea(*r),
+        let l = self.conectare.limba;
+        // o recomparare se face de pe lista: acolo se spune ce s-a intamplat,
+        // iar lista veche ramane (F-A8). Prima comparare, langa buton (F-A12).
+        let recomparare = self.app.is_some();
+        let mesaj = match rezultat {
+            Ok(r) => {
+                self.conectare.eroare_comparare = None;
+                self.mesaj_lista = String::new();
+                self.primeste_compararea(*r);
+                return Progres::Terminata;
+            }
             Err(e) if e == pornire::ANULAT => {
-                tracing::info!(target: "gmotion::app", "compararea a fost anulata");
-                let l = self.conectare.limba;
-                self.conectare.sursa.stare = StareConexiune::Eroare(
-                    l.alege("comparare anulata", "comparison cancelled").into(),
-                );
+                tracing::info!(target: "gmotion::app", recomparare, "compararea a fost anulata");
+                if recomparare {
+                    l.alege(
+                        "Recompararea a fost anulata; lista e cea de dinainte.",
+                        "The comparison was cancelled; the list is the previous one.",
+                    )
+                    .to_string()
+                } else {
+                    l.alege("Comparare anulata.", "Comparison cancelled.")
+                        .to_string()
+                }
             }
             Err(e) => {
-                tracing::warn!(target: "gmotion::app", eroare = %e, "compararea a esuat");
-                self.conectare.sursa.stare = StareConexiune::Eroare(e);
+                tracing::warn!(target: "gmotion::app", eroare = %e, recomparare, "compararea a esuat");
+                if recomparare {
+                    format!(
+                        "{}: {e}",
+                        l.alege(
+                            "Recompararea a esuat; lista e cea de dinainte",
+                            "The comparison failed; the list is the previous one"
+                        )
+                    )
+                } else {
+                    format!(
+                        "{}: {e}",
+                        l.alege("Compararea a esuat", "The comparison failed")
+                    )
+                }
             }
+        };
+        if recomparare {
+            self.mesaj_lista = mesaj;
+        } else {
+            self.conectare.eroare_comparare = Some(mesaj);
         }
         Progres::Terminata
     }
@@ -378,7 +453,10 @@ impl Stare {
                 tracing::debug!(target: "gmotion::app", "detaliile listei sunt calculate");
                 self.detalii = None;
             }
-            s_a_schimbat |= venite > 0;
+            if venite > 0 {
+                app.detalii_sosite();
+                s_a_schimbat = true;
+            }
         }
         s_a_schimbat
     }
@@ -555,6 +633,7 @@ impl Stare {
     /// recomparare pastreaza revizuirea: vezi `primeste_compararea`.
     pub fn compara(&mut self) {
         tracing::info!(target: "gmotion::app", recomparare = self.app.is_some(), "pornesc compararea");
+        self.conectare.eroare_comparare = None;
         self.rulare = Some(crate::fir::Rulare::porneste(self.conectare.clone()));
     }
 
@@ -612,12 +691,14 @@ impl Stare {
         Ok(())
     }
 
-    /// Exportul CSV al listei vizibile, in directorul de date. Mesajul pentru
-    /// bara listei; `None` inainte de prima comparare.
-    pub fn exporta_csv(&self) -> Option<String> {
-        let app = self.app.as_ref()?;
+    /// Exportul CSV al listei vizibile, in directorul de date; ce s-a
+    /// intamplat ajunge in bara listei. Nimic inainte de prima comparare.
+    pub fn exporta_csv(&mut self) {
+        let Some(app) = self.app.as_ref() else {
+            return;
+        };
         let cale = cale_csv(&self.referinta);
-        Some(match cale.parent().map(std::fs::create_dir_all) {
+        self.mesaj_lista = match cale.parent().map(std::fs::create_dir_all) {
             Some(Err(e)) => format!(
                 "{}: {e}",
                 self.conectare.limba.alege("nu pot scrie", "cannot write")
@@ -629,7 +710,16 @@ impl Stare {
                 }
                 Err(e) => e,
             },
-        })
+        };
+    }
+
+    /// Ce scrie in bara listei: un „In plan" refuzat bate mesajul tinut.
+    pub fn text_bara_lista(&self, limba: gmotion_core::Limba) -> String {
+        self.app
+            .as_ref()
+            .and_then(|a| text_refuz_in_plan(a, limba))
+            .map(str::to_string)
+            .unwrap_or_else(|| self.mesaj_lista.clone())
     }
 
     // --- planul de deploy
@@ -1139,6 +1229,99 @@ mod teste {
         assert!(s.rulare.is_some());
         asteapta(&mut s);
         assert!(s.app.is_some());
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-A12: o comparare esuata se spune langa buton, nu pe martor.
+    #[test]
+    fn prima_comparare_esuata_se_spune_langa_buton() {
+        let (mut s, d) = stare("esuata");
+        s.conectare.baza.baza = "NuExista".into();
+        s.compara();
+        asteapta(&mut s);
+        assert!(s.app.is_none());
+        let e = s.conectare.eroare_comparare.clone().expect("eroarea");
+        assert!(e.contains("NuExista"), "{e}");
+        assert!(
+            !matches!(s.conectare.sursa.stare, StareConexiune::Eroare(_)),
+            "martorul n-are nicio vina"
+        );
+        // o comparare noua sterge eroarea veche
+        s.conectare.baza.baza = "Client".into();
+        s.compara();
+        assert!(s.conectare.eroare_comparare.is_none());
+        asteapta(&mut s);
+        assert!(s.app.is_some());
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-A8: o recomparare esuata se spune pe lista, iar lista ramane.
+    #[test]
+    fn recompararea_esuata_lasa_lista_si_spune_pe_ea() {
+        let (mut s, d) = stare("recomparare-esuata");
+        let r = comparata(&s);
+        s.primeste_compararea(r);
+        s.app.as_mut().unwrap().comanda(Comanda::ComutaInPlan);
+        s.conectare.baza.baza = "NuExista".into();
+        s.compara();
+        asteapta(&mut s);
+        assert!(s.conectare.eroare_comparare.is_none());
+        let bara = s.text_bara_lista(gmotion_core::Limba::Romana);
+        assert!(bara.starts_with("Recompararea a esuat"), "{bara}");
+        assert_eq!(
+            s.app.as_ref().unwrap().lista().in_plan().len(),
+            1,
+            "lista veche"
+        );
+        // dupa o recomparare reusita, mesajul pleaca, iar planul ramane
+        s.conectare.baza.baza = "Client".into();
+        s.compara();
+        asteapta(&mut s);
+        assert!(s.mesaj_lista.is_empty());
+        assert_eq!(s.app.as_ref().unwrap().lista().in_plan().len(), 1);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-A15: o sesiune care nu se citeste nu se suprascrie tacut.
+    #[test]
+    fn sesiunea_stricata_se_pune_deoparte_si_se_spune() {
+        let (mut s, d) = stare("corupta");
+        let r = comparata(&s);
+        s.primeste_compararea(r);
+        s.salveaza(None);
+        let fisier = std::fs::read_dir(d.join("sesiuni"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        std::fs::write(&fisier, b"stricat").unwrap();
+        s.deconecteaza();
+        s.compara();
+        asteapta(&mut s);
+        let bara = s.text_bara_lista(gmotion_core::Limba::Romana);
+        assert!(
+            bara.contains("nu s-a putut citi") && bara.contains(".corupt"),
+            "{bara}"
+        );
+        let mut deoparte = fisier.into_os_string();
+        deoparte.push(".corupt");
+        assert_eq!(std::fs::read(&deoparte).unwrap(), b"stricat");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// F-A16: dupa deconectare nu ramane nimic de la conexiunea veche.
+    #[test]
+    fn deconectarea_goleste_mesajele() {
+        let (mut s, d) = stare("goleste");
+        let r = comparata(&s);
+        s.primeste_compararea(r);
+        s.salveaza(None);
+        s.mesaj_lista = "ceva".into();
+        s.conectare.eroare_comparare = Some("veche".into());
+        s.deconecteaza();
+        assert!(s.salvat_la.is_empty() && s.mesaj_lista.is_empty());
+        assert!(s.conectare.eroare_comparare.is_none());
         std::fs::remove_dir_all(&d).ok();
     }
 

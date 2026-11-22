@@ -339,11 +339,8 @@ fn ruleaza() -> Result<(), String> {
             // referinta cu care a rulat compararea, nu ce scrie acum in
             // formular: formularul se poate schimba intre timp (F-A3)
             let referinta = s.referinta.clone();
-            let baze = s
-                .app
-                .as_ref()
-                .map(|a| a.baze())
-                .unwrap_or_else(|| vec![s.conectare.baza.baza.clone()]);
+            let baze = s.baze();
+            let bara = s.text_bara_lista(limba);
             // antetul arata o singura tinta: cu mai multe, cate sunt
             let baza = match baze.as_slice() {
                 [una] => una.clone(),
@@ -365,9 +362,7 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
-            if let Some(m) = gmotion_app::stare::text_refuz_in_plan(app, limba) {
-                l_ui.set_mesaj_csv(m.into());
-            }
+            l_ui.set_mesaj_csv(bara.into());
             match app.texte_obiect() {
                 Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
                 None => goleste_previzualizarea(&l_ui),
@@ -820,12 +815,7 @@ fn ruleaza() -> Result<(), String> {
             Comanda::FiltreazaScor(n(&min, 0.0), n(&max, 100.0))
         }));
         pe_comanda!(lista_ui.on_pune_vizibilele_in_plan(|cu| Comanda::PuneVizibileleInPlan(cu)));
-        let l = lista_ui.as_weak();
-        pe_stare!(lista_ui.on_exporta_csv(|st| {
-            if let (Some(mesaj), Some(l)) = (st.exporta_csv(), l.upgrade()) {
-                l.set_mesaj_csv(mesaj.into());
-            }
-        }));
+        pe_stare!(lista_ui.on_exporta_csv(|st| st.exporta_csv()));
     }
 
     // --- planul de deploy

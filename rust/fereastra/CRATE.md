@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: c41d190b2e86ac39 -->
+<!-- api-hash: 6db98174a84ad1a4 -->
 
 ## Rol
 
@@ -45,9 +45,9 @@ si editorul de diferente (etapa 8).
 | `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_coloana_lista(ui, lista, arbore)`, `NodUi` | arborele ca Object Explorer, in coloana din stanga editorului: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari; `Arbore::cauta` filtreaza doar arborele (cautarea din coloana), cu toate nodurile deschise cat se cauta |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_la, picteaza_bara, picteaza_bara_la, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}` | harta (`h` din lista, ecran separat): o coloana pe tip, latimi apropiate (`n^0,25`), bara de proportie, patrate pe blocuri de 5 randuri pictate la pixelii fizici, zoom pe trepte ca sa intre in ecran; clic → rand |
 | `incarca_harta(ui, selectat)`, `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | harta in fereastra: deschiderea, reasezarea la redimensionare, bula; calculul patratului e doar in `harta::indice_la` |
-| `model_lista::Lista::{pune_detalii_cheie, chei_fara_detalii}` | detaliile calculate pe alt fir, puse dupa cheie (filtrul se poate schimba intre timp) |
+| `model_lista::Lista::{pune_detalii_cheie, chei_fara_detalii, detalii_sosite}` | detaliile calculate pe alt fir, puse dupa cheie (filtrul se poate schimba intre timp); `detalii_sosite` resorteaza o lista sortata dupa Linii / Difera in (F-A6) |
 | `ordine_din_cod(cod)`, `latime_autofit(lista, coloana)` | sortarea pe capul de coloana si latimea ceruta la dublu clic pe marginea lui |
-| `model_lista::Lista::preia_vederea` | filtrul, ordinea si selectia altei liste (recomparare) |
+| `model_lista::Lista::preia_vederea` | filtrul, ordinea, selectia si ce e in plan (daca se mai poate deploia) ale altei liste: recomparare (F-A8) |
 | `dublu_clic::DubluClic` | dublul clic numarat in Rust din doua clicuri simple pe aceeasi tinta (500 ms); `double-clicked` din Slint nu ajungea pe Windows |
 | `taburi_ui(taburi, editat)`, `incarca_taburi(ui, taburi, editat)`, `TabUi` | bara de taburi a editorului: fixatele, apoi previzualizarea (inclinata); punctul pe cele editate; `+N` cand nu incap |
 | `model_taburi::{Taburi, Activ, Pas, Refuz, Cheie, MAX_FIXATE, taie_pe_mijloc}` | taburile editorului (etapa 16): previzualizare + cel mult 8 fixate, `j` / `k` care sar peste fixate, `Ctrl+W` spre vecinul din stanga; numele taiat pe mijloc |

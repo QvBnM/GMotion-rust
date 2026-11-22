@@ -587,6 +587,8 @@ export component FereastraConectare inherits Window {
     in property <string> certificat;
     // gol, sau ca martorul si modificata sunt pe aceeasi instanta (15 F)
     in property <string> nota-instanta;
+    // de ce n-a mers ultima comparare; gol cand a mers sau n-a rulat
+    in property <string> eroare-comparare;
     in property <string> instantaneu;
     in property <[RecentaUi]> recente;
     /// Ce lipseste ca sa se poata compara; gol = se poate.
@@ -829,6 +831,14 @@ export component FereastraConectare inherits Window {
                         font-size: 12px;
                         color: root.ce-lipseste == "" ? Tema.text-secundar : Tema.mod-text;
                         horizontal-alignment: center;
+                    }
+                    if root.eroare-comparare != "": Text {
+                        text: root.eroare-comparare;
+                        font-family: Tema.font-ui;
+                        font-size: 12px;
+                        color: Tema.del-text;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
                     }
                     if root.nota-instanta != "": Text {
                         text: root.nota-instanta;

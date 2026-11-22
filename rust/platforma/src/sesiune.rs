@@ -295,6 +295,31 @@ impl Sesiuni {
         Ok(Some(s))
     }
 
+    /// O sesiune care nu se poate citi se muta deoparte, langa ea, cu
+    /// sufixul `.corupt`, ca salvarea urmatoare sa nu o suprascrie tacut si
+    /// sa se poata trimite la depanare (F-A15). Intoarce noua cale; `None`
+    /// daca nu exista fisier. O copie `.corupt` mai veche se inlocuieste.
+    pub fn pune_deoparte(&self, server: &str, referinta: &str) -> Rezultat<Option<PathBuf>> {
+        let cale = self.cale(server, referinta);
+        let mut nume = cale.clone().into_os_string();
+        nume.push(".corupt");
+        let deoparte = PathBuf::from(nume);
+        match std::fs::rename(&cale, &deoparte) {
+            Ok(()) => {
+                tracing::warn!(
+                    target: "gmotion::platforma",
+                    cale = %deoparte.display(), "sesiunea necitibila a fost pusa deoparte"
+                );
+                Ok(Some(deoparte))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(Eroare::ScriereSesiune {
+                cale: cale.display().to_string(),
+                detaliu: e.to_string(),
+            }),
+        }
+    }
+
     pub fn sterge(&self, server: &str, referinta: &str) -> Rezultat<bool> {
         self.migreaza(referinta);
         let cale = self.cale(server, referinta);
@@ -362,6 +387,28 @@ mod teste {
         assert!(cale.starts_with(&d), "{}", cale.display());
         assert!(s.incarca("SRV", "Ref").unwrap().is_some());
         assert!(Sesiuni::in_director("../afara", d.clone()).is_err());
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn o_sesiune_stricata_se_pune_deoparte_nu_se_suprascrie() {
+        let d = std::env::temp_dir().join(format!("gmotion-corupt-{}", std::process::id()));
+        std::fs::remove_dir_all(&d).ok();
+        let s = Sesiuni::in_director("diff-obiecte", d.clone()).unwrap();
+        assert_eq!(
+            s.pune_deoparte("SRV", "Ref").unwrap(),
+            None,
+            "nimic de mutat"
+        );
+        let cale = s.salveaza(&Sesiune::noua("SRV", "SQL", "Ref", "")).unwrap();
+        std::fs::write(&cale, b"stricat").unwrap();
+        assert!(s.incarca("SRV", "Ref").is_err());
+        let deoparte = s.pune_deoparte("SRV", "Ref").unwrap().expect("mutata");
+        assert_eq!(std::fs::read(&deoparte).unwrap(), b"stricat");
+        assert!(deoparte.to_string_lossy().ends_with(".dat.corupt"));
+        assert!(s.incarca("SRV", "Ref").unwrap().is_none(), "locul e liber");
+        // si nu apare in lista sesiunilor
+        assert!(s.lista().unwrap().is_empty());
         std::fs::remove_dir_all(&d).ok();
     }
 
