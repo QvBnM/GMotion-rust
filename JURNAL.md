@@ -1643,3 +1643,25 @@ fiecare reindentare de SQL dinamic redevine „modificat", problema din
 **Fixture.** Nu s-a regenerat: niciun caz din `referinta/cazuri.json` nu are
 spatii pe acelasi rand intr-un string, conformitatea trece neschimbata.
 Regula e tinuta de testele din `normalizare.rs` si `diff.rs`.
+
+---
+
+## 2026-11-22 — Plasarea nu mai scrie peste blocuri imperecheate (A1)
+
+**Context.** Auditul din 2026-11-22: `plasari` lua sugestia lui `sugereaza`
+(cel mai apropiat bloc din **toata** tinta) ca loc de scriere. Un bloc din
+Martor care semana cu unul deja egal in Modificata il inlocuia: „Aplica" pe
+o diferenta, tragerea pe locul sugerat si `editare --aplica` stergeau cod
+identic, iar textul ajungea in deploy. 31% din perechile generate nu
+ajungeau la Martor aplicand diferentele una cate una.
+
+**Decizie.** Un bloc fara pereche inlocuieste doar un bloc al tintei care e
+si el fara pereche, si doar daca nu e identic (normalizat) — un bloc identic
+pe alt loc e o mutare: se insereaza unde il vrea Martorul, iar copia din
+tinta ramane diferenta ei. Altfel se insereaza in golul lui, cu grupul.
+`sugereaza` ramane ca in v3.4 (paritatea din `tests/plasare.rs`); se schimba
+doar ce face `plasari` cu raspunsul. Antetul (pozitia 0) se potriveste ca
+inainte.
+
+**Alternative.** Restrangerea candidatilor chiar in `sugereaza`: ar fi rupt
+paritatea cu sugestiile v3.4 fara castig, fiindca doar `plasari` scrie.

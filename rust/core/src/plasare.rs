@@ -260,6 +260,21 @@ pub struct Plasare {
 /// decat arata editorul. [`sugereaza`] raspunde doar pentru blocurile ramase
 /// fara pereche — exact intrebarea pe care diff-ul n-o acopera.
 pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
+    // Blocurile din tinta pe care le poate inlocui un bloc fara pereche: doar
+    // cele care sunt si ele fara pereche (exista doar in tinta). Unul deja
+    // imperecheat (egal sau modificat) e al altui bloc din martor; scris peste
+    // el, codul lui dispare (A1 din `cercetare/audit-qa-2026-11-22.md`). v3.4
+    // avea aceeasi sugestie, dar doar ca indemn, nu ca loc de scriere.
+    let mut libere = vec![false; blocuri_tinta.len()];
+    let mut k = 0usize;
+    for r in randuri {
+        if r.dreapta.is_some() {
+            if let Some(l) = libere.get_mut(k) {
+                *l = r.stanga.is_none();
+            }
+            k += 1;
+        }
+    }
     let mut out = Vec::new();
     let mut bloc_tinta_urmator = 0usize;
     for (pozitie, r) in randuri.iter().enumerate() {
@@ -287,7 +302,22 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
                     continue;
                 };
                 match s.tinta {
-                    Tinta::Bloc { indice, scor } => (true, indice, scor, s.randuri),
+                    // un bloc identic deja in tinta, dar pe alt loc, e o mutare:
+                    // inlocuit pe loc n-ar schimba nimic, deci se insereaza unde
+                    // il cere martorul, iar copia din tinta ramane diferenta ei
+                    Tinta::Bloc { indice, scor }
+                        if pozitie == 0
+                            || (libere.get(indice).copied().unwrap_or(false)
+                                && normalizeaza(&blocuri_tinta[indice])
+                                    != normalizeaza(&s.text)) =>
+                    {
+                        (true, indice, scor, s.randuri)
+                    }
+                    Tinta::Bloc { scor, .. } => {
+                        let (indici, _) = grup_plasare(randuri, pozitie);
+                        let gol = gol_sugerat(randuri, pozitie, blocuri_tinta.len());
+                        (false, gol, scor, indici)
+                    }
                     Tinta::Gol { indice, scor } => (false, indice, scor, s.randuri),
                 }
             }
