@@ -45,7 +45,11 @@ static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
         r"SET\s+(?:DATEFIRST|DATEFORMAT|DEADLOCK_PRIORITY|LANGUAGE|LOCK_TIMEOUT|ROWCOUNT|TEXTSIZE|CONTEXT_INFO)\s+[^=\s]|",
         r"SET\s+\w+(?:\s*,\s*\w+)*\s+(?:ON|OFF)\s*;?\s*$|",
         r"[A-Za-z_][0-9A-Za-z_]*:\s*$|",
-        r";?\s*WITH\s+[0-9A-Za-z_#\[\]]+\s*(?:\([^)]*\)\s*)?AS\s*(?:\(|$)",
+        r";?\s*WITH\s+[0-9A-Za-z_#\[\]]+\s*(?:\([^)]*\)\s*)?AS\s*(?:\(|$)|",
+        // `WITH` singur pe linie si `WITH XMLNAMESPACES`: tot inceput de CTE,
+        // altfel se lipeau de instructiunea dinainte si se desparteau de cea
+        // care ii foloseste (C3 din `cercetare/audit-qa-2026-11-22.md`)
+        r";?\s*WITH\s*$|;?\s*WITH\s+XMLNAMESPACES\b",
         r")"
     ))
     .unwrap()
@@ -83,6 +87,8 @@ static RE_INCEPE_INSERT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^insert\b")
 static RE_SURSA_INSERT: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\b(?:select|exec|execute)\b").unwrap());
 static RE_INCEPE_UPDATE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^update\b").unwrap());
+static RE_UPDATE_STATISTICS: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^update\s+statistics\b").unwrap());
 static RE_SET: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bset\b").unwrap());
 static RE_POATE_CONTINUA: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)^(?:declare|insert|update|merge)\b").unwrap());
@@ -156,7 +162,9 @@ fn bloc_este_continuat(curent: &str) -> bool {
     if RE_INCEPE_MERGE.is_match(&n) {
         return !RE_PUNCT_VIRGULA_FINAL.is_match(&n);
     }
-    if RE_INCEPE_UPDATE.is_match(&n) && !RE_SET.is_match(&n) {
+    // `UPDATE STATISTICS t` e complet: n-are `SET`, si asteptat ar fi
+    // inghitit tot restul obiectului intr-un bloc (C3)
+    if RE_INCEPE_UPDATE.is_match(&n) && !RE_SET.is_match(&n) && !RE_UPDATE_STATISTICS.is_match(&n) {
         return true;
     }
     if RE_INCEPE_INSERT.is_match(&n)
@@ -732,6 +740,35 @@ mod teste {
             false,
         );
         assert_eq!(b.len(), 9, "{b:?}");
+    }
+
+    #[test]
+    fn update_statistics_si_cte_cu_with_singur_se_taie_corect() {
+        assert_eq!(
+            split_statements(
+                "UPDATE STATISTICS dbo.T\nSELECT 1\nDELETE FROM u\nEXEC p",
+                false
+            )
+            .len(),
+            4
+        );
+        let b = split_statements(
+            "SET @a = 1\n;WITH\nx AS (SELECT 1 a)\nSELECT * FROM x",
+            false,
+        );
+        assert_eq!(
+            b,
+            ["SET @a = 1", ";WITH\nx AS (SELECT 1 a)\nSELECT * FROM x"]
+        );
+        let b = split_statements(
+            "SET @a = 1\n;WITH XMLNAMESPACES ('u' AS n)\nSELECT 1 AS x FOR XML PATH",
+            false,
+        );
+        assert_eq!(b.len(), 2, "{b:?}");
+        assert!(
+            b[1].starts_with(";WITH XMLNAMESPACES") && b[1].contains("SELECT 1"),
+            "{b:?}"
+        );
     }
 
     #[test]

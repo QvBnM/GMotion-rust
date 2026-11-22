@@ -137,6 +137,12 @@ fn este_cosmetic(s: &str) -> bool {
 /// Diferentele din interiorul unui bloc, pe token-uri.
 /// Returneaza `(segmente_referinta, segmente_tinta)`.
 fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
+    diff_intra_cu(a, b, true)
+}
+
+/// Ca [`diff_intra`]; cu `filtru_cosmetic = false` se aprinde orice bucata
+/// schimbata, si spatiile sau `dbo.`.
+fn diff_intra_cu(a: &str, b: &str, filtru_cosmetic: bool) -> (Vec<Segment>, Vec<Segment>) {
     let ta = tokenizeaza(a);
     let tb = tokenizeaza(b);
     let la = tokeni_in_literal(a);
@@ -150,6 +156,21 @@ fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
         let va: String = ta[op.i1..op.i2].concat();
         let vb: String = tb[op.j1..op.j2].concat();
         let mut schimbat = op.tag != Tag::Equal;
+        if !filtru_cosmetic {
+            if !va.is_empty() {
+                sr.push(Segment {
+                    text: va,
+                    schimbat: schimbat.then_some(FelSchimbare::Sters),
+                });
+            }
+            if !vb.is_empty() {
+                sc.push(Segment {
+                    text: vb,
+                    schimbat: schimbat.then_some(FelSchimbare::Adaugat),
+                });
+            }
+            continue;
+        }
         let in_literal = la[op.i1..op.i2].iter().any(|&x| x) || lb[op.j1..op.j2].iter().any(|&x| x);
         // in string, reindentarea (spatii care trec de rand, de ambele parti)
         // e cosmetica, ca in `norm`; pe acelasi rand, tab in loc de spatiu sau
@@ -434,7 +455,16 @@ pub fn diff_aliniat_cu_raport(
         let dreapta = r.j.map(|j| sn[j].clone());
         let (seg_stanga, seg_dreapta) = match (r.tip, r.i, r.j) {
             (TipDiferenta::Modificat, Some(i), Some(j)) => {
-                let (ss, ds) = diff_intra(&sv[i], &sn[j]);
+                let (mut ss, mut ds) = diff_intra(&sv[i], &sn[j]);
+                // blocul difera (normalizarea o spune), dar evidentierea a
+                // socotit cosmetic tot ce s-a schimbat (`Sales.dbo.X` /
+                // `Sales.X`, `a,b` / `a, b`): fara nimic aprins, editorul
+                // spunea „fara diferente" la un obiect listat diferit (F-M1).
+                // Atunci se aprinde si ce e cosmetic, ca sa se vada ce difera.
+                let nimic = |v: &[Segment]| v.iter().all(|s| s.schimbat.is_none());
+                if nimic(&ss) && nimic(&ds) {
+                    (ss, ds) = diff_intra_cu(&sv[i], &sn[j], false);
+                }
                 (Some(ss), Some(ds))
             }
             _ => (None, None),
@@ -573,12 +603,30 @@ mod teste {
         );
         let seg = r[0].seg_dreapta.as_ref().expect("segmente");
         assert!(seg.iter().any(|s| s.schimbat.is_some()), "{seg:?}");
+        // un spatiu in cod nu se aprinde cand mai e altceva de aratat...
+        let r = diff_aliniat(
+            "SELECT a,b FROM t WHERE x = 1",
+            "SELECT a,  b FROM t WHERE x = 2",
+        );
+        let aprinse: Vec<&str> = r[0]
+            .seg_dreapta
+            .iter()
+            .flatten()
+            .filter(|g| g.schimbat.is_some())
+            .map(|g| g.text.as_str())
+            .collect();
+        assert!(
+            !aprinse.is_empty() && aprinse.iter().all(|t| !t.trim().is_empty()),
+            "{aprinse:?}"
+        );
+        // ...dar cand e singura diferenta se aprinde, altfel blocul
+        // „modificat" n-ar arata nimic (F-M1)
         let r = diff_aliniat("SELECT a,b FROM t", "SELECT a,  b FROM t");
         assert!(
-            r.iter().all(|x| x
+            r.iter().any(|x| x
                 .seg_dreapta
                 .as_ref()
-                .is_none_or(|s| s.iter().all(|g| g.schimbat.is_none()))),
+                .is_some_and(|s| s.iter().any(|g| g.schimbat.is_some()))),
             "{r:?}"
         );
     }
@@ -643,6 +691,30 @@ mod teste {
             !m.is_empty(),
             "tabul in loc de spatiu, pe acelasi rand, se vede"
         );
+    }
+
+    /// F-M1: un bloc modificat are mereu ceva aprins.
+    #[test]
+    fn un_bloc_modificat_are_mereu_ceva_aprins() {
+        for (a, b) in [
+            (
+                "SELECT a FROM Sales.dbo.Orders",
+                "SELECT a FROM Sales.Orders",
+            ),
+            ("SELECT [a b] FROM t", "SELECT a b FROM t"),
+            ("SELECT * FROM f(nolock)", "SELECT * FROM f()"),
+        ] {
+            let r = diff_aliniat(a, b);
+            assert_eq!(r[0].tip, TipDiferenta::Modificat, "{a}");
+            let aprinse = r[0]
+                .seg_stanga
+                .iter()
+                .chain(r[0].seg_dreapta.iter())
+                .flatten()
+                .filter(|s| s.schimbat.is_some())
+                .count();
+            assert!(aprinse > 0, "{a:?} / {b:?}: nimic aprins");
+        }
     }
 
     #[test]
