@@ -165,6 +165,7 @@ mod teste {
                 utilizator: Some("sa".into()),
                 parola_fisier: None,
                 parola_stdin: false,
+                rezolvata: Default::default(),
             },
         };
         assert_eq!(a.eticheta_server().as_deref(), Some(r"TS2409\MIHAIG"));
@@ -185,6 +186,7 @@ mod teste {
                 utilizator: None,
                 parola_fisier: None,
                 parola_stdin: false,
+                rezolvata: Default::default(),
             },
         };
         let e = eroarea(&a);
@@ -203,6 +205,7 @@ mod teste {
                 utilizator: None,
                 parola_fisier: None,
                 parola_stdin: false,
+                rezolvata: Default::default(),
             },
         };
         let e = eroarea(&a);

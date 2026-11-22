@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: ee9231dbe51c5a5a -->
+<!-- api-hash: 624d8b63bf6726d5 -->
 
 ## Rol
 
@@ -56,7 +56,13 @@ autoritati de certificare.
    merg la erori. In mod text, progresul merge la iesirea standard.
 4. **Cerintele modulului se verifica inainte de a citi ceva** — altfel s-ar citi
    degeaba, posibil minute.
-5. **Marcajul de timp se da catre modul, nu se citeste din ceas acolo**, ca
+5. **O sesiune care exista dar nu se poate citi opreste `deploy`, `plan` si
+   `export`.** Fara ea, omisele ar ajunge in deploy si textele finale s-ar
+   pierde fara semn (B1, audit 2026-11-22). Lipsa sesiunii nu e eroare.
+6. **Autentificarea se rezolva o singura data pe rulare** (`ArgumenteAuth::
+   rezolva`): sursa se deschide de mai multe ori, iar `--parola-stdin` se
+   poate citi o singura data (B3).
+7. **Marcajul de timp se da catre modul, nu se citeste din ceas acolo**, ca
    generatorul de deploy sa ramana testabil.
 6. **Un instantaneu retine doar numele serverului** (`SRV\INST` sau
    `SRV,PORT`, din `ArgumenteSursa::eticheta_server`), nu descrierea pentru
