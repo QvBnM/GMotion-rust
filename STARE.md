@@ -6,7 +6,7 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-21 · branch `claude/upbeat-ramanujan-dm6j8c`
+**Actualizat:** 2026-11-22 · branch `claude/dreamy-ritchie-jdnfct`
 **Poarta:** verde (614 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
@@ -46,6 +46,14 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-22, audit nou: `cercetare/audit-qa-2026-11-22.md` (nota 6/10).**
+Primul lucru: **A1** — plasarea unui bloc scrie peste un bloc *Egal* din
+Modificata (`core/src/plasare.rs`, `sugereaza` / `cel_mai_apropiat`), deci
+„Aplica" pe o diferenta, tragerea si `editare --aplica` pot sterge cod identic
+care ajunge apoi in deploy. Reparatia si invariantul sunt in audit. Apoi A2,
+A3, B1-B4, in ordinea de la finalul auditului. C2 (spatiere in siruri)
+asteapta decizia lui Mihai.
 
 **2026-11-21, de probat de Mihai:** segmentarea nu mai lipeste `BEGIN` /
 `END` de vecini (vezi `JURNAL.md`). In `gmotion-ui`, pe
