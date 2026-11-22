@@ -727,6 +727,18 @@ fn nume_referite(cod: &str) -> Vec<Vec<String>> {
                     .replace("]]", "]");
                 parti.push(interior.to_lowercase());
             }
+            // `"dbo"."f"`: tot un nume (cu QUOTED_IDENTIFIER ON, implicitul);
+            // inainte era separator, deci dependenta se pierdea din ordinea
+            // de deploy (F-D11)
+            Fel::IdentificatorGhilimele => {
+                inchide_cuvant(&mut cuvant, &mut parti);
+                let interior = text
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix('"'))
+                    .unwrap_or(text)
+                    .replace("\"\"", "\"");
+                parti.push(interior.to_lowercase());
+            }
             _ => {
                 inchide_cuvant(&mut cuvant, &mut parti);
                 inchide_nume(&mut parti, &mut nume);
@@ -1136,9 +1148,12 @@ fn scrie_deploy(
     match mod_impartire {
         ModImpartire::PerObiect => {
             for (baza, obiecte) in pe_baza {
+                // cate cifre cere ultimul numar: peste 999 de obiecte,
+                // `1000_` venea alfabetic inaintea lui `101_` (F-D9)
+                let latime = obiecte.len().to_string().len().max(3);
                 for (i, o) in obiecte.iter().enumerate() {
                     let nume = format!(
-                        "{:03}_{}_{}_{}",
+                        "{:0latime$}_{}_{}_{}",
                         i + 1,
                         slug(baza),
                         tip_nume(&o.tip),
@@ -1151,10 +1166,11 @@ fn scrie_deploy(
         ModImpartire::CateN(n) => {
             let n = n.max(1);
             for (baza, obiecte) in pe_baza {
+                let latime = obiecte.len().div_ceil(n).to_string().len().max(2);
                 for (parte, grup) in obiecte.chunks(n).enumerate() {
                     let primul = parte * n + 1;
                     let nume = format!(
-                        "{}_part{:02}_obj{}-{}",
+                        "{}_part{:0latime$}_obj{}-{}",
                         slug(baza),
                         parte + 1,
                         primul,
@@ -1737,6 +1753,47 @@ mod teste {
             ),
         ];
         assert_eq!(ordonat(&obiecte), ["dbo.p3", "dbo.p2", "dbo.p1"]);
+    }
+
+    /// F-D11: `"dbo"."f"` e o referinta ca `[dbo].[f]`.
+    #[test]
+    fn referintele_cu_ghilimele_conteaza() {
+        let obiecte = [
+            o_tip("dbo.a", "P", "CREATE PROC dbo.a AS SELECT \"dbo\".\"f\"()"),
+            o_tip(
+                "dbo.f",
+                "FN",
+                "CREATE FUNCTION dbo.f() RETURNS INT AS BEGIN RETURN 1 END",
+            ),
+        ];
+        assert_eq!(ordonat(&obiecte), ["dbo.f", "dbo.a"]);
+    }
+
+    /// F-D9: peste 999 de obiecte, numerele au patru cifre, deci ordinea
+    /// alfabetica a fisierelor ramane ordinea din script.
+    #[test]
+    fn numerotarea_tine_ordinea_alfabetica_peste_999() {
+        let d = dir("o-mie");
+        let obiecte: Vec<DeDeployat> = (0..1001)
+            .map(|i| DeDeployat {
+                obiect: format!("dbo.p{i}"),
+                tip: "P".into(),
+                cod: format!("CREATE PROCEDURE dbo.p{i} AS SELECT {i}"),
+                setari: None,
+            })
+            .collect();
+        let m = BTreeMap::from([("Client".to_string(), obiecte)]);
+        let r = scrie(&d, "Ref", &m, ModImpartire::PerObiect, 0, "a").unwrap();
+        let mut nume: Vec<String> = r
+            .fisiere
+            .iter()
+            .map(|f| f.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        let in_ordine = nume.clone();
+        nume.sort();
+        assert_eq!(nume, in_ordine);
+        assert!(in_ordine[0].starts_with("0001_"), "{}", in_ordine[0]);
+        std::fs::remove_dir_all(&d).ok();
     }
 
     #[test]
