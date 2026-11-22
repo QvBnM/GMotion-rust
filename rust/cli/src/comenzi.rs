@@ -815,6 +815,12 @@ pub fn editare(
     let diferente: Vec<usize> = grupuri.iter().map(|g| g[0]).collect();
     let manual = editari.text_final(&rand).is_some_and(|t| t.manual);
     let editat = editari.text_final(&rand).is_some();
+    // ce nu se inchide in textul final (etapa 26); baza neatinsa se compila
+    let probleme = if editat {
+        gmotion_core::structura::verifica(&curent)
+    } else {
+        Vec::new()
+    };
     if format == Format::Json {
         let lista_dif: Vec<serde_json::Value> = diferente
             .iter()
@@ -837,6 +843,10 @@ pub fn editare(
             "manual": manual,
             "diferente": lista_dif,
             "text_final": if editat { Some(curent.as_str()) } else { None },
+            "probleme": probleme.iter().map(|p| serde_json::json!({
+                "linie": p.linie,
+                "text": p.to_string(),
+            })).collect::<Vec<_>>(),
         }))
         .map_err(|e| e.to_string());
     }
@@ -854,6 +864,9 @@ pub fn editare(
         },
         if manual { ", scris si de mana" } else { "" }
     );
+    for p in &probleme {
+        println!("Atentie: textul final nu se mai compileaza: {p}.");
+    }
     if diferente.is_empty() {
         println!("Nicio diferenta ramasa fata de {referinta}.");
     }

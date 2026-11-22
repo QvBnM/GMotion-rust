@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 90eb9535c068c256 -->
+<!-- api-hash: 8ffbab85b3e10d40 -->
 
 ## Rol
 
@@ -27,6 +27,7 @@ proiectul.
 | `segmente(text) -> Vec<Segment>` | granitele cod / string / identificator / comentariu, in octeti |
 | `linii_go(text)` | liniile pe care `sqlcmd` le-ar lua drept separator `GO`, inclusiv `GO -- comentariu` |
 | `Segment`, `Fel` | tipurile rezultatului |
+| `structura::verifica(text) -> Vec<Problema>` (`Problema`, `FelProblema`, `Bloc`) | ce nu se inchide in text: `BEGIN`/`END`, `TRY`/`CATCH`, `CASE`, paranteze, siruri / identificatori / comentarii, `GO`; cu linia; fara fals pozitiv pe obiectele reale din `testsimilitudine.json` (etapa 26) |
 
 ### `normalizare`
 | Functie | Ce face |

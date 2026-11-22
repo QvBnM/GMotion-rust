@@ -414,6 +414,7 @@ fn ruleaza() -> Result<(), String> {
                     let (editat, _) = app.stare_text_final();
                     let (text_sursa, text_final) = app.texte_curente().unwrap_or_default();
                     drop(model);
+                    let probleme = app.probleme_text_final();
                     incarca_editarea(
                         &e_ui,
                         &StareEditare {
@@ -427,6 +428,7 @@ fn ruleaza() -> Result<(), String> {
                             text_sursa: &text_sursa,
                             text_final: &text_final,
                             salvat: &salvat,
+                            probleme: &probleme,
                         },
                     );
                 }

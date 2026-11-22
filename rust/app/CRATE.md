@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: d03e5c6c633d850c -->
+<!-- api-hash: 7e877f525fa91be6 -->
 
 ## Rol
 
@@ -46,6 +46,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
 | `Aplicatie::arbore()`; comenzile `ComutaNod`, `CautaInArbore` | arborele din coloana editorului (etapa 19); selectia isi deschide singura dosarul; `j` / `k` din editor merg in ordinea lui |
 | `Aplicatie::{lucrari_detalii, pune_detalii, detalii_sosite}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
+| `Aplicatie::probleme_text_final()` | ce nu se inchide in textul final al obiectului curent (gol fara text final); editorul il arata (etapa 26) |
 | `stare::Stare` | starea binarului `gmotion-ui`, fara Slint (etapa 24): formularul de conectare (`server_schimbat`, `cere_bazele`, `testeaza`, `cauta_servere`, `alege_instantaneul`, `reia`, `ignora_recenta`...), compararea pe fir (`compara`, `anuleaza`, `verifica_compararea -> Progres`, `primeste_compararea`, `compara_offline`, `porneste_previzualizarea`), celelalte fire (`verifica_lucrarile`), sesiunea (`salveaza`, `deconecteaza`; una necitibila se pune deoparte si se spune, F-A15), mesajele (`conectare.eroare_comparare` langa Compara, F-A12; `mesaj_lista` / `text_bara_lista` pe lista, F-A8; `progres_recomparare` pentru bara listei cat ruleaza Recompara, etapa 25), deploy-ul (`porneste_garda`, `scrie_deploy`, `folder_deploy` ales cu dialogul nativ, `director_deploy_curent`, `director_scris`), exportul (`exporta_csv`), textele (`text_pozitie`, `text_salvat`, `text_refuz_in_plan`); plus `recente`, `porneste_detalii`, `director_deploy`, `director_deploy_in(ales, referinta)`, `deschide_in_explorer`, `cale_csv`, `cale_previzualizare`, `citeste_configurarea`, `salveaza_in_configurare`. In `main.rs` raman doar legaturile Slint si desenul |
 | `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea si selectia celei vechi |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |

@@ -601,6 +601,18 @@ impl Aplicatie {
             .map_or((false, false), |t| (true, t.manual))
     }
 
+    /// Ce nu se inchide in textul final al obiectului curent (etapa 26):
+    /// `BEGIN` fara `END`, paranteze, siruri, `GO`. Gol daca nu exista text
+    /// final (baza e cum era, deci se compila) sau daca e in regula.
+    pub fn probleme_text_final(&self) -> Vec<gmotion_core::structura::Problema> {
+        if !self.stare_text_final().0 {
+            return Vec::new();
+        }
+        self.texte_curente()
+            .map(|(_, final_)| gmotion_core::structura::verifica(&final_))
+            .unwrap_or_default()
+    }
+
     /// Se poate anula ceva cu Ctrl+Z.
     pub fn se_poate_anula(&self) -> bool {
         !self.istoric.is_empty()
@@ -2005,6 +2017,29 @@ mod teste {
         a.comanda(Comanda::InapoiLaLista);
         assert_eq!(a.ecran(), Ecran::Lista);
         assert_eq!(a.obiect().unwrap().nume, "pA", "selectia a ramas unde era");
+    }
+
+    /// Etapa 26: un text final care nu se mai inchide se vede; baza
+    /// neatinsa (fara text final) nu e verificata, iar un text bun nu are
+    /// probleme.
+    #[test]
+    fn textul_final_stricat_are_probleme_de_structura() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Deschide);
+        assert!(a.probleme_text_final().is_empty(), "fara text final");
+        let id = a.id_obiect().unwrap();
+        a.comanda(Comanda::SalveazaText {
+            id: id.clone(),
+            text: "CREATE PROC dbo.pA AS\nBEGIN\n  SELECT 1".into(),
+        });
+        let p = a.probleme_text_final();
+        assert_eq!(p.len(), 1, "{p:?}");
+        assert_eq!(p[0].linie, 2);
+        a.comanda(Comanda::SalveazaText {
+            id,
+            text: "CREATE PROC dbo.pA AS\nBEGIN\n  SELECT 1\nEND".into(),
+        });
+        assert!(a.probleme_text_final().is_empty());
     }
 
     #[test]

@@ -153,6 +153,8 @@ component CapPanou inherits Rectangle {
 }
 
 export component EditorDiferente inherits Window {
+    // ce nu se inchide in textul final (etapa 26), sau gol
+    in property <string> probleme-structura;
     // campul de editare: textul la fiecare schimbare si randurile colorate
     // care se deseneaza peste el (etapa 25)
     callback text-editat(string);
@@ -1702,6 +1704,34 @@ export component EditorDiferente inherits Window {
                 }
                 Rectangle { horizontal-stretch: 1; }
                 Text { text: root.salvat; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; }
+            }
+        }
+
+        // ---- textul final nu se mai compileaza (etapa 26): rosu, peste
+        // panoul Modificata, deasupra liniei de scurtaturi
+        if root.probleme-structura != "": Rectangle {
+            x: root.stanga + root.width - root.ocupat - self.width - 24px;
+            y: root.height - root.jos - 12px - self.height - (root.alege-activ ? 40px : 0px);
+            width: Math.min(probleme-text.preferred-width + 36px, (root.width - root.ocupat) * 0.6);
+            height: 30px;
+            border-radius: 8px;
+            background: Tema.del-fundal;
+            border-width: 1px;
+            border-color: Tema.del-bara;
+            drop-shadow-blur: 16px;
+            drop-shadow-offset-y: 6px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111530;
+            Rectangle { x: 0px; width: 4px; border-radius: 2px; background: Tema.del-bara; }
+            probleme-text := Text {
+                x: 16px;
+                width: parent.width - 24px;
+                text: root.probleme-structura;
+                font-family: Tema.font-ui;
+                font-size: 12.5px;
+                font-weight: 600;
+                color: Tema.del-text;
+                vertical-alignment: center;
+                overflow: elide;
             }
         }
 

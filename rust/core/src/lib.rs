@@ -33,6 +33,7 @@ pub mod normalizare;
 pub mod plasare;
 pub mod segmentare;
 pub mod seqmatch;
+pub mod structura;
 
 pub use aliniere::{
     aliniaza, aliniaza_cu, aplica_blocuri, aplica_blocuri_la, compune, compune_plasat,

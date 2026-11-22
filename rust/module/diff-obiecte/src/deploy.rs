@@ -80,6 +80,31 @@ pub enum Avertisment {
     /// Trigger existent: ordinea data cu `sp_settriggerorder` se pierde la
     /// `ALTER TRIGGER`.
     OrdineTrigger { baza: String, obiect: String },
+    /// Codul care se deployeaza nu se inchide (`BEGIN` fara `END`, paranteze,
+    /// siruri; `gmotion_core::structura`): de regula un text final stricat de
+    /// o plasare gresita. Scriptul ar cadea pe server (etapa 26).
+    StructuraStricata {
+        baza: String,
+        obiect: String,
+        linie: usize,
+    },
+}
+
+/// Avertismentele pentru codul care se deployeaza: ce nu se inchide.
+pub fn avertismente_structura(pe_baza: &BTreeMap<String, Vec<DeDeployat>>) -> Vec<Avertisment> {
+    let mut rez = Vec::new();
+    for (baza, obiecte) in pe_baza {
+        for o in obiecte {
+            if let Some(p) = gmotion_core::structura::verifica(&o.cod).first() {
+                rez.push(Avertisment::StructuraStricata {
+                    baza: baza.clone(),
+                    obiect: o.obiect.clone(),
+                    linie: p.linie,
+                });
+            }
+        }
+    }
+    rez
 }
 
 /// Avertismentele pentru obiectele care exista deja in tinta, din pasii de
@@ -121,6 +146,10 @@ impl std::fmt::Display for Avertisment {
             Avertisment::OrdineTrigger { baza, obiect } => write!(
                 f,
                 "{baza}: {obiect} e un trigger existent; ordinea data cu sp_settriggerorder se pierde si trebuie refacuta de mana"
+            ),
+            Avertisment::StructuraStricata { baza, obiect, linie } => write!(
+                f,
+                "{baza}: codul lui {obiect} nu se inchide (linia {linie}); scriptul va cadea pe server, verifica textul final"
             ),
         }
     }
@@ -1026,6 +1055,7 @@ fn scrie_totul(
     let mut raport = scrie_deploy(director, referinta, pe_baza, mod_impartire, sarite, acum)?;
     raport.revenire = scrise;
     raport.avertismente = avertismente(revenire);
+    raport.avertismente.extend(avertismente_structura(pe_baza));
     Ok(raport)
 }
 
@@ -2139,6 +2169,39 @@ mod teste {
             ]
         );
         assert!(avertismente(&rev)[0].to_string().contains("indecsi"));
+    }
+
+    #[test]
+    fn codul_care_nu_se_inchide_primeste_avertisment() {
+        let mut pe_baza = BTreeMap::new();
+        pe_baza.insert(
+            "C1".to_string(),
+            vec![
+                dd(
+                    "dbo.pBun",
+                    "P",
+                    "CREATE OR ALTER PROC dbo.pBun AS\nBEGIN\nSELECT 1\nEND",
+                    true,
+                ),
+                dd(
+                    "dbo.pRau",
+                    "P",
+                    "CREATE OR ALTER PROC dbo.pRau AS\nBEGIN\nSELECT 1",
+                    true,
+                ),
+            ],
+        );
+        assert_eq!(
+            avertismente_structura(&pe_baza),
+            [Avertisment::StructuraStricata {
+                baza: "C1".into(),
+                obiect: "dbo.pRau".into(),
+                linie: 2
+            }]
+        );
+        assert!(avertismente_structura(&pe_baza)[0]
+            .to_string()
+            .contains("linia 2"));
     }
 
     #[test]

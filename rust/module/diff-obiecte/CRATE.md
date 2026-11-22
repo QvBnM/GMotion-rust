@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: adb64d2f0a8f41cb -->
+<!-- api-hash: 0c0b277cb9cb01f5 -->
 
 ## Rol
 
@@ -35,6 +35,7 @@ aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
 decat arata editorul. `gmotion_core::plasare` (portul din v3.4) raspunde doar
 pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 | `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` (cu `avertismente`), `avertismente(revenire) -> Vec<Avertisment>` (view-uri cu `SCHEMABINDING` si triggere existente in tinta: ce pierde `CREATE OR ALTER`, F-D8) |
+| `deploy::avertismente_structura(pe_baza)`, `Avertisment::StructuraStricata` | codul care se deployeaza si nu se inchide (`core::structura`): avertisment in raport, deci in `cli` si in fereastra (etapa 26) |
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |

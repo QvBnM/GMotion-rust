@@ -868,6 +868,70 @@ fn planul_altei_referinte_e_refuzat() {
     assert!(err(&o).contains("martorul"), "{}", err(&o));
 }
 
+/// Etapa 26, pe binar: un text final care nu se mai inchide se spune la
+/// `editare` (text si JSON) si la `deploy` (avertisment), fara server.
+#[test]
+fn textul_final_stricat_se_spune_la_editare_si_la_deploy() {
+    let d = dir("structura");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let stricat = d.join("stricat.sql");
+    std::fs::write(
+        &stricat,
+        "CREATE PROCEDURE dbo.pClienti AS\nBEGIN\nSELECT nume FROM Clienti WHERE activ = 1",
+    )
+    .unwrap();
+    let editare = |json: bool, extra: &[&str]| {
+        let mut a: Vec<&str> = if json { vec!["--json"] } else { vec![] };
+        a.extend([
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+        ]);
+        a.extend(extra);
+        ruleaza_in(&a, Some(&date))
+    };
+    let o = editare(false, &["--din-fisier", stricat.to_str().unwrap()]);
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(
+        out(&o).contains("Atentie: textul final nu se mai compileaza: linia 2: BEGIN fara END."),
+        "{}",
+        out(&o)
+    );
+    let o = editare(true, &[]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("doar JSON");
+    assert_eq!(v["probleme"][0]["linie"], 2, "{v}");
+
+    let iesire = d.join("out");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(
+        out(&o).contains("codul lui dbo.pClienti nu se inchide (linia 2)"),
+        "{}",
+        out(&o)
+    );
+    std::fs::remove_dir_all(&d).ok();
+}
+
 /// „Aplica", „Omite" si deploy-ul cu textul final, fara fereastra
 /// (CLAUDE.md §3), pe binar: textul final se salveaza in sesiune si ajunge
 /// in deploy; obiectul omis nu.

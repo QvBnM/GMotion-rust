@@ -212,6 +212,7 @@ fn main() {
             } else {
                 ""
             },
+            probleme: &app.probleme_text_final(),
         },
     );
     editor_ui.set_editeaza_mod(are("--editeaza"));

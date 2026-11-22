@@ -301,6 +301,7 @@ pub fn ecran(
                 use modul::deploy::Avertisment;
                 let mut views_legate = Vec::new();
                 let mut triggere = Vec::new();
+                let mut stricate = Vec::new();
                 for a in &r.avertismente {
                     match a {
                         Avertisment::ViewPosibilIndexat { baza, obiect } => {
@@ -309,6 +310,11 @@ pub fn ecran(
                         Avertisment::OrdineTrigger { baza, obiect } => {
                             triggere.push(format!("{baza}: {obiect}"))
                         }
+                        Avertisment::StructuraStricata {
+                            baza,
+                            obiect,
+                            linie,
+                        } => stricate.push(format!("{baza}: {obiect} ({linie})")),
                     }
                 }
                 RezultatDeploy::Scris {
@@ -317,6 +323,7 @@ pub fn ecran(
                     revenire: r.revenire.len(),
                     views_legate,
                     triggere,
+                    stricate,
                 }
             }
             Some(Err(e)) => RezultatDeploy::Eroare(e.clone()),

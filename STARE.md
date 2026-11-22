@@ -31,9 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 25 (ce a ramas din portare) s-a incheiat
-pe 2026-11-22; din `lipsuri-portare.md` mai ramane doar ce e decis altfel
-(doua teme in loc de sase).
+**Etapa activa:** `etape/26-verificarea-textului-final.md` — „sa ne zica
+daca procedura da eroare": verificarea structurii textului final (local) si
+pe SQL Server (fara efecte).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare

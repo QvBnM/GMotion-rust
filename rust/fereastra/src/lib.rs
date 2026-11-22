@@ -1167,6 +1167,75 @@ pub struct StareEditare<'a> {
     pub text_final: &'a str,
     /// „salvat la 14:52", sau gol.
     pub salvat: &'a str,
+    /// Ce nu se inchide in textul final (etapa 26): gol daca nu e text final
+    /// sau daca e in regula.
+    pub probleme: &'a [gmotion_core::structura::Problema],
+}
+
+/// Ce nu se inchide in textul final, pentru om: prima problema, cu linia, si
+/// cate mai sunt. Gol daca nu e nicio problema.
+pub fn text_probleme(p: &[gmotion_core::structura::Problema], l: texte::Limba) -> String {
+    use gmotion_core::structura::FelProblema as F;
+    let Some(prima) = p.first() else {
+        return String::new();
+    };
+    let ce = match &prima.fel {
+        F::DeschisNeinchis(b) => format!(
+            "{} {} {}",
+            b.cod(),
+            l.alege("fara", "without"),
+            b.inchidere()
+        ),
+        F::InchisFaraDeschidere(b) => format!(
+            "{} {}",
+            b.inchidere(),
+            l.alege("in plus, fara deschidere", "too many, nothing to close")
+        ),
+        F::InchisAltceva { asteptat, gasit } => format!(
+            "{} {} {}",
+            gasit.inchidere(),
+            l.alege("inchide un", "closes a"),
+            asteptat.cod()
+        ),
+        F::ParantezaNeinchisa => l
+            .alege("o paranteza ( nu se inchide", "a ( is never closed")
+            .into(),
+        F::ParantezaInPlus => l.alege("o paranteza ) in plus", "an extra )").into(),
+        F::SirNeinchis => l
+            .alege(
+                "un sir '...' nu se inchide",
+                "a '...' string is never closed",
+            )
+            .into(),
+        F::IdentificatorNeinchis => l
+            .alege(
+                "un nume [...] nu se inchide",
+                "a [...] name is never closed",
+            )
+            .into(),
+        F::ComentariuNeinchis => l
+            .alege(
+                "un comentariu /* nu se inchide",
+                "a /* comment is never closed",
+            )
+            .into(),
+        F::Go => l
+            .alege("GO in mijlocul obiectului", "GO inside the object")
+            .into(),
+    };
+    let rest = match p.len() {
+        1 => String::new(),
+        n => format!(" (+{} {})", n - 1, l.alege("altele", "more")),
+    };
+    format!(
+        "{}: {} {}: {ce}{rest}",
+        l.alege(
+            "Textul final nu se mai compileaza",
+            "The final text no longer compiles"
+        ),
+        l.alege("linia", "line"),
+        prima.linie
+    )
 }
 
 /// Pune starea editarii in editor. Se cheama dupa [`incarca_editor`].
@@ -1177,6 +1246,7 @@ pub fn incarca_editarea(ui: &EditorDiferente, e: &StareEditare) {
     ui.set_text_sursa(e.text_sursa.into());
     ui.set_text_final(e.text_final.into());
     ui.set_salvat(e.salvat.into());
+    ui.set_probleme_structura(text_probleme(e.probleme, limba_curenta(ui)).into());
     let total = ui.get_total_diferente().max(0) as usize;
     match e.ghidat {
         Some((din_sursa, aplicate, sarite, terminat)) => {
@@ -2774,6 +2844,7 @@ mod teste {
                 text_sursa: "sursa",
                 text_final: "final",
                 salvat: "salvat la 14:52",
+                probleme: &[],
             },
         );
         assert!(ui.get_omis() && ui.get_editat() && ui.get_se_poate_anula() && ui.get_ghidat());
@@ -2790,6 +2861,7 @@ mod teste {
                 text_sursa: "",
                 text_final: "",
                 salvat: "",
+                probleme: &[],
             },
         );
         assert!(ui.get_ghidat_terminat());
@@ -3600,6 +3672,20 @@ mod teste {
             0,
             "linia goala"
         );
+    }
+
+    #[test]
+    fn problemele_de_structura_se_spun_cu_linia_in_ambele_limbi() {
+        let p = gmotion_core::structura::verifica("BEGIN\nSELECT (1\nGO");
+        assert_eq!(text_probleme(&[], texte::Limba::Romana), "");
+        let ro = text_probleme(&p, texte::Limba::Romana);
+        assert!(
+            ro.starts_with("Textul final nu se mai compileaza: linia 1: BEGIN fara END"),
+            "{ro}"
+        );
+        assert!(ro.ends_with("(+2 altele)"), "{ro}");
+        let en = text_probleme(&p, texte::Limba::Engleza);
+        assert!(en.contains("line 1: BEGIN without END"), "{en}");
     }
 
     #[test]

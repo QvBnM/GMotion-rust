@@ -49,6 +49,8 @@ pub enum RezultatDeploy {
         views_legate: Vec<String>,
         /// `baza: obiect` pentru triggerele din tinta, care pierd ordinea.
         triggere: Vec<String>,
+        /// `baza: obiect (linia)` pentru codul care nu se inchide (etapa 26).
+        stricate: Vec<String>,
     },
     Eroare(String),
 }
@@ -153,6 +155,7 @@ pub fn text_rezultat(r: &RezultatDeploy, l: Limba) -> String {
             revenire,
             views_legate,
             triggere,
+            stricate,
         } => {
             let mut text = format!(
                 "{} {director}. {}: {}.",
@@ -172,6 +175,16 @@ pub fn text_rezultat(r: &RezultatDeploy, l: Limba) -> String {
                         "Warning, views with SCHEMABINDING; if they have indexes, the deploy drops them"
                     ),
                     views_legate.join(", ")
+                ));
+            }
+            if !stricate.is_empty() {
+                text.push_str(&format!(
+                    " {}: {}.",
+                    l.alege(
+                        "Atentie, codul nu se inchide (BEGIN/END, paranteze) si va cadea pe server",
+                        "Warning, the code does not close (BEGIN/END, parentheses) and will fail on the server"
+                    ),
+                    stricate.join(", ")
                 ));
             }
             if !triggere.is_empty() {
@@ -258,6 +271,7 @@ mod teste {
                     revenire: 1,
                     views_legate: vec![],
                     triggere: vec![],
+                    stricate: vec![],
                 },
                 R
             ),
@@ -291,6 +305,7 @@ mod teste {
                     revenire: 1,
                     views_legate: vec![],
                     triggere: vec![],
+                    stricate: vec![],
                 },
                 e
             ),
@@ -306,6 +321,7 @@ mod teste {
             revenire: 1,
             views_legate: vec!["C1: dbo.v".into()],
             triggere: vec!["C1: dbo.tr".into(), "C2: dbo.tr".into()],
+            stricate: vec!["C1: dbo.p (12)".into()],
         };
         let ro = text_rezultat(&r, Limba::Romana);
         assert!(
@@ -315,5 +331,6 @@ mod teste {
         assert!(ro.contains("se pierde: C1: dbo.tr, C2: dbo.tr."), "{ro}");
         let en = text_rezultat(&r, Limba::Engleza);
         assert!(en.contains("Warning, existing triggers"), "{en}");
+        assert!(ro.contains("va cadea pe server: C1: dbo.p (12)."), "{ro}");
     }
 }
