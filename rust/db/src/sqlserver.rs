@@ -392,7 +392,11 @@ impl SursaObiecte for SursaSqlServer {
 
     fn obiecte(&mut self, baza: &str) -> Rezultat<Vec<Obiect>> {
         let randuri = self.interogheaza(baza, &interogare_obiecte())?;
-        obiecte_din_randuri(&randuri, baza)
+        let mut out = obiecte_din_randuri(&randuri, baza)?;
+        // si tabelele (etapa 28), ca obiecte de tip `U`
+        let coloane = self.interogheaza(baza, crate::tabele::INTEROGARE_TABELE)?;
+        out.extend(tabele_din_randuri(&coloane, baza)?);
+        Ok(out)
     }
 
     /// Pe o conexiune proaspata, aruncata la final: setarile de sesiune
@@ -549,7 +553,45 @@ async fn citeste_baza(
     })
     .await
     .map_err(|_| eroare(format!("timeout dupa {} s", TIMEOUT_INTEROGARE.as_secs())))??;
-    obiecte_din_randuri(&randuri, baza)
+    let mut out = obiecte_din_randuri(&randuri, baza)?;
+    // si tabelele (etapa 28), pe aceeasi conexiune
+    let coloane = tokio::time::timeout(TIMEOUT_INTEROGARE, async {
+        client
+            .query(crate::tabele::INTEROGARE_TABELE, &[])
+            .await
+            .map_err(|e| eroare(e.to_string()))?
+            .into_first_result()
+            .await
+            .map_err(|e| eroare(e.to_string()))
+    })
+    .await
+    .map_err(|_| eroare(format!("timeout dupa {} s", TIMEOUT_INTEROGARE.as_secs())))??;
+    out.extend(tabele_din_randuri(&coloane, baza)?);
+    Ok(out)
+}
+
+/// Randurile interogarii de coloane, ca tabele (`crate::tabele`).
+fn tabele_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
+    let mut v = Vec::with_capacity(randuri.len());
+    for r in randuri {
+        let s = |i| -> Rezultat<String> { Ok(text(r, i, baza)?.unwrap_or_default().to_string()) };
+        v.push((
+            s(0)?,
+            s(1)?,
+            crate::tabele::Coloana {
+                nume: s(2)?,
+                tip: s(3)?,
+                lungime: intreg(r, 4, baza)?.unwrap_or(0),
+                precizie: intreg(r, 5, baza)?.unwrap_or(0),
+                scala: intreg(r, 6, baza)?.unwrap_or(0),
+                null: bit(r, 7, baza)?.unwrap_or(true),
+                identitate: bit(r, 8, baza)?.unwrap_or(false),
+            },
+            text(r, 9, baza)?.map(str::to_string),
+            text(r, 10, baza)?.map(str::to_string),
+        ));
+    }
+    Ok(crate::tabele::tabele_din_coloane(v))
 }
 
 /// Randurile interogarii de obiecte, ca `Obiect`.

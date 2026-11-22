@@ -1157,7 +1157,9 @@ pub fn deploy(
         raport.director.display(),
         raport.obiecte,
         if sarite > 0 {
-            format!(", {sarite} sarite - exista doar in baza modificata sau sunt criptate")
+            format!(
+                ", {sarite} sarite - exista doar in baza modificata, sunt criptate sau sunt tabele"
+            )
         } else {
             String::new()
         },

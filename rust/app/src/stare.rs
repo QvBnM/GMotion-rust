@@ -971,8 +971,8 @@ impl Stare {
 pub fn text_refuz_in_plan(app: &Aplicatie, limba: gmotion_core::Limba) -> Option<&'static str> {
     app.refuzat_in_plan().then(|| {
         limba.alege(
-            "Nu intra in plan: obiectul n-are cod de deploiat (exista doar in baza modificata sau e criptat).",
-            "Not added to the plan: the object has no code to deploy (it exists only in the modified database or is encrypted).",
+            "Nu intra in plan: obiectul n-are cod de deploiat (exista doar in baza modificata, e criptat sau e tabel; tabelele doar se compara).",
+            "Not added to the plan: the object has no code to deploy (it exists only in the modified database, is encrypted or is a table; tables are only compared).",
         )
     })
 }

@@ -31,8 +31,8 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 27 (filtre pe data si operatie) s-a
-incheiat pe 2026-11-22. Urmeaza etapa 28: tabelele (doar comparare).
+**Etapa activa:** niciuna. Etapa 28 (tabelele, doar comparare) s-a
+incheiat pe 2026-11-22.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -44,6 +44,13 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-22, etapele 27-28, de probat de Mihai pe un server:** compararea
+cu tabele (interogarea pe `sys.tables` / `sys.columns` e noua): tabelele apar
+in lista, filtrul „Tabele", in editor coloanele diferite. Si filtrele pe data
+(`create_date` e citita acum). **De decis:** coloana „Linii" numara pe
+instructiune (un tabel cu o coloana lipsa arata `+6 −5`); vrei numarare pe
+linii, pentru toate obiectele?
 
 **2026-11-22, etapa 26, de probat de Mihai pe un SQL Server (baza de test):**
 in editor, pe un obiect, „Actiuni -> Verifica pe server". (1) Fara nicio

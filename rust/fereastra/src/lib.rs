@@ -1744,6 +1744,7 @@ fn nume_tip_plural(tip: &str, l: texte::Limba) -> &'static str {
         "IF" => l.alege("Functii inline", "Inline functions"),
         "TF" => l.alege("Functii tabel", "Table functions"),
         "TR" => l.alege("Triggere", "Triggers"),
+        "U" => l.alege("Tabele", "Tables"),
         _ => l.alege("Alte obiecte", "Other objects"),
     }
 }
@@ -3515,11 +3516,11 @@ mod teste {
     #[test]
     fn felurile_de_functii_au_nume_diferite() {
         for l in texte::Limba::toate() {
-            let n: std::collections::BTreeSet<&str> = ["P", "V", "FN", "IF", "TF", "TR", "X"]
+            let n: std::collections::BTreeSet<&str> = ["P", "V", "FN", "IF", "TF", "TR", "U", "X"]
                 .iter()
                 .map(|t| nume_tip_plural(t, l))
                 .collect();
-            assert_eq!(n.len(), 7, "{l:?}: {n:?}");
+            assert_eq!(n.len(), 8, "{l:?}: {n:?}");
         }
         assert_eq!(
             nume_tip_plural("tf ", texte::Limba::Romana),

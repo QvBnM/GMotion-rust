@@ -429,6 +429,109 @@ mod teste {
 
     /// Etapa 25: randul poarta ultima modificare a obiectului din baza
     /// comparata; pentru cel lipsa din ea, a celui din martor.
+    /// Etapa 28: tabelele, ca definitii sintetice (`gmotion_db::tabele`):
+    /// fiecare fel de diferenta de coloana iese diferenta, cu linia ei; un
+    /// tabel identic iese identic, unul dintr-o singura parte, lipsa / extra.
+    #[test]
+    fn tabelele_se_compara_pe_coloane() {
+        use gmotion_db::tabele::{definitie_tabel, Coloana};
+        let col = |nume: &str, tip: &str, lungime: i32, null: bool| Coloana {
+            nume: nume.into(),
+            tip: tip.into(),
+            lungime,
+            precizie: 0,
+            scala: 0,
+            null,
+            identitate: false,
+        };
+        let tabel = |nume: &str, coloane: &[Coloana]| Obiect {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "U".into(),
+            definitie: definitie_tabel("dbo", nume, coloane),
+            setari: None,
+            modificat: None,
+            creat: None,
+        };
+        let baza = [
+            col("Id", "int", 4, false),
+            col("Nume", "nvarchar", 200, true),
+        ];
+        let r = pregateste(&[
+            tabel("Identic", &baza),
+            tabel("LipsaColoana", &baza),
+            tabel("ColoanaInPlus", &baza),
+            tabel("TipSchimbat", &baza),
+            tabel("NullSchimbat", &baza),
+            tabel("DoarInMartor", &baza),
+        ]);
+        let c = pregateste(&[
+            tabel("Identic", &baza),
+            tabel("LipsaColoana", &baza[..1]),
+            tabel(
+                "ColoanaInPlus",
+                &[baza[0].clone(), baza[1].clone(), col("Nou", "int", 4, true)],
+            ),
+            tabel(
+                "TipSchimbat",
+                &[baza[0].clone(), col("Nume", "nvarchar", 400, true)],
+            ),
+            tabel(
+                "NullSchimbat",
+                &[baza[0].clone(), col("Nume", "nvarchar", 200, false)],
+            ),
+            tabel("DoarInModificata", &baza),
+        ]);
+        let rez = compara("R", &r, &[("C".into(), c)], fara_progres());
+        let cat = |n: &str| {
+            rez.randuri
+                .iter()
+                .find(|x| x.obiect == format!("dbo.{n}"))
+                .map(|x| x.categorie)
+        };
+        assert_eq!(cat("Identic"), None, "identic: fara rand");
+        for n in [
+            "LipsaColoana",
+            "ColoanaInPlus",
+            "TipSchimbat",
+            "NullSchimbat",
+        ] {
+            assert_eq!(cat(n), Some(Categorie::Diferit), "{n}");
+        }
+        assert_eq!(cat("DoarInMartor"), Some(Categorie::Lipsa));
+        assert_eq!(cat("DoarInModificata"), Some(Categorie::Extra));
+        // tipul schimbat e exact linia coloanei: un `CREATE TABLE` e o singura
+        // instructiune pentru motor, dar alinierea coboara la linie in
+        // interiorul blocului, si asa il arata editorul
+        let a = definitie_tabel("dbo", "T", &baza);
+        let b = definitie_tabel(
+            "dbo",
+            "T",
+            &[baza[0].clone(), col("Nume", "nvarchar", 400, true)],
+        );
+        let al = gmotion_core::aliniaza(&a, &b);
+        let schimbate: Vec<(String, String)> = al
+            .randuri
+            .iter()
+            .filter_map(|r| {
+                Some((
+                    r.stanga.as_ref()?.text.clone(),
+                    r.dreapta.as_ref()?.text.clone(),
+                ))
+            })
+            .filter(|(s, d)| s != d)
+            .collect();
+        assert_eq!(schimbate.len(), 1, "{schimbate:?}");
+        assert!(
+            schimbate[0].0.contains("[Nume] nvarchar(100) NULL"),
+            "{schimbate:?}"
+        );
+        assert!(
+            schimbate[0].1.contains("[Nume] nvarchar(200) NULL"),
+            "{schimbate:?}"
+        );
+    }
+
     #[test]
     fn randul_poarta_ultima_modificare() {
         let cu = |nume: &str, def: &str, cand: &str| Obiect {

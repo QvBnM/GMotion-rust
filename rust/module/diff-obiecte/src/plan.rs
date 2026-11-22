@@ -154,7 +154,10 @@ impl Plan {
         let mut pasi = Vec::new();
         let mut sarite = 0usize;
         for r in c.randuri.iter().filter(|r| alege(r)) {
-            if matches!(r.categorie, Categorie::Extra | Categorie::Criptat) {
+            // tabelele doar se compara (etapa 28, Mihai): nu intra in deploy
+            if matches!(r.categorie, Categorie::Extra | Categorie::Criptat)
+                || r.tip.trim().eq_ignore_ascii_case("U")
+            {
                 sarite += 1;
                 continue;
             }
@@ -379,6 +382,35 @@ mod teste {
     /// si fara liniile goale de la capete — adica altfel decat referinta cu
     /// care a fost declarat identic. Textul final egal cu afisarea referintei
     /// nu e o editare: se deployeaza definitia neatinsa.
+    /// Etapa 28: un tabel diferit nu intra in plan, se numara la sarite.
+    #[test]
+    fn tabelele_nu_intra_in_plan() {
+        let ob = |nume: &str, tip: &str, def: &str| gmotion_db::Obiect {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: tip.into(),
+            definitie: def.into(),
+            setari: None,
+            modificat: None,
+            creat: None,
+        };
+        let r = crate::pregateste(&[
+            ob("T", "U", "CREATE TABLE [dbo].[T] (\n    [a] int NULL\n)"),
+            ob("p", "P", "CREATE PROC dbo.p AS SELECT 1"),
+        ]);
+        let a = crate::pregateste(&[
+            ob("T", "U", "CREATE TABLE [dbo].[T] (\n    [a] bigint NULL\n)"),
+            ob("p", "P", "CREATE PROC dbo.p AS SELECT 2"),
+        ]);
+        let altele = vec![("C".to_string(), a)];
+        let c = crate::compara("R", &r, &altele, |_| {});
+        assert_eq!(c.randuri.len(), 2, "tabelul difera si el");
+        let p = Plan::din_comparare(&c, &r, &altele, |_| true, "t");
+        assert_eq!(p.pasi.len(), 1);
+        assert_eq!(p.pasi[0].obiect, "dbo.p");
+        assert_eq!(p.sarite, 1);
+    }
+
     #[test]
     fn textul_final_egal_cu_afisarea_referintei_deployeaza_definitia_neatinsa() {
         let def = "CREATE PROCEDURE dbo.pA AS\r\nSELECT 'a   \r\nb'   \r\n\r\n";

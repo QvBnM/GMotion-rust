@@ -24,6 +24,7 @@ pub mod fixture;
 pub mod model;
 pub mod sqlserver;
 pub mod sursa;
+pub mod tabele;
 
 pub use descoperire::{cauta_instante, parseaza_raspuns};
 pub use eroare::{valideaza_baza, valideaza_nume, Eroare, Rezultat};

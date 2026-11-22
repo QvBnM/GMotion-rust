@@ -284,7 +284,9 @@ impl Obiect {
     /// Se poate deploia: are cod in sursa care se poate citi. Un obiect doar
     /// in baza n-are ce scrie, unul criptat n-are cod.
     pub fn se_poate_deploia(&self) -> bool {
+        // tabelele doar se compara (etapa 28)
         matches!(self.stare, Stare::Modificat | Stare::DoarSursa)
+            && !self.tip.trim().eq_ignore_ascii_case("U")
     }
 }
 

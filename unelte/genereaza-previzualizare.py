@@ -102,8 +102,27 @@ def cursor_complet(variatie):
     )
 
 
+def tabel(nume, coloane):
+    """Un tabel cum il construieste `gmotion_db::tabele::definitie_tabel`
+    (etapa 28): o coloana pe linie, `[nume] tip [IDENTITY] NULL|NOT NULL`."""
+    linii = [f"CREATE TABLE [dbo].[{nume}] ("]
+    for k, (c, tip, null) in enumerate(coloane):
+        virgula = "," if k + 1 < len(coloane) else ""
+        linii.append(f"    [{c}] {tip} {'NULL' if null else 'NOT NULL'}{virgula}")
+    linii.append(")")
+    return obiect(nume, "U", "\n".join(linii))
+
+
+TABELE_REFERINTA = {
+    "Clienti": [("id", "int IDENTITY", False), ("nume", "nvarchar(100)", False), ("oras", "nvarchar(50)", True), ("activ", "bit", False)],
+    "Facturi": [("id", "int IDENTITY", False), ("client", "int", False), ("valoare", "decimal(18,2)", False), ("anulata", "bit", False)],
+    "Stoc": [("produs", "int", False), ("cantitate", "decimal(18,3)", False)],
+    "Audit": [("id", "bigint IDENTITY", False), ("cand", "datetime2(3)", False), ("ce", "nvarchar(max)", True)],
+}
+
+
 def referinta():
-    return [
+    return [tabel(k, v) for k, v in TABELE_REFERINTA.items()] + [
         # identic in toate bazele
         obiect("uspListaClienti", "P", "CREATE PROCEDURE dbo.uspListaClienti\nAS\nSELECT id, nume FROM dbo.Clienti WHERE activ = 1;"),
         # modificat: diferenta mica, scor mare
@@ -134,10 +153,28 @@ def referinta():
     ]
 
 
+def tabele_baza(i):
+    """Tabelele unei baze: identice, cu o coloana lipsa, cu un tip schimbat,
+    cu NULL schimbat, cu o coloana in plus; Audit lipseste dintr-una, iar o
+    baza are un tabel in plus (etapa 28)."""
+    t = {k: list(v) for k, v in TABELE_REFERINTA.items()}
+    if i == 0:
+        t["Clienti"] = [c for c in t["Clienti"] if c[0] != "oras"]  # coloana lipsa
+        t["Facturi"][2] = ("valoare", "decimal(18,4)", False)  # tip schimbat
+    if i == 1:
+        t["Clienti"][1] = ("nume", "nvarchar(100)", True)  # NULL schimbat
+        t["Stoc"] = t["Stoc"] + [("rezervat", "decimal(18,3)", True)]  # coloana in plus
+        del t["Audit"]  # tabel doar in Martor
+        t["ImportTemp"] = [("linie", "nvarchar(4000)", True)]  # tabel doar aici
+    return [tabel(k, v) for k, v in t.items()]
+
+
 def baza(i, nume):
     """Fiecare baza difera altfel fata de referinta."""
-    o = []
+    o = tabele_baza(i)
     for x in referinta():
+        if x["tip"] == "U":
+            continue  # tabelele vin din `tabele_baza`
         if x["nume"] == "uspNouDinSprint":
             continue  # lipseste: exista doar in referinta
         if x["nume"] == "uspFactura":

@@ -14,6 +14,9 @@ pub enum Dosar {
     Functii,
     Viewuri,
     Triggere,
+    /// Tabelele (etapa 28). Dupa celelalte, nu primele ca in SSMS: numarul
+    /// dosarului intra in cheia „deschis / inchis" tinuta in sesiune.
+    Tabele,
     Altele,
 }
 
@@ -25,6 +28,7 @@ impl Dosar {
             "FN" | "IF" | "TF" | "FS" | "FT" | "AF" => Dosar::Functii,
             "V" => Dosar::Viewuri,
             "TR" | "TA" => Dosar::Triggere,
+            "U" => Dosar::Tabele,
             _ => Dosar::Altele,
         }
     }
@@ -35,6 +39,7 @@ impl Dosar {
             Dosar::Functii => l.alege("Functii", "Functions"),
             Dosar::Viewuri => l.alege("View-uri", "Views"),
             Dosar::Triggere => l.alege("Triggere", "Triggers"),
+            Dosar::Tabele => l.alege("Tabele", "Tables"),
             Dosar::Altele => l.alege("Altele", "Other"),
         }
     }
@@ -348,6 +353,7 @@ mod teste {
         assert_eq!(Dosar::din_tip("TF"), Dosar::Functii);
         assert_eq!(Dosar::din_tip("V"), Dosar::Viewuri);
         assert_eq!(Dosar::din_tip("TR"), Dosar::Triggere);
+        assert_eq!(Dosar::din_tip("U"), Dosar::Tabele);
         assert_eq!(Dosar::din_tip("SN"), Dosar::Altele);
     }
 }

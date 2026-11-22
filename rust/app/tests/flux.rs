@@ -298,9 +298,28 @@ fn instantaneul_de_previzualizare_acopera_tot_ce_trebuie_probat() {
         .iter()
         .map(|o| o.tip.clone())
         .collect();
-    for t in ["P", "V", "FN", "IF", "TF", "TR"] {
+    for t in ["P", "V", "FN", "IF", "TF", "TR", "U"] {
         assert!(tipuri.iter().any(|x| x == t), "lipseste tipul {t}");
     }
+    // tabelele (etapa 28): in fiecare stare, si niciunul deployabil
+    let tabele: Vec<&gmotion_fereastra::model_lista::Obiect> = app
+        .lista()
+        .obiecte()
+        .iter()
+        .filter(|o| o.tip == "U")
+        .collect();
+    for ceruta in [
+        StareLista::Modificat,
+        StareLista::DoarSursa,
+        StareLista::DoarBaza,
+        StareLista::Identic,
+    ] {
+        assert!(
+            tabele.iter().any(|o| o.stare == ceruta),
+            "lipseste un tabel {ceruta:?}"
+        );
+    }
+    assert!(tabele.iter().all(|o| !o.se_poate_deploia()));
 
     // obiecte mari (de aia se vede daca lista se impiedica) si scoruri variate
     let linii_max = app

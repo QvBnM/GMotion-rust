@@ -1784,3 +1784,22 @@ nu sterge obiecte") ramane. Obiectele fara data (instantanee vechi, cod
 lipit) nu trec de un filtru pe data activ: altfel „create azi" ar arata si ce
 nu se stie. Data crearii vine din `sys.objects.create_date`, ca text, ca
 `modify_date`: fara tip de data nou in model.
+
+---
+
+## 2026-11-22 — Tabelele: un `CREATE TABLE` sintetic, comparat de acelasi motor
+
+**Context.** Mihai: tabelele care exista si care nu, si diferentele de
+coloane si tipuri. Ales: doar comparare.
+
+**Decizia.** Un tabel devine un `Obiect` de tip `U` cu definitia construita
+din `sys.columns`: o coloana pe linie, in ordinea `column_id`, cu tipul scris
+ca in DDL (`nvarchar(100)` din `max_length` 200, `decimal(18,2)`, `max`),
+`IDENTITY`, `NULL` / `NOT NULL`. **Alternativa respinsa:** un al doilea
+comparator, pe coloane — al doilea motor e exact bug-ul din v3.4. Asa, lista,
+editorul, filtrele, instantaneul si „Folosit de" merg fara cod nou.
+
+**Limite stiute.** Ordinea coloanelor conteaza (doua tabele cu aceleasi
+coloane in alta ordine ies diferite: e o diferenta reala pentru `SELECT *`).
+Nu intra inca: valori implicite, chei, indecsi, coloane calculate, colatie.
+Deploy-ul le sare (`Plan::din_comparare`, `se_poate_deploia`).

@@ -142,6 +142,8 @@ pub fn nume_tip_in(tip: &str, l: Limba) -> &'static str {
         "V" => "view",
         "FN" | "IF" | "TF" => l.alege("functie", "function"),
         "TR" => "trigger",
+        // tabelele (etapa 28): comparate pe coloane, nu deployate
+        "U" => l.alege("tabel", "table"),
         _ => l.alege("obiect", "object"),
     }
 }
@@ -159,10 +161,11 @@ mod teste {
         assert_eq!(nume_tip("v"), "view");
         assert_eq!(nume_tip(" TF "), "functie");
         assert_eq!(nume_tip("TR"), "trigger");
+        assert_eq!(nume_tip("U"), "tabel");
         // un tip pe care nu-l comparam: nu da panica, da un nume generic
-        assert_eq!(nume_tip("U"), "obiect");
+        assert_eq!(nume_tip("SQ"), "obiect");
         assert_eq!(nume_tip_in("P", Limba::Engleza), "procedure");
-        assert_eq!(nume_tip_in("U", Limba::Engleza), "object");
+        assert_eq!(nume_tip_in("U", Limba::Engleza), "table");
     }
 
     #[test]

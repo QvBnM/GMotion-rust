@@ -78,6 +78,14 @@ fn main() {
             .and_then(|n| n.parse::<usize>().ok())
             .filter(|&n| n > 0)
     };
+    // `--tip U`: filtrul pe tip (de exemplu doar tabelele, etapa 28)
+    if let Some(tip) = a
+        .iter()
+        .position(|x| x == "--tip")
+        .and_then(|i| a.get(i + 1))
+    {
+        app.comanda(Comanda::FiltreazaTip(Some(tip.clone())));
+    }
     if let Some(n) = numar_dupa("--operatie") {
         app.comanda(Comanda::FiltreazaOperatie(
             gmotion_fereastra::model_lista::Operatie::TOATE

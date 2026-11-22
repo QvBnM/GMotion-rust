@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 90c09a245dd4e758 -->
+<!-- api-hash: d94f3344e760a282 -->
 
 ## Rol
 
@@ -33,7 +33,8 @@ se testeaza fara SQL Server.
 | `descriere()` | pentru jurnal si diagnostic. Niciodata parole |
 | `identitate()` | **cine** e sursa, pe scurt si stabil: `host[:port]`, sau `instantaneu <server declarat>`. Intra in cheia sesiunii, deci nu se schimba cand se schimba autentificarea (F-B4) |
 | `baze()` | bazele disponibile, sortate, fara cele de sistem |
-| `obiecte(baza)` | proceduri, view-uri, functii, triggere |
+| `obiecte(baza)` | proceduri, view-uri, functii, triggere; si tabelele, ca obiecte de tip `U` (etapa 28) |
+| `tabele::{INTEROGARE_TABELE, Coloana, tip_coloana, definitie_tabel, tabele_din_coloane, TIP_TABEL}` | un tabel ca `CREATE TABLE` sintetic din `sys.columns`, o coloana pe linie (`[nume] tip [IDENTITY] NULL/NOT NULL`, in ordinea `column_id`), ca sa-l compare acelasi motor; tabelele doar se compara, deploy-ul le sare |
 | `obiecte_multe(baze, progres)` | bucla cu raportare de progres; prima eroare opreste citirea |
 | `verifica_cod(baza, cod, setari) -> VerificareServer` | trimite codul **fara efecte**: `SET PARSEONLY ON` (sintaxa), apoi `SET NOEXEC ON` (compilarea), cu `ANSI_NULLS` / `QUOTED_IDENTIFIER` ale obiectului; inainte de cod, un `SELECT 1` trebuie sa nu intoarca nimic, altfel codul nu se trimite (`GM-DB-013`); conexiune proaspata, aruncata dupa. Implicit (instantaneu): `GM-DB-012`. `MesajServer` = numarul, mesajul si linia erorii (etapa 26) |
 
