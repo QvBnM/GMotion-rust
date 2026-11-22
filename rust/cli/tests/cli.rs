@@ -742,6 +742,64 @@ fn deploy_scrie_revenirea_din_tinta() {
     );
 }
 
+/// F-D7 si F-D8, pe binarul adevarat: scriptul se opreste dupa un obiect care
+/// cade, iar un trigger existent primeste avertisment, si in text, si in JSON.
+#[test]
+fn deploy_opreste_dupa_obiectul_cazut_si_avertizeaza_pentru_triggere() {
+    let d = dir("deploy-avertisment");
+    let inst = d.join("inst.json");
+    let json = r#"{
+      "versiune": 1, "server": "SRV-TEST", "creat": "2026-11-17T10:00:00Z", "nota": "",
+      "baze": {
+        "Referinta": [
+          {"schema":"dbo","nume":"trAudit","tip":"TR","definitie":"CREATE TRIGGER dbo.trAudit ON dbo.t AFTER INSERT AS\nSELECT 2"}
+        ],
+        "Client1": [
+          {"schema":"dbo","nume":"trAudit","tip":"TR","definitie":"CREATE TRIGGER dbo.trAudit ON dbo.t AFTER INSERT AS\nSELECT 1"}
+        ]
+      }
+    }"#;
+    std::fs::write(&inst, json).unwrap();
+    let iesire = d.join("out");
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(
+        out(&o).contains("Atentie: Client1: dbo.trAudit"),
+        "{}",
+        out(&o)
+    );
+    let sql = std::fs::read_to_string(iesire.join("Client1.sql")).unwrap();
+    assert!(sql.contains("IF @@ERROR <> 0"), "{sql}");
+
+    let iesire = d.join("out-json");
+    let o = ruleaza(&[
+        "--json",
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("doar JSON");
+    assert_eq!(
+        v["avertismente"].as_array().map(|a| a.len()),
+        Some(1),
+        "{v}"
+    );
+    std::fs::remove_dir_all(&d).ok();
+}
+
 #[test]
 fn planul_altei_referinte_e_refuzat() {
     let d = dir("plan-ref");

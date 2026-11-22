@@ -297,11 +297,28 @@ pub fn ecran(
         director: director.to_string(),
         rezultat: match &st.rezultat {
             None => RezultatDeploy::Nescris,
-            Some(Ok(r)) => RezultatDeploy::Scris {
-                director: r.director.display().to_string(),
-                fisiere: r.fisiere.len(),
-                revenire: r.revenire.len(),
-            },
+            Some(Ok(r)) => {
+                use modul::deploy::Avertisment;
+                let mut views_legate = Vec::new();
+                let mut triggere = Vec::new();
+                for a in &r.avertismente {
+                    match a {
+                        Avertisment::ViewPosibilIndexat { baza, obiect } => {
+                            views_legate.push(format!("{baza}: {obiect}"))
+                        }
+                        Avertisment::OrdineTrigger { baza, obiect } => {
+                            triggere.push(format!("{baza}: {obiect}"))
+                        }
+                    }
+                }
+                RezultatDeploy::Scris {
+                    director: r.director.display().to_string(),
+                    fisiere: r.fisiere.len(),
+                    revenire: r.revenire.len(),
+                    views_legate,
+                    triggere,
+                }
+            }
             Some(Err(e)) => RezultatDeploy::Eroare(e.clone()),
         },
     }

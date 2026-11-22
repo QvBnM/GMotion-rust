@@ -1126,6 +1126,9 @@ pub fn deploy(
         raport.revenire.len(),
         raport.director.join("revenire").display(),
     ));
+    for a in &raport.avertismente {
+        format.progres(&format!("Atentie: {a}."));
+    }
     if format == Format::Json {
         #[derive(serde::Serialize)]
         struct R {
@@ -1134,6 +1137,7 @@ pub fn deploy(
             revenire: Vec<String>,
             obiecte: usize,
             sarite: usize,
+            avertismente: Vec<String>,
         }
         let siruri = |v: &[PathBuf]| v.iter().map(|f| f.display().to_string()).collect();
         return afisare::scrie_json(&R {
@@ -1142,6 +1146,7 @@ pub fn deploy(
             revenire: siruri(&raport.revenire),
             obiecte: raport.obiecte,
             sarite: raport.sarite,
+            avertismente: raport.avertismente.iter().map(|a| a.to_string()).collect(),
         })
         .map_err(|e| e.to_string());
     }

@@ -44,6 +44,11 @@ pub enum RezultatDeploy {
         director: String,
         fisiere: usize,
         revenire: usize,
+        /// `baza: obiect` pentru view-urile cu `SCHEMABINDING` din tinta,
+        /// care pot avea indecsi pierduti la deploy (F-D8).
+        views_legate: Vec<String>,
+        /// `baza: obiect` pentru triggerele din tinta, care pierd ordinea.
+        triggere: Vec<String>,
     },
     Eroare(String),
 }
@@ -146,16 +151,41 @@ pub fn text_rezultat(r: &RezultatDeploy, l: Limba) -> String {
             director,
             fisiere,
             revenire,
-        } => format!(
-            "{} {director}. {}: {}.",
-            l.numar(
-                *fisiere,
-                ("fisier scris in", "fisiere scrise in"),
-                ("file written to", "files written to")
-            ),
-            l.alege("Revenirea, salvata inainte", "Rollback, saved first"),
-            l.numar(*revenire, ("fisier", "fisiere"), ("file", "files"))
-        ),
+            views_legate,
+            triggere,
+        } => {
+            let mut text = format!(
+                "{} {director}. {}: {}.",
+                l.numar(
+                    *fisiere,
+                    ("fisier scris in", "fisiere scrise in"),
+                    ("file written to", "files written to")
+                ),
+                l.alege("Revenirea, salvata inainte", "Rollback, saved first"),
+                l.numar(*revenire, ("fisier", "fisiere"), ("file", "files"))
+            );
+            if !views_legate.is_empty() {
+                text.push_str(&format!(
+                    " {}: {}.",
+                    l.alege(
+                        "Atentie, view-uri cu SCHEMABINDING; daca au indecsi, deploy-ul ii sterge",
+                        "Warning, views with SCHEMABINDING; if they have indexes, the deploy drops them"
+                    ),
+                    views_legate.join(", ")
+                ));
+            }
+            if !triggere.is_empty() {
+                text.push_str(&format!(
+                    " {}: {}.",
+                    l.alege(
+                        "Atentie, triggere existente; ordinea din sp_settriggerorder se pierde",
+                        "Warning, existing triggers; the sp_settriggerorder order is lost"
+                    ),
+                    triggere.join(", ")
+                ));
+            }
+            text
+        }
         RezultatDeploy::Eroare(e) => {
             format!(
                 "{}: {e}",
@@ -225,7 +255,9 @@ mod teste {
                 &RezultatDeploy::Scris {
                     director: "C:\\deploy".into(),
                     fisiere: 1,
-                    revenire: 1
+                    revenire: 1,
+                    views_legate: vec![],
+                    triggere: vec![],
                 },
                 R
             ),
@@ -256,11 +288,32 @@ mod teste {
                 &RezultatDeploy::Scris {
                     director: "C:\\deploy".into(),
                     fisiere: 2,
-                    revenire: 1
+                    revenire: 1,
+                    views_legate: vec![],
+                    triggere: vec![],
                 },
                 e
             ),
             "2 files written to C:\\deploy. Rollback, saved first: 1 file."
         );
+    }
+
+    #[test]
+    fn rezultatul_spune_ce_se_poate_pierde() {
+        let r = RezultatDeploy::Scris {
+            director: "C:\\d".into(),
+            fisiere: 1,
+            revenire: 1,
+            views_legate: vec!["C1: dbo.v".into()],
+            triggere: vec!["C1: dbo.tr".into(), "C2: dbo.tr".into()],
+        };
+        let ro = text_rezultat(&r, Limba::Romana);
+        assert!(
+            ro.contains("SCHEMABINDING; daca au indecsi, deploy-ul ii sterge: C1: dbo.v."),
+            "{ro}"
+        );
+        assert!(ro.contains("se pierde: C1: dbo.tr, C2: dbo.tr."), "{ro}");
+        let en = text_rezultat(&r, Limba::Engleza);
+        assert!(en.contains("Warning, existing triggers"), "{en}");
     }
 }

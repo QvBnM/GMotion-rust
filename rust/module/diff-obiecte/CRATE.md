@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 826cdd950325a075 -->
+<!-- api-hash: 1f1e460d2eb6275f -->
 
 ## Rol
 
@@ -34,7 +34,7 @@ a imperecheat deja blocurile (randul e `modificat`), aia e plasarea — perechea
 aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
 decat arata editorul. `gmotion_core::plasare` (portul din v3.4) raspunde doar
 pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
-| `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
+| `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` (cu `avertismente`), `avertismente(revenire) -> Vec<Avertisment>` (view-uri cu `SCHEMABINDING` si triggere existente in tinta: ce pierde `CREATE OR ALTER`, F-D8) |
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
@@ -88,6 +88,10 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 6c. **Fiecare obiect isi reface setarile de creare** (`SET ANSI_NULLS` /
    `SET QUOTED_IDENTIFIER`, intr-un batch inaintea codului), exact cum erau in
    referinta; necunoscute (instantaneu vechi) -> `ON`/`ON`, ca SSMS.
+6c'. **Dupa fiecare obiect, scriptul se opreste daca acela a cazut**: un batch
+   `IF @@ERROR <> 0 BEGIN RAISERROR(...); SET NOEXEC ON; END` dupa `GO`, si
+   in deploy, si in revenire (F-D7). Tiparul uneltelor comerciale; **neprobat
+   inca pe SQL Server** (proba in `STARE.md`).
 6d. **Obiectele unei baze se scriu dupa dependente** (`ordine_dupa_dependente`):
    referintele din cod (prin lexer) la alte obiecte din acelasi deploy; la
    egalitate functii, view-uri, proceduri, triggere. Ciclurile nu pierd
@@ -124,7 +128,8 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 8c. **Revenirea se scrie inainte de deploy, in `<director>/revenire/`**, din
    definitiile actuale ale tintei (cod si setari ale tintei): ce exista se
    reface, ce deploy-ul creeaza se sterge (`DROP ... IF EXISTS`). Intai
-   refacerile, apoi stergerile in ordinea inversa dependentelor. Daca
+   stergerile, in ordinea inversa dependentelor, apoi refacerile: un view nou
+   cu `SCHEMABINDING` peste o functie existenta ar bloca refacerea ei (F-D8). Daca
    revenirea nu se poate scrie, nu se scrie nici deploy-ul.
 8d. **Textul final e legat de amprenta obiectului** (ca bifa): daca sursa
    sau baza s-au schimbat de la editare, nu mai e valabil si nu intra in

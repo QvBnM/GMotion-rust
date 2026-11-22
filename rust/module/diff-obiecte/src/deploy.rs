@@ -65,6 +65,65 @@ pub struct Raport {
     pub obiecte: usize,
     /// Obiecte marcate dar nedeployabile: cele `extra`.
     pub sarite: usize,
+    /// Ce poate pierde deploy-ul fara sa se vada in script (F-D8). Goala daca
+    /// s-a scris fara revenire: atunci nu se stie ce e in tinta.
+    pub avertismente: Vec<Avertisment>,
+}
+
+/// Ceva ce `CREATE OR ALTER` pierde in tinta si scriptul nu poate reface.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Avertisment {
+    /// View existent cu `SCHEMABINDING`: poate avea indecsi, iar `CREATE OR
+    /// ALTER VIEW` ii sterge. Indecsii nu sunt in definitie, deci nu se stie
+    /// sigur; se spune pentru fiecare view care **poate** avea.
+    ViewPosibilIndexat { baza: String, obiect: String },
+    /// Trigger existent: ordinea data cu `sp_settriggerorder` se pierde la
+    /// `ALTER TRIGGER`.
+    OrdineTrigger { baza: String, obiect: String },
+}
+
+/// Avertismentele pentru obiectele care exista deja in tinta, din pasii de
+/// revenire (care tin codul **din tinta**).
+pub fn avertismente(revenire: &BTreeMap<String, Vec<PasRevenire>>) -> Vec<Avertisment> {
+    let mut rez = Vec::new();
+    for (baza, pasi) in revenire {
+        for p in pasi {
+            let PasRevenire::Reface(o) = p else { continue };
+            match o.tip.trim() {
+                "V" if cuvinte_de_cod(&o.cod)
+                    .iter()
+                    .any(|c| c.text.eq_ignore_ascii_case("SCHEMABINDING")) =>
+                {
+                    rez.push(Avertisment::ViewPosibilIndexat {
+                        baza: baza.clone(),
+                        obiect: o.obiect.clone(),
+                    })
+                }
+                "TR" => rez.push(Avertisment::OrdineTrigger {
+                    baza: baza.clone(),
+                    obiect: o.obiect.clone(),
+                }),
+                _ => {}
+            }
+        }
+    }
+    rez.sort();
+    rez
+}
+
+impl std::fmt::Display for Avertisment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Avertisment::ViewPosibilIndexat { baza, obiect } => write!(
+                f,
+                "{baza}: {obiect} e legat cu SCHEMABINDING; daca are indecsi, deploy-ul ii sterge si trebuie refacuti de mana"
+            ),
+            Avertisment::OrdineTrigger { baza, obiect } => write!(
+                f,
+                "{baza}: {obiect} e un trigger existent; ordinea data cu sp_settriggerorder se pierde si trebuie refacuta de mana"
+            ),
+        }
+    }
 }
 
 /// Numele scurt al tipului, pentru numele de fisier.
@@ -591,8 +650,29 @@ fn bloc(o: &DeDeployat) -> String {
         nota,
     ));
     text.push_str(&o.cod);
-    text.push_str(&crlf("\nGO\n\n"));
+    text.push_str(&crlf("\nGO\n"));
+    text.push_str(&opreste_daca_a_cazut(&o.obiect));
     text
+}
+
+/// Dupa fiecare obiect: daca batch-ul lui a cazut, restul scriptului nu se
+/// mai executa (F-D7 din auditul QA).
+///
+/// Fara asta, SSMS si `sqlcmd` fara `-b` trec mai departe, iar un obiect care
+/// cade lasa un deploy partial: obiectele de dupa el ajung in baza, cele care
+/// depindeau de el cad si ele. Tiparul e cel folosit de uneltele comerciale
+/// de comparare; `@@ERROR` se citeste in primul batch de dupa `GO`.
+/// **Neprobat inca pe SQL Server** (proba e in `STARE.md`). Numele intra ca
+/// argument al lui `RAISERROR`, ca un `%` din el sa nu fie format.
+fn opreste_daca_a_cazut(obiect: &str) -> String {
+    crlf(&format!(
+        "IF @@ERROR <> 0\n\
+         BEGIN\n    \
+             RAISERROR(N'GMotion: %s a cazut; restul scriptului nu se mai executa.', 16, 1, N'{}');\n    \
+             SET NOEXEC ON;\n\
+         END\nGO\n\n",
+        obiect.replace('\'', "''")
+    ))
 }
 
 /// Numele (cu puncte) la care face referire codul: `dbo.f`, `[dbo].[v]`, `p`.
@@ -945,6 +1025,7 @@ fn scrie_totul(
 
     let mut raport = scrie_deploy(director, referinta, pe_baza, mod_impartire, sarite, acum)?;
     raport.revenire = scrise;
+    raport.avertismente = avertismente(revenire);
     Ok(raport)
 }
 
@@ -973,19 +1054,23 @@ fn sterge(o: &DeDeployat) -> String {
             ));
         }
     };
-    crlf(&format!(
-        "-- ═══ {} ═══ (creat de deploy)\nDROP {fel} IF EXISTS {};\nGO\n\n",
+    let mut text = crlf(&format!(
+        "-- ═══ {} ═══ (creat de deploy)\nDROP {fel} IF EXISTS {};\nGO\n",
         o.obiect,
         nume_calificat(&o.obiect)
-    ))
+    ));
+    text.push_str(&opreste_daca_a_cazut(&o.obiect));
+    text
 }
 
 /// Textul scriptului de revenire pentru o baza.
 ///
-/// Intai se refac obiectele care existau (in ordinea dependentelor codului
-/// vechi), abia apoi se sterg cele noi, in ordinea **inversa** dependentelor
-/// codului nou: un view nou `WITH SCHEMABINDING` pe o functie noua ar bloca
-/// stergerea functiei pana cand view-ul nu e intai refacut sau sters.
+/// Intai se sterg obiectele noi, in ordinea **inversa** dependentelor codului
+/// nou, abia apoi se refac cele care existau (in ordinea dependentelor codului
+/// vechi). Un view nou `WITH SCHEMABINDING` peste o functie care exista ar
+/// bloca refacerea functiei cat timp view-ul e acolo (F-D8); codul vechi al
+/// unui obiect existent nu poate depinde de unul creat abia de deploy, deci
+/// stergerea intai nu rupe nimic.
 fn text_revenire(baza: &str, referinta: &str, pasi: &[PasRevenire], acum: &str) -> String {
     let mut reface = Vec::new();
     let mut sterse = Vec::new();
@@ -1002,11 +1087,11 @@ fn text_revenire(baza: &str, referinta: &str, pasi: &[PasRevenire], acum: &str) 
          {GARDA_VERSIUNE}{}",
         du_te_in_baza(baza)
     ));
-    for i in ordine_dupa_dependente(&reface) {
-        text.push_str(&bloc(&reface[i]));
-    }
     for i in ordine_dupa_dependente(&sterse).into_iter().rev() {
         text.push_str(&sterge(&sterse[i]));
+    }
+    for i in ordine_dupa_dependente(&reface) {
+        text.push_str(&bloc(&reface[i]));
     }
     text.push_str(&crlf(SFARSIT_SCRIPT));
     text
@@ -1113,6 +1198,7 @@ fn scrie_deploy(
         revenire: Vec::new(),
         obiecte,
         sarite,
+        avertismente: Vec::new(),
     })
 }
 
@@ -1808,8 +1894,8 @@ mod teste {
         assert_eq!(t.matches("-- ═══").count(), 3);
         assert_eq!(
             t.matches("\r\nGO\r\n").count(),
-            10,
-            "garda, USE, verificarea bazei, doua per obiect (setarile, apoi codul), sfarsitul"
+            13,
+            "garda, USE, verificarea bazei, trei per obiect (setarile, codul, oprirea), sfarsitul"
         );
         std::fs::remove_dir_all(&d).ok();
     }
@@ -1969,7 +2055,7 @@ mod teste {
     }
 
     #[test]
-    fn revenirea_reface_intai_apoi_sterge_dependentii_inainte() {
+    fn revenirea_sterge_intai_dependentii_apoi_reface() {
         let (_, rev) = cu_revenire();
         let sql = text_revenire("Client1", "Ref", &rev["Client1"], "t");
         let poz = |s: &str| {
@@ -1977,13 +2063,151 @@ mod teste {
                 .unwrap_or_else(|| panic!("lipseste {s}:\n{sql}"))
         };
         assert!(
-            poz("SELECT \"vechi\"") < poz("DROP VIEW"),
-            "refacerea inainte de stergeri"
+            poz("DROP FUNCTION") < poz("SELECT \"vechi\""),
+            "stergerile inainte de refaceri (F-D8)"
         );
         assert!(
             poz("DROP VIEW") < poz("DROP FUNCTION"),
             "view-ul cu SCHEMABINDING blocheaza stergerea functiei:\n{sql}"
         );
+    }
+
+    #[test]
+    fn un_view_nou_legat_de_o_functie_existenta_se_sterge_inainte_de_refacerea_ei() {
+        // F-D8: deploy-ul a modificat dbo.f si a creat dbo.v WITH SCHEMABINDING
+        // peste ea; cat timp v exista, ALTER pe f cade
+        let v = "CREATE OR ALTER VIEW dbo.v WITH SCHEMABINDING AS SELECT dbo.f() AS x";
+        let pasi = vec![
+            PasRevenire::Reface(dd(
+                "dbo.f",
+                "FN",
+                "CREATE OR ALTER FUNCTION dbo.f() RETURNS INT AS BEGIN RETURN 0 END",
+                true,
+            )),
+            PasRevenire::Sterge(dd("dbo.v", "V", v, true)),
+        ];
+        let sql = text_revenire("Client1", "Ref", &pasi, "t");
+        let drop = sql.find("DROP VIEW IF EXISTS [dbo].[v]").expect("drop");
+        let reface = sql.find("RETURN 0").expect("reface");
+        assert!(drop < reface, "{sql}");
+    }
+
+    #[test]
+    fn avertismente_pentru_view_uri_legate_si_triggere_existente() {
+        let mut rev = BTreeMap::new();
+        rev.insert(
+            "C1".to_string(),
+            vec![
+                PasRevenire::Reface(dd(
+                    "dbo.vLegat",
+                    "V",
+                    "CREATE VIEW dbo.vLegat WITH SCHEMABINDING AS SELECT a FROM dbo.t",
+                    true,
+                )),
+                PasRevenire::Reface(dd(
+                    "dbo.vSimplu",
+                    "V",
+                    "CREATE VIEW dbo.vSimplu AS SELECT 'SCHEMABINDING' AS a -- SCHEMABINDING",
+                    true,
+                )),
+                PasRevenire::Reface(dd(
+                    "dbo.tr",
+                    "TR",
+                    "CREATE TRIGGER dbo.tr ON t AFTER INSERT AS SELECT 1",
+                    true,
+                )),
+                // un trigger nou nu are ordine de pierdut
+                PasRevenire::Sterge(dd(
+                    "dbo.trNou",
+                    "TR",
+                    "CREATE TRIGGER dbo.trNou ON t AFTER INSERT AS SELECT 1",
+                    true,
+                )),
+            ],
+        );
+        assert_eq!(
+            avertismente(&rev),
+            vec![
+                Avertisment::ViewPosibilIndexat {
+                    baza: "C1".into(),
+                    obiect: "dbo.vLegat".into()
+                },
+                Avertisment::OrdineTrigger {
+                    baza: "C1".into(),
+                    obiect: "dbo.tr".into()
+                },
+            ]
+        );
+        assert!(avertismente(&rev)[0].to_string().contains("indecsi"));
+    }
+
+    #[test]
+    fn raportul_cu_revenire_poarta_avertismentele() {
+        let d = dir("avertismente");
+        let mut deploy = BTreeMap::new();
+        deploy.insert(
+            "Client1".to_string(),
+            vec![dd(
+                "dbo.tr",
+                "TR",
+                "CREATE OR ALTER TRIGGER dbo.tr ON dbo.t AFTER INSERT AS SELECT 2",
+                true,
+            )],
+        );
+        let mut rev = BTreeMap::new();
+        rev.insert(
+            "Client1".to_string(),
+            vec![PasRevenire::Reface(dd(
+                "dbo.tr",
+                "TR",
+                "CREATE TRIGGER dbo.tr ON dbo.t AFTER INSERT AS SELECT 1",
+                true,
+            ))],
+        );
+        let r = scrie_cu_revenire(&d, "Ref", &deploy, &rev, ModImpartire::PerBaza, 0, "t").unwrap();
+        assert_eq!(r.avertismente.len(), 1);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn dupa_fiecare_obiect_scriptul_se_opreste_daca_a_cazut() {
+        // F-D7: un obiect care cade nu lasa restul sa ruleze
+        let o = dd(
+            "dbo.p%s",
+            "P",
+            "CREATE OR ALTER PROCEDURE dbo.[p%s] AS SELECT 1",
+            true,
+        );
+        let text = bloc(&o);
+        let cod = text.find("SELECT 1").expect("cod");
+        let garda = text.find("IF @@ERROR <> 0").expect("garda");
+        assert!(cod < garda, "garda dupa cod:\n{text}");
+        assert!(
+            text[cod..garda].contains("\r\nGO\r\n"),
+            "garda in batch-ul de dupa obiect:\n{text}"
+        );
+        assert!(text[garda..].contains("SET NOEXEC ON;"), "{text}");
+        assert!(text.trim_end().ends_with("GO"), "{text}");
+        // numele e argument, nu format
+        assert!(text.contains("16, 1, N'dbo.p%s');"), "{text}");
+        assert_eq!(text.matches("IF @@ERROR").count(), 1);
+
+        let s = sterge(&o);
+        assert!(
+            s.find("DROP PROCEDURE").expect("drop") < s.find("IF @@ERROR <> 0").expect("garda"),
+            "{s}"
+        );
+    }
+
+    #[test]
+    fn scriptul_intreg_are_o_garda_per_obiect_si_reda_sesiunea_la_final() {
+        let d = dir("garda-per-obiect");
+        scrie(&d, "Ref", &exemplu(), ModImpartire::PerBaza, 0, "t").unwrap();
+        let t = std::fs::read_to_string(d.join("Client1.sql")).unwrap();
+        assert_eq!(t.matches("IF @@ERROR <> 0").count(), 3, "{t}");
+        let ultima = t.rfind("IF @@ERROR <> 0").unwrap();
+        assert!(t[ultima..].contains("SET NOEXEC OFF;"), "{t}");
+        std::fs::remove_dir_all(&d).ok();
     }
 
     #[test]
