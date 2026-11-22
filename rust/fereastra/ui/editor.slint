@@ -704,6 +704,68 @@ export component EditorDiferente inherits Window {
                         background: Tema.cod-fundal;
                     }
                     if root.alaturat: Rectangle { x: root.panou + root.jgheab / 2; width: 1px; background: Tema.linie; }
+                    // legaturile curbe din canal (v3.4, cerute de Mihai inapoi): de
+                    // la primul rand al fiecarei diferente la locul ei din
+                    // Modificata; plina = inlocuieste, stinsa cu capat gol = se
+                    // insereaza. Urmaresc derularea listei (`content-y`); fara
+                    // TouchArea. Stau **sub** lista: butonul cu sageata, opac,
+                    // le acopera, iar linia pare ca intra in el si iese spre
+                    // destinatie (Mihai: sageata parea pusa peste linii)
+                    if root.alaturat && !root.ascunde-diferentele: legaturi := Rectangle {
+                        x: root.panou;
+                        y: 30px;
+                        width: root.jgheab;
+                        height: lista.height;
+                        clip: true;
+                        for t[k] in root.tinte-de-la: Path {
+                            property <float> h: root.inaltime-rand / 1px;
+                            property <float> y1: (root.start-diferente[k] + 0.5) * self.h + lista.content-y / 1px;
+                            property <bool> gol: t >= 0 && root.randuri[t].fantoma;
+                            // la inserare, spre banda de inserare (mijlocul randului ei);
+                            // la inlocuire, spre mijlocul blocului
+                            property <float> y2: (self.gol ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * self.h + lista.content-y / 1px;
+                            property <bool> curenta: k == root.diferenta-curenta;
+                            visible: t >= 0 && root.start-diferente[k] >= 0
+                                && Math.max(self.y1, self.y2) > -20 && Math.min(self.y1, self.y2) < legaturi.height / 1px + 20;
+                            width: parent.width;
+                            height: parent.height;
+                            viewbox-x: 0;
+                            viewbox-y: 0;
+                            viewbox-width: self.width / 1px;
+                            viewbox-height: self.height / 1px;
+                            // fara scalare: implicit (`contain`) Slint micsoreaza desenul
+                            // ca sa incapa grosimea liniei, ~3 % pe un canal de 44 px,
+                            // adica ~13 px abatere la mijlocul listei
+                            fit: preserve;
+                            fill: transparent;
+                            stroke: self.gol ? Tema.del-bara : Tema.mod-bara;
+                            stroke-width: self.curenta ? 2.2px : 1.4px;
+                            opacity: self.curenta ? 1 : (self.gol ? 0.55 : 0.75);
+                            MoveTo { x: 0; y: parent.y1; }
+                            CubicTo {
+                                control-1-x: parent.width / 1px * 0.55;
+                                control-1-y: parent.y1;
+                                control-2-x: parent.width / 1px * 0.45;
+                                control-2-y: parent.y2;
+                                x: parent.width / 1px;
+                                y: parent.y2;
+                            }
+                        }
+                        // capatul legaturii, doar la inlocuire: la inserare locul
+                        // il arata banda rosie din Modificata
+                        for t[k] in root.tinte-de-la: Rectangle {
+                            property <length> y2: (t >= 0 && root.randuri[t].fantoma ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * root.inaltime-rand + lista.content-y;
+                            visible: t >= 0 && !root.randuri[t].fantoma && root.start-diferente[k] >= 0 && self.y2 > -10px && self.y2 < legaturi.height + 10px;
+                            x: parent.width - 4px;
+                            y: self.y2 - 3px;
+                            width: 6px;
+                            height: 6px;
+                            border-radius: 3px;
+                            background: t >= 0 && root.randuri[t].fantoma ? Tema.fundal : Tema.mod-bara;
+                            border-width: t >= 0 && root.randuri[t].fantoma ? 1.5px : 0px;
+                            border-color: Tema.del-bara;
+                        }
+                    }
                     // lipit la stanga (`x: 0`, `alignment: start`), ca fondurile,
                     // linia dintre panouri si legaturile din canal, care sunt in
                     // coordonatele lui `zona-cod`; centrat, randurile si antetele
@@ -1067,65 +1129,6 @@ export component EditorDiferente inherits Window {
                                             * root.derulare-maxima / Math.max(1px, bara-oriz.util - bara-oriz.cursor)));
                                 }
                             }
-                        }
-                    }
-                    // legaturile curbe din canal (v3.4, cerute de Mihai inapoi): de
-                    // la primul rand al fiecarei diferente la locul ei din
-                    // Modificata; plina = inlocuieste, stinsa cu capat gol = se
-                    // insereaza. Urmaresc derularea listei (`content-y`); fara
-                    // TouchArea, deci nu iau clicul sagetilor de dedesubt
-                    if root.alaturat && !root.ascunde-diferentele: legaturi := Rectangle {
-                        x: root.panou;
-                        y: 30px;
-                        width: root.jgheab;
-                        height: lista.height;
-                        clip: true;
-                        for t[k] in root.tinte-de-la: Path {
-                            property <float> h: root.inaltime-rand / 1px;
-                            property <float> y1: (root.start-diferente[k] + 0.5) * self.h + lista.content-y / 1px;
-                            property <bool> gol: t >= 0 && root.randuri[t].fantoma;
-                            // la inserare, spre banda de inserare (mijlocul randului ei);
-                            // la inlocuire, spre mijlocul blocului
-                            property <float> y2: (self.gol ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * self.h + lista.content-y / 1px;
-                            property <bool> curenta: k == root.diferenta-curenta;
-                            visible: t >= 0 && root.start-diferente[k] >= 0
-                                && Math.max(self.y1, self.y2) > -20 && Math.min(self.y1, self.y2) < legaturi.height / 1px + 20;
-                            width: parent.width;
-                            height: parent.height;
-                            viewbox-x: 0;
-                            viewbox-y: 0;
-                            viewbox-width: self.width / 1px;
-                            viewbox-height: self.height / 1px;
-                            // fara scalare: implicit (`contain`) Slint micsoreaza desenul
-                            // ca sa incapa grosimea liniei, ~3 % pe un canal de 44 px,
-                            // adica ~13 px abatere la mijlocul listei
-                            fit: preserve;
-                            fill: transparent;
-                            stroke: self.gol ? Tema.del-bara : Tema.mod-bara;
-                            stroke-width: self.curenta ? 2.2px : 1.4px;
-                            opacity: self.curenta ? 1 : (self.gol ? 0.55 : 0.75);
-                            MoveTo { x: 0; y: parent.y1; }
-                            CubicTo {
-                                control-1-x: parent.width / 1px * 0.55;
-                                control-1-y: parent.y1;
-                                control-2-x: parent.width / 1px * 0.45;
-                                control-2-y: parent.y2;
-                                x: parent.width / 1px;
-                                y: parent.y2;
-                            }
-                        }
-                        // capatul legaturii: plin la inlocuire, gol la inserare
-                        for t[k] in root.tinte-de-la: Rectangle {
-                            property <length> y2: (t >= 0 && root.randuri[t].fantoma ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * root.inaltime-rand + lista.content-y;
-                            visible: t >= 0 && root.start-diferente[k] >= 0 && self.y2 > -10px && self.y2 < legaturi.height + 10px;
-                            x: parent.width - 4px;
-                            y: self.y2 - 3px;
-                            width: 6px;
-                            height: 6px;
-                            border-radius: 3px;
-                            background: t >= 0 && root.randuri[t].fantoma ? Tema.fundal : Tema.mod-bara;
-                            border-width: t >= 0 && root.randuri[t].fantoma ? 1.5px : 0px;
-                            border-color: Tema.del-bara;
                         }
                     }
                     // ce tragi: o fantoma care urmeaza mouse-ul, cu ce se intampla
