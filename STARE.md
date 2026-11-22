@@ -48,12 +48,25 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ## Urmatorul pas concret
 
 **2026-11-22, audit nou: `cercetare/audit-qa-2026-11-22.md` (nota 6/10).**
-Primul lucru: **A1** — plasarea unui bloc scrie peste un bloc *Egal* din
-Modificata (`core/src/plasare.rs`, `sugereaza` / `cel_mai_apropiat`), deci
-„Aplica" pe o diferenta, tragerea si `editare --aplica` pot sterge cod identic
-care ajunge apoi in deploy. Reparatia si invariantul sunt in audit. Apoi A2,
-A3, B1-B4, in ordinea de la finalul auditului. C2 (spatiere in siruri)
-asteapta decizia lui Mihai.
+Mihai a cerut: varianta 2 la C2, apoi „rezolva toate problemele". Facute:
+A1-A3, B1-B4, C1-C12 (vezi „Verdicte" la finalul auditului). **Urmatorul
+pas:** sectiunea D a auditului (texte direct in `.slint`, titlul din deploy
+dupa garda, mesaje ramase, PageUp/PageDown, `try_borrow` la hover, cli:
+teava rupta, BOM, coduri de eroare), apoi itemii vechi inca deschisi.
+
+**De probat de Mihai pe SQL Server real** (C11, F-B2, F-B3, F-B6, scrise
+fara server): cu un utilizator fara `VIEW DEFINITION` pe o baza si fara
+`VIEW SERVER STATE`:
+
+```
+gmotion testeaza --server SRV --utilizator u_limitat --parola-stdin
+gmotion baze --server SRV --utilizator u_limitat --parola-stdin
+gmotion compara --server SRV --utilizator u_limitat --parola-stdin --referinta Martor
+```
+
+Astept: `testeaza` merge (fara eroare pe `dm_os_sys_info`); `baze` nu
+listeaza bazele fara acces; `compara` se opreste cu `GM-DB-012` si numele
+primelor obiecte, nu le arata „criptate". Imi trebuie iesirea celor trei.
 
 **2026-11-21, de probat de Mihai:** segmentarea nu mai lipeste `BEGIN` /
 `END` de vecini (vezi `JURNAL.md`). In `gmotion-ui`, pe
