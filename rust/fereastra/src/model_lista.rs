@@ -550,8 +550,30 @@ impl Lista {
     /// Pentru calculul de pe alt fir: rezultatele vin dupa cheie, nu dupa
     /// pozitie, fiindca intre timp filtrul se poate schimba.
     pub fn pune_detalii_cheie(&mut self, cheie: &(String, String), d: Detalii) {
-        if let Some(o) = self.obiecte.iter_mut().find(|o| &o.cheie() == cheie) {
-            o.detalii = Some(d);
+        self.pune_detalii_multe(vec![(cheie.clone(), d)]);
+    }
+
+    /// Un lot de detalii venite de pe fir: cautate printr-un index, nu cu
+    /// `find` pe toata lista pentru fiecare. Daca ordinea depinde de ele
+    /// („Linii", „Difera in"), lista se resorteaza, altfel sortarea minte
+    /// pana la urmatorul clic pe antet (F-A6).
+    pub fn pune_detalii_multe(&mut self, lot: Vec<((String, String), Detalii)>) {
+        if lot.is_empty() {
+            return;
+        }
+        let index: std::collections::HashMap<(String, String), usize> = self
+            .obiecte
+            .iter()
+            .enumerate()
+            .map(|(i, o)| (o.cheie(), i))
+            .collect();
+        for (cheie, d) in lot {
+            if let Some(&i) = index.get(&cheie) {
+                self.obiecte[i].detalii = Some(d);
+            }
+        }
+        if matches!(self.ordine, Ordine::Linii | Ordine::DiferaIn) {
+            self.recalculeaza();
         }
     }
 
@@ -772,6 +794,26 @@ mod teste {
 
     fn cheie(nume: &str) -> (String, String) {
         ("Client1".to_string(), format!("dbo.{nume}"))
+    }
+
+    /// F-A6: sortata pe „Linii", lista se reface cand vin detaliile.
+    #[test]
+    fn detaliile_venite_resorteaza_pe_linii() {
+        let mut l = Lista::noua(vec![
+            obiect("pA", "P", Stare::Modificat),
+            obiect("pB", "P", Stare::Modificat),
+        ]);
+        l.sorteaza(Ordine::Linii);
+        let cu = |n: usize| Detalii {
+            linii_plus: n,
+            ..Detalii::default()
+        };
+        let a = l.obiecte()[0].cheie();
+        let b = l.obiecte()[1].cheie();
+        l.pune_detalii_multe(vec![(a.clone(), cu(1)), (b.clone(), cu(50))]);
+        assert_ne!(a, b);
+        let primul = l.obiect(0).unwrap().cheie();
+        assert_eq!(primul, b, "cele mai multe linii primele");
     }
 
     #[test]

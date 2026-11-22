@@ -2250,14 +2250,11 @@ fn ruleaza() -> Result<(), String> {
                     let mut st = s.borrow_mut();
                     let st = &mut *st;
                     if let (Some(rx), Some(app)) = (st.detalii.as_ref(), st.app.as_mut()) {
-                        let mut venite = 0usize;
+                        let mut lot = Vec::new();
                         let mut gata = false;
                         loop {
                             match rx.try_recv() {
-                                Ok((cheie, d)) => {
-                                    app.pune_detalii(&cheie, d);
-                                    venite += 1;
-                                }
+                                Ok((cheie, d)) => lot.push((cheie, d)),
                                 Err(std::sync::mpsc::TryRecvError::Empty) => break,
                                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                                     gata = true;
@@ -2269,7 +2266,8 @@ fn ruleaza() -> Result<(), String> {
                             tracing::debug!(target: "gmotion::app", "detaliile listei sunt calculate");
                             st.detalii = None;
                         }
-                        s_a_schimbat |= venite > 0;
+                        s_a_schimbat |= !lot.is_empty();
+                        app.pune_detalii_multe(lot);
                     }
                 }
                 if s_a_schimbat {

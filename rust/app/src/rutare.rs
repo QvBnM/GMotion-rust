@@ -785,6 +785,11 @@ impl Aplicatie {
         self.lista.pune_detalii_cheie(cheie, d);
     }
 
+    /// Un lot de detalii de pe fir, dintr-o data (F-A6).
+    pub fn pune_detalii_multe(&mut self, lot: Vec<((String, String), Detalii)>) {
+        self.lista.pune_detalii_multe(lot);
+    }
+
     /// Calculeaza detaliile („Difera in", `+N −M`) pentru randurile de pe
     /// ecran, daca lipsesc. Restul listei ramane necalculat.
     pub fn asigura_detalii(&mut self, de_la: usize, pana_la: usize) {
