@@ -380,22 +380,27 @@ export component Buton inherits Rectangle {
 // Butonul principal: chihlimbar (`accent`), scris cu `pe-accent`.
 export component ButonPrincipal inherits Rectangle {
     in property <string> text;
+    // `false`: cenusiu si fara clic („Deploy (0)" parea apasabil, V15)
+    in property <bool> activ: true;
     callback apasat();
     height: 32px;
     border-radius: 8px;
-    background: Tema.accent;
-    opacity: zona.has-hover ? 0.88 : 1;
+    background: root.activ ? Tema.accent : Tema.strat;
+    opacity: root.activ && zona.has-hover ? 0.88 : 1;
     min-width: eticheta.preferred-width + 28px;
     eticheta := Text {
         text: root.text;
         font-family: Tema.font-ui;
         font-size: 13px;
         font-weight: 600;
-        color: Tema.pe-accent;
+        color: root.activ ? Tema.pe-accent : Tema.text-tert;
         vertical-alignment: center;
         horizontal-alignment: center;
     }
-    zona := TouchArea { clicked => { root.apasat(); } }
+    zona := TouchArea {
+        enabled: root.activ;
+        clicked => { root.apasat(); }
+    }
 }
 
 // Tab cu sublinierea de 2 px (Alaturat / Unificat).

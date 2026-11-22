@@ -1453,9 +1453,16 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     } else {
         deployate as f32 / total_deploy as f32
     });
-    ui.set_selectat(lista.selectat().map_or(0, |p| p as i32));
+    let selectat = lista.selectat().map_or(0, |p| p as i32);
+    let schimbat = ui.get_selectat() != selectat;
+    ui.set_selectat(selectat);
     if let Some(m) = pe_loc(ui.get_randuri(), randuri) {
         ui.set_randuri(m);
+    }
+    // o selectie schimbata din Rust (harta, recomparare, filtru) se aduce in
+    // vedere; una neschimbata lasa derularea omului in pace (V12)
+    if schimbat {
+        ui.invoke_arata_selectia();
     }
     // harta deschisa urmeaza lista: revizuirea, filtrele, selectia
     if ui.get_arata_harta() {
@@ -3300,6 +3307,35 @@ mod teste {
         );
         // „% deploy" numara doar ce difera si e neschimbat
         assert_eq!(ui.get_progres_deployate(), "1/2");
+    }
+
+    /// V12: o selectie mutata din Rust (harta, recomparare) se aduce in
+    /// vedere; reincarcarea cu aceeasi selectie nu misca derularea.
+    #[test]
+    fn selectia_mutata_din_rust_se_vede() {
+        use model_lista::{Obiect, Stare};
+        let ui = fereastra_lista();
+        ui.window().set_size(slint::PhysicalSize::new(1366, 768));
+        let obiecte: Vec<Obiect> = (0..200)
+            .map(|i| {
+                let mut o = lista_de_proba().obiecte()[0].clone();
+                o.nume = format!("p{i:03}");
+                o.stare = Stare::Modificat;
+                o
+            })
+            .collect();
+        let mut lista = model_lista::Lista::noua(obiecte);
+        lista.selecteaza(0);
+        incarca_lista(&ui, &antet_lista(), &lista);
+        ui.show().expect("fereastra se arata");
+        assert_eq!(ui.get_derulare_tabel(), 0.0);
+        lista.selecteaza(150);
+        incarca_lista(&ui, &antet_lista(), &lista);
+        let d = -ui.get_derulare_tabel();
+        assert!(d > 100.0 * 34.0, "randul 150 adus in vedere: {d}");
+        // aceeasi selectie, alta incarcare: derularea ramane
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(-ui.get_derulare_tabel(), d);
     }
 
     #[test]

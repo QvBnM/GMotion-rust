@@ -210,7 +210,9 @@ export component FereastraDeploy inherits Window {
                                             height: 28px;
                                             border-radius: 8px;
                                             background: zx.has-hover ? Tema.strat : transparent;
-                                            opacity: rand.has-hover ? 1 : 0;
+                                            // vizibil si fara hover (slab): un control
+                                            // ascuns nu se descopera (V15)
+                                            opacity: rand.has-hover ? 1 : 0.35;
                                             Text { text: "×"; font-family: Tema.font-ui; font-size: 16px; color: Tema.text-secundar; }
                                             zx := TouchArea { clicked => { root.scoate-din-plan(p.baza, p.id); } }
                                         }

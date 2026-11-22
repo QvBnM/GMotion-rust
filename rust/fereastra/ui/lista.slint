@@ -738,7 +738,21 @@ export component FereastraLista inherits Window {
         if (root.randuri.length == 0) { return; }
         root.selectat = Math.max(0, Math.min(root.randuri.length - 1, root.selectat + pas));
         root.alege-randul(root.selectat);
-        tabel.content-y = -Math.max(0, root.selectat - 6) * 34px;
+        root.arata-selectia();
+    }
+
+    // Derularea urmeaza selectia doar cand selectia iese din vedere: inainte
+    // randul ales sarea mereu pe pozitia 7, iar o selectie venita din Rust
+    // (clic pe harta, recomparare) nu se vedea deloc (V12).
+    // derularea tabelului, doar pentru teste
+    out property <length> derulare-tabel: tabel.content-y;
+    public function arata-selectia() {
+        if (root.selectat < 0) { return; }
+        if (root.selectat * 34px < -tabel.content-y) {
+            tabel.content-y = -Math.max(0, root.selectat - 2) * 34px;
+        } else if ((root.selectat + 1) * 34px > -tabel.content-y + tabel.visible-height) {
+            tabel.content-y = -Math.max(0px, (root.selectat + 3) * 34px - tabel.visible-height);
+        }
     }
 
     taste := FocusScope {
@@ -999,6 +1013,7 @@ export component FereastraLista inherits Window {
                         alignment: center;
                         ButonPrincipal {
                             text: Texte.deploy-paranteza + root.numar-deploy + ")";
+                            activ: root.numar-deploy != "0";
                             apasat => { root.deschide-deploy(); }
                         }
                     }
@@ -1367,13 +1382,23 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "ctrl j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "ctrl r", e: Texte.revizuit-mic }, { t: "ctrl i", e: Texte.in-plan-mic }, { t: "ctrl o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "ctrl h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
-                        spacing: 6px;
-                        Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
-                        Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                    // scurtaturile se taie cand nu incap (1024 px), in loc sa
+                    // impinga serverele afara din ecran (auditul 2026-11-22)
+                    Rectangle {
+                        clip: true;
+                        horizontal-stretch: 1;
+                        min-width: 0px;
+                        HorizontalLayout {
+                            spacing: 18px;
+                            alignment: start;
+                            for k in [{ t: "ctrl j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "ctrl r", e: Texte.revizuit-mic }, { t: "ctrl i", e: Texte.in-plan-mic }, { t: "ctrl o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "ctrl h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
+                                spacing: 6px;
+                                Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
+                                Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                            }
+                        }
                     }
-                    Rectangle { horizontal-stretch: 1; }
-                    Text { text: root.servere; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                    Text { text: root.servere; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; min-width: 0px; max-width: 420px; }
                 }
             }
         }
