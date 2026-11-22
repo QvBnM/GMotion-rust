@@ -1482,7 +1482,7 @@ mod teste {
 
     #[test]
     fn caracterele_care_isi_schimba_lungimea_la_minuscule_nu_strica_nimic() {
-        // `K` (semnul Kelvin) si `İ`: minusculele au alta lungime in octeti.
+        // `K` (semnul Kelvin) si `İ`: minusculele au alta lungime in octeti. (diacritice-permise)
         // Inainte: panica, respectiv `CCREATE OR ALTER PROCEDUREdbo...`.
         assert_eq!(
             aplica_create_or_alter("-- 5\u{212A}\nCREATE PROCEDURE dbo.p AS SELECT 1", "dbo.p"),
@@ -1490,10 +1490,10 @@ mod teste {
         );
         assert_eq!(
             aplica_create_or_alter(
-                "-- İstanbul\nCREATE PROCEDURE dbo.pTurc AS SELECT 1",
+                "-- İstanbul\nCREATE PROCEDURE dbo.pTurc AS SELECT 1", // diacritice-permise: date de test
                 "dbo.pTurc"
             ),
-            "-- İstanbul\nCREATE OR ALTER PROCEDURE dbo.pTurc AS SELECT 1"
+            "-- İstanbul\nCREATE OR ALTER PROCEDURE dbo.pTurc AS SELECT 1" // diacritice-permise: date de test
         );
     }
 

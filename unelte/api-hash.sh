@@ -15,10 +15,21 @@ src="$crate/src"
 
 # Liniile care declara ceva public. Elementele din `mod teste` nu sunt publice,
 # deci nu intra. Normalizam spatiile ca reformatarea sa nu schimbe amprenta.
-find "$src" -name '*.rs' -print0 \
-  | sort -z \
-  | xargs -0 grep -hE '^[[:space:]]*pub([[:space:]]|\()' \
+#
+# Pentru un binar cu `enum Comanda` (cli), API-ul public e si linia de
+# comanda: subcomenzile si argumentele lor (fara comentariile `///`). Altfel
+# un argument nou nu cerea actualizarea tabelului din `CRATE.md` (auditul
+# 2026-11-22).
+{
+  find "$src" -name '*.rs' -print0 \
+    | sort -z \
+    | xargs -0 grep -hE '^[[:space:]]*pub([[:space:]]|\()' || true
+  if [ -f "$src/main.rs" ]; then
+    awk '/^enum Comanda \{/,/^\}/' "$src/main.rs" | grep -vE '^[[:space:]]*//' || true
+  fi
+} \
   | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' \
+  | grep -v '^$' \
   | sort \
   | sha256sum \
   | cut -c1-16

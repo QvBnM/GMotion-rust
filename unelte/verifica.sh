@@ -143,7 +143,7 @@ for cale in glob.glob("rust/**/Cargo.toml", recursive=True):
         if nivel_dep >= nivel:
             probleme.append(f"{nume} -> {dep}: dependinta la dreapta sau laterala")
         if e_modul and e_modul_dep:
-            probleme.append(f"{nume} -> {dep}: un modul nu depinde de alt modul; mutǎ in platforma")
+            probleme.append(f"{nume} -> {dep}: un modul nu depinde de alt modul; muta in platforma")
 
 if probleme:
     print("\n".join(probleme)); sys.exit(1)
@@ -300,13 +300,26 @@ fi
 titlu "fara diacritice"
 python3 - <<'PY_DIACRITICE'
 import re, subprocess, sys
-fisiere = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split("\n")
-r = re.compile("[\u0103\u00e2\u00ee\u0219\u015f\u021b\u0163\u0102\u00c2\u00ce\u0218\u015e\u021a\u0162]")
+import unicodedata
+# si fisierele noi, inca neadaugate: altfel trec pana la commit (auditul 2026-11-22)
+fisiere = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"], capture_output=True, text=True).stdout.split("\n")
+class _Diacritic:
+    """Orice litera latina cu semn (a cu caciula, s cu virgula, dar si a cu
+    caron U+01CE, e accentuat, I cu punct): o lista fixa scapa semnele
+    asemanatoare, cum a scapat U+01CE din chiar acest fisier."""
+    def search(self, l):
+        for c in l:
+            if ord(c) > 127 and c.isalpha():
+                d = unicodedata.normalize("NFD", c)
+                if len(d) > 1 and d[0].isascii() and unicodedata.combining(d[1]):
+                    return True
+        return False
+r = _Diacritic()
 gasite = []
 for f in fisiere:
     if not f or f.startswith("mostenire/") or (f.startswith("referinta/") and f != "referinta/README.md"):
         continue
-    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml)$", f) or "LICENSE" in f:
+    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml|html|js|css)$", f) or "LICENSE" in f:
         continue
     try:
         linii = open(f, encoding="utf-8").read().split("\n")

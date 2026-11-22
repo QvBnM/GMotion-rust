@@ -37,7 +37,7 @@ Deploy-ul (critic: script injectabil sau stricat):
       comentariile din script nu pot contine rand nou
 - [x] o linie `GO` in definitie => obiectul e refuzat cu eroare clara
 - [x] `CREATE OR ALTER` ignora comentariile si string-urile; fara panica pe
-      `K`/`İ`
+      `K`/`İ` <!-- diacritice-permise -->
 - [x] se deployeaza definitia originala, octet cu octet, nu textul de afisare
 - [x] fara coliziuni de fisiere; director de iesire ne-gol refuzat; nume
       rezervate Windows ocolite
