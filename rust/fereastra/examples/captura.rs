@@ -150,6 +150,19 @@ fn main() {
         }
     }
     ui.set_alaturat(!are("--unificat"));
+    // `--alege N`: „alege locul" pornit pentru diferenta N (de la 1), ca dupa
+    // un clic pe blocul din Martor; `--alege-mouse R`: mouse-ul pe randul
+    // afisat R din Modificata (chenarul lui aprins)
+    if let Some(n) = a
+        .iter()
+        .position(|x| x == "--alege")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| n.parse::<usize>().ok())
+        .filter(|&n| n > 0 && n <= model.blocuri.len())
+    {
+        ui.set_alege_diferenta(n as i32 - 1);
+        ui.set_alege_bloc(model.blocuri[n - 1] as i32);
+    }
     ui.set_pliaza_identicul(!are("--fara-pliere"));
     let (schema, nume) = a[4].split_once('.').unwrap_or(("dbo", &a[4]));
     incarca_editor(
@@ -175,6 +188,17 @@ fn main() {
         gmotion_fereastra::leaga_editarea(&ui);
         ui.set_text_final(t.as_str().into());
         ui.set_editeaza_mod(true);
+    }
+    if let Some(r) = a
+        .iter()
+        .position(|x| x == "--alege-mouse")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| n.parse::<usize>().ok())
+    {
+        use slint::Model;
+        if let Some(rand) = ui.get_randuri().row_data(r) {
+            ui.set_alege_sub_mouse(rand.loc);
+        }
     }
     // `--taburi`: bara de taburi (etapa 16), cu trei fixate, unul editat,
     // si obiectul capturat in previzualizare

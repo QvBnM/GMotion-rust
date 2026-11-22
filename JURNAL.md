@@ -1730,3 +1730,21 @@ canal; golul de sub ea ramane alb, cat blocul.
 
 **Consecinte.** `Jumatate` nu mai deseneaza linia de inserare (proprietatea
 `fantoma` a disparut din ea); banda e in `editor.slint`.
+
+---
+
+## 2026-11-22 — „Alege locul": clic pe bloc, chenarele locurilor in Modificata
+
+**Context.** Mihai: daca locul sugerat (rosu) nu e bun, un clic pe blocul din
+Martor sa imparta Modificata in chenare unde se poate pune.
+
+**Ce s-a facut.** Aceleasi locuri ca la tragere (`loc` al fiecarui rand,
+din `core::plasare`): fiecare bloc din Modificata e un chenar portocaliu
+(„inlocuieste"), liniile dintre blocuri un chenar verde (se insereaza
+inaintea liniei de sub mouse); locul sugerat isi pastreaza banda rosie si e
+si el clicabil. Clic pe chenar = `plaseaza` (acelasi drum ca tragerea, deci
+acelasi `core::aplica_blocuri_la`, Ctrl+Z). Esc sau al doilea clic pe bloc
+renunta; un indiciu jos spune asta.
+
+**Alternative.** Un meniu cu locurile, ca lista: fara sa vezi codul din jurul
+locului. Doar tragerea: exista, dar cere sa stii ca blocul se poate trage.

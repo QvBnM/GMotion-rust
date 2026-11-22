@@ -254,6 +254,18 @@ export component EditorDiferente inherits Window {
         ? root.randuri[root.trage-rand].loc : -1;
     // lasarea unui bloc tras: (bloc, loc); loc -1 = pe locul sugerat
     callback plaseaza(int, int);
+    // „alege locul" (Mihai, 2026-11-22): un clic pe un bloc din Martor imparte
+    // Modificata in chenare, locurile unde poate merge; un clic pe un chenar
+    // il pune acolo. Esc sau al doilea clic pe bloc renunta.
+    in-out property <int> alege-diferenta: -1;
+    in-out property <int> alege-bloc: -1;
+    // locul (`loc` al randului) de sub mouse, ca tot chenarul lui sa se aprinda
+    in-out property <int> alege-sub-mouse: -1;
+    out property <bool> alege-activ: root.alege-diferenta >= 0 && root.alege-bloc >= 0;
+    // culoarea unui chenar: rosu locul sugerat, verde o inserare, accent o inlocuire
+    pure function alege-culoare(sugerat: bool, insereaza: bool) -> color {
+        return sugerat ? Tema.del-bara : insereaza ? Tema.add-bara : Tema.accent;
+    }
     // previzualizarea la hover pe sageata din canal: ce diferenta, unde
     // (sub sageata, in coordonatele zonei de cod) si liniile, puse din Rust
     // de `previzualizeaza`
@@ -418,7 +430,8 @@ export component EditorDiferente inherits Window {
             if (e.modifiers.shift && e.text == Key.RightArrow) { root.deruleaza(120px); return accept; }
             if (e.modifiers.shift && e.text == Key.LeftArrow) { root.deruleaza(-120px); return accept; }
             if (e.text == Key.Home) { root.derulare-x = 0px; return accept; }
-            // Esc: intai largeste lista inapoi la tot ecranul, nu pleaca direct
+            // Esc: intai renunta la alegerea locului, apoi inapoi la lista
+            if (e.text == Key.Escape && root.alege-activ) { root.alege-diferenta = -1; root.alege-bloc = -1; return accept; }
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
         }
@@ -914,6 +927,17 @@ export component EditorDiferente inherits Window {
                                             }
                                             pointer-event(e) => {
                                                 if (e.kind == PointerEventKind.up) {
+                                                    // un clic, fara tragere: alege locul blocului
+                                                    // (al doilea clic pe acelasi bloc renunta)
+                                                    if (root.trage-diferenta < 0 && e.button == PointerEventButton.left) {
+                                                        if (root.alege-diferenta == r.diferenta) {
+                                                            root.alege-diferenta = -1;
+                                                            root.alege-bloc = -1;
+                                                        } else {
+                                                            root.alege-diferenta = r.diferenta;
+                                                            root.alege-bloc = r.bloc;
+                                                        }
+                                                    }
                                                     // tras peste Modificata: pe locul sugerat, sau
                                                     // oriunde se poate lasa (Mihai: „daca aia nu e
                                                     // buna, sa o poata pune oriunde")
@@ -1043,6 +1067,78 @@ export component EditorDiferente inherits Window {
                                                 color: Tema.del-text;
                                                 vertical-alignment: center;
                                                 overflow: elide;
+                                            }
+                                        }
+                                        // „alege locul": chenarele locurilor din Modificata. Un
+                                        // chenar = randurile vecine cu acelasi `loc` (un bloc de
+                                        // inlocuit) sau liniile dintre blocuri (se insereaza inaintea
+                                        // liniei de sub mouse); locul sugerat ramane cu banda lui
+                                        if root.alege-activ && r.fel == 0
+                                            && (r.loc != -1 || (idx >= root.tinte-de-la[root.alege-diferenta] && idx < root.tinte-pana-la[root.alege-diferenta])): Rectangle {
+                                            property <bool> zona-sugerata: idx >= root.tinte-de-la[root.alege-diferenta] && idx < root.tinte-pana-la[root.alege-diferenta];
+                                            property <bool> insereaza: r.loc <= -2;
+                                            property <bool> la-fel-sus: idx > 0 && root.randuri[idx - 1].fel == 0
+                                                && (self.insereaza ? root.randuri[idx - 1].loc <= -2 : root.randuri[idx - 1].loc == r.loc);
+                                            property <bool> la-fel-jos: idx + 1 < root.randuri.length && root.randuri[idx + 1].fel == 0
+                                                && (self.insereaza ? root.randuri[idx + 1].loc <= -2 : root.randuri[idx + 1].loc == r.loc);
+                                            property <bool> aprins: !self.zona-sugerata && r.loc != -1 && root.alege-sub-mouse == r.loc;
+                                            background: self.aprins && !self.insereaza ? Tema.accent.transparentize(0.85) : transparent;
+                                            // chenarul punctat; sus si jos doar la capetele zonei
+                                            if !zona-sugerata: Rectangle {
+                                                for i in 3: Rectangle { x: 2px; y: i * 8px + 2px; width: 1px; height: 4px; background: root.alege-culoare(zona-sugerata, insereaza); }
+                                            }
+                                            if !zona-sugerata: Rectangle {
+                                                for i in 3: Rectangle { x: parent.width - 3px; y: i * 8px + 2px; width: 1px; height: 4px; background: root.alege-culoare(zona-sugerata, insereaza); }
+                                            }
+                                            if !zona-sugerata && !la-fel-sus: Rectangle {
+                                                y: 1px;
+                                                height: 1px;
+                                                for i in Math.floor((parent.width - 4px) / 8px): Rectangle { x: 2px + i * 8px; width: 4px; background: root.alege-culoare(zona-sugerata, insereaza); }
+                                            }
+                                            if !zona-sugerata && !la-fel-jos: Rectangle {
+                                                y: parent.height - 2px;
+                                                height: 1px;
+                                                for i in Math.floor((parent.width - 4px) / 8px): Rectangle { x: 2px + i * 8px; width: 4px; background: root.alege-culoare(zona-sugerata, insereaza); }
+                                            }
+                                            // la inserare, linia de sub mouse: aici intra blocul
+                                            if insereaza && aprins: Rectangle {
+                                                y: 0px;
+                                                height: 2px;
+                                                background: Tema.add-bara;
+                                            }
+                                            // eticheta: o data pe chenar (pe primul rand); la
+                                            // inserare, pe linia de sub mouse
+                                            if aprins && (insereaza || !la-fel-sus): Rectangle {
+                                                x: parent.width - self.width - 10px;
+                                                y: 3px;
+                                                height: 16px;
+                                                width: eticheta-loc.preferred-width + 14px;
+                                                border-radius: 3px;
+                                                background: Tema.fundal;
+                                                border-width: 1px;
+                                                border-color: root.alege-culoare(false, insereaza);
+                                                eticheta-loc := Text {
+                                                    text: insereaza ? Texte.alege-insereaza : Texte.alege-inlocuieste;
+                                                    font-family: Tema.font-ui;
+                                                    font-size: 10.5px;
+                                                    color: root.alege-culoare(false, insereaza);
+                                                }
+                                            }
+                                            TouchArea {
+                                                mouse-cursor: pointer;
+                                                changed has-hover => {
+                                                    if (self.has-hover) {
+                                                        root.alege-sub-mouse = zona-sugerata ? -1 : r.loc;
+                                                    } else if (root.alege-sub-mouse == r.loc) {
+                                                        root.alege-sub-mouse = -1;
+                                                    }
+                                                }
+                                                clicked => {
+                                                    root.plaseaza(root.alege-bloc, zona-sugerata ? -1 : r.loc);
+                                                    root.alege-diferenta = -1;
+                                                    root.alege-bloc = -1;
+                                                    root.alege-sub-mouse = -1;
+                                                }
                                             }
                                         }
                                         // Zona de plasare se aprindea pe randurile
@@ -1606,6 +1702,25 @@ export component EditorDiferente inherits Window {
                 }
                 Rectangle { horizontal-stretch: 1; }
                 Text { text: root.salvat; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; }
+            }
+        }
+
+        // ---- „alege locul": ce faci acum, deasupra liniei de scurtaturi
+        if root.alege-activ: Rectangle {
+            x: root.stanga + (root.width - root.ocupat - self.width) / 2;
+            y: root.height - root.jos - 12px - self.height;
+            width: indiciu.preferred-width + 28px;
+            height: 30px;
+            border-radius: 15px;
+            background: Tema.text;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111540;
+            indiciu := Text {
+                text: Texte.alege-indiciu;
+                font-family: Tema.font-ui;
+                font-size: 12.5px;
+                color: Tema.fundal;
             }
         }
 

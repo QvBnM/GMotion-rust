@@ -2954,6 +2954,76 @@ mod teste {
     /// Etapa 21, cu mouse-ul: peste sageata din canal apare previzualizarea
     /// (si dispare cand pleci), iar blocul tras din Martor peste panoul din
     /// dreapta si lasat acolo cheama `aplica-diferenta` pe blocul lui.
+    /// „Alege locul" (Mihai, 2026-11-22): un clic pe blocul din Martor imparte
+    /// Modificata in chenare; un clic pe un chenar pune blocul acolo; Esc si al
+    /// doilea clic pe bloc renunta.
+    #[test]
+    fn clic_pe_bloc_alege_locul_si_clic_pe_chenar_il_pune_acolo() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        use std::cell::RefCell;
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        ui.set_pliaza_identicul(true);
+        incarca_editor(&ui, &antet_de_proba(), &model_de_proba());
+        ui.show().expect("fereastra se arata");
+        let lasate: Rc<RefCell<Vec<(i32, i32)>>> = Rc::default();
+        let a = lasate.clone();
+        ui.on_plaseaza(move |bloc, loc| a.borrow_mut().push((bloc, loc)));
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // blocul din Martor, cautat cu mouse-ul in panoul din stanga
+        let mut gasit = None;
+        'cauta: for y in (60..600).step_by(4) {
+            for x in [200.0_f32, 400.0] {
+                clic(x, y as f32);
+                if ui.get_alege_activ() {
+                    gasit = Some((x, y as f32));
+                    break 'cauta;
+                }
+            }
+        }
+        let (x, y) = gasit.expect("un clic pe bloc porneste alegerea");
+        assert_eq!(ui.get_alege_diferenta(), 0);
+        // al doilea clic pe acelasi bloc renunta, al treilea porneste din nou
+        clic(x, y);
+        assert!(!ui.get_alege_activ());
+        clic(x, y);
+        assert!(ui.get_alege_activ());
+        // Esc renunta (si nu iese din editor)
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: slint::platform::Key::Escape.into(),
+        });
+        assert!(!ui.get_alege_activ());
+        clic(x, y);
+        assert!(ui.get_alege_activ());
+        // un clic pe un chenar din Modificata pune blocul acolo
+        let bloc = ui.get_alege_bloc();
+        assert!(bloc >= 0);
+        'pune: for yy in (60..800).step_by(4) {
+            clic(1200.0, yy as f32);
+            if !lasate.borrow().is_empty() {
+                break 'pune;
+            }
+        }
+        let l = lasate.borrow();
+        assert_eq!(l.len(), 1, "un singur clic, o singura plasare");
+        assert_eq!(l[0].0, bloc, "blocul ales, nu altul");
+        assert!(!ui.get_alege_activ(), "dupa plasare, modul se inchide");
+        let _ = ui.hide();
+    }
+
     #[test]
     fn hover_pe_sageata_previzualizeaza_si_tragerea_aplica_blocul() {
         use slint::platform::{PointerEventButton, WindowEvent};
