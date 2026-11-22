@@ -796,6 +796,10 @@ pub fn editare(
             let text = std::fs::read_to_string(&cale)
                 .map_err(|e| format!("nu pot citi {}: {e}", cale.display()))?;
             let text = gmotion_core::pregateste_afisare(&text);
+            // un text care n-ar trece de deploy se refuza acum, nu abia la
+            // deploy (B2, F-C6 din auditul 2026-11-22)
+            modul::verifica_text_final(&rand.obiect, &rand.tip, &text)
+                .map_err(|e| e.to_string())?;
             editari.pune(&rand, text, true);
             true
         }

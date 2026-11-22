@@ -46,6 +46,16 @@ pub enum Eroare {
     #[error("[GM-MOD-014] definitia lui {obiect} creeaza {gasit}, nu {obiect}; scriptul ar face alt obiect decat cel din plan, iar revenirea ar sterge unul pe care deploy-ul nu l-a creat. Scrie numele intreg, `[schema].[nume]`, in textul final")]
     NumeDinDefinitie { obiect: String, gasit: String },
 
+    #[error("[GM-MOD-015] codul de deploy al lui {obiect} nu incepe cu `CREATE {asteptat}` (gasit: {gasit}); s-ar executa ca SQL oarecare dupa `USE`, nu ar crea obiectul. Corecteaza textul final sau sterge-l (Reset)")]
+    CodFaraCreate {
+        obiect: String,
+        asteptat: String,
+        gasit: String,
+    },
+
+    #[error("[GM-MOD-016] textul final al lui {obiect} e gol; ar sterge codul obiectului. Sterge textul final (Reset) daca vrei codul din martor")]
+    TextFinalGol { obiect: String },
+
     #[error("[GM-MOD-012] baza s-a schimbat de la comparare, deci deploy-ul nu se scrie: {schimbari}. Compara din nou si revizuieste ce s-a schimbat")]
     BazaAtinsa { schimbari: String },
 }
@@ -67,6 +77,8 @@ impl Eroare {
             Eroare::BazaAtinsa { .. } => "GM-MOD-012",
             Eroare::ObiectRepetat { .. } => "GM-MOD-013",
             Eroare::NumeDinDefinitie { .. } => "GM-MOD-014",
+            Eroare::CodFaraCreate { .. } => "GM-MOD-015",
+            Eroare::TextFinalGol { .. } => "GM-MOD-016",
         }
     }
 }

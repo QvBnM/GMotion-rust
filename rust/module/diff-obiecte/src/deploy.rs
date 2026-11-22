@@ -414,6 +414,94 @@ fn verifica_nume(nume: &str) -> Rezultat<()> {
     Ok(())
 }
 
+/// Cuvantul de dupa `CREATE` care corespunde tipului din `sys.objects`, daca
+/// tipul e unul pe care il deployam.
+fn tip_create(tip: &str) -> Option<&'static str> {
+    match tip.trim().to_ascii_uppercase().as_str() {
+        "P" | "PC" => Some("PROCEDURE"),
+        "V" => Some("VIEW"),
+        "FN" | "IF" | "TF" | "FS" | "FT" => Some("FUNCTION"),
+        "TR" | "TA" => Some("TRIGGER"),
+        _ => None,
+    }
+}
+
+/// Codul unui obiect incepe (dupa comentarii) cu `CREATE [OR ALTER] <tip>`
+/// sau `ALTER <tip>`, cu tipul din plan. Un text final scris de mana putea
+/// fi `DELETE FROM dbo.Facturi`: se scria ca batch dupa `USE` si se rula
+/// (B2 din `cercetare/audit-qa-2026-11-22.md`); o procedura care devenise
+/// view se scria ca `CREATE OR ALTER VIEW` peste procedura (F-D3).
+fn verifica_capul(o: &DeDeployat) -> Rezultat<()> {
+    let cuv = cuvinte_de_cod(&o.cod);
+    let asteptat = tip_create(&o.tip);
+    let gasit: Vec<&str> = cuv.iter().take(4).map(|c| c.text).collect();
+    let e = |w: Option<&&str>, x: &str| w.is_some_and(|w| w.eq_ignore_ascii_case(x));
+    let pozitie_tip = if e(gasit.first(), "create") {
+        if e(gasit.get(1), "or") && e(gasit.get(2), "alter") {
+            Some(3)
+        } else {
+            Some(1)
+        }
+    } else if e(gasit.first(), "alter") {
+        Some(1)
+    } else {
+        None
+    };
+    let tip_gasit = pozitie_tip.and_then(|k| gasit.get(k)).map(|t| {
+        if t.eq_ignore_ascii_case("proc") {
+            "PROCEDURE".to_string()
+        } else {
+            t.to_ascii_uppercase()
+        }
+    });
+    let bun = match (asteptat, &tip_gasit) {
+        (_, None) => false,
+        (Some(a), Some(t)) => a == t,
+        (None, Some(_)) => true,
+    };
+    if bun {
+        return Ok(());
+    }
+    Err(Eroare::CodFaraCreate {
+        obiect: o.obiect.clone(),
+        asteptat: asteptat.unwrap_or("<tip>").to_string(),
+        gasit: if gasit.is_empty() {
+            "nimic".to_string()
+        } else {
+            format!("`{}`", gasit.join(" "))
+        },
+    })
+}
+
+/// Un text final care n-ar trece de deploy, spus **cand se scrie**, nu abia la
+/// deploy: gol, fara `CREATE <tip>` la inceput, sau cu o linie `GO`. Aceleasi
+/// reguli ca verificarea dinaintea scrierii scripturilor.
+pub fn verifica_text_final(obiect: &str, tip: &str, text: &str) -> Rezultat<()> {
+    if text.trim().is_empty() {
+        return Err(Eroare::TextFinalGol {
+            obiect: obiect.to_string(),
+        });
+    }
+    verifica_capul(&DeDeployat {
+        obiect: obiect.to_string(),
+        tip: tip.to_string(),
+        cod: text.to_string(),
+        setari: None,
+    })?;
+    let linii = gmotion_core::lexer::linii_go(text);
+    if !linii.is_empty() {
+        return Err(Eroare::GoInDefinitie {
+            obiect: obiect.to_string(),
+            linii: linii
+                .iter()
+                .map(|l| l.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+        });
+    }
+    Ok(())
+}
+
 /// Tot ce poate face un script periculos se verifica **inainte** de a scrie
 /// ceva: un deploy partial e mai rau decat niciunul.
 fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>) -> Rezultat<()> {
@@ -446,6 +534,7 @@ fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>
                     nume: o.obiect.clone(),
                 });
             }
+            verifica_capul(o)?;
             // ultima garda pentru F-D4: `aplica_create_or_alter` rescrie
             // numele, dar un `DeDeployat` construit altfel (plan `.json` scris
             // de mana, alt apelant al modulului) poate avea in cod un nume pe
@@ -1877,7 +1966,7 @@ mod teste {
             vec![DeDeployat {
                 obiect: "dbo.p".into(),
                 tip: "P".into(),
-                cod: "SELECT 1".into(),
+                cod: "CREATE PROCEDURE dbo.p AS SELECT 1".into(),
                 setari: None,
             }],
         );
@@ -1885,6 +1974,63 @@ mod teste {
         assert_eq!(r.fisiere.len(), 1);
         assert_eq!(r.fisiere[0].parent().unwrap(), d.as_path());
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn textul_final_se_verifica_la_scriere() {
+        let v = |t: &str| verifica_text_final("dbo.p", "P", t).map_err(|e| e.cod());
+        assert_eq!(v(""), Err("GM-MOD-016"));
+        assert_eq!(v("DROP TABLE dbo.Clienti"), Err("GM-MOD-015"));
+        assert_eq!(
+            v("CREATE PROCEDURE dbo.p AS SELECT 1\nGO"),
+            Err("GM-MOD-009")
+        );
+        assert_eq!(v("CREATE PROCEDURE dbo.p AS SELECT 1"), Ok(()));
+    }
+
+    /// B2 si F-D3 din `cercetare/audit-qa-2026-11-22.md`: un cod care nu
+    /// creeaza obiectul din plan (SQL oarecare, alt tip) nu se scrie.
+    #[test]
+    fn codul_care_nu_creeaza_obiectul_din_plan_e_refuzat() {
+        let pas = |tip: &str, cod: &str| DeDeployat {
+            obiect: "dbo.p".into(),
+            tip: tip.into(),
+            cod: cod.into(),
+            setari: None,
+        };
+        for (tip, cod) in [
+            ("P", "DELETE FROM dbo.Facturi"),
+            ("P", "SELECT 1"),
+            ("P", "-- CREATE PROCEDURE dbo.p\nDROP TABLE dbo.Clienti"),
+            ("P", "CREATE VIEW dbo.p AS SELECT 1"),
+            ("V", "CREATE PROCEDURE dbo.p AS SELECT 1"),
+            ("FN", "CREATE PROC dbo.p AS SELECT 1"),
+        ] {
+            let e = verifica_capul(&pas(tip, cod)).unwrap_err();
+            assert_eq!(e.cod(), "GM-MOD-015", "{tip} / {cod}");
+        }
+        for (tip, cod) in [
+            ("P", "/* antet */\n-- x\nCREATE PROCEDURE dbo.p AS SELECT 1"),
+            ("P", "create proc dbo.p as select 1"),
+            ("P", "CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1"),
+            ("V", "ALTER VIEW dbo.p AS SELECT 1"),
+            (
+                "IF",
+                "CREATE FUNCTION dbo.p() RETURNS TABLE AS RETURN SELECT 1",
+            ),
+            ("TR", "CREATE TRIGGER dbo.p ON t AFTER INSERT AS SELECT 1"),
+        ] {
+            assert!(verifica_capul(&pas(tip, cod)).is_ok(), "{tip} / {cod}");
+        }
+        let d = dir("fara-create");
+        let mut m = BTreeMap::new();
+        m.insert(
+            "Client".to_string(),
+            vec![pas("P", "DELETE FROM dbo.Facturi")],
+        );
+        let e = scrie(&d, "Ref", &m, ModImpartire::PerBaza, 0, "a").unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-015");
+        assert!(!d.exists(), "nimic scris");
     }
 
     fn dd(obiect: &str, tip: &str, cod: &str, qi: bool) -> DeDeployat {

@@ -267,6 +267,16 @@ impl Plan {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
                 schimbari: format!("{} a disparut din martor", p.obiect),
             })?;
+            // un text final gol ar ajunge „criptat" in verificare, cu un mesaj
+            // fals; e o greseala de editare, si se spune asa (B2)
+            if texte_finale
+                .get(&(p.baza.clone(), p.obiect.clone()))
+                .is_some_and(|t| t.trim().is_empty())
+            {
+                return Err(Eroare::TextFinalGol {
+                    obiect: p.obiect.clone(),
+                });
+            }
             pe_baza.entry(p.baza.clone()).or_default().push(DeDeployat {
                 obiect: p.obiect.clone(),
                 tip: p.tip.clone(),
@@ -628,6 +638,19 @@ mod teste {
         assert_eq!(t.len(), 2);
         assert_eq!(t[0].cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1");
         assert!(p.de_deployat(&Baza::new()).is_err());
+    }
+
+    /// B2: un text final gol e spus ca atare, nu ca „criptat".
+    #[test]
+    fn textul_final_gol_e_refuzat_cu_motivul_lui() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let texte = BTreeMap::from([(
+            ("Tinta".to_string(), "dbo.pA".to_string()),
+            "  \n".to_string(),
+        )]);
+        let e = p.de_deployat_cu(&r, &texte).unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-016");
     }
 
     #[test]

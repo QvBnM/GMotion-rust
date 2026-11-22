@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 826cdd950325a075 -->
+<!-- api-hash: d72715253f9bc827 -->
 
 ## Rol
 
@@ -34,7 +34,7 @@ a imperecheat deja blocurile (randul e `modificat`), aia e plasarea — perechea
 aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
 decat arata editorul. `gmotion_core::plasare` (portul din v3.4) raspunde doar
 pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
-| `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
+| `deploy` | `aplica_create_or_alter`, `verifica_text_final(obiect, tip, text)`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
@@ -83,8 +83,11 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
    obiect fara cod / criptat (`GM-MOD-011`), acelasi obiect de doua ori in
    planul unei baze (`GM-MOD-013`), cod care creeaza alt obiect decat cel din
    plan (`GM-MOD-014`), procedura numerotata `dbo.p;1`, pe care
-   `CREATE OR ALTER` n-o accepta (`GM-MOD-008`). Numele bazei intra in `USE [..]`
-   cu `]` dublat.
+   `CREATE OR ALTER` n-o accepta (`GM-MOD-008`), cod care nu incepe cu
+   `CREATE <tipul din plan>` (`GM-MOD-015`: SQL oarecare sau alt tip), text
+   final gol (`GM-MOD-016`). Numele bazei intra in `USE [..]` cu `]` dublat.
+   Aceleasi reguli le da `verifica_text_final`, ca un text sa fie refuzat cand
+   se scrie, nu abia la deploy.
 6c. **Fiecare obiect isi reface setarile de creare** (`SET ANSI_NULLS` /
    `SET QUOTED_IDENTIFIER`, intr-un batch inaintea codului), exact cum erau in
    referinta; necunoscute (instantaneu vechi) -> `ON`/`ON`, ca SSMS.
