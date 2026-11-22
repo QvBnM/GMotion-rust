@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 1f1e460d2eb6275f -->
+<!-- api-hash: a3dd17a9cd82e391 -->
 
 ## Rol
 
@@ -24,7 +24,7 @@ biblioteca** — fara nicio interfata.
 
 | Zona | Ce ofera |
 |---|---|
-| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
+| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `compara_cu_oprire(..., continua) -> Option<Comparare>` (se opreste cel mult dupa un obiect, P8), `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand`, `Categorie`, `Numaratoare`, `Progres` |
 | `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `plasari_obiect(ref, cur) -> Vec<Plasare>`, `Fel`, `Bucata`, `Marcaj` |
 
 `plasari_obiect` spune unde ajunge fiecare bloc din martor daca apesi

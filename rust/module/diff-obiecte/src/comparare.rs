@@ -200,8 +200,27 @@ pub fn compara(
     referinta: &str,
     ref_obiecte: &Baza,
     altele: &[(String, Baza)],
-    mut progres: impl FnMut(Progres),
+    progres: impl FnMut(Progres),
 ) -> Comparare {
+    match compara_cu_oprire(referinta, ref_obiecte, altele, progres, || true) {
+        Some(c) => c,
+        None => unreachable!("fara oprire, compararea ajunge la capat"),
+    }
+}
+
+/// Ca [`compara`], dar se opreste daca `continua()` spune `false`: se
+/// intreaba inainte de fiecare obiect din referinta, deci oprirea vine cel
+/// mult dupa un obiect. `None` = oprita.
+///
+/// Fara asta, „Anuleaza" din fereastra intorcea ecranul pe loc, dar firul
+/// compararii ardea procesorul pana la capat (P8 din auditul QA).
+pub fn compara_cu_oprire(
+    referinta: &str,
+    ref_obiecte: &Baza,
+    altele: &[(String, Baza)],
+    mut progres: impl FnMut(Progres),
+    continua: impl Fn() -> bool,
+) -> Option<Comparare> {
     let mut randuri = Vec::new();
     let mut n = Numaratoare {
         total_referinta: ref_obiecte.len(),
@@ -220,6 +239,10 @@ pub fn compara(
     });
 
     for (idx, (nume, r)) in ref_obiecte.iter().enumerate() {
+        if !continua() {
+            tracing::info!(target: "gmotion::modul", facute = idx, "compararea a fost oprita");
+            return None;
+        }
         if idx % 1000 == 0 && idx > 0 {
             let procent = 5 + (85 * idx / total) as u8;
             progres(Progres {
@@ -351,12 +374,12 @@ pub fn compara(
         gata: true,
     });
 
-    Comparare {
+    Some(Comparare {
         referinta: referinta.to_string(),
         baze: altele.iter().map(|(b, _)| b.clone()).collect(),
         randuri,
         numaratoare: n,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -376,6 +399,37 @@ mod teste {
 
     fn fara_progres() -> impl FnMut(Progres) {
         |_| {}
+    }
+
+    #[test]
+    fn compararea_se_opreste_cand_i_se_cere() {
+        let r = pregateste(&[
+            ob("p1", "SELECT 1"),
+            ob("p2", "SELECT 2"),
+            ob("p3", "SELECT 3"),
+        ]);
+        let c = pregateste(&[
+            ob("p1", "SELECT 10"),
+            ob("p2", "SELECT 20"),
+            ob("p3", "SELECT 30"),
+        ]);
+        let altele = vec![("C".to_string(), c)];
+        let intrebari = std::cell::Cell::new(0);
+        let oprita = compara_cu_oprire("R", &r, &altele, fara_progres(), || {
+            intrebari.set(intrebari.get() + 1);
+            intrebari.get() <= 1
+        });
+        assert!(oprita.is_none());
+        assert_eq!(
+            intrebari.get(),
+            2,
+            "oprirea vine dupa un obiect, nu la capat"
+        );
+        let intreaga = compara_cu_oprire("R", &r, &altele, fara_progres(), || true).unwrap();
+        assert_eq!(
+            intreaga.randuri.len(),
+            compara("R", &r, &altele, fara_progres()).randuri.len()
+        );
     }
 
     #[test]

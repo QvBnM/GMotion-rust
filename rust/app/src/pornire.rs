@@ -381,8 +381,20 @@ pub fn citeste(c: &Conectare, mut progres: impl FnMut(Pas) -> bool) -> Result<Ci
 
 /// Citeste si compara. Vezi [`citeste`] pentru partea de citire.
 pub fn compara_cu(c: &Conectare, progres: impl FnMut(Pas) -> bool) -> Result<Comparata, String> {
+    compara_cu_anulare(c, progres, || true)
+}
+
+/// Ca [`compara_cu`], dar si compararea propriu-zisa (nu doar citirea) se
+/// opreste cand `continua()` spune `false`, cel mult dupa un obiect (P8).
+/// Oprita, intoarce [`ANULAT`].
+pub fn compara_cu_anulare(
+    c: &Conectare,
+    progres: impl FnMut(Pas) -> bool,
+    continua: impl Fn() -> bool,
+) -> Result<Comparata, String> {
     let x = citeste(c, progres)?;
-    let comparare = modul::compara(&x.referinta, &x.sursa, &x.tinte, |_| {});
+    let comparare = modul::compara_cu_oprire(&x.referinta, &x.sursa, &x.tinte, |_| {}, &continua)
+        .ok_or_else(|| ANULAT.to_string())?;
     Ok(Comparata {
         randuri: comparare.randuri,
         sursa: x.sursa,
@@ -574,6 +586,21 @@ mod teste {
         .expect_err("anulata");
         assert_eq!(e, ANULAT);
         assert_eq!(citite.get(), 2, "s-a oprit la a doua intrebare");
+
+        // si dupa citire, in mijlocul compararii (P8)
+        let intrebari = std::cell::Cell::new(0);
+        let e = compara_cu_anulare(
+            &c,
+            |_| true,
+            || {
+                intrebari.set(intrebari.get() + 1);
+                false
+            },
+        )
+        .map(|_| ())
+        .expect_err("anulata in comparare");
+        assert_eq!(e, ANULAT);
+        assert_eq!(intrebari.get(), 1, "la primul obiect");
 
         std::fs::remove_dir_all(&d).ok();
     }
