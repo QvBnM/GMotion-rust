@@ -521,7 +521,7 @@ pub fn revizuire(
             .comparare
             .randuri
             .iter()
-            .filter(|x| x.obiect.eq_ignore_ascii_case(obiect))
+            .filter(|x| acelasi_nume(&x.obiect, obiect))
         {
             schimbat |= revizuire.pune_nota(&x.baza, &x.obiect, text);
             gasit = true;
@@ -749,6 +749,12 @@ pub fn impact(
     }
 }
 
+/// Acelasi nume de obiect, fara sa conteze majusculele, si dincolo de ASCII
+/// (`pȘtergere` / `pștergere`): colatia SQL Server nu le deosebeste. diacritice-permise
+fn acelasi_nume(a: &str, b: &str) -> bool {
+    a.eq_ignore_ascii_case(b) || a.to_lowercase() == b.to_lowercase()
+}
+
 /// „Uneste ciclul cursorului", din configurare, ca in fereastra: altfel
 /// blocurile se taie altfel, iar `--aplica N` aplica alta diferenta decat a
 /// N-a din editor (C9 din `cercetare/audit-qa-2026-11-22.md`).
@@ -806,8 +812,16 @@ pub fn editare(
         .comparare
         .randuri
         .iter()
-        .find(|x| x.baza == baza && x.obiect.eq_ignore_ascii_case(obiect))
-        .ok_or_else(|| format!("[GM-CLI-005] {obiect} nu difera intre {referinta} si {baza}"))?
+        .find(|x| x.baza == baza && acelasi_nume(&x.obiect, obiect))
+        .ok_or_else(|| {
+            // „nu difera" doar daca exista; altfel numele e gresit
+            let exista = r.referinta.keys().any(|n| acelasi_nume(n, obiect));
+            if exista {
+                format!("[GM-CLI-005] {obiect} nu difera intre {referinta} si {baza}")
+            } else {
+                format!("[GM-CLI-005] {obiect} nu exista in martorul {referinta}")
+            }
+        })?
         .clone();
     let text_sursa = r
         .referinta
@@ -1559,6 +1573,13 @@ fn text_diferente(a: &gmotion_core::Aliniere, culori: bool) -> (Vec<String>, Vec
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn numele_se_potrivesc_fara_majuscule_si_dincolo_de_ascii() {
+        assert!(acelasi_nume("dbo.pA", "DBO.PA"));
+        assert!(acelasi_nume("dbo.p\u{218}tergere", "dbo.p\u{219}tergere"));
+        assert!(!acelasi_nume("dbo.pA", "dbo.pB"));
+    }
 
     #[test]
     fn randul_modificat_arata_ambele_versiuni_si_ce_s_a_schimbat() {
