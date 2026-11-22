@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 6e82c53b998a8b45 -->
+<!-- api-hash: 5692c3e807e4c88e -->
 
 ## Rol
 
@@ -47,7 +47,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
 | `Aplicatie::arbore()`; comenzile `ComutaNod`, `CautaInArbore` | arborele din coloana editorului (etapa 19); selectia isi deschide singura dosarul; `j` / `k` din editor merg in ordinea lui |
 | `Aplicatie::{lucrari_detalii, pune_detalii}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
-| `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea si selectia celei vechi |
+| `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea, selectia si „In plan” celei vechi |
+| `Aplicatie::cu_ecranul(e)` | la recomparare, ramai pe ecranul de dinainte daca mai are ce arata (editorul cu model, deploy-ul cu ceva in plan); altfel lista (C7) |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |

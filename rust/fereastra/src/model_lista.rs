@@ -363,6 +363,16 @@ impl Lista {
         self.filtru = alta.filtru.clone();
         self.ordine = alta.ordine;
         self.descrescator = alta.descrescator;
+        // „In plan" e alegerea omului, nu a compararii: o recomparare nu-l
+        // pierde (C7 din `cercetare/audit-qa-2026-11-22.md`). Garda deploy-ului
+        // se reface oricum, pe compararea noua.
+        let in_plan: std::collections::BTreeSet<(String, String)> =
+            alta.in_plan().into_iter().collect();
+        for o in &mut self.obiecte {
+            if in_plan.contains(&o.cheie()) {
+                o.in_plan = true;
+            }
+        }
         self.recalculeaza();
         if let Some(c) = alta.obiect_selectat().map(Obiect::cheie) {
             if let Some(p) = self

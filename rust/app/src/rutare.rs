@@ -1374,6 +1374,23 @@ impl Aplicatie {
         self
     }
 
+    /// Ecranul de dinainte de o recomparare, daca are inca ce arata: editorul
+    /// doar daca obiectul selectat are model, deploy-ul doar cu ceva in plan.
+    /// Altfel lista. Recompara te muta in lista din orice ecran (C7).
+    pub fn cu_ecranul(mut self, ecran: Ecran) -> Self {
+        self.ecran = match ecran {
+            Ecran::Editor if self.model_editor().is_some() => {
+                if let Some(c) = self.cheia_curenta() {
+                    self.taburi.deschide(c);
+                }
+                Ecran::Editor
+            }
+            Ecran::Deploy if !self.lista.in_plan().is_empty() => Ecran::Deploy,
+            _ => Ecran::Lista,
+        };
+        self
+    }
+
     /// Taburile de dinainte (recomparare, sau din sesiune). Cele ale
     /// obiectelor care nu mai difera se inchid.
     pub fn cu_taburi(mut self, mut t: Taburi) -> Self {
@@ -2716,6 +2733,27 @@ mod teste {
         assert_eq!(a.mesaj_tab(), Some(MesajTab::FaraEditor));
         a.comanda(Comanda::ComutaRevizuit);
         assert!(a.obiect().unwrap().revizuit, "bifa e pe pA");
+    }
+
+    /// C7: o recomparare pastreaza „In plan" si ecranul (daca mai are ce
+    /// arata).
+    #[test]
+    fn recompararea_pastreaza_planul_si_ecranul() {
+        let mut a = aplicatie();
+        let p = (0..a.lista().vizibile().len())
+            .find(|&p| a.lista().obiect(p).unwrap().nume == "pA")
+            .unwrap();
+        a.comanda(Comanda::Selecteaza(p));
+        a.comanda(Comanda::ComutaInPlan);
+        a.comanda(Comanda::Deschide);
+        assert_eq!(a.ecran(), Ecran::Editor);
+        let noua = aplicatie().cu_vederea(a.lista()).cu_ecranul(a.ecran());
+        assert_eq!(noua.ecran(), Ecran::Editor);
+        assert_eq!(noua.obiect().unwrap().nume, "pA");
+        assert_eq!(noua.lista().in_plan().len(), 1, "planul ramane");
+        // fara selectie cu model, inapoi in lista
+        let goala = aplicatie_criptat().cu_ecranul(Ecran::Editor);
+        assert_eq!(goala.ecran(), Ecran::Lista);
     }
 
     /// O comparare cu un obiect criptat (definitie goala intr-o parte).

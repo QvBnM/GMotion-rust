@@ -70,9 +70,9 @@ struct Stare {
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
-    /// O sesiune care nu s-a putut citi si a fost pusa deoparte: se spune in
-    /// bara listei la urmatoarea desenare (F-A15).
-    mesaj_sesiune: Option<String>,
+    /// Ce se spune in bara listei la urmatoarea desenare: o sesiune pusa
+    /// deoparte (F-A15), o recomparare esuata (C7).
+    mesaj_lista: Option<String>,
 }
 
 impl Stare {
@@ -341,7 +341,7 @@ fn ruleaza() -> Result<(), String> {
         garda: None,
         detalii: None,
         salvat_la: String::new(),
-        mesaj_sesiune: None,
+        mesaj_lista: None,
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
@@ -602,8 +602,19 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
-            if let Some(m) = s.mesaj_sesiune.take() {
+            if let Some(m) = s.mesaj_lista.take() {
                 l_ui.set_mesaj_csv(m.into());
+            }
+            // recompararea ruleaza pe alt fir; lista ramane, dar spune asta (C7)
+            if s.rulare.is_some() {
+                l_ui.set_mesaj_csv(
+                    limba
+                        .alege(
+                            "Recompar... (lista se actualizeaza cand termina)",
+                            "Comparing again... (the list updates when done)",
+                        )
+                        .into(),
+                );
             }
             let app = s.app.as_mut().expect("verificat mai sus");
             if app.refuzat_in_plan() {
@@ -775,7 +786,7 @@ fn ruleaza() -> Result<(), String> {
                 Ok(c) => c,
                 Err(e) => {
                     let m = pune_deoparte(&s.sesiuni, &server, &referinta, &e, s.conectare.limba);
-                    s.mesaj_sesiune = Some(m);
+                    s.mesaj_lista = Some(m);
                     None
                 }
             };
@@ -1446,6 +1457,11 @@ fn ruleaza() -> Result<(), String> {
         lista_ui.on_recompara(move || {
             actiune("lista", "recompara", "", false);
             {
+                // un al doilea clic cat ruleaza ar porni inca un fir, iar
+                // primul ar arde CPU pana la capat (C7)
+                if s.borrow().rulare.is_some() {
+                    return;
+                }
                 let c = s.borrow().conectare.clone();
                 tracing::info!(target: "gmotion::app", "recompar");
                 // acelasi drum ca prima comparare: pe alt fir, cu progres. Ceasul
@@ -2262,6 +2278,7 @@ fn ruleaza() -> Result<(), String> {
                                 // la recomparare pastram ce s-a revizuit deja;
                                 // la prima comparare, ce s-a salvat in sesiune
                                 let vederea = st.app.as_ref().map(|a| a.lista().clone());
+                                let ecranul = st.app.as_ref().map(|a| a.ecran());
                                 let (revizuire, editari, taburi) = match st.app.as_mut() {
                                     Some(a) => (
                                         a.revizuire_de_salvat().clone(),
@@ -2281,7 +2298,7 @@ fn ruleaza() -> Result<(), String> {
                                                     &e,
                                                     st.conectare.limba,
                                                 );
-                                                st.mesaj_sesiune = Some(m);
+                                                st.mesaj_lista = Some(m);
                                                 None
                                             }
                                         };
@@ -2317,6 +2334,9 @@ fn ruleaza() -> Result<(), String> {
                                 if let Some(v) = &vederea {
                                     app = app.cu_vederea(v);
                                 }
+                                if let Some(e) = ecranul {
+                                    app = app.cu_ecranul(e);
+                                }
                                 // ca la offline: comutatorul porneste din configurare
                                 app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
                                 st.detalii = Some(porneste_detalii(&app));
@@ -2331,6 +2351,14 @@ fn ruleaza() -> Result<(), String> {
                             }
                             Err(e) => {
                                 tracing::warn!(target: "gmotion::app", eroare = %e, "compararea a esuat");
+                                // la recomparare omul e in lista: acolo trebuie spus
+                                if st.app.is_some() {
+                                    let l = st.conectare.limba;
+                                    st.mesaj_lista = Some(format!(
+                                        "{}: {e}",
+                                        l.alege("Recompararea a esuat", "Comparing again failed")
+                                    ));
+                                }
                                 st.conectare.sursa.stare = StareConexiune::Eroare(e);
                             }
                         }
