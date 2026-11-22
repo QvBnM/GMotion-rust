@@ -46,6 +46,13 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
+**2026-11-22, asteapta alegerea lui Mihai:** cum se arata locul unde intra
+blocurile doar in Martor. Capturile in `cercetare/machete/inserare-propunere/`
+(acum: linie rosie; varianta 1: cutie punctata cat blocul; varianta 2: un rand
+colorat; ambele verzi). Comutatorul de proba e `stil-inserare` in
+`editor.slint` (implicit 0 = cum e acum) si `--stil-inserare N` in exemplul
+`captura`; dupa alegere ramane doar varianta aleasa, fara comutator.
+
 **2026-11-22, etapa 25, de vazut si probat de Mihai:**
 
 1. Capturile din `cercetare/machete/etapa-25/` (lista in recomparare cu
