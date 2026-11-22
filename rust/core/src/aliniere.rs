@@ -510,11 +510,20 @@ pub fn aplica_blocuri_la(
     loc: Loc,
 ) -> String {
     let a = aliniaza_cu(text_stanga, text_dreapta, uneste_cursor);
-    let original_st: Vec<&str> = text_stanga.lines().collect();
-    let original_dr: Vec<&str> = text_dreapta.lines().collect();
-    let mut ordonate: Vec<usize> = blocuri.to_vec();
+    let original_st = linii_originale(text_stanga);
+    let original_dr = linii_originale(text_dreapta);
+    // un bloc care exista doar in dreapta n-are nimic de adus: tras peste alt
+    // bloc, l-ar sterge (A2 din `cercetare/audit-qa-2026-11-22.md`)
+    let mut ordonate: Vec<usize> = blocuri
+        .iter()
+        .copied()
+        .filter(|&b| a.diff.get(b).is_some_and(|d| d.stanga.is_some()))
+        .collect();
     ordonate.sort_unstable();
     ordonate.dedup();
+    if ordonate.is_empty() {
+        return text_dreapta.to_string();
+    }
     let aduse: Vec<&str> = ordonate
         .iter()
         .flat_map(|&b| a.randuri.iter().filter(move |r| r.bloc == Some(b)))
@@ -557,6 +566,18 @@ pub fn compune(
     compune_plasat(a, text_stanga, text_dreapta, &[], aplica)
 }
 
+/// Liniile unui text, cum le numara `lines()`, dar cu `\r`-ul pastrat: un
+/// `\r\n` dintr-un sir pe mai multe linii e data, si `pregateste_afisare` il
+/// lasa neatins. `lines()` l-ar fi taiat, iar lipirea cu `\n` l-ar fi facut LF
+/// la orice aplicare (A3 din `cercetare/audit-qa-2026-11-22.md`).
+fn linii_originale(t: &str) -> Vec<&str> {
+    let mut v: Vec<&str> = t.split('\n').collect();
+    if t.is_empty() || t.ends_with('\n') {
+        v.pop();
+    }
+    v
+}
+
 /// Ca [`compune`], dar blocurile din stanga fara pereche merg unde spune
 /// `plasari` (vezi [`aplica_blocuri`]).
 pub fn compune_plasat(
@@ -566,8 +587,8 @@ pub fn compune_plasat(
     plasari: &[crate::plasare::Plasare],
     aplica: impl Fn(usize) -> bool,
 ) -> String {
-    let original_st: Vec<&str> = text_stanga.lines().collect();
-    let original_dr: Vec<&str> = text_dreapta.lines().collect();
+    let original_st = linii_originale(text_stanga);
+    let original_dr = linii_originale(text_dreapta);
 
     // intervalul de randuri al fiecarui bloc din diff
     let mut interval: Vec<Option<(usize, usize)>> = vec![None; a.diff.len()];
@@ -747,6 +768,37 @@ mod teste {
         assert!(rez.ends_with("SELECT 2;\nPRINT 'nou';"), "{rez}");
         // fara blocuri: dreapta neatinsa
         assert_eq!(aplica_blocuri_la(st, dr, false, &[], Loc::Insereaza(1)), dr);
+    }
+
+    /// A3 din `cercetare/audit-qa-2026-11-22.md`: un `\r\n` dintr-un sir
+    /// ramane `\r\n` dupa aplicare, si in blocul neatins, si in cel adus.
+    #[test]
+    fn aplicarea_pastreaza_crlf_din_siruri() {
+        let st = crate::pregateste_afisare("CREATE PROC p AS\r\nSELECT 'a\r\nb'\r\nSELECT 1");
+        let dr = crate::pregateste_afisare("CREATE PROC p AS\r\nSELECT 'a\r\nb'\r\nSELECT 2");
+        assert!(st.contains("'a\r\nb'"), "{st:?}");
+        assert_eq!(aplica_blocuri(&st, &dr, false, &[]), dr);
+        let a = aliniaza(&st, &dr);
+        let rez = aplica_blocuri(&st, &dr, false, &a.diferente());
+        assert_eq!(rez, st);
+        let ultim = a.diff.len() - 1;
+        let rez = aplica_blocuri_la(&st, &dr, false, &[ultim], Loc::Insereaza(0));
+        assert!(rez.contains("'a\r\nb'"), "{rez:?}");
+    }
+
+    /// A2 din `cercetare/audit-qa-2026-11-22.md`: un bloc care exista doar in
+    /// dreapta, tras peste alt bloc, nu-l sterge.
+    #[test]
+    fn un_bloc_doar_in_dreapta_tras_peste_altul_nu_sterge_nimic() {
+        let st = "CREATE PROC dbo.p AS\nSELECT 1;\nSELECT 2;\nSELECT 3;";
+        let dr = "CREATE PROC dbo.p AS\nSELECT 1;\nSELECT 2;\nDELETE FROM t;\nSELECT 3;";
+        let a = aliniaza(st, dr);
+        let doar_dreapta = (0..a.diff.len())
+            .find(|&b| a.diff[b].tip == TipDiferenta::Adaugat)
+            .expect("DELETE doar in dreapta");
+        let loc = loc_la_linie(&a, 4);
+        assert!(matches!(loc, Loc::Inlocuieste(_)), "{loc:?}");
+        assert_eq!(aplica_blocuri_la(st, dr, false, &[doar_dreapta], loc), dr);
     }
 
     #[test]

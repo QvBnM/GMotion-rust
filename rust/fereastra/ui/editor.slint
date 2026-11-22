@@ -819,7 +819,9 @@ export component EditorDiferente inherits Window {
                                         // peste panoul din dreapta; e acelasi
                                         // lucru ca sageata din canal, doar ca
                                         // se face cu mana
-                                        if r.diferenta >= 0 && r.stare != 0 && !root.ascunde-diferentele: TouchArea {
+                                        // (un rand gol, bloc doar in Modificata,
+                                        // n-are ce sa traga)
+                                        if r.diferenta >= 0 && r.stare != 0 && r.stare != 3 && !root.ascunde-diferentele: TouchArea {
                                             mouse-cursor: self.pressed ? grabbing : grab;
                                             moved => {
                                                 // se considera tragere abia dupa cativa
