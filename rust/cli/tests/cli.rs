@@ -294,6 +294,36 @@ fn doar_anumite_obiecte() {
     let sql = std::fs::read_to_string(dep.join("Client1.sql")).unwrap();
     assert!(sql.contains("dbo.pStoc"));
     assert!(!sql.contains("dbo.pClienti"), "{sql}");
+
+    // F-C4: majusculele nu conteaza, iar un nume necunoscut e eroare
+    let dep2 = d.join("dep2");
+    let i = inst.to_str().unwrap();
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "-d",
+        dep2.to_str().unwrap(),
+        "--doar",
+        "DBO.PSTOC",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "-d",
+        d.join("dep3").to_str().unwrap(),
+        "--doar",
+        "dbo.pStoc,dbo.NuExista",
+    ]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("dbo.NuExista"), "{}", err(&o));
+    assert!(!d.join("dep3").exists());
     std::fs::remove_dir_all(&d).ok();
 }
 
@@ -589,7 +619,8 @@ fn revizuirea_se_tine_minte_si_cade_cand_obiectul_se_schimba() {
     let o = ruleaza_rev(&["--json"]);
     let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
     assert_eq!(v["revizuite"], 1, "bifa trebuie sa se fi salvat: {v}");
-    assert_eq!(v["obiecte"][0], "dbo.pClienti");
+    assert_eq!(v["obiecte"][0]["obiect"], "dbo.pClienti");
+    assert_eq!(v["obiecte"][0]["baza"], "Client1");
 
     // acelasi obiect, alta definitie in baza comparata: bifa cade
     let schimbat = d.join("schimbat.json");
@@ -1707,4 +1738,40 @@ fn bom_ul_din_textul_final_nu_ajunge_in_script() {
         1,
         "doar BOM-ul de la inceputul fisierului"
     );
+}
+
+/// F-C5: `export` si `instantaneu` pe `--json` spun pe iesirea standard ce
+/// au scris (inainte, nimic).
+#[test]
+fn export_si_instantaneu_scriu_json() {
+    let d = dir("json-fisiere");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let csv = d.join("e.csv");
+    let o = ruleaza(&[
+        "--json",
+        "export",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "-o",
+        csv.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
+    assert!(v["randuri"].as_u64().unwrap() > 0, "{v}");
+    let copie = d.join("copie.json");
+    let o = ruleaza(&[
+        "--json",
+        "instantaneu",
+        "--sursa",
+        i,
+        "-o",
+        copie.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
+    assert_eq!(v["baze"], 2, "{v}");
 }

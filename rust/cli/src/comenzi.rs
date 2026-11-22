@@ -221,6 +221,16 @@ pub fn instantaneu(
         inst.baze.len(),
         iesire.display()
     ));
+    // pe `--json`, iesirea standard spune ce s-a scris (invarianta 3 din
+    // `CRATE.md`); inainte ramanea goala (F-C5)
+    if format == Format::Json {
+        afisare::scrie_json(&serde_json::json!({
+            "cale": iesire.display().to_string(),
+            "baze": inst.baze.len(),
+            "obiecte": total,
+        }))
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -527,19 +537,23 @@ pub fn revizuire(
         Format::Json => {
             // numai bifele inca valabile: una cazuta nu mai spune nimic
             // despre ce e acum pe server
-            let obiecte: Vec<&str> = r
+            // cu baza: acelasi obiect revizuit pe trei baze iesea de trei ori,
+            // fara sa se stie pe care (F-C5)
+            let pe_baza =
+                |x: &modul::Rand| serde_json::json!({ "baza": x.baza, "obiect": x.obiect });
+            let obiecte: Vec<serde_json::Value> = r
                 .comparare
                 .randuri
                 .iter()
                 .filter(|x| revizuire.e_revizuit(x))
-                .map(|x| x.obiect.as_str())
+                .map(pe_baza)
                 .collect();
-            let omise: Vec<&str> = r
+            let omise: Vec<serde_json::Value> = r
                 .comparare
                 .randuri
                 .iter()
                 .filter(|x| revizuire.e_omis(x))
-                .map(|x| x.obiect.as_str())
+                .map(pe_baza)
                 .collect();
             let note: Vec<serde_json::Value> = revizuire
                 .note()
@@ -970,12 +984,46 @@ pub fn export(
     })
     .map_err(|e| e.to_string())?;
     format.progres(&format!("Scris {} ({n} randuri).", cale.display()));
+    if format == Format::Json {
+        afisare::scrie_json(&serde_json::json!({
+            "cale": cale.display().to_string(),
+            "randuri": n,
+        }))
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
 /// Planul din compararea de acum: randurile alese (toate, sau `--doar`).
 fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<modul::Plan, String> {
-    let filtru = doar.map(lista);
+    // `--doar` cu un nume care nu e in comparare (gresit, sau identic) era
+    // ignorat tacut, iar majusculele conteaza in mod gresit: colatia SQL
+    // Server nu le deosebeste (F-C4)
+    let filtru = match doar.map(lista) {
+        Some(nume) => {
+            let necunoscute: Vec<&String> = nume
+                .iter()
+                .filter(|n| {
+                    !r.comparare
+                        .randuri
+                        .iter()
+                        .any(|x| x.obiect.eq_ignore_ascii_case(n))
+                })
+                .collect();
+            if !necunoscute.is_empty() {
+                return Err(format!(
+                    "--doar: {} nu sunt in comparare (nu exista, sau sunt identice cu martorul)",
+                    necunoscute
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            Some(nume)
+        }
+        None => None,
+    };
     // ce s-a omis (in fereastra sau cu `revizuire --omite`) nu intra in deploy,
     // ca in v3.4; cu `--doar` se poate cere totusi explicit
     let (omise, editari) = salvate(args, &r.comparare.referinta)?;
@@ -986,7 +1034,7 @@ fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<mod
         &r.referinta,
         &r.altele,
         |rand| match &filtru {
-            Some(f) => f.iter().any(|x| x == &rand.obiect),
+            Some(f) => f.iter().any(|x| x.eq_ignore_ascii_case(&rand.obiect)),
             None => !omise.e_omis(rand),
         },
         &acum(),
