@@ -174,11 +174,17 @@ impl StareDeploy {
     }
 
     /// Modul de impartire s-a schimbat: un rezultat vechi nu mai e al lui.
+    ///
+    /// Dupa o scriere, o a doua cere **o noua verificare**: intre timp baza
+    /// poate sa se fi schimbat, iar garda de atunci ar fi autorizat-o fara sa
+    /// recitesca nimic (F-A10 din auditul QA).
     pub fn alege_impartirea(&mut self, m: ModImpartire) {
         if m != self.impartire {
             self.impartire = m;
             if matches!(self.rezultat, Some(Ok(_))) {
                 self.rezultat = None;
+                self.garda = Garda::Neverificata;
+                self.recitite = None;
             }
         }
     }
@@ -436,6 +442,11 @@ mod teste {
         st.scrie(&d, "2026-11-18 14:05", &Default::default());
         assert!(!st.poate_scrie());
         st.alege_impartirea(ModImpartire::Unul);
+        assert!(
+            !st.poate_scrie(),
+            "alta scriere, dar dupa o noua verificare (F-A10)"
+        );
+        st.aplica_verificarea(s.clone(), vec![("Prod".to_string(), t.clone())], "14:09");
         assert!(st.poate_scrie(), "alt mod de impartire = alta scriere");
         std::fs::remove_dir_all(&d).ok();
     }
