@@ -342,8 +342,10 @@ export component EditorDiferente inherits Window {
     property <length> jos: 26px;
     // panourile umplu latimea editorului, lipite de margini
     property <length> latime-cod: root.width - root.ocupat;
-    // latimea unui panou; 14 px raman pentru harta diferentelor
-    property <length> panou: root.alaturat ? (root.latime-cod - root.jgheab - 14px) / 2 : root.latime-cod - 14px;
+    // latimea unui panou; in dreapta raman 24 px: harta diferentelor (10 px),
+    // bara de derulare a listei si decalajul randurilor (8 px). Cu mai putin,
+    // marginea din dreapta a cutiei blocului ajungea sub harta si nu se vedea.
+    property <length> panou: root.alaturat ? (root.latime-cod - root.jgheab - 24px) / 2 : root.latime-cod - 24px;
     // ---- derularea pe orizontala a codului (V10)
     // `latime-continut` vine din Rust: latimea celei mai lungi linii, in
     // pixeli, la fontul mono de 12,5 px. Fara ea nu se stie cat e de derulat.
@@ -762,7 +764,7 @@ export component EditorDiferente inherits Window {
                                 if r.fel == 2 && !root.ascunde-diferentele && root.alaturat: HorizontalLayout {
                                     spacing: 0px;
                                     Rectangle {
-                                        width: (parent.width - root.jgheab) / 2;
+                                        width: root.panou;
                                         if r.cutie-st: Rectangle {
                                             background: Tema.fundal-stare(r.stare);
                                             Chenar { stare: r.stare; sus: true; }
@@ -780,7 +782,7 @@ export component EditorDiferente inherits Window {
                                     }
                                     Rectangle { width: root.jgheab; }
                                     Rectangle {
-                                        width: (parent.width - root.jgheab) / 2;
+                                        width: root.panou;
                                         if r.cutie-dr: Rectangle {
                                             background: Tema.fundal-stare(r.stare);
                                             Chenar { stare: r.stare; sus: true; }
@@ -803,7 +805,7 @@ export component EditorDiferente inherits Window {
                                 if r.fel == 0 && root.alaturat: HorizontalLayout {
                                     spacing: 0px;
                                     Rectangle {
-                                        width: (parent.width - root.jgheab) / 2;
+                                        width: root.panou;
                                         Jumatate {
                                             // blocul luat se stinge cat timp e tras
                                             opacity: root.trage-diferenta >= 0 && r.bloc >= 0 && r.bloc == root.trage-bloc ? 0.4 : 1;
@@ -922,7 +924,7 @@ export component EditorDiferente inherits Window {
                                         }
                                     }
                                     Rectangle {
-                                        width: (parent.width - root.jgheab) / 2;
+                                        width: root.panou;
                                         Jumatate {
                                             width: parent.width;
                                             nr: r.dr-nr;

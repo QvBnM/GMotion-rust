@@ -8,6 +8,8 @@ La 1600x1000, ambele teme, pentru „da"-ul lui Mihai:
 - `despre-*.png` — „Despre", deschis din Ajutor (F1): versiunea, licentele,
   caile jurnalului si datelor, sigla Slint ceruta de licenta.
 - `editare-*.png` — editarea de mana (`e`), cu sintaxa colorata cat scrii.
+- `alaturat-*.png` — modul alaturat dupa reparatia chenarului: marginea din
+  dreapta a cutiei din Modificata nu mai sta sub harta diferentelor.
 
 Comenzile (din `rust/`):
 
