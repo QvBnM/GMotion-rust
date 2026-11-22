@@ -32,7 +32,7 @@ impl Format {
     pub fn progres(self, mesaj: &str) {
         let mesaj = fara_control(mesaj);
         match self {
-            Format::Text => println!("{mesaj}"),
+            Format::Text => linie(format_args!("{mesaj}")),
             Format::Json => eprintln!("{mesaj}"),
         }
     }
@@ -243,8 +243,29 @@ pub fn scrie_json<T: serde::Serialize>(v: &T) -> std::io::Result<()> {
     let text = serde_json::to_string_pretty(v)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     let mut o = std::io::stdout().lock();
-    o.write_all(text.as_bytes())?;
-    o.write_all(b"\n")
+    teava(
+        o.write_all(text.as_bytes())
+            .and_then(|()| o.write_all(b"\n")),
+    )
+}
+
+/// O linie pe iesirea standard (`scrie!`).
+pub fn linie(args: std::fmt::Arguments<'_>) {
+    let mut o = std::io::stdout().lock();
+    // o alta eroare de scriere (disc plin la redirectare) nu are unde fi spusa
+    // decat pe erori; comanda merge mai departe, ca `println!` pana acum
+    if let Err(e) = teava(o.write_fmt(args).and_then(|()| o.write_all(b"\n"))) {
+        eprintln!("Eroare la scrierea iesirii: {e}");
+    }
+}
+
+/// Cititorul a inchis teava (`| head`): nu mai e nimeni de anuntat, deci
+/// comanda se opreste cu 0, ca la `cat`.
+fn teava(r: std::io::Result<()>) -> std::io::Result<()> {
+    match r {
+        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => std::process::exit(0),
+        alt => alt,
+    }
 }
 
 #[cfg(test)]

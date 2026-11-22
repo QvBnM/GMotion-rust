@@ -1629,3 +1629,82 @@ fn testeaza_cere_server() {
     assert!(err(&o).contains("--server"), "{}", err(&o));
     assert!(out(&o).is_empty());
 }
+
+/// O teava inchisa de cititor (`gmotion compara | head -1`) nu e o eroare:
+/// inainte, `println!` dadea panica si comanda iesea cu 134.
+#[test]
+fn teava_inchisa_nu_e_panica() {
+    use std::process::{Command, Stdio};
+    let d = dir("teava");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let mut c = Command::new(env!("CARGO_BIN_EXE_gmotion"))
+        .args([
+            "compara",
+            "--sursa",
+            inst.to_str().unwrap(),
+            "--referinta",
+            "Referinta",
+        ])
+        .env("GMOTION_DIR_DATE", d.join("date"))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(c.stdout.take());
+    let o = c.wait_with_output().unwrap();
+    let erori = String::from_utf8_lossy(&o.stderr);
+    assert!(!erori.contains("panicked"), "{erori}");
+    assert_eq!(o.status.code(), Some(0), "{erori}");
+}
+
+/// Un text final salvat din Notepad (cu BOM) nu duce BOM-ul in mijlocul
+/// scriptului de deploy.
+#[test]
+fn bom_ul_din_textul_final_nu_ajunge_in_script() {
+    let d = dir("bom-text-final");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let f = d.join("t.sql");
+    std::fs::write(&f, "\u{feff}CREATE PROCEDURE dbo.pClienti AS\nSELECT 5").unwrap();
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+            "--din-fisier",
+            f.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let iesire = d.join("out");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let sql = std::fs::read_to_string(iesire.join("Client1.sql")).unwrap();
+    assert!(sql.contains("SELECT 5"));
+    assert_eq!(
+        sql.matches('\u{feff}').count(),
+        1,
+        "doar BOM-ul de la inceputul fisierului"
+    );
+}

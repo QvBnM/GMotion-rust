@@ -54,10 +54,10 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
     match format {
         Format::Json => afisare::scrie_json(&d).map_err(|e| e.to_string()),
         Format::Text => {
-            println!("GMotion {} pe {}", d.versiune, d.sistem);
-            println!("Director de date   : {}", d.director_date);
-            println!("Configurare        : {}", d.configurare);
-            println!(
+            scrie!("GMotion {} pe {}", d.versiune, d.sistem);
+            scrie!("Director de date   : {}", d.director_date);
+            scrie!("Configurare        : {}", d.configurare);
+            scrie!(
                 "Sesiuni criptate   : {}",
                 if d.protejare_criptata {
                     "da (DPAPI)"
@@ -65,7 +65,7 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
                     "NU - doar in dezvoltare, pe Windows se foloseste DPAPI"
                 }
             );
-            println!(
+            scrie!(
                 "Auth integrata     : {}",
                 if d.auth_integrata_disponibila {
                     "disponibila"
@@ -73,8 +73,8 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
                     "indisponibila pe acest sistem"
                 }
             );
-            println!("Tipuri comparate   : {}", d.tipuri_obiecte.join(", "));
-            println!(
+            scrie!("Tipuri comparate   : {}", d.tipuri_obiecte.join(", "));
+            scrie!(
                 "Timeout conectare  : {} s",
                 d.configurare_activa.timeout_conectare_s
             );
@@ -98,7 +98,7 @@ pub fn servere(format: Format) -> Result<(), String> {
         Format::Json => afisare::scrie_json(&gasite).map_err(|e| e.to_string()),
         Format::Text => {
             if gasite.is_empty() {
-                println!(
+                scrie!(
                     "Nicio instanta gasita.\n\n\
                      Nu inseamna neaparat ca nu exista. Cauze obisnuite:\n\
                      - serviciul SQL Browser e oprit pe server\n\
@@ -142,10 +142,10 @@ pub fn baze(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
         Format::Json => afisare::scrie_json(&b).map_err(|e| e.to_string()),
         Format::Text => {
             if b.is_empty() {
-                println!("Nicio baza disponibila.");
+                scrie!("Nicio baza disponibila.");
             }
             for x in &b {
-                println!("{x}");
+                scrie!("{x}");
             }
             Ok(())
         }
@@ -161,14 +161,14 @@ pub fn testeaza(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
     match format {
         Format::Json => afisare::scrie_json(&info).map_err(|e| e.to_string()),
         Format::Text => {
-            println!("Conexiune: ok");
-            println!("Editie   : {}", info.editie);
-            println!("Versiune : {}", info.sistem);
+            scrie!("Conexiune: ok");
+            scrie!("Editie   : {}", info.editie);
+            scrie!("Versiune : {}", info.sistem);
             if let Some(sec) = info.pornit_de_secunde {
-                println!("Pornit de: {} ore", sec / 3600);
+                scrie!("Pornit de: {} ore", sec / 3600);
             }
             if let Some(n) = info.nr_baze {
-                println!("Baze     : {n}");
+                scrie!("Baze     : {n}");
             }
             Ok(())
         }
@@ -558,21 +558,21 @@ pub fn revizuire(
             .map_err(|e| e.to_string())
         }
         Format::Text => {
-            println!("Revizuite: {valabile_acum} din {total} obiecte care difera.");
+            scrie!("Revizuite: {valabile_acum} din {total} obiecte care difera.");
             if cazute > 0 {
-                println!(
+                scrie!(
                     "{cazute} bife au cazut: obiectele s-au schimbat de cand au fost revizuite."
                 );
             }
             if valabile_acum > 0 {
-                println!();
+                scrie!();
                 for x in r
                     .comparare
                     .randuri
                     .iter()
                     .filter(|x| revizuire.e_revizuit(x))
                 {
-                    println!("  {}  {}", x.baza, x.obiect);
+                    scrie!("  {}  {}", x.baza, x.obiect);
                 }
             }
             let omise: Vec<&modul::Rand> = r
@@ -582,16 +582,16 @@ pub fn revizuire(
                 .filter(|x| revizuire.e_omis(x))
                 .collect();
             if !omise.is_empty() {
-                println!("\nOmise (nu intra in deploy): {}", omise.len());
+                scrie!("\nOmise (nu intra in deploy): {}", omise.len());
                 for x in omise {
-                    println!("  {}  {}", x.baza, x.obiect);
+                    scrie!("  {}  {}", x.baza, x.obiect);
                 }
             }
             let note = revizuire.note();
             if !note.is_empty() {
-                println!("\nNote: {}", note.len());
+                scrie!("\nNote: {}", note.len());
                 for (b, o, t) in note {
-                    println!(
+                    scrie!(
                         "  {}  {}  {}",
                         b,
                         o,
@@ -696,7 +696,7 @@ pub fn impact(
         }
         Format::Text => {
             for (x, i, cine) in &randuri {
-                println!(
+                scrie!(
                     "{:<8} {}  {}  {}",
                     i.nivel.eticheta(),
                     afisare::fara_control(&x.baza),
@@ -705,15 +705,15 @@ pub fn impact(
                 );
                 if obiect.is_some() {
                     for c in cine {
-                        println!("           folosit de {}", afisare::fara_control(c));
+                        scrie!("           folosit de {}", afisare::fara_control(c));
                     }
                     for c in foloseste(x) {
-                        println!("           foloseste  {}", afisare::fara_control(&c));
+                        scrie!("           foloseste  {}", afisare::fara_control(&c));
                     }
                 }
             }
             if randuri.is_empty() {
-                println!("Niciun obiect nu difera.");
+                scrie!("Niciun obiect nu difera.");
             }
             Ok(())
         }
@@ -850,7 +850,8 @@ pub fn editare(
         ActiuneEditare::DinFisier(cale) => {
             let text = std::fs::read_to_string(&cale)
                 .map_err(|e| format!("nu pot citi {}: {e}", cale.display()))?;
-            let text = gmotion_core::pregateste_afisare(&text);
+            // un BOM (Notepad, PowerShell) ar ajunge in mijlocul scriptului
+            let text = gmotion_core::pregateste_afisare(text.trim_start_matches('\u{feff}'));
             // un text care n-ar trece de deploy se refuza acum, nu abia la
             // deploy (B2, F-C6 din auditul 2026-11-22)
             modul::verifica_text_final(&rand.obiect, &rand.tip, &text)
@@ -900,10 +901,10 @@ pub fn editare(
         .map_err(|e| e.to_string());
     }
     if arata_final {
-        println!("{curent}");
+        scrie!("{curent}");
         return Ok(());
     }
-    println!(
+    scrie!(
         "{} in {baza}: {}{}",
         rand.obiect,
         if editat {
@@ -914,19 +915,23 @@ pub fn editare(
         if manual { ", scris si de mana" } else { "" }
     );
     if diferente.is_empty() {
-        println!("Nicio diferenta ramasa fata de {referinta}.");
+        scrie!("Nicio diferenta ramasa fata de {referinta}.");
     }
     for (i, &b) in diferente.iter().enumerate() {
         let d = &a.diff[b];
+        // caracterele de control din definitii (ESC, de exemplu) nu ajung
+        // brute in terminal, ca la `diferente` (auditul 2026-11-22)
         let prima = |t: &Option<String>| {
-            t.as_deref()
-                .and_then(|t| t.lines().next())
-                .unwrap_or("—")
-                .chars()
-                .take(70)
-                .collect::<String>()
+            afisare::fara_control(
+                &t.as_deref()
+                    .and_then(|t| t.lines().next())
+                    .unwrap_or("—")
+                    .chars()
+                    .take(70)
+                    .collect::<String>(),
+            )
         };
-        println!(
+        scrie!(
             "  {:>3}. {:<9} martor:     {}\n       {:<9} modificata: {}",
             i + 1,
             d.tip.eticheta(),
@@ -1280,15 +1285,15 @@ pub fn diferente(
             let culori = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
             let aliniere = gmotion_core::aliniaza(&text_ref, &text_tinta);
             let (linii, locuri) = text_diferente(&aliniere, culori);
-            println!(
+            scrie!(
                 "{}",
                 afisare::fara_control(&format!("{obiect}: {referinta} -> {baza}"))
             );
-            println!("{rezumat}");
+            scrie!("{rezumat}");
             if !locuri.is_empty() {
                 let lista: Vec<&str> = locuri.iter().take(20).map(String::as_str).collect();
                 let rest = locuri.len().saturating_sub(20);
-                println!(
+                scrie!(
                     "Diferente la liniile (martor/modificata): {}{}",
                     lista.join(", "),
                     if rest > 0 {
@@ -1299,8 +1304,8 @@ pub fn diferente(
                 );
             }
             if !plasari.is_empty() {
-                println!();
-                println!("Plasarea blocurilor din martor, adica ce face Aplica:");
+                scrie!();
+                scrie!("Plasarea blocurilor din martor, adica ce face Aplica:");
                 for p in &plasari {
                     let unde = if p.inlocuieste {
                         format!(
@@ -1322,12 +1327,12 @@ pub fn diferente(
                     } else {
                         String::new()
                     };
-                    println!("  linia {:>5} -> {unde}{impreuna}", p.linie_martor);
+                    scrie!("  linia {:>5} -> {unde}{impreuna}", p.linie_martor);
                 }
             }
-            println!();
+            scrie!();
             for linie in linii {
-                println!("{linie}");
+                scrie!("{linie}");
             }
             Ok(())
         }

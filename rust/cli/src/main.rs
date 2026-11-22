@@ -17,6 +17,18 @@
 //! [`afisare`] (JSON care nu se parseaza), [`comenzi`] (comanda face altceva
 //! decat spune).
 
+/// `println!` care nu da panica pe o teava inchisa (`gmotion compara | head`):
+/// `println!` panica, iar cu `panic = "abort"` comanda iesea cu 134 in loc de
+/// 0 (auditul 2026-11-22). Toata iesirea standard trece pe aici.
+macro_rules! scrie {
+    () => {
+        $crate::afisare::linie(format_args!(""))
+    };
+    ($($t:tt)*) => {
+        $crate::afisare::linie(format_args!($($t)*))
+    };
+}
+
 mod acreditari;
 mod afisare;
 mod comenzi;
