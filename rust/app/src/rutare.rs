@@ -139,6 +139,9 @@ pub enum MesajTab {
     Capat,
     /// Al noualea tab, cu toate cele 8 avand text final editat: refuzat.
     ToateEditate,
+    /// Clic in coloana pe un obiect care exista doar intr-o parte (sau e
+    /// criptat): n-are ce arata in editor, deci ramane obiectul de acum.
+    FaraEditor,
 }
 
 /// Coloana listei din editor (etapa 16): latimea trasa, pinul, partea si
@@ -829,11 +832,22 @@ impl Aplicatie {
         match c {
             Comanda::MutaSelectia(pas) => self.lista.muta_selectia(pas),
             Comanda::Selecteaza(p) => {
+                let inainte = self.lista.selectat();
                 self.lista.selecteaza(p);
                 // in editor, clicul in coloana listei incarca obiectul in
                 // previzualizare (sau ii activeaza tabul, daca e fixat)
                 if self.ecran == Ecran::Editor {
                     if let Some(c) = self.cheia_curenta() {
+                        // un obiect fara model n-are ce arata: selectia ar
+                        // ramane pe el, iar ecranul pe cel vechi, deci bifa si
+                        // „In plan" ar lovi un obiect nevazut (B4)
+                        if self.texte(&c.0, &c.1).is_none() {
+                            if let Some(i) = inainte {
+                                self.lista.selecteaza(i);
+                            }
+                            self.mesaj_tab = Some(MesajTab::FaraEditor);
+                            return false;
+                        }
                         self.taburi.deschide(c);
                         self.dupa_schimbarea_tabului();
                     }
@@ -2631,6 +2645,27 @@ mod teste {
         );
         criptate.comanda(Comanda::Deschide);
         assert_eq!(criptate.ecran(), Ecran::Lista, "deci ramane in lista");
+    }
+
+    /// B4 din `cercetare/audit-qa-2026-11-22.md`: in editor, clicul in
+    /// coloana pe un obiect fara model nu muta selectia pe el; altfel bifa si
+    /// „In plan" ar lovi un obiect pe care ecranul nu-l arata.
+    #[test]
+    fn in_editor_un_obiect_fara_model_nu_devine_curent() {
+        let mut a = aplicatie();
+        let poz = |a: &Aplicatie, nume: &str| {
+            (0..a.lista().vizibile().len()).find(|&p| a.lista().obiect(p).unwrap().nume == nume)
+        };
+        let p_a = poz(&a, "pA").expect("pA in lista");
+        a.comanda(Comanda::Selecteaza(p_a));
+        a.comanda(Comanda::Deschide);
+        assert_eq!(a.ecran(), Ecran::Editor);
+        let doar = poz(&a, "pDoarSursa").expect("pDoarSursa in lista");
+        a.comanda(Comanda::Selecteaza(doar));
+        assert_eq!(a.obiect().unwrap().nume, "pA", "ramane pe obiectul vazut");
+        assert_eq!(a.mesaj_tab(), Some(MesajTab::FaraEditor));
+        a.comanda(Comanda::ComutaRevizuit);
+        assert!(a.obiect().unwrap().revizuit, "bifa e pe pA");
     }
 
     /// O comparare cu un obiect criptat (definitie goala intr-o parte).

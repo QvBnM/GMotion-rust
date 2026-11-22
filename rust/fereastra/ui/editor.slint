@@ -1542,6 +1542,9 @@ export component EditorDiferente inherits Window {
                     Text { text: k.e; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; }
                 }
                 Rectangle { horizontal-stretch: 1; }
+                // pozitia si ce s-a intamplat cu ultima comanda pe taburi
+                // (capat, tab refuzat, obiect fara editor)
+                Text { text: root.stare-obiecte; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; min-width: 0; horizontal-stretch: 1; horizontal-alignment: right; }
                 Text { text: root.salvat; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; }
             }
         }

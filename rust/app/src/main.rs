@@ -635,6 +635,10 @@ fn ruleaza() -> Result<(), String> {
                         " · niciun alt obiect nefixat in directia asta",
                         " · no other unpinned object in this direction",
                     )),
+                    Some(gmotion_app::rutare::MesajTab::FaraEditor) => pozitie.push_str(limba.alege(
+                        " · obiectul ales exista doar intr-o parte sau e criptat: nu se deschide in editor",
+                        " · the chosen object exists on one side only or is encrypted: it does not open in the editor",
+                    )),
                     Some(gmotion_app::rutare::MesajTab::ToateEditate) => {
                         pozitie.push_str(limba.alege(
                             " · 8 taburi fixate, toate editate: inchide unul intai",
