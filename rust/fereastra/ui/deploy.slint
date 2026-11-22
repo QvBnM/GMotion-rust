@@ -233,7 +233,8 @@ export component FereastraDeploy inherits Window {
 
                         Oprire {
                             stare: root.garda == 1 ? 1 : (root.garda == 0 || root.garda == 4) ? 0 : 2;
-                            titlu: Texte.baza-neatinsa;
+                            // titlul spune ce a gasit garda, nu ce speram (auditul 2026-11-22)
+                            titlu: root.garda == 2 ? Texte.baza-atinsa : root.garda == 3 ? Texte.verificare-esuata : Texte.baza-neatinsa;
                             text: root.text-garda;
                             for s in root.schimbari: Text { text: s; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.del-text; wrap: word-wrap; }
                             HorizontalLayout {
@@ -335,6 +336,7 @@ export component FereastraDeploy inherits Window {
                             Text {
                                 text: root.poate-scrie ? Texte.scrie-scripturile
                                     : root.rezultat == 1 ? Texte.scris
+                                    : root.garda == 2 ? Texte.compara-din-nou-intai
                                     : Texte.scrie-dupa-verificare;
                                 font-family: Tema.font-ui;
                                 font-size: 15px;

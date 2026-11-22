@@ -1901,10 +1901,17 @@ fn ruleaza() -> Result<(), String> {
         let st = stare.clone();
         editor_ui.on_previzualizeaza(move |k| {
             actiune("editor", "previzualizeaza", &format!("{:?}", (&k,)), true);
+            // `try_borrow`: hover-ul vine dintr-un `changed`, care poate porni
+            // in mijlocul unei desenari (care tine starea imprumutata); un
+            // `borrow` simplu ar fi panica, deci in release caderea aplicatiei
+            let Ok(stare) = st.try_borrow() else {
+                return;
+            };
             let linii = usize::try_from(k)
                 .ok()
-                .and_then(|k| st.borrow().app.as_ref().and_then(|a| a.previzualizare(k)))
+                .and_then(|k| stare.app.as_ref().and_then(|a| a.previzualizare(k)))
                 .unwrap_or_default();
+            drop(stare);
             if let Some(ui) = e.upgrade() {
                 ui.set_previzualizare_linii(gmotion_fereastra::previzualizare_ui(&linii));
             }
