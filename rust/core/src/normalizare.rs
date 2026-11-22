@@ -52,7 +52,10 @@ static RE_HINTURI: Lazy<Regex> = Lazy::new(|| {
 // caracterul dinainte se captureaza si se pune la loc.
 static RE_DBO_PARANTEZAT: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)(^|[^.\w\]])\[dbo\]\.").unwrap());
-static RE_DBO: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(^|[^.\w\]])dbo\.").unwrap());
+/// `dbo.` ca schema, nu ca parte dintr-un nume: `@dbo.x` (variabila) si
+/// `#dbo.x` raman, altfel `@dbo_x` si `@x` ar fi ajuns identice (auditul
+/// 2026-11-22, aceeasi familie ca hinturile din F-M3).
+static RE_DBO: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(^|[^.\w\]@#$])dbo\.").unwrap());
 static RE_IDENTIFICATOR_SIMPLU: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\[[\p{L}_@#][\p{L}\p{N}_@#$]*\]$").unwrap());
 static RE_COLLATE: Lazy<Regex> =
@@ -297,27 +300,21 @@ pub fn calc_hash(normalizat: &str) -> String {
     hex::encode(h.finalize())
 }
 
-/// Rotunjire identica cu `round()` din Python (half-to-even, "bancara").
+/// Rotunjire identica cu `round()` din Python: pe valoarea zecimala exacta,
+/// la egalitate spre par.
 ///
 /// `Math.round` din JS si `f64::round` din Rust rotunjesc 0.5 in sus, deci
 /// 98.125 ar da 98.13, in timp ce Python da 98.12. Scorurile ajung in interfata
 /// si in CSV, deci diferenta ar fi vizibila.
 pub fn round_py(x: f64, zecimale: u32) -> f64 {
-    let m = 10f64.powi(zecimale as i32);
-    let v = x * m;
-    let f = v.floor();
-    let diferenta = v - f;
-    let r = if (diferenta - 0.5).abs() < 1e-9 {
-        // exact la jumatate -> spre numarul par
-        if (f as i64) % 2 == 0 {
-            f
-        } else {
-            f + 1.0
-        }
-    } else {
-        v.round()
-    };
-    r / m
+    // `format!` rotunjeste valoarea zecimala **exacta** a lui `x`, la
+    // egalitate spre par: exact ce face `round` din Python. Varianta pe
+    // `x * 10^n` gresea cand inmultirea iese din reprezentare (0.005 -> 0,
+    // Python 0.01; 2.675 -> 2.68, Python 2.67; auditul 2026-11-22).
+    if !x.is_finite() {
+        return x;
+    }
+    format!("{:.*}", zecimale as usize, x).parse().unwrap_or(x)
 }
 
 /// Token-urile folosite la calculul scorului: forma normalizata, taiata pe
@@ -352,6 +349,32 @@ pub fn scor_similaritate(referinta: &str, curent: &str) -> f64 {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn round_py_rotunjeste_ca_python() {
+        for (x, n, asteptat) in [
+            (0.005, 2, 0.01),
+            (2.675, 2, 2.67),
+            (0.125, 2, 0.12),
+            (0.375, 2, 0.38),
+            (33.335, 2, 33.34),
+            (0.5, 0, 0.0),
+            (1.5, 0, 2.0),
+            (2.5, 0, 2.0),
+            (87.5, 2, 87.5),
+        ] {
+            assert_eq!(round_py(x, n), asteptat, "round({x}, {n})");
+        }
+    }
+
+    #[test]
+    fn dbo_dupa_arond_nu_e_schema() {
+        assert_ne!(normalizeaza("SELECT @dbo.x"), normalizeaza("SELECT @x"));
+        assert_eq!(
+            normalizeaza("SELECT x FROM dbo.t"),
+            normalizeaza("SELECT x FROM t")
+        );
+    }
 
     /// C2 din `cercetare/audit-qa-2026-11-22.md`: in interiorul unui sir, un
     /// tab fata de un spatiu pe acelasi rand e alta valoare (`REPLACE(x, TAB,

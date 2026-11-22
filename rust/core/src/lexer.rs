@@ -133,10 +133,22 @@ fn pana_la_inchidere(b: &[u8], mut j: usize, inchidere: u8) -> usize {
 /// mai multe linii, deci aici se raporteaza orice linie `GO`, indiferent de
 /// context, cu exceptia comentariilor bloc. Numerele de linie sunt 1-based.
 pub fn linii_go(text: &str) -> Vec<usize> {
-    let seg = segmente(text);
-    let in_comentariu_bloc = |poz: usize| {
-        seg.iter()
-            .any(|s| s.fel == Fel::ComentariuBloc && s.start < poz && poz < s.sfarsit)
+    // comentariile bloc, in ordine: pozitiile liniilor cresc, deci un cursor
+    // le parcurge o singura data (inainte, `any` pe toate la fiecare linie:
+    // 1,1 s pe 50.000 de linii, P7 din auditul QA)
+    let blocuri: Vec<(usize, usize)> = segmente(text)
+        .into_iter()
+        .filter(|s| s.fel == Fel::ComentariuBloc)
+        .map(|s| (s.start, s.sfarsit))
+        .collect();
+    let mut cursor = 0usize;
+    let mut in_comentariu_bloc = |poz: usize| {
+        while blocuri.get(cursor).is_some_and(|&(_, sf)| sf <= poz) {
+            cursor += 1;
+        }
+        blocuri
+            .get(cursor)
+            .is_some_and(|&(st, sf)| st < poz && poz < sf)
     };
     let mut rez = Vec::new();
     let mut poz = 0usize;
