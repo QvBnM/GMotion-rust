@@ -217,6 +217,17 @@ impl Revizuire {
     /// bife despre obiecte care nu mai exista.
     pub fn curata(&mut self, randuri: &[Rand], baze_comparate: &[String]) -> usize {
         let mut scoase = 0;
+        // un index, nu `any` pe toate randurile pentru fiecare bifa: 5 s la
+        // 10.000 de obiecte (P6 din auditul QA)
+        let index: std::collections::HashMap<(&str, &str), Amprenta> = randuri
+            .iter()
+            .map(|r| {
+                (
+                    (r.baza.as_str(), r.obiect.as_str()),
+                    Amprenta::a_randului(r),
+                )
+            })
+            .collect();
         let mut curata_harta = |harta: &mut BTreeMap<String, BTreeMap<String, Amprenta>>| {
             for (baza, obiecte) in harta.iter_mut() {
                 // o baza care nu e in compararea de acum nu se atinge: n-are
@@ -226,11 +237,9 @@ impl Revizuire {
                     continue;
                 }
                 obiecte.retain(|obiect, amprenta| {
-                    let pastreaza = randuri.iter().any(|r| {
-                        r.baza == *baza
-                            && r.obiect == *obiect
-                            && Amprenta::a_randului(r) == *amprenta
-                    });
+                    let pastreaza = index
+                        .get(&(baza.as_str(), obiect.as_str()))
+                        .is_some_and(|a| a == amprenta);
                     scoase += usize::from(!pastreaza);
                     pastreaza
                 });

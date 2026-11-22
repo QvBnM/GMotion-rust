@@ -1066,11 +1066,13 @@ fn marcheaza_deployatele(
     };
     let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
     let mut marcate = 0;
+    // index o data, nu `find` pe toate randurile pentru fiecare pas (P6)
+    let index: std::collections::HashMap<(&str, &str), &modul::Rand> = randuri
+        .iter()
+        .map(|r| ((r.baza.as_str(), r.obiect.as_str()), r))
+        .collect();
     for pas in &plan.pasi {
-        if let Some(rand) = randuri
-            .iter()
-            .find(|r| r.baza == pas.baza && r.obiect == pas.obiect)
-        {
+        if let Some(rand) = index.get(&(pas.baza.as_str(), pas.obiect.as_str())) {
             revizuire.marcheaza_deployat(rand);
             marcate += 1;
         }

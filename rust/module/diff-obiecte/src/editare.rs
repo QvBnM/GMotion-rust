@@ -166,14 +166,24 @@ impl Editari {
     /// deploy-ul ei scria codul referintei in locul lor (C3/C4 din auditul QA).
     pub fn curata(&mut self, randuri: &[Rand], baze_comparate: &[String]) -> usize {
         let mut scoase = 0;
+        // index, nu `any` pe toate randurile pentru fiecare text (P6)
+        let index: std::collections::HashMap<(&str, &str), Amprenta> = randuri
+            .iter()
+            .map(|r| {
+                (
+                    (r.baza.as_str(), r.obiect.as_str()),
+                    Amprenta::a_randului(r),
+                )
+            })
+            .collect();
         for (baza, obiecte) in self.baze.iter_mut() {
             if !baze_comparate.iter().any(|b| b == baza) {
                 continue;
             }
             obiecte.retain(|obiect, t| {
-                let pastreaza = randuri.iter().any(|r| {
-                    r.baza == *baza && r.obiect == *obiect && Amprenta::a_randului(r) == t.amprenta
-                });
+                let pastreaza = index
+                    .get(&(baza.as_str(), obiect.as_str()))
+                    .is_some_and(|a| *a == t.amprenta);
                 scoase += usize::from(!pastreaza);
                 pastreaza
             });
