@@ -6,7 +6,7 @@
 //! se vede ca rutarea chiar duce unde trebuie.
 //!
 //!   cargo run --release -p gmotion-app --example captura_flux -- \
-//!       instantaneu.json SURSA BAZA iesire-lista.png iesire-editor.png [schema.obiect]
+//!       instantaneu.json SURSA BAZA iesire-lista.png iesire-editor.png [schema.obiect] [--aplica] [--aplica-nr N]
 use std::rc::Rc;
 
 use gmotion_app::rutare::{Aplicatie, Comanda, Ecran};
@@ -140,6 +140,18 @@ fn main() {
     let are = |f: &str| a.iter().any(|x| x == f);
     if are("--aplica") {
         app.comanda(Comanda::AplicaDiferenta(Some(0)));
+    }
+    //   --aplica-nr N  diferenta N (de la 1, ca in editor), si editorul se
+    //                  deschide pe ea
+    if let Some(n) = a
+        .iter()
+        .position(|x| x == "--aplica-nr")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| n.parse::<usize>().ok())
+        .filter(|&n| n > 0)
+    {
+        app.comanda(Comanda::MergiLaDiferenta(n - 1));
+        app.comanda(Comanda::AplicaDiferenta(Some(n - 1)));
     }
     if are("--ghidat") {
         app.comanda(Comanda::PornesteGhidat);
