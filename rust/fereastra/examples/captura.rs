@@ -150,9 +150,6 @@ fn main() {
         }
     }
     ui.set_alaturat(!are("--unificat"));
-    if let Some(i) = a.iter().position(|x| x == "--stil-inserare") {
-        ui.set_stil_inserare(a.get(i + 1).and_then(|n| n.parse().ok()).unwrap_or(0));
-    }
     ui.set_pliaza_identicul(!are("--fara-pliere"));
     let (schema, nume) = a[4].split_once('.').unwrap_or(("dbo", &a[4]));
     incarca_editor(

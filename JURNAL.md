@@ -1711,3 +1711,22 @@ dinainte, care sunt rotunjite si se adunau pe rand. Verificat pe captura.
 idee mai gros. Peste 5.000 de linii nu se coloreaza (lexarea la fiecare
 tasta). Daca se schimba fontul sau marimea campului, se schimba in ambele
 locuri (`editor.slint`, `BucatiEditare`).
+
+---
+
+## 2026-11-22 — Locul de inserare: o banda rosie, mica, pe primul rand al golului
+
+**Context.** In Modificata, locul unde intra blocurile doar in Martor era o
+linie rosie subtire si un text; restul golului parea spatiu alb (Mihai: sa
+se vada mai bine unde ar merge).
+
+**Alternative.** Cutie punctata cat tot golul (verde, ca blocul din Martor);
+un rand colorat; ce era. Propuse pe capturi
+(`cercetare/machete/inserare-propunere/`).
+
+**Motiv.** Ales de Mihai: randul colorat, dar mai mic, si rosu: „ca e gen o
+lipsa". Banda de 16 px tine textul, bara din stanga si capatul legaturii din
+canal; golul de sub ea ramane alb, cat blocul.
+
+**Consecinte.** `Jumatate` nu mai deseneaza linia de inserare (proprietatea
+`fantoma` a disparut din ea); banda e in `editor.slint`.

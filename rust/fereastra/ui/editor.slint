@@ -153,8 +153,6 @@ component CapPanou inherits Rectangle {
 }
 
 export component EditorDiferente inherits Window {
-    // PROBA: cum se arata locul de inserare (0 linia de acum, 1 cutie, 2 rand)
-    in property <int> stil-inserare: 0;
     // campul de editare: textul la fiecare schimbare si randurile colorate
     // care se deseneaza peste el (etapa 25)
     callback text-editat(string);
@@ -938,7 +936,8 @@ export component EditorDiferente inherits Window {
                                         Jumatate {
                                             width: parent.width;
                                             nr: r.dr-nr;
-                                            bucati: r.dr;
+                                            // pe randul de inserare textul sta in banda de mai jos
+                                            bucati: r.fantoma && !root.ascunde-diferentele ? [] : r.dr;
                                             stare: root.ascunde-diferentele || r.inserare ? 0 : r.stare;
                                             marcaj: root.ascunde-diferentele ? 0 : r.dr-marcaj;
                                             curenta: r.diferenta == root.diferenta-curenta;
@@ -946,7 +945,6 @@ export component EditorDiferente inherits Window {
                                             decalaj-x: root.derulare-x;
                                             tigla: root.tigla-hasura;
                                             eticheta: root.ascunde-diferentele || r.stare != 3 ? "" : r.eticheta;
-                                            fantoma: r.fantoma && !root.ascunde-diferentele && root.stil-inserare == 0;
                                             // cat tragi un bloc, locul lui se aprinde
                                             tinta-aprinsa: root.trage-diferenta >= 0
                                                 && idx >= root.tinte-de-la[root.trage-diferenta]
@@ -960,28 +958,30 @@ export component EditorDiferente inherits Window {
                                                 : Texte.plaseaza-aici-inlocuieste;
                                         }
                                         if r.cutie-dr && !root.ascunde-diferentele: Chenar { stare: r.stare; jos: r.cutie-jos; }
-                                        // PROBA (stil-inserare): 1 = golul ca o cutie punctata,
-                                        // 2 = un rand colorat in dreptul inserarii
-                                        if root.stil-inserare == 1 && r.inserare && !root.ascunde-diferentele: Rectangle {
-                                            background: Tema.add-bara.transparentize(0.88);
-                                            for i in 3: Rectangle { x: 0px; y: i * 8px + 2px; width: 1px; height: 4px; background: Tema.add-bara; }
-                                            for i in 3: Rectangle { x: parent.width - 1px; y: i * 8px + 2px; width: 1px; height: 4px; background: Tema.add-bara; }
-                                            if r.fantoma: Rectangle {
-                                                y: 0px;
-                                                height: 1px;
-                                                for i in Math.floor(parent.width / 8px): Rectangle { x: i * 8px; width: 4px; background: Tema.add-bara; }
+                                        // locul unde intra blocurile doar in Martor (Mihai,
+                                        // 2026-11-22: varianta 2, mai mica, rosie „ca o lipsa"):
+                                        // o banda subtire pe primul rand al golului, cu textul
+                                        if r.fantoma && !root.ascunde-diferentele: Rectangle {
+                                            x: 2px;
+                                            y: (root.inaltime-rand - self.height) / 2;
+                                            width: parent.width - 8px;
+                                            height: 16px;
+                                            border-radius: 3px;
+                                            border-width: 1px;
+                                            border-color: Tema.del-bara.transparentize(0.4);
+                                            background: Tema.del-bara.transparentize(0.88);
+                                            Rectangle { x: 0px; width: 3px; border-radius: 1.5px; background: Tema.del-bara; }
+                                            Text {
+                                                x: 12px;
+                                                width: parent.width - 18px;
+                                                text: r.dr.length > 0 ? r.dr[0].text : "";
+                                                font-family: Tema.font-ui;
+                                                font-size: 11px;
+                                                font-italic: true;
+                                                color: Tema.del-text;
+                                                vertical-alignment: center;
+                                                overflow: elide;
                                             }
-                                            if idx + 1 >= root.randuri.length || !root.randuri[idx + 1].inserare: Rectangle {
-                                                y: parent.height - 1px;
-                                                height: 1px;
-                                                for i in Math.floor(parent.width / 8px): Rectangle { x: i * 8px; width: 4px; background: Tema.add-bara; }
-                                            }
-                                        }
-                                        if root.stil-inserare == 2 && r.fantoma && !root.ascunde-diferentele: Rectangle {
-                                            background: Tema.add-bara.transparentize(0.85);
-                                            Rectangle { y: 0px; height: 1px; background: Tema.add-bara; }
-                                            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.add-bara; }
-                                            Rectangle { x: 0px; width: 3px; background: Tema.add-bara; }
                                         }
                                         // Zona de plasare se aprindea pe randurile
                                         // blocului tras, adica acolo unde ar cadea
@@ -1084,9 +1084,9 @@ export component EditorDiferente inherits Window {
                             property <float> h: root.inaltime-rand / 1px;
                             property <float> y1: (root.start-diferente[k] + 0.5) * self.h + lista.content-y / 1px;
                             property <bool> gol: t >= 0 && root.randuri[t].fantoma;
-                            // la inserare, spre linia de inserare (marginea de sus a
-                            // randului cu textul); la inlocuire, spre mijlocul blocului
-                            property <float> y2: (self.gol ? t : (t + root.tinte-pana-la[k]) / 2) * self.h + lista.content-y / 1px;
+                            // la inserare, spre banda de inserare (mijlocul randului ei);
+                            // la inlocuire, spre mijlocul blocului
+                            property <float> y2: (self.gol ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * self.h + lista.content-y / 1px;
                             property <bool> curenta: k == root.diferenta-curenta;
                             visible: t >= 0 && root.start-diferente[k] >= 0
                                 && Math.max(self.y1, self.y2) > -20 && Math.min(self.y1, self.y2) < legaturi.height / 1px + 20;
@@ -1101,7 +1101,7 @@ export component EditorDiferente inherits Window {
                             // adica ~13 px abatere la mijlocul listei
                             fit: preserve;
                             fill: transparent;
-                            stroke: self.gol ? (root.stil-inserare == 0 ? Tema.del-bara : Tema.add-bara) : Tema.mod-bara;
+                            stroke: self.gol ? Tema.del-bara : Tema.mod-bara;
                             stroke-width: self.curenta ? 2.2px : 1.4px;
                             opacity: self.curenta ? 1 : (self.gol ? 0.55 : 0.75);
                             MoveTo { x: 0; y: parent.y1; }
@@ -1116,7 +1116,7 @@ export component EditorDiferente inherits Window {
                         }
                         // capatul legaturii: plin la inlocuire, gol la inserare
                         for t[k] in root.tinte-de-la: Rectangle {
-                            property <length> y2: (t >= 0 && root.randuri[t].fantoma ? t : (t + root.tinte-pana-la[k]) / 2) * root.inaltime-rand + lista.content-y;
+                            property <length> y2: (t >= 0 && root.randuri[t].fantoma ? t + 0.5 : (t + root.tinte-pana-la[k]) / 2) * root.inaltime-rand + lista.content-y;
                             visible: t >= 0 && root.start-diferente[k] >= 0 && self.y2 > -10px && self.y2 < legaturi.height + 10px;
                             x: parent.width - 4px;
                             y: self.y2 - 3px;
@@ -1125,7 +1125,7 @@ export component EditorDiferente inherits Window {
                             border-radius: 3px;
                             background: t >= 0 && root.randuri[t].fantoma ? Tema.fundal : Tema.mod-bara;
                             border-width: t >= 0 && root.randuri[t].fantoma ? 1.5px : 0px;
-                            border-color: root.stil-inserare == 0 ? Tema.del-bara : Tema.add-bara;
+                            border-color: Tema.del-bara;
                         }
                     }
                     // ce tragi: o fantoma care urmeaza mouse-ul, cu ce se intampla
