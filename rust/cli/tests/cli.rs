@@ -1415,3 +1415,88 @@ fn sesiunea_care_nu_se_citeste_opreste_deploy_ul() {
     assert!(!iesire.exists(), "niciun script scris");
     assert!(!plan.exists() && !csv.exists());
 }
+
+/// F-D5 din `cercetare/audit-qa-2026-11-22.md`: un text final schimbat dupa
+/// `plan` opreste `deploy --plan`; inainte, mesajul spunea „n-a mai fost
+/// atinsa" si scriptul avea textul nou.
+#[test]
+fn deploy_cu_plan_se_opreste_daca_textul_final_s_a_schimbat() {
+    let d = dir("plan-text-final");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let plan = d.join("plan.json");
+    let text = |nume: &str, corp: &str| {
+        let f = d.join(nume);
+        std::fs::write(&f, format!("CREATE PROCEDURE dbo.pClienti AS\n{corp}")).unwrap();
+        f
+    };
+    let editeaza = |f: &Path| {
+        let o = ruleaza_in(
+            &[
+                "editare",
+                "--sursa",
+                i,
+                "--referinta",
+                "Referinta",
+                "--baza",
+                "Client1",
+                "--obiect",
+                "dbo.pClienti",
+                "--din-fisier",
+                f.to_str().unwrap(),
+            ],
+            Some(&date),
+        );
+        assert!(o.status.success(), "{}", err(&o));
+    };
+    editeaza(&text("unu.sql", "SELECT 1 AS aprobat"));
+    let o = ruleaza_in(
+        &[
+            "plan",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-o",
+            plan.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let deploy = |dest: &str| {
+        let iesire = d.join(dest);
+        let o = ruleaza_in(
+            &[
+                "deploy",
+                "--sursa",
+                i,
+                "--referinta",
+                "Referinta",
+                "--plan",
+                plan.to_str().unwrap(),
+                "-d",
+                iesire.to_str().unwrap(),
+            ],
+            Some(&date),
+        );
+        (o, iesire)
+    };
+    let (o, iesire) = deploy("bun");
+    assert!(o.status.success(), "neschimbat, trece: {}", err(&o));
+    assert!(std::fs::read_to_string(iesire.join("Client1.sql"))
+        .unwrap()
+        .contains("aprobat"));
+
+    editeaza(&text("doi.sql", "SELECT 666 AS scris_dupa_plan"));
+    let (o, iesire) = deploy("rau");
+    assert!(!o.status.success(), "textul s-a schimbat dupa plan");
+    assert!(err(&o).contains("GM-MOD-012"), "{}", err(&o));
+    assert!(
+        err(&o).contains("textul final al lui dbo.pClienti"),
+        "{}",
+        err(&o)
+    );
+    assert!(!iesire.exists());
+}

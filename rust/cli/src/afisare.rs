@@ -267,6 +267,7 @@ mod teste {
                     categorie: Categorie::Diferit,
                     hash_referinta: Some("a".into()),
                     hash_curent: Some("b".into()),
+                    exacta_curent: None,
                 },
                 Rand {
                     id: 1,
@@ -278,6 +279,7 @@ mod teste {
                     categorie: Categorie::Lipsa,
                     hash_referinta: Some("a".into()),
                     hash_curent: None,
+                    exacta_curent: None,
                 },
             ],
             numaratoare: Numaratoare {

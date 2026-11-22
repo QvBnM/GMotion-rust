@@ -54,6 +54,11 @@ pub struct Pas {
     /// ALTER` (F-D3).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tip_tinta: Option<String>,
+    /// Amprenta textului final cu care s-a facut planul (`None`: fara text
+    /// final, deci codul din martor). `deploy --plan` o verifica: un text
+    /// schimbat dupa plan nu pleaca nevazut (F-D5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_final: Option<String>,
 }
 
 /// Ce intra in deploy, cu amprentele de la comparare.
@@ -77,6 +82,9 @@ pub enum Parte {
     Referinta,
     /// Baza pe care se deployeaza a fost atinsa.
     Tinta,
+    /// Textul final (din editor sau `gmotion editare`) nu mai e cel din plan.
+    #[serde(rename = "text_final")]
+    TextFinal,
 }
 
 /// Cum s-a schimbat.
@@ -111,6 +119,11 @@ impl fmt::Display for Schimbare {
             Parte::Referinta => write!(
                 f,
                 "{} {fel} in martor de la comparare (deploy pe {})",
+                self.obiect, self.baza
+            ),
+            Parte::TextFinal => write!(
+                f,
+                "textul final al lui {} (deploy pe {}) {fel} de la plan",
                 self.obiect, self.baza
             ),
         }
@@ -184,6 +197,7 @@ impl Plan {
                 referinta: amprenta_exacta(o),
                 tinta,
                 tip_tinta,
+                text_final: None,
             });
         }
         Plan {
@@ -236,6 +250,42 @@ impl Plan {
     }
 
     /// Garda ca eroare: `GM-MOD-012` cu fiecare schimbare pe nume.
+    /// Pune in plan amprenta textelor finale de acum (cheie: baza, obiect).
+    pub fn cu_texte_finale(mut self, texte: &BTreeMap<(String, String), String>) -> Self {
+        for p in &mut self.pasi {
+            p.text_final = texte
+                .get(&(p.baza.clone(), p.obiect.clone()))
+                .map(|t| calc_hash(t));
+        }
+        self
+    }
+
+    /// Garda pentru textele finale: sunt cele cu care s-a facut planul? Lista
+    /// goala inseamna da. Un text aparut, disparut (Reset) sau schimbat dupa
+    /// plan opreste deploy-ul, ca o baza atinsa.
+    pub fn verifica_texte(&self, texte: &BTreeMap<(String, String), String>) -> Vec<Schimbare> {
+        self.pasi
+            .iter()
+            .filter_map(|p| {
+                let acum = texte
+                    .get(&(p.baza.clone(), p.obiect.clone()))
+                    .map(|t| calc_hash(t));
+                let fel = match (&p.text_final, &acum) {
+                    (a, b) if a == b => return None,
+                    (None, Some(_)) => FelSchimbare::Aparut,
+                    (Some(_), None) => FelSchimbare::Disparut,
+                    _ => FelSchimbare::Modificat,
+                };
+                Some(Schimbare {
+                    baza: p.baza.clone(),
+                    obiect: p.obiect.clone(),
+                    parte: Parte::TextFinal,
+                    fel,
+                })
+            })
+            .collect()
+    }
+
     pub fn verifica_sau_opreste(
         &self,
         referinta: &Baza,
@@ -654,6 +704,40 @@ mod teste {
         assert_eq!(t.len(), 2);
         assert_eq!(t[0].cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1");
         assert!(p.de_deployat(&Baza::new()).is_err());
+    }
+
+    /// F-D5: un text final schimbat, aparut sau sters dupa plan se vede.
+    #[test]
+    fn textele_finale_din_plan_se_verifica() {
+        let (r, a) = scena();
+        let cheie = ("Tinta".to_string(), "dbo.pA".to_string());
+        let la_plan = BTreeMap::from([(
+            cheie.clone(),
+            "CREATE PROCEDURE dbo.pA AS SELECT 7".to_string(),
+        )]);
+        let p = plan(&r, &a).cu_texte_finale(&la_plan);
+        assert!(p.verifica_texte(&la_plan).is_empty());
+        let schimbat = BTreeMap::from([(
+            cheie.clone(),
+            "CREATE PROCEDURE dbo.pA AS DELETE FROM t".to_string(),
+        )]);
+        let s = p.verifica_texte(&schimbat);
+        assert_eq!(
+            (s.len(), s[0].parte, s[0].fel),
+            (1, Parte::TextFinal, FelSchimbare::Modificat)
+        );
+        assert!(
+            s[0].to_string().contains("textul final al lui dbo.pA"),
+            "{}",
+            s[0]
+        );
+        assert_eq!(
+            p.verifica_texte(&BTreeMap::new())[0].fel,
+            FelSchimbare::Disparut
+        );
+        let fara = plan(&r, &a);
+        assert_eq!(fara.verifica_texte(&la_plan)[0].fel, FelSchimbare::Aparut);
+        assert!(fara.verifica_texte(&BTreeMap::new()).is_empty());
     }
 
     /// F-D3: procedura in martor, view in modificata. Randul o spune, iar

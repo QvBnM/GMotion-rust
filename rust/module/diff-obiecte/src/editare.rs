@@ -32,6 +32,12 @@ pub struct TextFinal {
     pub manual: bool,
     /// Amprenta obiectului cand s-a facut editarea.
     pub amprenta: Amprenta,
+    /// Amprenta exacta a bazei comparate cand s-a facut editarea. Amprenta
+    /// de mai sus e pe textul normalizat, deci nu vede un comentariu adaugat
+    /// in baza (un hotfix); textul final, facut peste versiunea veche, l-ar
+    /// fi sters la deploy (F-D5). `None` in sesiunile de dinainte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exacta: Option<String>,
 }
 
 /// Textele finale, pe baza comparata si obiect.
@@ -52,6 +58,10 @@ impl Editari {
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
             .filter(|t| t.amprenta == Amprenta::a_randului(r))
+            .filter(|t| match (&t.exacta, &r.exacta_curent) {
+                (Some(a), Some(b)) => a == b,
+                _ => true,
+            })
     }
 
     /// Textul din dreapta pe care lucreaza editorul acum: textul final, daca
@@ -75,6 +85,7 @@ impl Editari {
                 text,
                 manual,
                 amprenta: Amprenta::a_randului(r),
+                exacta: r.exacta_curent.clone(),
             },
         );
     }
@@ -224,7 +235,27 @@ mod teste {
             categorie: Categorie::Diferit,
             hash_referinta: Some(hr.into()),
             hash_curent: Some(hc.into()),
+            exacta_curent: None,
         }
+    }
+
+    /// F-D5: un comentariu adaugat in baza (hash normalizat neschimbat) face
+    /// textul final facut peste versiunea veche nevalabil.
+    #[test]
+    fn un_comentariu_nou_in_baza_invalideaza_textul_final() {
+        let mut r = rand("h1", "h2");
+        r.exacta_curent = Some("e1".into());
+        let mut e = Editari::noi();
+        e.pune(&r, "CREATE PROCEDURE dbo.p AS SELECT 1".into(), true);
+        assert!(e.text_final(&r).is_some());
+        r.exacta_curent = Some("e2-cu-hotfix".into());
+        assert!(e.text_final(&r).is_none(), "baza s-a schimbat dupa editare");
+        // sesiunile vechi n-au amprenta exacta: raman valabile ca inainte
+        let mut vechi = Editari::noi();
+        r.exacta_curent = None;
+        vechi.pune(&r, "x".into(), true);
+        r.exacta_curent = Some("e3".into());
+        assert!(vechi.text_final(&r).is_some());
     }
 
     const SURSA: &str = "SELECT 1\n\nUPDATE t SET a = 1\n\nDELETE x WHERE id = 1";

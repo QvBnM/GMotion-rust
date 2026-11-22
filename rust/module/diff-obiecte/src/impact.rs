@@ -172,6 +172,7 @@ mod teste {
             categorie,
             hash_referinta: None,
             hash_curent: None,
+            exacta_curent: None,
         }
     }
 

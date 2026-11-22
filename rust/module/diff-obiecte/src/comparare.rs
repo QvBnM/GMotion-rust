@@ -62,6 +62,11 @@ pub struct Rand {
     /// valabil pentru el.
     pub hash_referinta: Option<String>,
     pub hash_curent: Option<String>,
+    /// Amprenta **exacta** a versiunii din baza comparata (cu comentarii si
+    /// spatii): un text final facut peste alta versiune nu mai e valabil,
+    /// chiar daca diferenta e doar un comentariu (F-D5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exacta_curent: Option<String>,
 }
 
 /// Cat de departe a ajuns compararea. Platforma o publica prin metoda comuna
@@ -252,6 +257,7 @@ pub fn compara(
                     categorie: Categorie::Lipsa,
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: None,
+                    exacta_curent: None,
                 });
                 id += 1;
                 continue;
@@ -268,6 +274,7 @@ pub fn compara(
                     categorie: Categorie::Criptat,
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: Some(c.hash.clone()),
+                    exacta_curent: Some(crate::plan::amprenta_exacta(c)),
                 });
                 id += 1;
                 continue;
@@ -294,6 +301,7 @@ pub fn compara(
                     categorie: Categorie::Diferit,
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: Some(c.hash.clone()),
+                    exacta_curent: Some(crate::plan::amprenta_exacta(c)),
                 });
                 id += 1;
                 continue;
@@ -323,6 +331,7 @@ pub fn compara(
                 categorie: Categorie::Diferit,
                 hash_referinta: Some(r.hash.clone()),
                 hash_curent: Some(c.hash.clone()),
+                exacta_curent: Some(crate::plan::amprenta_exacta(c)),
             });
             id += 1;
         }
@@ -350,6 +359,7 @@ pub fn compara(
                 categorie: Categorie::Extra,
                 hash_referinta: None,
                 hash_curent: Some(o.hash.clone()),
+                exacta_curent: Some(crate::plan::amprenta_exacta(o)),
             });
             id += 1;
         }

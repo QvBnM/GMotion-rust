@@ -918,7 +918,9 @@ fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<mod
     let filtru = doar.map(lista);
     // ce s-a omis (in fereastra sau cu `revizuire --omite`) nu intra in deploy,
     // ca in v3.4; cu `--doar` se poate cere totusi explicit
-    let omise = salvate(args, &r.comparare.referinta)?.0;
+    let (omise, editari) = salvate(args, &r.comparare.referinta)?;
+    // amprenta textelor finale intra in plan: `deploy --plan` le verifica
+    let texte = editari.pentru_deploy(&r.comparare.randuri);
     Ok(modul::Plan::din_comparare(
         &r.comparare,
         &r.referinta,
@@ -928,7 +930,8 @@ fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<mod
             None => !omise.e_omis(rand),
         },
         &acum(),
-    ))
+    )
+    .cu_texte_finale(&texte))
 }
 
 /// Dupa un deploy scris: obiectele din plan se tin minte ca deployate, cu
@@ -1085,6 +1088,22 @@ pub fn deploy(
     let texte_finale = salvate(args, referinta)?
         .1
         .pentru_deploy(&r.comparare.randuri);
+    // cu `--plan`, textele finale trebuie sa fie cele de la plan: un text
+    // schimbat dupa plan ar pleca in baza fara sa-l fi vazut cine a aprobat
+    // planul (F-D5)
+    if cale_plan.is_some() {
+        let s = plan.verifica_texte(&texte_finale);
+        if !s.is_empty() {
+            return Err(modul::Eroare::BazaAtinsa {
+                schimbari: s
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            }
+            .to_string());
+        }
+    }
     let cu_text_final = plan
         .pasi
         .iter()

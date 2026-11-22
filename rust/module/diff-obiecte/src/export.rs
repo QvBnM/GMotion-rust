@@ -118,6 +118,7 @@ mod teste {
             },
             hash_referinta: None,
             hash_curent: None,
+            exacta_curent: None,
         }
     }
 

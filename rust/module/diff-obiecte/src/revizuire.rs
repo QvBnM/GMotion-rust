@@ -291,6 +291,7 @@ mod teste {
             categorie: Categorie::Diferit,
             hash_referinta: Some(h_ref.into()),
             hash_curent: Some(h_curent.into()),
+            exacta_curent: None,
         }
     }
 
@@ -492,6 +493,7 @@ mod teste {
             categorie: Categorie::Diferit,
             hash_referinta: Some(hr.into()),
             hash_curent: Some(hc.into()),
+            exacta_curent: None,
         }
     }
 }

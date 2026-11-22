@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 64968598def05430 -->
+<!-- api-hash: e6b1a9210a469635 -->
 
 ## Rol
 
@@ -35,7 +35,7 @@ aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
 decat arata editorul. `gmotion_core::plasare` (portul din v3.4) raspunde doar
 pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 | `deploy` | `aplica_create_or_alter`, `verifica_text_final(obiect, tip, text)`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` |
-| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
+| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `cu_texte_finale`, `verifica_texte`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
 | `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `din_sesiune` / `in_sesiune` |
@@ -126,6 +126,11 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
    verifica si tinta, si referinta; aparut / disparut / modificat opresc la
    fel (`GM-MOD-012`), cu fiecare obiect pe nume. Garda primeste obiecte
    **recitite** — cu cele de la comparare ar compara un lucru cu el insusi.
+   Planul tine si amprenta textelor finale (`Pas::text_final`); un text
+   schimbat, aparut sau sters dupa plan opreste la fel (`verifica_texte`).
+   Un text final e valabil doar pe versiunea **exacta** a bazei peste care
+   s-a facut (`TextFinal::exacta`): un comentariu nou in baza il invalideaza
+   (F-D5).
 8c. **Revenirea se scrie inainte de deploy, in `<director>/revenire/`**, din
    definitiile actuale ale tintei (cod si setari ale tintei): ce exista se
    reface, ce deploy-ul creeaza se sterge (`DROP ... IF EXISTS`). Intai
