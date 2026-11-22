@@ -1500,3 +1500,119 @@ fn deploy_cu_plan_se_opreste_daca_textul_final_s_a_schimbat() {
     );
     assert!(!iesire.exists());
 }
+
+/// C9 din `cercetare/audit-qa-2026-11-22.md`: `editare` taie blocurile ca
+/// fereastra, dupa `uneste_cursor` din configurare. Cu ciclul cursorului unit,
+/// doua schimbari in el sunt o singura diferenta.
+#[test]
+fn editarea_tine_cont_de_uneste_cursor_din_configurare() {
+    let d = dir("uneste-cursor");
+    let m = "CREATE PROCEDURE dbo.pCur AS\\nDECLARE c CURSOR FOR SELECT id FROM t\\nOPEN c\\nFETCH NEXT FROM c INTO @id\\nWHILE @@FETCH_STATUS = 0\\nBEGIN\\nUPDATE t SET a = 1 WHERE id = @id\\nFETCH NEXT FROM c INTO @id\\nEND\\nCLOSE c\\nDEALLOCATE c";
+    let t = m
+        .replace("FOR SELECT id FROM t", "FOR SELECT id FROM t WHERE x = 1")
+        .replace("SET a = 1", "SET a = 2");
+    let inst = d.join("inst.json");
+    std::fs::write(
+        &inst,
+        format!(
+            r#"{{"versiune":1,"server":"SRV-TEST","creat":"2026-11-17T10:00:00Z","nota":"","baze":{{
+            "Referinta":[{{"schema":"dbo","nume":"pCur","tip":"P","definitie":"{m}"}}],
+            "Client1":[{{"schema":"dbo","nume":"pCur","tip":"P","definitie":"{t}"}}]}}}}"#
+        ),
+    )
+    .unwrap();
+    let date = d.join("date");
+    std::fs::create_dir_all(&date).unwrap();
+    let numara = || {
+        let o = ruleaza_in(
+            &[
+                "--json",
+                "editare",
+                "--sursa",
+                inst.to_str().unwrap(),
+                "--referinta",
+                "Referinta",
+                "--baza",
+                "Client1",
+                "--obiect",
+                "dbo.pCur",
+            ],
+            Some(&date),
+        );
+        assert!(o.status.success(), "{}", err(&o));
+        let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+        v["diferente"].as_array().unwrap().len()
+    };
+    assert_eq!(numara(), 2, "implicit: blocuri separate");
+    std::fs::write(date.join("configurare.json"), r#"{"uneste_cursor": true}"#).unwrap();
+    assert_eq!(numara(), 1, "cu ciclul cursorului unit");
+}
+
+/// C10 din `cercetare/audit-qa-2026-11-22.md`: `revizuire --goleste` sterge
+/// doar bifele; textul final scris de mana ramane si ajunge in deploy. Nu se
+/// combina cu `--marcheaza` (inainte, `--marcheaza` era ignorat tacut).
+#[test]
+fn golirea_pastreaza_textele_finale_si_refuza_alte_actiuni() {
+    let d = dir("goleste");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let manual = d.join("m.sql");
+    std::fs::write(
+        &manual,
+        "CREATE PROCEDURE dbo.pClienti AS\nSELECT 42 AS pastrat",
+    )
+    .unwrap();
+    let rev = |extra: &[&str]| {
+        let mut a = vec!["revizuire", "--sursa", i, "--referinta", "Referinta"];
+        a.extend_from_slice(extra);
+        ruleaza_in(&a, Some(&date))
+    };
+    assert!(rev(&["--marcheaza", "dbo.pClienti"]).status.success());
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+            "--din-fisier",
+            manual.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+
+    let o = rev(&["--goleste", "--marcheaza", "dbo.pStoc"]);
+    assert!(!o.status.success(), "combinatia se refuza");
+    let o = rev(&["--goleste"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = rev(&["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["revizuite"], 0, "bifa s-a sters");
+
+    let iesire = d.join("out");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let sql = std::fs::read_to_string(iesire.join("Client1.sql")).unwrap();
+    assert!(
+        sql.contains("SELECT 42 AS pastrat"),
+        "textul final a ramas:\n{sql}"
+    );
+}

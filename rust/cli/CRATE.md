@@ -30,9 +30,9 @@ Doua lucruri trebuie sa ramana adevarate:
 | `baze` | bazele disponibile |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
-| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge) |
+| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge); `--goleste` sterge doar bifele (textele finale, notele si marcajele de deploy raman) |
 | `impact` | impactul estimat al deploy-ului fiecarui obiect care difera; cu `--obiect`, si cine il foloseste |
-| `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--din-fisier` (scris de mana); aceeasi sesiune ca fereastra |
+| `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--din-fisier` (scris de mana; un text care n-ar trece de deploy se refuza pe loc); aceeasi sesiune si acelasi `uneste_cursor` (din configurare) ca fereastra |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
 | `plan` | ce intra in deploy, cu amprentele de acum, intr-un `.json` |
 | `deploy` | scripturile, cu codul din referinta (sau textul final din editor, daca e valabil; fara cele omise), si revenirea in `revenire/`. Cu `--plan`, intai verifica ca baza n-a mai fost atinsa (`GM-MOD-012`) |

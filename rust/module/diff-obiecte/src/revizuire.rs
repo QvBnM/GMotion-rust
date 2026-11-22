@@ -66,6 +66,16 @@ impl Revizuire {
         Self::default()
     }
 
+    /// Sterge bifele „revizuit" si „omis". Notele si marcajele de deploy
+    /// raman: nu sunt progres de revizuire, ci istoric (`revizuire
+    /// --goleste`, C10). Intoarce cate bife s-au sters.
+    pub fn goleste_bifele(&mut self) -> usize {
+        let n = self.numar() + self.numar_omise();
+        self.baze.clear();
+        self.omise.clear();
+        n
+    }
+
     /// Marcheaza randul ca omis (si scoate bifa „revizuit", daca era).
     pub fn omite(&mut self, r: &Rand) {
         self.scoate(&r.baza, &r.obiect);
@@ -293,6 +303,23 @@ mod teste {
             hash_curent: Some(h_curent.into()),
             exacta_curent: None,
         }
+    }
+
+    /// C10: golirea lasa notele si marcajele de deploy.
+    #[test]
+    fn golirea_sterge_doar_bifele() {
+        let r = rand("dbo.p", "a", "b");
+        let mut v = Revizuire::noua();
+        v.marcheaza(&r);
+        v.marcheaza_deployat(&r);
+        v.pune_nota(&r.baza, &r.obiect, "a ramas aici");
+        let mut o = rand("dbo.q", "a", "b");
+        o.obiect = "dbo.q".into();
+        v.omite(&o);
+        assert_eq!(v.goleste_bifele(), 2);
+        assert!(!v.e_revizuit(&r) && !v.e_omis(&o));
+        assert!(v.a_fost_deployat(&r));
+        assert_eq!(v.nota(&r.baza, &r.obiect), Some("a ramas aici"));
     }
 
     #[test]

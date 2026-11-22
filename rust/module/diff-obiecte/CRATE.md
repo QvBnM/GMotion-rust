@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: e6b1a9210a469635 -->
+<!-- api-hash: 620d21cde69868c2 -->
 
 ## Rol
 
@@ -38,7 +38,7 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `cu_texte_finale`, `verifica_texte`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
-| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `din_sesiune` / `in_sesiune` |
+| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `goleste_bifele` (revizuit si omis; notele si deployatele raman); `din_sesiune` / `in_sesiune` |
 | `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_blocuri_la` (tragerea pe alt loc), `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`, `curata(randuri, baze_comparate)`; legat de amprenta, salvat in sesiune; `TextFinal`. Un text final **egal cu textul bazei** e decizia „pastreaza tinta" si se pastreaza: doar `reset` o sterge (F-A5) |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |

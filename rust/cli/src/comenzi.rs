@@ -381,15 +381,25 @@ pub fn revizuire(
     } = schimbari;
     let sesiuni =
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
+    // doar bifele: textele finale, notele, bazele si marcajele de deploy
+    // raman. Inainte se stergea toata sesiunea, si textele finale scrise de
+    // mana cu ea (C10 din `cercetare/audit-qa-2026-11-22.md`)
     if goleste {
-        let sters = sesiuni
-            .sterge(&args.identitate()?, referinta)
-            .map_err(|e| e.to_string())?;
-        format.progres(if sters {
-            "Progresul salvat a fost sters."
-        } else {
-            "Nu exista progres salvat pentru martorul asta."
-        });
+        let Some(mut sesiune) = sesiuni
+            .incarca(&args.identitate()?, referinta)
+            .map_err(|e| e.to_string())?
+        else {
+            format.progres("Nu exista progres salvat pentru martorul asta.");
+            return Ok(());
+        };
+        let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
+        let n = revizuire.goleste_bifele();
+        revizuire.in_sesiune(&mut sesiune);
+        sesiune.salvata = acum();
+        sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
+        format.progres(&format!(
+            "{n} bife sterse (revizuit / omis). Textele finale, notele si marcajele de deploy raman."
+        ));
         return Ok(());
     }
 
@@ -687,10 +697,24 @@ pub fn impact(
     }
 }
 
+/// „Uneste ciclul cursorului", din configurare, ca in fereastra: altfel
+/// blocurile se taie altfel, iar `--aplica N` aplica alta diferenta decat a
+/// N-a din editor (C9 din `cercetare/audit-qa-2026-11-22.md`).
+fn uneste_cursor() -> Result<bool, String> {
+    gmotion_platforma::cai::cale_configurare()
+        .and_then(Configurare::citeste)
+        .map(|c| c.uneste_cursor)
+        .map_err(|e| e.to_string())
+}
+
 /// Alinierea si diferentele asa cum le numara editorul: pe grupuri.
-fn grupuri_editare(sursa: &str, curent: &str) -> (gmotion_core::Aliniere, Vec<Vec<usize>>) {
-    let a = gmotion_core::aliniaza(sursa, curent);
-    let plasari = gmotion_core::plasari_aliniere(&a, curent, false);
+fn grupuri_editare(
+    sursa: &str,
+    curent: &str,
+    uneste: bool,
+) -> (gmotion_core::Aliniere, Vec<Vec<usize>>) {
+    let a = gmotion_core::aliniaza_cu(sursa, curent, uneste);
+    let plasari = gmotion_core::plasari_aliniere(&a, curent, uneste);
     let grupuri = gmotion_core::grupuri_diferente(&a.diff, &plasari);
     (a, grupuri)
 }
@@ -750,12 +774,13 @@ pub fn editare(
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
     let mut sesiune = sesiune_sau_noua(&sesiuni, args, referinta)?;
     let mut editari = modul::Editari::din_sesiune(&sesiune);
+    let uneste = uneste_cursor()?;
 
     let schimbat = match actiune {
         ActiuneEditare::Arata => false,
         ActiuneEditare::Aplica(numere, la) => {
             let curent = editari.curent(&rand, &text_baza).to_string();
-            let (a, grupuri) = grupuri_editare(&text_sursa, &curent);
+            let (a, grupuri) = grupuri_editare(&text_sursa, &curent, uneste);
             let mut blocuri = Vec::new();
             for n in numere {
                 let g = n
@@ -771,7 +796,7 @@ pub fn editare(
             }
             match la {
                 None => {
-                    editari.aplica_blocuri(&rand, &text_sursa, &text_baza, false, &blocuri);
+                    editari.aplica_blocuri(&rand, &text_sursa, &text_baza, uneste, &blocuri);
                 }
                 Some(linie) => {
                     let total = curent.lines().count();
@@ -782,7 +807,14 @@ pub fn editare(
                         ));
                     }
                     let loc = gmotion_core::loc_la_linie(&a, linie - 1);
-                    editari.aplica_blocuri_la(&rand, &text_sursa, &text_baza, false, &blocuri, loc);
+                    editari.aplica_blocuri_la(
+                        &rand,
+                        &text_sursa,
+                        &text_baza,
+                        uneste,
+                        &blocuri,
+                        loc,
+                    );
                 }
             }
             true
@@ -815,7 +847,7 @@ pub fn editare(
     let curent = editari.curent(&rand, &text_baza).to_string();
     // numerotate ca in editor: instructiunile consecutive care merg in acelasi
     // gol sunt o singura diferenta (`core::grupuri_diferente`)
-    let (a, grupuri) = grupuri_editare(&text_sursa, &curent);
+    let (a, grupuri) = grupuri_editare(&text_sursa, &curent, uneste);
     let diferente: Vec<usize> = grupuri.iter().map(|g| g[0]).collect();
     let manual = editari.text_final(&rand).is_some_and(|t| t.manual);
     let editat = editari.text_final(&rand).is_some();

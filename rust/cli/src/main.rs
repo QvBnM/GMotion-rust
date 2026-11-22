@@ -146,8 +146,10 @@ enum Comanda {
         #[arg(long, value_name = "schema.obiect,...")]
         scoate: Option<String>,
 
-        /// Sterge tot progresul salvat pentru martorul asta.
-        #[arg(long)]
+        /// Sterge bifele (revizuit si omis) pentru martorul asta. Textele
+        /// finale, notele si marcajele de deploy raman. Nu se combina cu
+        /// celelalte actiuni.
+        #[arg(long, conflicts_with_all = ["marcheaza", "omite", "scoate", "nota", "baze"])]
         goleste: bool,
 
         /// Obiectul caruia i se pune nota (pe toate bazele unde apare).
