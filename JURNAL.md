@@ -1619,3 +1619,44 @@ putea lasa decat pe locul sugerat.
   v3.4 (`renderTargets`). Locul sugerat ramane aprins.
 - Plierea liniilor identice e oprita implicit; comutatorul se tine in
   configurare, ca tema.
+
+---
+
+## 2026-11-22 — Etapa 24: oprirea deploy-ului, revenirea, starea aplicatiei
+
+**1. F-D7 se face acum, inainte de proba pe SQL Server (Mihai).** Dupa
+fiecare obiect, in deploy si in revenire: `GO`, `IF @@ERROR <> 0 BEGIN
+RAISERROR(...); SET NOEXEC ON; END`, `GO`. Inlocuieste „Nefacut, deliberat"
+din 2026-11-18. **Context:** un obiect care cade lasa un deploy partial.
+**Alternative:** asteptarea probei (riscul ramane deschis pana atunci);
+`SET XACT_ABORT ON` + o tranzactie pe tot scriptul (atomic, dar tine lacatele
+pe tot deploy-ul). **Motiv:** tiparul e folosit de uneltele comerciale de
+comparare, deci e foarte probabil corect; proba din `STARE.md` ramane ca
+o confirmare. Daca proba spune „nu se vede", garda nu strica nimic, doar nu
+opreste, si atunci decidem intre `sqlcmd -b` si o variabila de sesiune.
+
+**2. Revenirea sterge intai, reface apoi (F-D8).** Codul vechi al unui obiect
+existent nu poate depinde de unul creat de deploy, deci stergerea intai nu
+rupe nimic, iar un view nou cu `SCHEMABINDING` nu mai blocheaza refacerea
+functiei. Indecsii unui view si ordinea triggerelor nu sunt in definitie:
+nu se pot reface din script, deci se spune (`deploy::Avertisment`), in `cli`
+si in ecranul de deploy. Pentru view-uri e „poate avea indecsi": se avertizeaza
+pentru orice view existent cu `SCHEMABINDING`.
+
+**3. Logica din `main.rs` sta in `gmotion_app::stare`.** `main.rs` (2.300 de
+linii, zero teste) pastreaza doar legaturile Slint si desenul; legaturile
+simple se scriu cu `pe_stare!` / `pe_comanda!`, in forma `ui.on_x(...)`, ca
+verificarea „fiecare buton are actiune" din poarta sa le gaseasca neschimbata.
+`Sesiuni::in_director` exista ca testele starii sa nu schimbe mediul
+procesului.
+
+**4. Numele nu se imperecheaza fara majuscule la comparare: decizia C8 ramane
+(Mihai).** Criteriul din planul etapei 24 a fost scos: pe o colatie
+case-sensitive doua obiecte ar deveni unul, iar paritatea cu v3.4 s-ar strica.
+Randul „lipsa" spune deja varianta gasita, iar planul, garda si revenirea
+cauta fara majuscule.
+
+**5. Un obiect dintr-o singura parte se deschide in editor (F-A9)**, cu
+cealalta parte goala, ca in v3.4. Contrazice testul vechi „nu avem cu ce
+compara", rescris. „Aplica toate" pe un obiect doar in Martor aduce exact
+codul care se va crea.

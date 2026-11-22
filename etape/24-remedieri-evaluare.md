@@ -1,8 +1,8 @@
 # Etapa 24 — remedieri dupa evaluare: deploy, fereastra, main.rs
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/clever-cerf-hjk2qh
-**Deschisa:** 2026-11-22 · **Incheiata:** —
+**Deschisa:** 2026-11-22 · **Incheiata:** 2026-11-22
 
 ## Scop
 
@@ -21,50 +21,54 @@ pachete.
 
 Pachetul 1, deploy:
 
-- [ ] dupa fiecare obiect din script (si din scriptul de revenire): `GO`,
+- [x] dupa fiecare obiect din script (si din scriptul de revenire): `GO`,
       `IF @@ERROR <> 0 SET NOEXEC ON`, `GO`; la final `SET NOEXEC OFF`; test
       pe textul generat, si `gmotion deploy` il scrie
-- [ ] revenirea reface si sterge in ordine topologica inversa (un view cu
-      `SCHEMABINDING` peste o functie se reface/sterge inaintea ei); test
-- [ ] planul avertizeaza pentru view-uri cu index (`CREATE ... INDEX` pe
-      view in definitie) si pentru triggere (ordinea `sp_settriggerorder` se
+- [x] revenirea sterge intai obiectele noi (ordine inversa dependentelor),
+      apoi reface; un view nou cu `SCHEMABINDING` peste o functie existenta
+      nu mai blocheaza refacerea ei; test (formularea initiala, „se reface
+      inaintea ei", nu se poate garanta cu `ALTER`: vezi mai jos)
+- [x] raportul deploy-ului avertizeaza pentru view-uri care pot avea indecsi
+      (cele existente cu `SCHEMABINDING`: indecsii nu sunt in definitie) si
+      pentru triggere existente (ordinea `sp_settriggerorder` se
       pierde); avertismentul se vede si in `cli`, si in ecranul de deploy
 
 Pachetul 2, fereastra (fiecare cu test in `rutare` / model, fara fereastra):
 
-- [ ] P8: „Anuleaza" opreste compararea in curs (firul se termina in cel mult
+- [x] P8: „Anuleaza" opreste compararea in curs (firul se termina in cel mult
       un obiect dupa apasare); test cu un fir care verifica oprirea
-- [ ] F-A6: „Linii" si „Difera in" calculate pentru toata lista pe fir;
+- [x] F-A6: „Linii" si „Difera in" calculate pentru toata lista pe fir;
       sortarea pe ele e corecta peste randul 60; test
-- [ ] F-A8: „Recompara" pastreaza „in plan", filtrele, sortarea si selectia;
+- [x] F-A8: „Recompara" pastreaza „in plan", filtrele, sortarea si selectia;
       o recomparare esuata se spune pe ecranul listei; test
-- [ ] F-A12: eroarea de comparare are camp propriu, nu e pusa pe referinta
-- [ ] F-A15: o sesiune corupta e pastrata ca `.corupt` si se spune
-- [ ] F-A16: starea de la conexiunea anterioara se goleste la conectare noua
-- [ ] F-A17: „X din N nerevizuite" numara nerevizuitele; coloana Baza ramane
-      cand sunt 2+ baze bifate
+- [x] F-A12: eroarea de comparare are camp propriu, nu e pusa pe referinta
+- [x] F-A15: o sesiune corupta e pastrata ca `.corupt` si se spune
+- [x] F-A16: starea de la conexiunea anterioara se goleste la conectare noua
+- [x] F-A17: coloana Baza ramane cand sunt 2+ baze comparate (textul „X din
+      N" si contorul Identice erau deja reparate)
 
 Pachetul 3, `main.rs`:
 
-- [ ] mutarea (commit separat, fara logica) a starii si a deciziilor din
-      `main.rs` intr-un modul testat; in `main.rs` raman legaturile Slint
-- [ ] `main.rs` sub 1.200 de linii; codul mutat are teste
+- [x] mutarea starii si a deciziilor din `main.rs` intr-un modul testat; in
+      `main.rs` raman legaturile Slint (commit separat de reparatii, dar
+      impreuna cu macro-urile de legare, fara schimbare de comportament)
+- [x] `main.rs` sub 1.200 de linii; codul mutat are teste
 
 Pachetul 4, functii noi:
 
-- [ ] F-A9: un obiect doar in Martor sau doar in Modificata se deschide in
+- [x] F-A9: un obiect doar in Martor sau doar in Modificata se deschide in
       editor (tot codul ca adaugat / sters), cu test; accesibil si din `cli`
-- [ ] numele se imperecheaza fara diferenta de majuscule intre baze
-      (`dbo.Proc` = `DBO.proc`), cu caz in `referinta/` sau in
-      `DIVERGENTE_DELIBERATE` daca v3.4 face altfel
+- ~~numele se imperecheaza fara diferenta de majuscule intre baze~~ —
+      **scos** (Mihai, 2026-11-22): ramane decizia C8, vezi `JURNAL.md`
 
 Comune:
 
-- [ ] fiecare binar atins, probat rulandu-l (`gmotion`, `gmotion-ui
-      --previzualizare` sub ecran virtual, daca exista)
-- [ ] poarta verde: `unelte/verifica.sh`
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat (F-D7 neprobat pe SQL Server; numele
+- [x] fiecare binar atins, probat rulandu-l: `gmotion deploy` /
+      `diferente` (teste pe binar si de mana), `gmotion-ui --previzualizare`
+      sub Xvfb (compara si arata lista, fara cadere)
+- [x] poarta verde: `unelte/verifica.sh`
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat (F-D7 neprobat pe SQL Server; numele
       case-insensitive)
 
 ## Pasi
@@ -77,7 +81,24 @@ Comune:
 ## Jurnal de lucru
 
 - **2026-11-22** Etapa deschisa, cu criteriile scrise inainte de cod.
+- **2026-11-22** Toate pachetele facute. Pe drum:
+  - discul sesiunii s-a umplut de doua ori (`target` ajunsese la 35 GB);
+    poarta cadea cu „Bus error" la linker si la `cargo check` pe Windows.
+    Cu `CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0` ramane sub 5 GB;
+  - `gmotion-ui` sub Xvfb cerea `libxkbcommon-x11-0`, instalat cu `apt`;
+  - testele vechi pentru F-A9 descriau exact comportamentul schimbat
+    voit si au fost rescrise.
 
 ## Ce a iesit altfel decat planul
 
-(se completeaza la incheiere)
+- Trei constatari erau deja reparate de etapele 19-22 fara sa fie bifate in
+  audit: contorul „Identice", textul „X din N nerevizuite", detaliile pe
+  toata lista (F-A6 cerea doar resortarea la sosirea lor). Auditul trebuia
+  recitit pe cod inainte de a scrie criteriile.
+- Revenirea nu poate garanta ordinea „view inainte de functie" la refacere:
+  `ALTER` pe o functie legata cu `SCHEMABINDING` cade oricum. S-a facut ce se
+  poate garanta (stergerile intai) si s-a pus avertismentul.
+- Imperecherea fara majuscule era deja decisa altfel (C8); intrebarea trebuia
+  pusa la scrierea criteriilor, nu la implementare.
+- `main.rs` a coborat la 1.100 de linii mai mult prin macro-uri de legare
+  decat prin mutare; ce era logica e acum in `stare.rs` (17 teste).

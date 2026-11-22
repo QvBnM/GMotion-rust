@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-22 · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde (614 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (646 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -31,10 +31,8 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/24-remedieri-evaluare.md` — remedierile dupa
-evaluarea din 2026-11-22: oprirea deploy-ului intre obiecte, revenirea,
-fereastra (P8, F-A), spargerea `main.rs`, obiectele unilaterale. Etapa 23 s-a
-incheiat pe 2026-11-22, cu „da"-ul lui Mihai.
+**Etapa activa:** niciuna. Etapa 24 (remedierile dupa evaluarea din
+2026-11-22) s-a incheiat; urmatoarea o alege Mihai.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -47,6 +45,25 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
+**2026-11-22, de probat de Mihai pe Windows** (etapa 24, nimic din asta nu se
+poate vedea pe Linux):
+
+1. **Proba de SQL pentru F-D7** (mai jos, neschimbata). Garda e deja in
+   scripturi; proba spune daca chiar opreste. Apoi, pe o baza de test, un
+   deploy cu un obiect stricat la mijloc: scriptul trebuie sa se opreasca cu
+   „GMotion: <obiect> a cazut; restul scriptului nu se mai executa."
+2. In `gmotion-ui`: un obiect doar in Martor se deschide cu Enter (tot codul
+   verde); „Anuleaza" in timpul unei comparari lungi elibereaza procesorul;
+   o recomparare pe o baza oprita spune pe lista ca a esuat si lasa lista.
+
+Candidatii pentru etapa urmatoare (alege Mihai): evidentierea de sintaxa in
+timp ce scrii; deciziile vechi (selectorul de fisiere, `DROP` la deploy,
+„Ruleaza" din aplicatie); proba pe Windows vechi.
+
+**Capcana noua:** `target` creste repede peste discul sesiunii (35 GB). Pe
+Linux, poarta se ruleaza cu `CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0
+CARGO_PROFILE_TEST_DEBUG=0`; un „Bus error" la linker inseamna disc plin.
+
 **2026-11-21, de probat de Mihai:** segmentarea nu mai lipeste `BEGIN` /
 `END` de vecini (vezi `JURNAL.md`). In `gmotion-ui`, pe
 `uspMnfg_WizOnJobLevelBeforeSave` (`CharismaERP_CEAAS` -> `CharismaERP_GetsBet_Copy`):
@@ -55,15 +72,6 @@ separate; „Aplica" pe oricare nu mai strica obiectul. Si pe cateva proceduri
 reale cu `IF ... BEGIN ... END`: o instructiune adaugata la capatul unui
 `BEGIN` trebuie sa fie o diferenta singura, fara `END`-ul.
 
-**Etapa 23: facuta, asteapta „da"-ul lui Mihai** pe
-`cercetare/machete/editor-lizibil/capturi/` (editor, tragere, wrap; ambele
-teme). Cu „da"-ul: bifa, `Stare: INCHEIATA`, „Ce a iesit altfel". Daca cere
-schimbari, comenzile de captura sunt in README-ul de acolo.
-
-Dupa 23, candidatii pentru etapa urmatoare (alege Mihai): evidentierea de
-sintaxa **in timp ce scrii**; deciziile vechi (selectorul de fisiere, mediul
-PROD / TEST / DEV, `DROP` la deploy, „Ruleaza" din aplicatie); F-D7, blocat
-pe proba de SQL de mai jos.
 
 **Proba pe Windows vechi (cerut de Mihai, 2026-11-20), in asteptare.** Din
 Rust 1.78 executabilul obisnuit cere Windows 10 / Server 2016+; `JURNAL.md`
