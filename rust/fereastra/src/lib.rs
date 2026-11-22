@@ -52,6 +52,47 @@ pub fn ajutor(l: texte::Limba) -> &'static str {
     l.alege(AJUTOR, AJUTOR_EN)
 }
 
+/// Textul ecranului „Despre": versiunea, componentele terte cu licentele lor
+/// si unde sunt jurnalul si datele, ca o problema sa se poata trimite cu
+/// fisierul potrivit. Atribuirea Slint o face `AboutSlint`, sub text.
+pub fn text_despre(
+    l: texte::Limba,
+    versiune: &str,
+    jurnal: Option<&std::path::Path>,
+    date: Option<&std::path::Path>,
+) -> String {
+    let cale = |c: Option<&std::path::Path>| {
+        c.map_or_else(
+            || l.alege("(necunoscut)", "(unknown)").to_string(),
+            |c| c.display().to_string(),
+        )
+    };
+    format!(
+        "GMotion {versiune}\n\n{}\n\n{}\n\
+         \u{2022} Slint ({}): Slint Royalty-free License 2.0.\n\
+         \u{2022} {}: SIL Open Font License 1.1.\n\
+         \u{2022} tiberius ({}): MIT / Apache-2.0.\n\
+         \u{2022} {}\n\n\
+         {}: {}\n{}: {}",
+        l.alege(
+            "Compara obiectele SQL Server (proceduri, functii, view-uri, triggere) dintre un Martor si o baza Modificata si pregateste deploy-ul, cu revenire.",
+            "Compares SQL Server objects (procedures, functions, views, triggers) between a Witness and a Modified database and prepares the deploy, with rollback.",
+        ),
+        l.alege("Componente terte:", "Third-party components:"),
+        l.alege("interfata", "user interface"),
+        l.alege("Fonturile Geist si Geist Mono", "The Geist and Geist Mono fonts"),
+        l.alege("conexiunea SQL Server", "SQL Server connection"),
+        l.alege(
+            "restul bibliotecilor Rust: MIT si/sau Apache-2.0, lista completa in Cargo.lock.",
+            "the other Rust libraries: MIT and/or Apache-2.0, full list in Cargo.lock.",
+        ),
+        l.alege("Jurnalul acestei sesiuni", "This session's log"),
+        cale(jurnal),
+        l.alege("Datele aplicatiei", "Application data"),
+        cale(date),
+    )
+}
+
 /// Ajutorul in romana.
 pub const AJUTOR: &str = "\
 GMotion compara obiectele programabile (proceduri, functii, view-uri, \
@@ -3353,6 +3394,60 @@ mod teste {
         assert_eq!(randuri[1].0, "pVechi");
         assert_eq!(randuri[2], ("pNestiut".into(), String::new()));
         assert_eq!(ui.get_coloana_sortata(), 10);
+    }
+
+    /// Etapa 25: „Despre" se deschide din Ajutor (antetul ramane ca in
+    /// macheta) si se inchide cu Esc.
+    #[test]
+    fn despre_se_deschide_din_ajutor_si_se_inchide_cu_esc() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        let ui = fereastra_lista();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        ui.show().expect("fereastra se arata");
+        let clic = |x: f32, y: f32| {
+            let position = LogicalPosition::new(x, y);
+            ui.window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            ui.window().dispatch_event(WindowEvent::PointerPressed {
+                position,
+                button: PointerEventButton::Left,
+            });
+            ui.window().dispatch_event(WindowEvent::PointerReleased {
+                position,
+                button: PointerEventButton::Left,
+            });
+        };
+        // butonul sta in capul ferestrei de ajutor, langa „Inchide"; se cauta
+        let gasit = (180..230).step_by(4).any(|y| {
+            (700..1040).step_by(8).any(|x| {
+                ui.set_arata_despre(false);
+                ui.set_arata_ajutorul(true);
+                clic(x as f32, y as f32);
+                ui.get_arata_despre()
+            })
+        });
+        assert!(gasit, "butonul Despre din Ajutor");
+        assert!(!ui.get_arata_ajutorul(), "Ajutorul s-a inchis");
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: slint::platform::Key::Escape.into(),
+        });
+        assert!(!ui.get_arata_despre(), "Esc inchide Despre");
+        let _ = ui.hide();
+    }
+
+    #[test]
+    fn despre_spune_versiunea_licentele_si_unde_e_jurnalul() {
+        let j = std::path::Path::new("/d/jurnale/gmotion-1.log");
+        for l in texte::Limba::toate() {
+            let t = text_despre(l, "1.2.3", Some(j), None);
+            assert!(t.starts_with("GMotion 1.2.3"), "{t}");
+            assert!(t.contains("Slint Royalty-free License 2.0"), "{t}");
+            assert!(t.contains("SIL Open Font License 1.1"), "{t}");
+            assert!(t.contains("/d/jurnale/gmotion-1.log"), "{t}");
+        }
+        assert!(text_despre(texte::Limba::Romana, "1", None, None).contains("(necunoscut)"));
+        assert!(text_despre(texte::Limba::Engleza, "1", None, None).contains("Third-party"));
     }
 
     #[test]

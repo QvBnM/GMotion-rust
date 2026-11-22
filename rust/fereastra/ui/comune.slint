@@ -9,6 +9,7 @@
 
 // Fonturile, incorporate in binar: Geist si Geist Mono (SIL OFL 1.1 — vezi
 // `fonturi/LICENSE-OFL-1.1-Geist.txt`). Rezerva, daca lipsesc: Segoe UI / Consolas.
+import { AboutSlint } from "std-widgets.slint";
 import "../fonturi/Geist-300.ttf";
 import "../fonturi/Geist-400.ttf";
 import "../fonturi/Geist-500.ttf";
@@ -26,6 +27,10 @@ export global Texte {
     in-out property <string> in-ordinea-din-script;
     in-out property <string> revenirea-explicata;
     in-out property <string> ajutor;
+    in-out property <string> despre;
+    in-out property <string> alege-fisierul;
+    in-out property <string> alege-folderul;
+    in-out property <string> deschide-folderul;
     in-out property <string> ajutor-tasta;
     in-out property <string> alaturat;
     in-out property <string> alege-un-obiect;
@@ -965,6 +970,8 @@ export component PastilaBloc inherits Rectangle {
 export component Ajutor inherits Rectangle {
     in property <string> text;
     callback inchide();
+    // „Despre" (etapa 25) se deschide de aici: antetele raman ca in macheta
+    callback despre();
     background: Tema.intunecat ? #00000099 : #0f111566;
     TouchArea { clicked => { root.inchide(); } }
     Rectangle {
@@ -978,8 +985,9 @@ export component Ajutor inherits Rectangle {
             padding: 18px;
             spacing: 10px;
             HorizontalLayout {
-                Text { text: "Ajutor"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
-                Buton { text: "Inchide  Esc"; apasat => { root.inchide(); } }
+                Text { text: Texte.ajutor; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                Buton { text: Texte.despre; apasat => { root.despre(); } }
+                Buton { text: Texte.inchide-esc; apasat => { root.inchide(); } }
             }
             Flickable {
                 vertical-stretch: 1;
@@ -991,6 +999,53 @@ export component Ajutor inherits Rectangle {
                     font-size: 13px;
                     color: Tema.text-secundar;
                     wrap: word-wrap;
+                }
+            }
+        }
+    }
+}
+
+// „Despre": versiunea, componentele terte cu licentele lor si unde e jurnalul.
+// `AboutSlint` e atribuirea ceruta de licenta Slint Royalty-free 2.0 (vezi
+// `JURNAL.md`); textul vine din Rust (`text_despre`), in limba aleasa.
+export component Despre inherits Rectangle {
+    in property <string> text;
+    callback inchide();
+    background: Tema.intunecat ? #00000099 : #0f111566;
+    TouchArea { clicked => { root.inchide(); } }
+    Rectangle {
+        width: Math.min(root.width - 80px, 640px);
+        height: Math.min(root.height - 80px, 560px);
+        border-radius: 14px;
+        border-width: 1px;
+        border-color: Tema.linie;
+        background: Tema.suprafata;
+        // clicul in cutie nu o inchide
+        TouchArea { }
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            HorizontalLayout {
+                Text { text: Texte.despre; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                Buton { text: Texte.inchide-esc; apasat => { root.inchide(); } }
+            }
+            Flickable {
+                vertical-stretch: 1;
+                content-height: continut.preferred-height;
+                continut := VerticalLayout {
+                    width: parent.width;
+                    spacing: 12px;
+                    Text {
+                        text: root.text;
+                        font-family: Tema.font-ui;
+                        font-size: 13px;
+                        color: Tema.text-secundar;
+                        wrap: word-wrap;
+                    }
+                    HorizontalLayout {
+                        alignment: start;
+                        AboutSlint { }
+                    }
                 }
             }
         }

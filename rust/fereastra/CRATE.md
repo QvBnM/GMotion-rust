@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 5c87aa3757aee917 -->
+<!-- api-hash: c83ffbc8a1f61f84 -->
 
 ## Rol
 
@@ -37,6 +37,7 @@ si editorul de diferente (etapa 8).
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire, Impact}` | modelul listei; cheia unui rand e `(baza, schema.nume)`; `Obiect::{folosit_de, impact}` vin din `diff-obiecte::impact` (fereastra doar le arata, sorteaza si filtreaza: `Ordine::{FolositDe, Impact}`, `Lista::filtreaza_impact`); `Obiect::modificat` si `Ordine::Modificat`: coloana „Ultima modificare", recentele intai (etapa 25) |
 | `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
 | `ajutor(limba)`, `AJUTOR`, `AJUTOR_EN` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
+| `text_despre(limba, versiune, jurnal, date)` | textul ecranului „Despre" (din Ajutor, etapa 25): versiunea, licentele componentelor terte, caile jurnalului si datelor; sub el, `AboutSlint` (atribuirea ceruta de licenta Slint) |
 | `limba_curenta(ui)` | limba pusa de ultimul `aplica_limba`; textele facute in Rust o urmeaza (`model_deploy`, editorul, lista, conectarea) |
 | `texte::{Limba, Texte, RO, EN, texte}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |

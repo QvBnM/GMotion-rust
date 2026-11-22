@@ -66,6 +66,10 @@ pub struct Stare {
     /// anulata. Pe ecranul listei, o eroare pusa pe formularul de conectare
     /// nu se vedea deloc (F-A8).
     pub mesaj_lista: String,
+    /// Folderul ales cu dialogul nativ pentru deploy (etapa 25); `None` =
+    /// directorul de date. Deploy-ul merge intr-un subfolder nou al lui, cu
+    /// referinta si momentul in nume, ca un folder plin sa nu fie refuzat.
+    pub folder_deploy: Option<std::path::PathBuf>,
 }
 
 /// Ce s-a intamplat cu compararea care rula, la o bataie de ceas.
@@ -99,6 +103,7 @@ impl Stare {
             salvat_la: String::new(),
             uneste_implicit: false,
             mesaj_lista: String::new(),
+            folder_deploy: None,
         }
     }
 
@@ -722,6 +727,20 @@ impl Stare {
         Some((format!("{} · {}", r.text_in(limba), r.timp()), r.fractie()))
     }
 
+    /// Unde se va scrie deploy-ul acum: in folderul ales, daca s-a ales.
+    pub fn director_deploy_curent(&self) -> std::path::PathBuf {
+        director_deploy_in(self.folder_deploy.as_deref(), &self.referinta)
+    }
+
+    /// Directorul in care s-a scris ultimul deploy reusit, pentru „Deschide
+    /// folderul".
+    pub fn director_scris(&self) -> Option<std::path::PathBuf> {
+        match self.deploy.as_ref()?.stare.rezultat.as_ref()? {
+            Ok(r) => Some(r.director.clone()),
+            Err(_) => None,
+        }
+    }
+
     /// Ce scrie in bara listei: un „In plan" refuzat bate mesajul tinut.
     pub fn text_bara_lista(&self, limba: gmotion_core::Limba) -> String {
         self.app
@@ -895,14 +914,39 @@ pub fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
 /// Unde se scrie deploy-ul: in directorul de date al aplicatiei, cu
 /// referinta si momentul in nume; langa binar, daca acela nu se poate afla.
 pub fn director_deploy(referinta: &str) -> std::path::PathBuf {
+    director_deploy_in(None, referinta)
+}
+
+/// Ca [`director_deploy`], dar intr-un folder ales; `None` = cel implicit.
+pub fn director_deploy_in(ales: Option<&std::path::Path>, referinta: &str) -> std::path::PathBuf {
     let nume = format!(
         "{}_{}",
         referinta.replace(|c: char| !c.is_ascii_alphanumeric(), "_"),
         gmotion_platforma::timp::acum_compact()
     );
+    if let Some(d) = ales {
+        return d.join(&nume);
+    }
     gmotion_platforma::cai::director_date()
         .map(|d| d.join("deploy").join(&nume))
         .unwrap_or_else(|_| std::path::PathBuf::from(format!("deploy_{nume}")))
+}
+
+/// Deschide un folder in explorerul sistemului. Fara dependinta: comanda
+/// fiecarui sistem.
+pub fn deschide_in_explorer(cale: &std::path::Path) -> Result<(), String> {
+    let program = if cfg!(windows) {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    std::process::Command::new(program)
+        .arg(cale)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("{program}: {e}"))
 }
 
 /// Unde se scrie exportul CSV: in directorul de date, langa deploy-uri.
@@ -1169,6 +1213,17 @@ mod teste {
     }
 
     #[test]
+    fn folderul_ales_e_folosit_la_deploy() {
+        let (mut s, d) = stare("folder-ales");
+        s.referinta = "Ref".into();
+        assert!(!s.director_deploy_curent().starts_with(&d));
+        s.folder_deploy = Some(d.clone());
+        assert!(s.director_deploy_curent().starts_with(&d));
+        assert!(s.director_scris().is_none(), "nimic scris inca");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
     fn fara_plan_deschis_nu_se_scrie_si_nu_se_marcheaza_nimic() {
         let (mut s, d) = stare("deploy");
         let r = comparata(&s);
@@ -1372,6 +1427,13 @@ mod teste {
             "{nume}"
         );
         let d = director_deploy("Ref 1");
+        let ales = director_deploy_in(Some(std::path::Path::new("/x/y")), "Ref 1");
+        assert!(ales.starts_with("/x/y"), "{}", ales.display());
+        assert!(ales
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("Ref_1_"));
         assert!(d
             .file_name()
             .unwrap()

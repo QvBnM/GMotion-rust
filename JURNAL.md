@@ -1660,3 +1660,28 @@ cauta fara majuscule.
 cealalta parte goala, ca in v3.4. Contrazice testul vechi „nu avem cu ce
 compara", rescris. „Aplica toate" pe un obiect doar in Martor aduce exact
 codul care se va crea.
+
+---
+
+## 2026-11-22 — Dialogul nativ de fisiere: `rfd` (inlocuieste „fara dependinta noua, deocamdata")
+
+**Context.** „Deschide un instantaneu" arata doar `.json`-urile gasite pe disc,
+iar deploy-ul din fereastra scria mereu in directorul de date; v3.4 lasa
+alegerea folderului si il deschidea dupa scriere. Mihai a decis: da, cu
+dialogul nativ.
+
+**Alternative.** (a) `rfd`: dialogul sistemului, pe Windows prin COM
+(`windows-sys`, deja in arbore), pe Linux prin portalul XDG. (b) un selector
+desenat in Slint: inca un ecran de intretinut, fara aspectul cu care
+utilizatorul e obisnuit si fara locurile recente ale sistemului. (c) nimic.
+
+**Motiv.** (a): pe Windows aduce doar `rfd` si `pollster`; cu
+`default-features = false, features = ["xdg-portal"]` nu aduce GTK si nici
+stiva Wayland. Cere Rust 1.92, sub MSRV-ul lui `app` (1.95). Sta doar in `app`:
+`fereastra` ramane fara el, deci capturile si testele de ecran nu-l ating.
+
+**Consecinte.** Dialogul nu se poate proba pe Linux fara portal (pe masina
+de dezvoltare `pick_file` intoarce `None`); proba e pe Windows. Lista de
+fisiere gasite ramane in acelasi ecran, ca alternativa. „Deschide folderul"
+cheama `explorer` / `xdg-open` / `open`, fara alta dependinta. Folderul ales
+primeste un subfolder nou per deploy, ca regula „director gol" sa ramana.

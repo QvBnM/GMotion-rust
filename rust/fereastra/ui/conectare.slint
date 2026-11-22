@@ -11,7 +11,7 @@
 // ecran, in `src/scara.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Antet, ButonTema, Card, Ajutor } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Antet, ButonTema, Card, Ajutor, Despre } from "comune.slint";
 
 // Un server gasit in retea, cu etichetele din raspunsul SSRP.
 export struct ServerGasitUi {
@@ -618,6 +618,7 @@ export component FereastraConectare inherits Window {
     // fereastra de alegere a instantaneului: fisierele gasite pe disc si o
     // cale scrisa de mana
     in-out property <bool> alege-fisierul;
+    callback alege-cu-dialogul();
     in property <[string]> instantanee;
     in-out property <string> cale-scrisa;
     callback alege-instantaneul(string);
@@ -631,6 +632,9 @@ export component FereastraConectare inherits Window {
     callback ajutor();
     in property <string> text-ajutor;
     in-out property <bool> arata-ajutorul;
+    // „Despre" (etapa 25): textul vine din Rust, in limba aleasa
+    in property <string> text-despre;
+    in-out property <bool> arata-despre;
     callback ignora-recenta(int);
     // fereastra de comparare offline: doua bucati de cod lipite
     in-out property <bool> offline;
@@ -664,6 +668,7 @@ export component FereastraConectare inherits Window {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
             if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
+            if (e.text == Key.Escape && root.arata-despre) { root.arata-despre = false; return accept; }
             if (e.text == Key.Escape && root.arata-setarile) { root.arata-setarile = false; return accept; }
             if (e.text == Key.Escape && root.offline) { root.inchide-offline(); return accept; }
             if (e.text == Key.Escape && root.alege-fisierul) { root.alege-fisierul = false; return accept; }
@@ -1058,6 +1063,11 @@ export component FereastraConectare inherits Window {
     if root.arata-ajutorul: Ajutor {
         text: root.text-ajutor;
         inchide => { root.arata-ajutorul = false; }
+        despre => { root.arata-ajutorul = false; root.arata-despre = true; }
+    }
+    if root.arata-despre: Despre {
+        text: root.text-despre;
+        inchide => { root.arata-despre = false; }
     }
 
     // ---- „Deschide un instantaneu": fisierele gasite, sau o cale scrisa
@@ -1076,6 +1086,9 @@ export component FereastraConectare inherits Window {
                 spacing: 10px;
                 HorizontalLayout {
                     Text { text: Texte.deschide-instantaneu; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                    // dialogul nativ (etapa 25); lista de dedesubt ramane, pentru
+                    // fisierele gasite deja
+                    Buton { text: Texte.alege-fisierul; apasat => { root.alege-cu-dialogul(); } }
                     Buton { text: Texte.inchide-esc; apasat => { root.alege-fisierul = false; } }
                 }
                 if root.instantanee.length == 0: Text {

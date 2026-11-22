@@ -92,6 +92,10 @@ export component FereastraDeploy inherits Window {
     callback inapoi-lista();
     callback verifica-baza();
     callback scrie-scripturile();
+    // folderul in care se scrie, cu dialogul nativ; dupa scriere, deschis in
+    // explorer (etapa 25)
+    callback alege-folderul();
+    callback deschide-folderul();
     callback alege-impartirea(int);
     // N din „Cate N obiecte per fisier", scris in camp
     callback schimba-cate(string);
@@ -260,6 +264,10 @@ export component FereastraDeploy inherits Window {
                             VerticalLayout {
                                 padding-top: 6px;
                                 spacing: 4px;
+                                HorizontalLayout {
+                                    alignment: start;
+                                    Buton { text: Texte.alege-folderul; apasat => { root.alege-folderul(); } }
+                                }
                                 for o[i] in [Texte.fisier-per-baza, Texte.un-singur-fisier, Texte.fisier-per-obiect, Texte.cate + root.cate + Texte.obiecte-per-fisier]: Rectangle {
                                     height: 30px;
                                     border-radius: 8px;
@@ -324,6 +332,10 @@ export component FereastraDeploy inherits Window {
                                 color: root.rezultat == 1 ? Tema.add-text : Tema.del-text;
                                 wrap: word-wrap;
                                 horizontal-stretch: 1;
+                            }
+                            if root.rezultat == 1: VerticalLayout {
+                                alignment: center;
+                                Buton { text: Texte.deschide-folderul; apasat => { root.deschide-folderul(); } }
                             }
                         }
                         // scrierea: activa doar dupa garda

@@ -104,15 +104,16 @@ fn arata<T: ComponentHandle>(nou: &T, celelalte: [&slint::Window; 3]) {
 fn ruleaza() -> Result<(), String> {
     // jurnalul de sesiune, si in fisier: fiecare actiune, cu durata ei, ca o
     // proba de mana sa se poata trimite si citi dupa
-    match gmotion_platforma::cai::director_jurnale()
+    let cale_jurnal = gmotion_platforma::cai::director_jurnale()
         .ok()
-        .and_then(|d| gmotion_platforma::jurnal::porneste_cu_fisier(&d))
-    {
+        .and_then(|d| gmotion_platforma::jurnal::porneste_cu_fisier(&d));
+    match &cale_jurnal {
         Some(cale) => {
             tracing::info!(target: "gmotion::app", fisier = %cale.display(), versiune = env!("CARGO_PKG_VERSION"), "jurnalul sesiunii se scrie in fisier")
         }
         None => gmotion_platforma::jurnal::porneste(),
     }
+    let director_date = gmotion_platforma::cai::director_date().ok();
     // o cadere ajunge si ea in jurnal, cu locul ei, nu doar pe consola
     let vechi = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -299,6 +300,14 @@ fn ruleaza() -> Result<(), String> {
             }
             c_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
             l_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
+            let despre = gmotion_fereastra::text_despre(
+                limba,
+                env!("CARGO_PKG_VERSION"),
+                cale_jurnal.as_deref(),
+                director_date.as_deref(),
+            );
+            c_ui.set_text_despre(despre.as_str().into());
+            l_ui.set_text_despre(despre.into());
             if s.app.is_none() {
                 // ATENTIE la ordine: intai se arata fereastra noua, abia apoi
                 // se ascund celelalte. Slint inchide bucla cand nu mai e
@@ -425,7 +434,7 @@ fn ruleaza() -> Result<(), String> {
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
                 if let Some(st) = s.deploy.as_ref().map(|d| &d.stare) {
-                    let director = stare::director_deploy(&referinta).display().to_string();
+                    let director = s.director_deploy_curent().display().to_string();
                     let e =
                         gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier.get());
                     incarca_deploy(&d_ui, &e);
@@ -605,6 +614,19 @@ fn ruleaza() -> Result<(), String> {
             }
         }));
         pe_stare!(conectare_ui.on_compara(|st| st.compara()));
+        let c_ui = conectare_ui.as_weak();
+        pe_stare!(conectare_ui.on_alege_cu_dialogul(|st| {
+            let ales = rfd::FileDialog::new()
+                .add_filter("JSON", &["json"])
+                .pick_file();
+            if let Some(cale) = ales {
+                if st.alege_instantaneul(&cale.display().to_string()) {
+                    if let Some(ui) = c_ui.upgrade() {
+                        ui.set_alege_fisierul(false);
+                    }
+                }
+            }
+        }));
         pe_stare!(conectare_ui.on_testeaza(|st, sursa| st.testeaza(sursa)));
         let d = deseneaza.clone();
         conectare_ui.on_sterge_jurnalul(move || {
@@ -837,6 +859,20 @@ fn ruleaza() -> Result<(), String> {
         limba_si_tema!(deploy_ui, "deploy");
         // garda: se recitesc ambele baze si se compara amprentele
         pe_stare!(deploy_ui.on_verifica_baza(|st| st.porneste_garda()));
+        // dialogul nativ (etapa 25): unde se scrie, si folderul deschis dupa
+        pe_stare!(deploy_ui.on_alege_folderul(|st| {
+            if let Some(d) = rfd::FileDialog::new().pick_folder() {
+                tracing::info!(target: "gmotion::app", folder = %d.display(), "folder de deploy ales");
+                st.folder_deploy = Some(d);
+            }
+        }));
+        pe_stare!(deploy_ui.on_deschide_folderul(|st| {
+            if let Some(d) = st.director_scris() {
+                if let Err(e) = stare::deschide_in_explorer(&d) {
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "folderul nu s-a deschis");
+                }
+            }
+        }));
         let s = stare.clone();
         let d = deseneaza.clone();
         let sv = salveaza.clone();
@@ -844,7 +880,7 @@ fn ruleaza() -> Result<(), String> {
             actiune("deploy", "scrie_scripturile", "", false);
             let de_salvat = {
                 let mut st = s.borrow_mut();
-                let dir = stare::director_deploy(&st.referinta);
+                let dir = st.director_deploy_curent();
                 st.scrie_deploy(&dir)
             };
             // obiectele scrise devin „deployate" in lista si in sesiune
