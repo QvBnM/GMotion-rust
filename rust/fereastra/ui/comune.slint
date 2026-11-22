@@ -121,6 +121,9 @@ export global Texte {
     in-out property <string> sus-jos;
     in-out property <string> te-deconectezi;
     in-out property <string> tema;
+    in-out property <string> server-implicit;
+    in-out property <string> server-cluster;
+    in-out property <string> exemplu-server;
     in-out property <string> testeaza-conexiunea;
     in-out property <string> aceeasi-conexiune;
     in-out property <string> aceeasi-conexiune-ca;
@@ -482,7 +485,7 @@ export component Semn inherits HorizontalLayout {
             background: Tema.accent;
         }
     }
-    Text { text: "motion"; font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.4px; }
+    Text { text: "motion"; /* text-permis: marca */ font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.4px; }
 }
 
 // Butonul dedicat temei: o iconita (luna / soare); la clic arata cele doua
@@ -523,9 +526,9 @@ export component ButonTema inherits Rectangle {
                 HorizontalLayout {
                     padding-left: 8px;
                     height: 26px;
-                    Text { text: "Tema"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                    Text { text: Texte.tema; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
                 }
-                for o in [{ t: "Intunecat", intunecat: true }, { t: "Luminos", intunecat: false }]: Rectangle {
+                for o in [{ t: Texte.intunecat, intunecat: true }, { t: Texte.luminos, intunecat: false }]: Rectangle {
                     height: 32px;
                     border-radius: 7px;
                     background: z.has-hover ? Tema.strat : transparent;
@@ -977,8 +980,8 @@ export component Ajutor inherits Rectangle {
             padding: 18px;
             spacing: 10px;
             HorizontalLayout {
-                Text { text: "Ajutor"; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
-                Buton { text: "Inchide  Esc"; apasat => { root.inchide(); } }
+                Text { text: Texte.ajutor; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; horizontal-stretch: 1; }
+                Buton { text: Texte.inchide-esc; apasat => { root.inchide(); } }
             }
             Flickable {
                 vertical-stretch: 1;

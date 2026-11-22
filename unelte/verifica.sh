@@ -352,6 +352,32 @@ if lipsa:
 PY_BUTOANE
 if [ $? -eq 0 ]; then pas "fiecare buton are actiune"; else cade "fiecare buton are actiune"; fi
 
+titlu "niciun text pentru om scris direct in .slint"
+# CLAUDE.md, sectiunea 6: textele trec prin `fereastra::texte` (romana si
+# engleza). Se cauta un sir cu litere dat lui `text`, `t`, `gol` sau `title`;
+# marca si cuvintele SQL se marcheaza pe aceeasi linie cu `text-permis`.
+python3 - <<'PY_TEXTE'
+import glob, re, sys
+LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"')
+# numele tastelor (`Ctrl J K`, `Shift F7`) nu se traduc
+TASTE = re.compile(r'^(?:(?:ctrl|shift|alt|esc|enter|tab|f\d{1,2}|[a-z])\b\s*)+$', re.I)
+gasite = []
+for f in sorted(glob.glob("rust/fereastra/ui/*.slint")):
+    for nr, linie in enumerate(open(f, encoding="utf-8"), 1):
+        if "text-permis" in linie or linie.lstrip().startswith(("//", "import")):
+            continue
+        if not re.search(r"\b(?:text|t|gol|title)\s*:", linie):
+            continue
+        for m in LITERAL.finditer(linie):
+            continut = m.group(0)[1:-1]
+            if re.search(r"[A-Za-z]{2,}", continut) and not TASTE.match(continut.strip()):
+                gasite.append(f"{f}:{nr}: {continut}")
+if gasite:
+    print("\n".join(gasite))
+    sys.exit(1)
+PY_TEXTE
+if [ $? -eq 0 ]; then pas "niciun text pentru om scris direct in .slint"; else cade "text scris direct in .slint: pune-l in fereastra::texte"; fi
+
 titlu "mostenire/ nemodificat"
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:

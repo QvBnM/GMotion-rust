@@ -63,7 +63,7 @@ component Oprire inherits HorizontalLayout {
 }
 
 export component FereastraDeploy inherits Window {
-    title: "gmotion — deploy";
+    title: "gmotion — deploy"; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
     background: Tema.fundal;
@@ -192,7 +192,7 @@ export component FereastraDeploy inherits Window {
                                             height: 22px;
                                             border-radius: 6px;
                                             background: p.creeaza ? Tema.add-fundal : Tema.mod-fundal;
-                                            Text { text: p.creeaza ? "CREATE" : "ALTER"; font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
+                                            Text { text: p.creeaza ? "CREATE" : "ALTER"; /* text-permis: cuvinte SQL */ font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
                                         }
                                     }
                                     HorizontalLayout {
