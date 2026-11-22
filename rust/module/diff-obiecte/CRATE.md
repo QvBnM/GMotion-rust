@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: d72715253f9bc827 -->
+<!-- api-hash: 64968598def05430 -->
 
 ## Rol
 
@@ -85,7 +85,9 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
    plan (`GM-MOD-014`), procedura numerotata `dbo.p;1`, pe care
    `CREATE OR ALTER` n-o accepta (`GM-MOD-008`), cod care nu incepe cu
    `CREATE <tipul din plan>` (`GM-MOD-015`: SQL oarecare sau alt tip), text
-   final gol (`GM-MOD-016`). Numele bazei intra in `USE [..]` cu `]` dublat.
+   final gol (`GM-MOD-016`), obiect cu alt tip in tinta (`GM-MOD-017`:
+   procedura in martor, view in modificata; `Pas::tip_tinta`, iar randul
+   din lista incepe cu „tip schimbat"). Numele bazei intra in `USE [..]` cu `]` dublat.
    Aceleasi reguli le da `verifica_text_final`, ca un text sa fie refuzat cand
    se scrie, nu abia la deploy.
 6c. **Fiecare obiect isi reface setarile de creare** (`SET ANSI_NULLS` /

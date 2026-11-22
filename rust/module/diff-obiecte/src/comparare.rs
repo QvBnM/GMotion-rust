@@ -300,12 +300,25 @@ pub fn compara(
             }
             let scor = scor_afisat(scor_similaritate(&r.afisare, &c.afisare));
             n.diferite += 1;
+            // procedura in martor, view in modificata: `CREATE OR ALTER` nu
+            // poate trece de la un tip la altul, deci randul trebuie sa spuna
+            // asta, nu doar un procent (F-D3)
+            let rezumat = if r.tip.trim() != c.tip.trim() {
+                format!(
+                    "tip schimbat: {} in martor, {} in modificata; {}",
+                    r.tip.trim(),
+                    c.tip.trim(),
+                    rezumat_rapid(&r.afisare, &c.afisare)
+                )
+            } else {
+                rezumat_rapid(&r.afisare, &c.afisare)
+            };
             randuri.push(Rand {
                 id,
                 obiect: nume.clone(),
                 baza: baza.clone(),
                 scor: Some(scor),
-                rezumat: rezumat_rapid(&r.afisare, &c.afisare),
+                rezumat,
                 tip: r.tip.clone(),
                 categorie: Categorie::Diferit,
                 hash_referinta: Some(r.hash.clone()),

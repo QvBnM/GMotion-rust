@@ -56,6 +56,14 @@ pub enum Eroare {
     #[error("[GM-MOD-016] textul final al lui {obiect} e gol; ar sterge codul obiectului. Sterge textul final (Reset) daca vrei codul din martor")]
     TextFinalGol { obiect: String },
 
+    #[error("[GM-MOD-017] {obiect} e {martor} in martor si {modificata} in {baza}; `CREATE OR ALTER` nu poate schimba tipul unui obiect, deci scriptul ar cadea. Obiectul se deployeaza de mana (DROP, apoi CREATE)")]
+    TipSchimbat {
+        obiect: String,
+        baza: String,
+        martor: String,
+        modificata: String,
+    },
+
     #[error("[GM-MOD-012] baza s-a schimbat de la comparare, deci deploy-ul nu se scrie: {schimbari}. Compara din nou si revizuieste ce s-a schimbat")]
     BazaAtinsa { schimbari: String },
 }
@@ -79,6 +87,7 @@ impl Eroare {
             Eroare::NumeDinDefinitie { .. } => "GM-MOD-014",
             Eroare::CodFaraCreate { .. } => "GM-MOD-015",
             Eroare::TextFinalGol { .. } => "GM-MOD-016",
+            Eroare::TipSchimbat { .. } => "GM-MOD-017",
         }
     }
 }

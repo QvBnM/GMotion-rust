@@ -49,6 +49,11 @@ pub struct Pas {
     /// deploy-ul il creeaza si revenirea il sterge.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tinta: Option<String>,
+    /// Tipul obiectului in tinta, cand exista si difera de `tip`: o procedura
+    /// in martor si un view in modificata nu se pot deploia cu `CREATE OR
+    /// ALTER` (F-D3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tip_tinta: Option<String>,
 }
 
 /// Ce intra in deploy, cu amprentele de la comparare.
@@ -167,15 +172,18 @@ impl Plan {
                 sarite += 1;
                 continue;
             }
-            let tinta = baza_tinta(altele, &r.baza)
-                .and_then(|b| gaseste(b, &r.obiect))
-                .map(amprenta_exacta);
+            let in_tinta = baza_tinta(altele, &r.baza).and_then(|b| gaseste(b, &r.obiect));
+            let tinta = in_tinta.map(amprenta_exacta);
+            let tip_tinta = in_tinta
+                .map(|t| t.tip.trim().to_string())
+                .filter(|t| t != r.tip.trim());
             pasi.push(Pas {
                 baza: r.baza.clone(),
                 obiect: r.obiect.clone(),
                 tip: r.tip.clone(),
                 referinta: amprenta_exacta(o),
                 tinta,
+                tip_tinta,
             });
         }
         Plan {
@@ -267,6 +275,14 @@ impl Plan {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
                 schimbari: format!("{} a disparut din martor", p.obiect),
             })?;
+            if let Some(t) = &p.tip_tinta {
+                return Err(Eroare::TipSchimbat {
+                    obiect: p.obiect.clone(),
+                    baza: p.baza.clone(),
+                    martor: p.tip.trim().to_string(),
+                    modificata: t.clone(),
+                });
+            }
             // un text final gol ar ajunge „criptat" in verificare, cu un mesaj
             // fals; e o greseala de editare, si se spune asa (B2)
             if texte_finale
@@ -638,6 +654,36 @@ mod teste {
         assert_eq!(t.len(), 2);
         assert_eq!(t[0].cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1");
         assert!(p.de_deployat(&Baza::new()).is_err());
+    }
+
+    /// F-D3: procedura in martor, view in modificata. Randul o spune, iar
+    /// deploy-ul refuza inainte de orice fisier; un plan vechi, fara campul
+    /// nou, se citeste la fel.
+    #[test]
+    fn tipul_schimbat_se_spune_si_opreste_deploy_ul() {
+        let r = pregateste(&[ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 1")]);
+        let mut v = ob("pA", "CREATE VIEW dbo.pA AS SELECT 1 AS a");
+        v.tip = "V ".into();
+        let a = vec![("Tinta".to_string(), pregateste(&[v]))];
+        let c = compara("Ref", &r, &a, |_| {});
+        assert!(
+            c.randuri[0]
+                .rezumat
+                .starts_with("tip schimbat: P in martor, V"),
+            "{}",
+            c.randuri[0].rezumat
+        );
+        let p = plan(&r, &a);
+        assert_eq!(p.pasi[0].tip_tinta.as_deref(), Some("V"));
+        let e = p.de_deployat_cu(&r, &BTreeMap::new()).unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-017");
+        let json = serde_json::to_string(&p).unwrap();
+        let vechi = json.replace(",\"tip_tinta\":\"V\"", "");
+        assert_ne!(json, vechi);
+        let citit: Plan = serde_json::from_str(&vechi).unwrap();
+        assert_eq!(citit.pasi[0].tip_tinta, None);
+        let (r, a) = scena();
+        assert!(plan(&r, &a).pasi.iter().all(|p| p.tip_tinta.is_none()));
     }
 
     /// B2: un text final gol e spus ca atare, nu ca „criptat".
