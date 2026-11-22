@@ -652,10 +652,18 @@ impl Aplicatie {
     }
 
     /// Textele pregatite ale obiectului, daca exista in ambele baze.
+    ///
+    /// Un obiect care exista doar intr-o parte are cealalta parte goala: se
+    /// deschide in editor ca adaugat in intregime (doar in Martor) sau sters
+    /// in intregime (doar in Modificata). Pana la etapa 24 nu se deschidea
+    /// deloc, deci nu puteai citi codul pe care il trimiti in PROD (F-A9; v3.4
+    /// il arata).
     fn texte(&self, baza: &str, id: &str) -> Option<(&str, &str)> {
         match (self.sursa.get(id), self.tinta(baza).and_then(|t| t.get(id))) {
             (Some(a), Some(b)) => Some((a.afisare.as_str(), b.afisare.as_str())),
-            _ => None,
+            (Some(a), None) => Some((a.afisare.as_str(), "")),
+            (None, Some(b)) => Some(("", b.afisare.as_str())),
+            (None, None) => None,
         }
     }
 
@@ -664,8 +672,8 @@ impl Aplicatie {
         self.obiect().map(Obiect::cheie)
     }
 
-    /// Modelul editorului pentru obiectul curent. `None` pentru obiectele care
-    /// exista doar intr-o parte: nu au cu ce fi comparate.
+    /// Modelul editorului pentru obiectul curent. Un obiect care exista doar
+    /// intr-o parte are cealalta parte goala (vezi `texte`).
     ///
     /// In dreapta e **textul final** (daca exista), nu textul bazei: editorul
     /// arata mereu sursa fata de ce va ajunge in baza, iar liniile schimbate
@@ -894,8 +902,8 @@ impl Aplicatie {
                 self.diferenta = 0;
                 self.ghidat = None;
                 self.istoric.clear();
-                // un obiect care exista doar intr-o parte n-are ce arata in
-                // editor: ecranul ramane pe lista
+                // doar un obiect fara cod in nicio parte (necunoscut) ramane
+                // pe lista; cele dintr-o singura parte se deschid (F-A9)
                 if self.model_editor().is_some() {
                     self.ecran = Ecran::Editor;
                     if let Some(c) = self.cheia_curenta() {
@@ -2006,22 +2014,29 @@ mod teste {
         assert_eq!(a.obiect().unwrap().nume, "pA");
     }
 
+    /// F-A9: un obiect doar in Martor se deschide, tot codul ca adaugat; v3.4
+    /// il arata, iar fara el nu puteai citi ce trimiti in PROD.
     #[test]
-    fn un_obiect_doar_intr_o_parte_nu_deschide_editorul() {
+    fn un_obiect_doar_in_martor_se_deschide_ca_adaugat() {
         let mut a = aplicatie();
         let p = (0..a.lista().vizibile().len())
             .find(|&p| a.lista().obiect(p).unwrap().nume == "pDoarSursa")
             .expect("obiectul exista in lista");
         a.comanda(Comanda::Selecteaza(p));
-        assert!(a.model_editor().is_none());
         a.comanda(Comanda::Deschide);
-        assert_eq!(a.ecran(), Ecran::Lista, "nu avem cu ce compara");
+        assert_eq!(a.ecran(), Ecran::Editor);
+        let (sursa, final_) = a.texte_curente().expect("texte");
+        assert!(!sursa.is_empty() && final_.is_empty(), "Modificata e goala");
+        assert!(a.numar_diferente() >= 1, "codul intreg e o diferenta");
+        // „Aplica toate" aduce tot codul: exact ce se va crea la deploy
+        a.comanda(Comanda::AplicaToate);
+        assert_eq!(a.texte_curente().unwrap().1, sursa);
     }
 
     #[test]
-    fn urmatorul_obiect_sare_peste_cele_care_nu_se_pot_deschide() {
+    fn urmatorul_obiect_ajunge_si_la_cele_dintr_o_singura_parte() {
         let mut a = aplicatie();
-        // pB e ultimul care se poate deschide; dupa el, pDoarSursa
+        // pB e ultimul modificat; dupa el, pDoarSursa
         let p = (0..a.lista().vizibile().len())
             .find(|&p| a.lista().obiect(p).unwrap().nume == "pB")
             .unwrap();
@@ -2029,11 +2044,7 @@ mod teste {
         a.comanda(Comanda::Deschide);
         assert_eq!(a.ecran(), Ecran::Editor);
         a.comanda(Comanda::ObiectUrmator);
-        assert_eq!(
-            a.obiect().unwrap().nume,
-            "pB",
-            "nu exista alt obiect de deschis, deci ramanem pe el"
-        );
+        assert_eq!(a.obiect().unwrap().nume, "pDoarSursa");
         assert_eq!(a.ecran(), Ecran::Editor);
     }
 
@@ -2730,12 +2741,16 @@ mod teste {
         // clic pe tabul fixat: selectia listei il urmeaza
         a.comanda(Comanda::ActiveazaTab(Some(0)));
         assert_eq!(a.obiect().unwrap().nume, "pA");
-        // j de pe pA: pB nu e fixat, deci el; inca un j: capat (pDoarSursa
-        // nu se poate deschide), mesaj si ramane pe loc
+        // j de pe pA: pB nu e fixat, deci el; apoi pDoarSursa (se deschide
+        // si el, F-A9); inca un j: capat, mesaj si ramane pe loc
         a.comanda(Comanda::ObiectUrmator);
         assert_eq!(a.obiect().unwrap().nume, "pB");
         a.comanda(Comanda::ObiectUrmator);
+        assert_eq!(a.obiect().unwrap().nume, "pDoarSursa");
+        a.comanda(Comanda::ObiectUrmator);
         assert_eq!(a.mesaj_tab(), Some(MesajTab::Capat));
+        assert_eq!(a.obiect().unwrap().nume, "pDoarSursa");
+        a.comanda(Comanda::ObiectAnterior);
         assert_eq!(a.obiect().unwrap().nume, "pB");
         // editarea textului final in previzualizare il fixeaza
         let id = a.id_obiect().unwrap();

@@ -1165,13 +1165,20 @@ pub fn diferente(
     let cur_ob = s.obiecte(baza).map_err(|e| e.to_string())?;
     let gaseste = |v: &[gmotion_db::Obiect]| v.iter().find(|o| o.id() == obiect).cloned();
 
-    let (Some(r), Some(c)) = (gaseste(&ref_ob), gaseste(&cur_ob)) else {
+    // un obiect dintr-o singura parte se arata si el, cu cealalta parte
+    // goala: tot codul adaugat sau sters, ca in editor (F-A9)
+    let (r, c) = (gaseste(&ref_ob), gaseste(&cur_ob));
+    if r.is_none() && c.is_none() {
         return Err(format!(
-            "obiectul {obiect:?} nu exista in ambele baze ({referinta} si {baza})"
+            "obiectul {obiect:?} nu exista in niciuna din baze ({referinta}, {baza})"
         ));
+    }
+    let afisare = |o: Option<gmotion_db::Obiect>| {
+        o.map(|o| gmotion_core::pregateste_afisare(&o.definitie))
+            .unwrap_or_default()
     };
-    let text_ref = gmotion_core::pregateste_afisare(&r.definitie);
-    let text_tinta = gmotion_core::pregateste_afisare(&c.definitie);
+    let text_ref = afisare(r);
+    let text_tinta = afisare(c);
     let (d, rezumat) = modul::diferente_obiect(&text_ref, &text_tinta);
     let plasari = modul::plasari_obiect(&text_ref, &text_tinta);
 

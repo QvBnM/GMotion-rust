@@ -110,14 +110,17 @@ fn din_conectare_pana_in_editor() {
     assert!(app.comanda(Comanda::ComutaRevizuit));
     assert_eq!(app.lista().progres_revizuire(), (1, 3));
 
-    // 7. obiectul care exista doar in sursa nu deschide editorul
+    // 7. obiectul care exista doar in martor se deschide si el, cu tot codul
+    // de adus (F-A9)
     let doar_sursa = (0..app.lista().vizibile().len())
         .find(|&p| app.lista().obiect(p).unwrap().nume == "pNou")
         .expect("obiectul exista");
     app.comanda(Comanda::InapoiLaLista);
     app.comanda(Comanda::Selecteaza(doar_sursa));
     app.comanda(Comanda::Deschide);
-    assert_eq!(app.ecran(), Ecran::Lista, "nu avem cu ce compara");
+    assert_eq!(app.ecran(), Ecran::Editor);
+    let model = app.model_editor().expect("modelul");
+    assert!(!model.diferente.is_empty(), "tot codul e de adus");
 
     std::fs::remove_dir_all(cale.parent().unwrap()).ok();
 }

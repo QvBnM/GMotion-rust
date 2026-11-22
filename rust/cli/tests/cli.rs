@@ -800,6 +800,43 @@ fn deploy_opreste_dupa_obiectul_cazut_si_avertizeaza_pentru_triggere() {
     std::fs::remove_dir_all(&d).ok();
 }
 
+/// F-A9: un obiect dintr-o singura parte se poate citi si din linia de
+/// comanda, cu toata partea lui ca diferenta; unul inexistent e refuzat.
+#[test]
+fn diferente_pe_un_obiect_dintr_o_singura_parte() {
+    let d = dir("diferente-unilateral");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let dif = |obiect: &str| {
+        ruleaza(&[
+            "--json",
+            "diferente",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            obiect,
+        ])
+    };
+    for obiect in ["dbo.pStoc", "dbo.pLocal"] {
+        let o = dif(obiect);
+        assert!(o.status.success(), "{obiect}: {}", err(&o));
+        let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("doar JSON");
+        assert!(
+            !v["randuri"].as_array().unwrap().is_empty(),
+            "{obiect}: tot codul e o diferenta: {v}"
+        );
+    }
+    let o = dif("dbo.pNicaieri");
+    assert!(!o.status.success());
+    assert!(err(&o).contains("nu exista in niciuna"), "{}", err(&o));
+    std::fs::remove_dir_all(&d).ok();
+}
+
 #[test]
 fn planul_altei_referinte_e_refuzat() {
     let d = dir("plan-ref");
