@@ -284,6 +284,40 @@ impl Sesiuni {
         Ok(Some(s))
     }
 
+    /// Muta deoparte o sesiune care nu se mai poate citi (`<nume>.dat` ->
+    /// `<nume>.corupt-<marcaj>.dat.bak`), ca urmatoarea salvare sa nu scrie
+    /// peste ea. Intoarce calea noua, sau `None` daca nu exista sesiune.
+    ///
+    /// Fereastra suprascria tacut o sesiune ilizibila la prima bifa, deci
+    /// munca de pe toate bazele se pierdea fara urma (F-A15).
+    pub fn pune_deoparte(&self, server: &str, referinta: &str) -> Rezultat<Option<PathBuf>> {
+        let cale = self.cale(server, referinta);
+        if !cale.exists() {
+            return Ok(None);
+        }
+        let marcaj: String = crate::timp::acum()
+            .chars()
+            .filter(char::is_ascii_digit)
+            .collect();
+        let nume = cale
+            .file_stem()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let noua = self
+            .director
+            .join(format!("{nume}.corupt-{marcaj}.dat.bak"));
+        std::fs::rename(&cale, &noua).map_err(|e| Eroare::ScriereSesiune {
+            cale: cale.display().to_string(),
+            detaliu: e.to_string(),
+        })?;
+        tracing::warn!(
+            target: "gmotion::platforma",
+            cale = %noua.display(),
+            "sesiune ilizibila pusa deoparte"
+        );
+        Ok(Some(noua))
+    }
+
     pub fn sterge(&self, server: &str, referinta: &str) -> Rezultat<bool> {
         self.migreaza(referinta);
         let cale = self.cale(server, referinta);

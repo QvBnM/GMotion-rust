@@ -70,6 +70,9 @@ struct Stare {
     /// Cand s-a salvat ultima data progresul (revizuirea, textele finale):
     /// „salvat la 14:52" din editor.
     salvat_la: String,
+    /// O sesiune care nu s-a putut citi si a fost pusa deoparte: se spune in
+    /// bara listei la urmatoarea desenare (F-A15).
+    mesaj_sesiune: Option<String>,
 }
 
 impl Stare {
@@ -100,6 +103,32 @@ fn main() {
         eprintln!("{e}");
         std::process::exit(1);
     }
+}
+
+/// O sesiune care nu se poate citi se muta deoparte (nu se scrie peste ea la
+/// prima bifa) si se spune pe ecran unde a ajuns (F-A15).
+fn pune_deoparte(
+    sesiuni: &gmotion_platforma::Sesiuni,
+    server: &str,
+    referinta: &str,
+    eroare: &gmotion_platforma::Eroare,
+    limba: gmotion_core::Limba,
+) -> String {
+    tracing::warn!(target: "gmotion::app", %eroare, "sesiunea salvata nu se poate citi");
+    let unde = match sesiuni.pune_deoparte(server, referinta) {
+        Ok(Some(c)) => c.display().to_string(),
+        Ok(None) => String::new(),
+        Err(e) => {
+            tracing::warn!(target: "gmotion::app", eroare = %e, "sesiunea nu s-a putut pune deoparte");
+            String::new()
+        }
+    };
+    limba
+        .alege(
+            &format!("Progresul salvat nu s-a putut citi ({eroare}); l-am pus deoparte in {unde} si incep o sesiune noua."),
+            &format!("The saved progress could not be read ({eroare}); it was moved to {unde} and a new session starts."),
+        )
+        .to_string()
 }
 
 fn argument(nume: &str) -> Option<String> {
@@ -312,6 +341,7 @@ fn ruleaza() -> Result<(), String> {
         garda: None,
         detalii: None,
         salvat_la: String::new(),
+        mesaj_sesiune: None,
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
@@ -572,6 +602,10 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
+            if let Some(m) = s.mesaj_sesiune.take() {
+                l_ui.set_mesaj_csv(m.into());
+            }
+            let app = s.app.as_mut().expect("verificat mai sus");
             if app.refuzat_in_plan() {
                 l_ui.set_mesaj_csv(
                     limba
@@ -729,14 +763,18 @@ fn ruleaza() -> Result<(), String> {
                 .as_mut()
                 .map(|a| a.editari_de_salvat().clone())
                 .unwrap_or_default();
-            let mut sesiune = s
-                .sesiuni
-                .incarca(&server, &referinta)
-                .ok()
-                .flatten()
-                .unwrap_or_else(|| {
-                    gmotion_platforma::Sesiune::noua(server, auth, referinta.clone(), String::new())
-                });
+            // o sesiune ilizibila se pune deoparte, nu se scrie peste ea (F-A15)
+            let citita = match s.sesiuni.incarca(&server, &referinta) {
+                Ok(c) => c,
+                Err(e) => {
+                    let m = pune_deoparte(&s.sesiuni, &server, &referinta, &e, s.conectare.limba);
+                    s.mesaj_sesiune = Some(m);
+                    None
+                }
+            };
+            let mut sesiune = citita.unwrap_or_else(|| {
+                gmotion_platforma::Sesiune::noua(server, auth, referinta.clone(), String::new())
+            });
             revizuire.in_sesiune(&mut sesiune);
             editari.in_sesiune(&mut sesiune);
             if let Some(a) = s.app.as_ref() {
@@ -2224,12 +2262,22 @@ fn ruleaza() -> Result<(), String> {
                                         a.taburi().clone(),
                                     ),
                                     None => {
-                                        let salvata =
-                                            // cheia sesiunii tine si serverul
-                                            st.sesiuni
-                                                .incarca(&r.server, &referinta)
-                                                .ok()
-                                                .flatten();
+                                        // cheia sesiunii tine si serverul; una
+                                        // ilizibila se pune deoparte (F-A15)
+                                        let salvata = match st.sesiuni.incarca(&r.server, &referinta) {
+                                            Ok(c) => c,
+                                            Err(e) => {
+                                                let m = pune_deoparte(
+                                                    &st.sesiuni,
+                                                    &r.server,
+                                                    &referinta,
+                                                    &e,
+                                                    st.conectare.limba,
+                                                );
+                                                st.mesaj_sesiune = Some(m);
+                                                None
+                                            }
+                                        };
                                         (
                                             salvata
                                                 .as_ref()
