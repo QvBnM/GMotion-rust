@@ -656,6 +656,45 @@ export struct BucataUi {
     schimbat: bool,
 }
 
+// O bucata colorata din campul de editare (etapa 25), cu pozitia ei in linie:
+// cate caractere si cate taburi sunt inaintea ei.
+export struct BucataEditareUi {
+    text: string,
+    sintaxa: int,
+    caractere: int,
+    taburi: int,
+}
+
+// O linie a campului de editare, colorata
+export struct LinieUi {
+    bucati: [BucataEditareUi],
+}
+
+// Bucatile colorate ale unei linii din campul de editare, fara fundal si fara
+// italic, puse exact peste glifele campului. Pozitia se socoteste din
+// caractere, nu din latimea bucatilor de dinainte: aceea e rotunjita la pixel
+// si s-ar aduna pe rand. Un tab are mereu aceeasi latime (Slint n-are opriri
+// de tab), dar alta decat un caracter, deci se numara separat.
+export component BucatiEditare inherits Rectangle {
+    in property <[BucataEditareUi]> bucati;
+    in property <length> caracter;
+    in property <length> tab;
+    for b in bucati: Text {
+        x: b.caractere * root.caracter + b.taburi * root.tab;
+        y: 0px;
+        text: b.text;
+        font-family: Tema.font-mono;
+        font-size: 12.5px;
+        color: b.sintaxa == 1 ? Tema.s-cuvant
+             : b.sintaxa == 2 ? Tema.s-variabila
+             : b.sintaxa == 3 ? Tema.s-numar
+             : b.sintaxa == 4 ? Tema.s-sir
+             : b.sintaxa == 5 ? Tema.s-comentariu
+             : Tema.text;
+        vertical-alignment: top;
+    }
+}
+
 export struct RandUi {
     // 0 linie, 1 pliere („22 de linii identice, 24-45")
     fel: int,

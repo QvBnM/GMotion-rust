@@ -2,7 +2,7 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--trage N] [--previzualizeaza N]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--trage N] [--previzualizeaza N] [--editeaza]
 use std::rc::Rc;
 
 use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
@@ -169,6 +169,13 @@ fn main() {
         },
         &model,
     );
+    // `--editeaza`: campul de editare deschis, cu sintaxa cat scrii (etapa
+    // 25); textul e cel al Modificatei
+    if are("--editeaza") {
+        gmotion_fereastra::leaga_editarea(&ui);
+        ui.set_text_final(t.as_str().into());
+        ui.set_editeaza_mod(true);
+    }
     // `--taburi`: bara de taburi (etapa 16), cu trei fixate, unul editat,
     // si obiectul capturat in previzualizare
     if are("--taburi") {

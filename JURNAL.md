@@ -1685,3 +1685,29 @@ de dezvoltare `pick_file` intoarce `None`); proba e pe Windows. Lista de
 fisiere gasite ramane in acelasi ecran, ca alternativa. „Deschide folderul"
 cheama `explorer` / `xdg-open` / `open`, fara alta dependinta. Folderul ales
 primeste un subfolder nou per deploy, ca regula „director gol" sa ramana.
+
+---
+
+## 2026-11-22 — Sintaxa cat scrii: randuri colorate desenate peste campul de editare
+
+**Context.** In editarea de mana textul era simplu; culorile reveneau abia la
+salvare. `TextInput` din Slint nu coloreaza pe bucati.
+
+**Alternative.** (a) `StyledText` (Slint 1.19): primeste CommonMark, deci
+spatiile de la inceput de linie si caracterele speciale din SQL ar trebui
+scapate, iar tot ar fi doar afisare, fara cursor. (b) camp cu text transparent
+si cursor desenat de noi: pozitia cursorului e expusa doar ca proprietate
+interna, „pentru teste". (c) randuri colorate desenate **peste** campul
+neschimbat: cursorul, selectia si tastatura raman ale lui.
+
+**Motiv.** (c). Masurat pe fontul Geist Mono la 12,5 px: pasul liniilor e
+fractionar (~16,23 px; 40 de linii = 650 px), deci se ia dintr-un text de 100
+de linii, nu dintr-unul de o linie (17 px, rotunjit). Pozitia pe orizontala
+se socoteste din caractere (~7,5 px) si taburi (~6,75 px: Slint n-are opriri
+de tab, un tab e un glif de latime fixa), nu din latimile bucatilor de
+dinainte, care sunt rotunjite si se adunau pe rand. Verificat pe captura.
+
+**Consecinte.** Glifele sunt desenate de doua ori, deci textul pare cu o
+idee mai gros. Peste 5.000 de linii nu se coloreaza (lexarea la fiecare
+tasta). Daca se schimba fontul sau marimea campului, se schimba in ambele
+locuri (`editor.slint`, `BucatiEditare`).

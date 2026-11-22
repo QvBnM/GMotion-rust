@@ -322,6 +322,21 @@ fn linii_bloc(text: &str, schimbat: Option<&[bool]>) -> Vec<Vec<Bucata>> {
     linii
 }
 
+/// Randurile unui text scris de mana, colorate dupa sintaxa: ce se deseneaza
+/// peste campul de editare cat scrii (etapa 25). Acelasi lexer ca in
+/// diferente, deci culorile nu se schimba la salvare. Un text mai lung de
+/// [`LINII_SINTAXA_LA_SCRIERE`] linii nu se coloreaza: lexarea la fiecare
+/// tasta s-ar simti.
+pub fn linii_sintaxa(text: &str) -> Vec<Vec<Bucata>> {
+    if text.lines().count() > LINII_SINTAXA_LA_SCRIERE {
+        return Vec::new();
+    }
+    linii_bloc(text, None)
+}
+
+/// Peste atatea linii, editarea de mana ramane text simplu.
+pub const LINII_SINTAXA_LA_SCRIERE: usize = 5000;
+
 /// Marcajul de schimbare pe caractere, din segmentele date de motor.
 fn schimbat_pe_caractere(segmente: &[gmotion_core::Segment]) -> Vec<bool> {
     let mut v = Vec::new();
@@ -891,6 +906,29 @@ mod teste {
             (select.text.as_str(), select.sintaxa, select.schimbat),
             ("SELECT", Sintaxa::CuvantCheie, false)
         );
+    }
+
+    #[test]
+    fn sintaxa_la_scriere_are_un_rand_pe_linie_si_aceleasi_caractere() {
+        let text = "SELECT @a,\t'x\ny' -- c\n\nEND";
+        let linii = linii_sintaxa(text);
+        assert_eq!(linii.len(), 4, "si linia goala are randul ei");
+        let refacut: Vec<String> = linii
+            .iter()
+            .map(|l| l.iter().map(|b| b.text.as_str()).collect())
+            .collect();
+        assert_eq!(
+            refacut.join("\n"),
+            text,
+            "suprapunerea are exact textul campului"
+        );
+        assert_eq!(linii[0][0].sintaxa, Sintaxa::CuvantCheie);
+        assert!(
+            linii[1].iter().any(|b| b.sintaxa == Sintaxa::Sir),
+            "sirul continua pe linia 2"
+        );
+        let lung = "SELECT 1\n".repeat(LINII_SINTAXA_LA_SCRIERE + 1);
+        assert!(linii_sintaxa(&lung).is_empty(), "prea lung: text simplu");
     }
 
     #[test]

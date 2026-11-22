@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -153,6 +153,10 @@ component CapPanou inherits Rectangle {
 }
 
 export component EditorDiferente inherits Window {
+    // campul de editare: textul la fiecare schimbare si randurile colorate
+    // care se deseneaza peste el (etapa 25)
+    callback text-editat(string);
+    in property <[LinieUi]> ed-linii;
     title: "gmotion — " + root.obiect-nume;
     preferred-width: 1440px;
     preferred-height: 900px;
@@ -1193,7 +1197,26 @@ export component EditorDiferente inherits Window {
                                     color: Tema.text;
                                     selection-background-color: Tema.tine.transparentize(0.6);
                                     selection-foreground-color: Tema.text;
-                                    init => { self.focus(); }
+                                    init => { self.focus(); root.text-editat(self.text); }
+                                    edited => { root.text-editat(self.text); }
+                                }
+                                // sintaxa cat scrii (etapa 25): randuri colorate
+                                // desenate peste glifele campului, la aceleasi
+                                // pozitii; cursorul si selectia raman ale lui
+                // pasul liniilor din camp e fractionar (~16,23 px la 12,5 px),
+                                // iar un `Text` de o linie e rotunjit (17 px): pasul se ia
+                                // dintr-un text de 100 de linii, altfel suprapunerea aluneca
+                                proba-1 := Text { visible: false; text: "X"; font-family: Tema.font-mono; font-size: 12.5px; }
+                                proba-100 := Text { visible: false; text: "X\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX"; font-family: Tema.font-mono; font-size: 12.5px; }
+                                proba-x := Text { visible: false; text: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; font-family: Tema.font-mono; font-size: 12.5px; }
+                                proba-tab := Text { visible: false; text: "\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}X"; font-family: Tema.font-mono; font-size: 12.5px; }
+                                for l[i] in root.ed-linii: BucatiEditare {
+                                    caracter: proba-x.preferred-width / 100;
+                                    tab: (proba-tab.preferred-width - proba-1.preferred-width) / 100;
+                                    x: 16px;
+                                    y: 12px + Math.round(i * (proba-100.preferred-height - proba-1.preferred-height) / 99 / 1px) * 1px;
+                                    height: proba-1.preferred-height;
+                                    bucati: l.bucati;
                                 }
                             }
                             Rectangle {

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: c83ffbc8a1f61f84 -->
+<!-- api-hash: be156230b1248206 -->
 
 ## Rol
 
@@ -38,6 +38,7 @@ si editorul de diferente (etapa 8).
 | `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
 | `ajutor(limba)`, `AJUTOR`, `AJUTOR_EN` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
 | `text_despre(limba, versiune, jurnal, date)` | textul ecranului „Despre" (din Ajutor, etapa 25): versiunea, licentele componentelor terte, caile jurnalului si datelor; sub el, `AboutSlint` (atribuirea ceruta de licenta Slint) |
+| `leaga_editarea(ui)`, `linii_editare_ui(text)`, `model_editor::{linii_sintaxa, LINII_SINTAXA_LA_SCRIERE}` | sintaxa cat scrii in campul de editare (etapa 25): randuri colorate desenate peste `TextInput`, pozitionate pe caractere si taburi; peste 5.000 de linii, text simplu |
 | `limba_curenta(ui)` | limba pusa de ultimul `aplica_limba`; textele facute in Rust o urmeaza (`model_deploy`, editorul, lista, conectarea) |
 | `texte::{Limba, Texte, RO, EN, texte}`, `aplica_limba(ui, limba)`, `cu_textele!` | toate textele interfetei, in romana si engleza; `.slint` nu contine text pentru om |
 | `FereastraLista` (Slint), `incarca_lista(ui, antet, lista)`, `AntetLista` | ecranul principal |

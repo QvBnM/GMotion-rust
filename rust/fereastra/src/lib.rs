@@ -342,19 +342,24 @@ fn tigla_pixeli(paleta: &jetoane::Paleta) -> (u32, Vec<Rgba8Pixel>) {
     (PAS, v)
 }
 
+/// Codul culorii de sintaxa pentru `.slint` (`BucataUi::sintaxa`).
+fn cod_sintaxa(s: Sintaxa) -> i32 {
+    match s {
+        Sintaxa::Text => 0,
+        Sintaxa::CuvantCheie => 1,
+        Sintaxa::Variabila => 2,
+        Sintaxa::Numar => 3,
+        Sintaxa::Sir => 4,
+        Sintaxa::Comentariu => 5,
+    }
+}
+
 fn bucati_ui(b: &[Bucata]) -> ModelRc<BucataUi> {
     ModelRc::new(VecModel::from(
         b.iter()
             .map(|x| BucataUi {
                 text: SharedString::from(x.text.as_str()),
-                sintaxa: match x.sintaxa {
-                    Sintaxa::Text => 0,
-                    Sintaxa::CuvantCheie => 1,
-                    Sintaxa::Variabila => 2,
-                    Sintaxa::Numar => 3,
-                    Sintaxa::Sir => 4,
-                    Sintaxa::Comentariu => 5,
-                },
+                sintaxa: cod_sintaxa(x.sintaxa),
                 schimbat: x.schimbat,
             })
             .collect::<Vec<_>>(),
@@ -2093,6 +2098,54 @@ fn selectat_in_fereastra(ui: &FereastraLista) -> Option<usize> {
 /// Leaga harta: deschiderea, reasezarea la redimensionare si bula de sub
 /// mouse. Nu tin de starea aplicatiei, deci se leaga aici, o data, dupa
 /// crearea ferestrei. Clicul pe patrat schimba selectia, deci e al `app`.
+/// Evidentierea de sintaxa cat scrii (etapa 25): la fiecare schimbare a
+/// campului de editare, randurile colorate de peste el se refac din text.
+/// Peste [`model_editor::LINII_SINTAXA_LA_SCRIERE`] linii raman goale, deci
+/// se vede textul simplu al campului.
+pub fn leaga_editarea(ui: &EditorDiferente) {
+    let slab = ui.as_weak();
+    ui.on_text_editat(move |text| {
+        if let Some(ui) = slab.upgrade() {
+            ui.set_ed_linii(linii_editare_ui(&text));
+        }
+    });
+}
+
+/// Randurile colorate pentru campul de editare.
+pub fn linii_editare_ui(text: &str) -> ModelRc<LinieUi> {
+    ModelRc::new(VecModel::from(
+        model_editor::linii_sintaxa(text)
+            .iter()
+            .map(|l| {
+                let mut caractere = 0;
+                let mut taburi = 0;
+                let bucati: Vec<BucataEditareUi> = l
+                    .iter()
+                    .map(|b| {
+                        let ui = BucataEditareUi {
+                            text: SharedString::from(b.text.as_str()),
+                            sintaxa: cod_sintaxa(b.sintaxa),
+                            caractere,
+                            taburi,
+                        };
+                        for c in b.text.chars() {
+                            if c == '\t' {
+                                taburi += 1;
+                            } else {
+                                caractere += 1;
+                            }
+                        }
+                        ui
+                    })
+                    .collect();
+                LinieUi {
+                    bucati: ModelRc::new(VecModel::from(bucati)),
+                }
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
+
 pub fn leaga_harta(ui: &FereastraLista) {
     let slab = ui.as_weak();
     ui.on_deschide_harta(move || {
@@ -3434,6 +3487,49 @@ mod teste {
         });
         assert!(!ui.get_arata_despre(), "Esc inchide Despre");
         let _ = ui.hide();
+    }
+
+    /// Etapa 25: campul de editare se coloreaza cand se deschide si la
+    /// fiecare tasta, prin `leaga_editarea`.
+    #[test]
+    fn campul_de_editare_se_coloreaza_la_deschidere_si_la_scriere() {
+        use slint::platform::WindowEvent;
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        leaga_editarea(&ui);
+        ui.set_text_final("SELECT 1\nFROM t".into());
+        ui.set_editeaza_mod(true);
+        ui.show().expect("fereastra se arata");
+        assert_eq!(ui.get_ed_linii().row_count(), 2, "la deschidere");
+        // o tasta in camp: Enter adauga o linie
+        ui.window().dispatch_event(WindowEvent::KeyPressed {
+            text: slint::platform::Key::Return.into(),
+        });
+        ui.window().dispatch_event(WindowEvent::KeyReleased {
+            text: slint::platform::Key::Return.into(),
+        });
+        assert_eq!(ui.get_ed_linii().row_count(), 3, "la scriere");
+        let _ = ui.hide();
+    }
+
+    /// Etapa 25: fiecare bucata colorata stie cate caractere si cate taburi
+    /// are inaintea ei pe linie: din ele se pune exact peste glifele campului.
+    #[test]
+    fn bucatile_de_editare_isi_stiu_pozitia_in_linie() {
+        let linii = linii_editare_ui("\tSELECT @a, 'x'\n\nEND");
+        assert_eq!(linii.row_count(), 3);
+        let prima: Vec<BucataEditareUi> = linii.row_data(0).unwrap().bucati.iter().collect();
+        let select = prima.iter().find(|b| b.text == "SELECT").expect("SELECT");
+        assert_eq!((select.caractere, select.taburi, select.sintaxa), (0, 1, 1));
+        let var = prima.iter().find(|b| b.text == "@a").expect("@a");
+        assert_eq!((var.caractere, var.taburi, var.sintaxa), (7, 1, 2));
+        let sir = prima.iter().find(|b| b.text == "'x'").expect("sirul");
+        assert_eq!((sir.caractere, sir.sintaxa), (11, 4));
+        assert_eq!(
+            linii.row_data(1).unwrap().bucati.row_count(),
+            0,
+            "linia goala"
+        );
     }
 
     #[test]

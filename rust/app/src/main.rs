@@ -698,6 +698,8 @@ fn ruleaza() -> Result<(), String> {
         // harta (`h`): deschiderea, reasezarea si bula sunt ale ferestrei;
         // clicul pe patrat schimba selectia, deci trece prin `Comanda`
         gmotion_fereastra::leaga_harta(&lista_ui);
+        // sintaxa cat scrii in campul de editare (etapa 25)
+        gmotion_fereastra::leaga_editarea(&editor_ui);
         let c = comanda.clone();
         let l = lista_ui.as_weak();
         lista_ui.on_clic_harta(move |grup, x, y| {
