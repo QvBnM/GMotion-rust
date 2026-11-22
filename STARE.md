@@ -31,9 +31,8 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/26-verificarea-textului-final.md` — „sa ne zica
-daca procedura da eroare": verificarea structurii textului final (local) si
-pe SQL Server (fara efecte).
+**Etapa activa:** niciuna. Etapa 26 (verificarea textului final, local si
+pe server) s-a incheiat pe 2026-11-22.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -45,6 +44,16 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-22, etapa 26, de probat de Mihai pe un SQL Server (baza de test):**
+in editor, pe un obiect, „Actiuni -> Verifica pe server". (1) Fara nicio
+schimbare: trebuie verde, „serverul accepta textul final". (2) Cu un text
+stricat (Ctrl+E, sterge un `END`, Salveaza): trebuie rosu, cu linia. (3) Cu o
+coloana inexistenta dintr-o tabela care exista (`SELECT coloana_care_nu_exista
+FROM dbo.TabelaReala`): imi trebuie daca iese rosu (NOEXEC compileaza corpul)
+sau verde. Din linie de comanda, acelasi lucru: `gmotion editare --server ...
+--referinta ... --baza ... --obiect ... --pe-server`. Nimic nu se creeaza pe
+server; daca totusi obiectul apare modificat, opreste si spune-mi.
 
 **2026-11-22:** locul de inserare e acum o banda rosie mica pe primul rand
 al golului (ales de Mihai, capturile in `cercetare/machete/inserare-propunere/`).

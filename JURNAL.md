@@ -1748,3 +1748,28 @@ renunta; un indiciu jos spune asta.
 
 **Alternative.** Un meniu cu locurile, ca lista: fara sa vezi codul din jurul
 locului. Doar tragerea: exista, dar cere sa stii ca blocul se poate trage.
+
+---
+
+## 2026-11-22 — Verificarea textului final: local (structura) si pe server (fara efecte)
+
+**Context.** Mihai: „daca punem ceva gresit, sa ne zica ca procedura da
+eroare". Ales: ambele niveluri.
+
+**Local.** `core::structura` (fisier propriu: cauza lui de eroare e falsul
+„nu se compileaza"): `BEGIN`/`END`, `TRY`/`CATCH`, `CASE`, paranteze, siruri,
+identificatori si comentarii neinchise, `GO`. Nu e un parser; prinde exact ce
+strica o plasare gresita. Se verifica doar textul final (baza neatinsa se
+compila deja). Testul contra falselor pozitive: toate obiectele reale din
+`testsimilitudine.json`, fara nicio problema.
+
+**Pe server.** `SET PARSEONLY ON` (sintaxa), apoi `SET NOEXEC ON`
+(compilarea), cu `ANSI_NULLS` / `QUOTED_IDENTIFIER` ale obiectului si in forma
+de deploy (`CREATE OR ALTER`, numele din plan). Garda: dupa `SET ... ON`, un
+`SELECT 1` trebuie sa nu intoarca nimic; altfel codul nu se trimite
+(`GM-DB-013`). Conexiune proaspata, aruncata dupa. **Alternativa respinsa:**
+`BEGIN TRAN` + `CREATE OR ALTER` + `ROLLBACK` — ar prinde mai mult, dar ia
+lacate de schema pe un obiect din PROD si depinde de un `ROLLBACK` reusit.
+
+**Neprobat:** cat compileaza `NOEXEC` dintr-un `CREATE OR ALTER PROCEDURE`
+(proba in `STARE.md`).

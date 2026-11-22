@@ -153,6 +153,19 @@ fn main() {
         app.comanda(Comanda::MergiLaDiferenta(n - 1));
         app.comanda(Comanda::AplicaDiferenta(Some(n - 1)));
     }
+    //   --text-final CALE  textul final scris de mana, din fisier (etapa 26)
+    if let Some(cale) = a
+        .iter()
+        .position(|x| x == "--text-final")
+        .and_then(|i| a.get(i + 1))
+    {
+        let text = std::fs::read_to_string(cale).expect("textul final");
+        let id = app.id_obiect().expect("obiect deschis");
+        app.comanda(Comanda::SalveazaText {
+            id,
+            text: gmotion_core::pregateste_afisare(&text),
+        });
+    }
     if are("--ghidat") {
         app.comanda(Comanda::PornesteGhidat);
     }
@@ -216,6 +229,16 @@ fn main() {
         },
     );
     editor_ui.set_editeaza_mod(are("--editeaza"));
+    //   --verificare TEXT  mesajul serverului, pus de mana: pe o masina fara
+    //                      SQL Server, doar ca sa se vada cum arata
+    if let Some(text) = a
+        .iter()
+        .position(|x| x == "--verificare")
+        .and_then(|i| a.get(i + 1))
+    {
+        editor_ui.set_verificare_text(text.as_str().into());
+        editor_ui.set_verificare_ok(false);
+    }
     editor_ui.show().expect("se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));
     scrie(&fereastra, w, h, &a[5]);
