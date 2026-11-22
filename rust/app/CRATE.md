@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 839089257077b058 -->
+<!-- api-hash: be35ac232d0d3e0b -->
 
 ## Rol
 
@@ -46,6 +46,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
 | `Aplicatie::arbore()`; comenzile `ComutaNod`, `CautaInArbore` | arborele din coloana editorului (etapa 19); selectia isi deschide singura dosarul; `j` / `k` din editor merg in ordinea lui |
 | `Aplicatie::{lucrari_detalii, pune_detalii}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
+| `stare::Stare` | starea binarului `gmotion-ui`, fara Slint (etapa 24): formularul de conectare (`server_schimbat`, `cere_bazele`, `testeaza`, `cauta_servere`, `alege_instantaneul`, `reia`, `ignora_recenta`...), compararea pe fir (`compara`, `anuleaza`, `verifica_compararea -> Progres`, `primeste_compararea`, `compara_offline`, `porneste_previzualizarea`), celelalte fire (`verifica_lucrarile`), sesiunea (`salveaza`, `deconecteaza`), deploy-ul (`porneste_garda`, `scrie_deploy`), textele (`text_pozitie`, `text_salvat`, `text_refuz_in_plan`); plus `recente`, `porneste_detalii`, `director_deploy`, `cale_csv`, `cale_previzualizare`, `citeste_configurarea`, `salveaza_in_configurare`. In `main.rs` raman doar legaturile Slint si desenul |
 | `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea si selectia celei vechi |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
