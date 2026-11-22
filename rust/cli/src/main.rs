@@ -281,9 +281,11 @@ enum Comanda {
         #[arg(long, value_enum, default_value = "per-baza")]
         mod_fisiere: ModArg,
 
-        /// Cate obiecte per fisier, pentru --mod-fisiere cate-n.
-        #[arg(long, default_value = "10")]
-        cate: usize,
+        /// Cate obiecte per fisier, pentru --mod-fisiere cate-n (implicit 10).
+        /// Dat cu alt mod, sau 0, e eroare: inainte se ignora, respectiv
+        /// devenea 1 fara sa spuna (F-C7).
+        #[arg(long, value_parser = clap::value_parser!(u64).range(1..))]
+        cate: Option<u64>,
 
         /// Doar obiectele astea, ca `schema.nume`, separate prin virgula.
         #[arg(long, value_name = "A,B", conflicts_with = "plan")]
@@ -447,21 +449,28 @@ fn main() -> std::process::ExitCode {
             cate,
             doar,
             plan,
-        } => comenzi::deploy(
-            sursa,
-            referinta,
-            baze.as_deref(),
-            director.clone(),
-            match mod_fisiere {
-                ModArg::Unul => ModImpartire::Unul,
-                ModArg::PerBaza => ModImpartire::PerBaza,
-                ModArg::PerObiect => ModImpartire::PerObiect,
-                ModArg::CateN => ModImpartire::CateN(*cate),
-            },
-            doar.as_deref(),
-            plan.as_deref(),
-            format,
-        ),
+        } => (|| {
+            if cate.is_some() && !matches!(mod_fisiere, ModArg::CateN) {
+                return Err("[GM-CLI-001] --cate merge doar cu --mod-fisiere cate-n".to_string());
+            }
+            comenzi::deploy(
+                sursa,
+                referinta,
+                baze.as_deref(),
+                director.clone(),
+                match mod_fisiere {
+                    ModArg::Unul => ModImpartire::Unul,
+                    ModArg::PerBaza => ModImpartire::PerBaza,
+                    ModArg::PerObiect => ModImpartire::PerObiect,
+                    ModArg::CateN => ModImpartire::CateN(
+                        usize::try_from(cate.unwrap_or(10)).unwrap_or(usize::MAX),
+                    ),
+                },
+                doar.as_deref(),
+                plan.as_deref(),
+                format,
+            )
+        })(),
         Comanda::Plan {
             sursa,
             referinta,

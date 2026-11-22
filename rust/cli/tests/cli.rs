@@ -1777,3 +1777,37 @@ fn export_si_instantaneu_scriu_json() {
     let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
     assert_eq!(v["baze"], 2, "{v}");
 }
+
+/// F-C7: `diagnostic` pe o configurare stricata spune totusi restul, apoi
+/// iese cu eroarea; `--cate 0` si `--cate` fara `cate-n` sunt refuzate.
+#[test]
+fn diagnostic_pe_configurare_stricata_si_cate_invalid() {
+    let d = dir("diag-stricat");
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("configurare.json"), "{ stricat").unwrap();
+    let o = ruleaza_in(&["diagnostic"], Some(&d));
+    assert!(!o.status.success());
+    assert!(
+        out(&o).contains("Director de date"),
+        "restul se spune: {}",
+        out(&o)
+    );
+    assert!(err(&o).contains("GM-PLAT"), "{}", err(&o));
+
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    for extra in [
+        vec!["--cate", "0", "--mod-fisiere", "cate-n"],
+        vec!["--cate", "5"],
+    ] {
+        let mut a = vec!["deploy", "--sursa", i, "--referinta", "Referinta", "-d"];
+        let dest = d.join("out");
+        let dest_s = dest.to_str().unwrap().to_string();
+        a.push(&dest_s);
+        a.extend(extra.iter().copied());
+        let o = ruleaza(&a);
+        assert!(!o.status.success(), "{extra:?}");
+        assert!(!dest.exists());
+    }
+}

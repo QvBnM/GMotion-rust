@@ -25,9 +25,14 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
     let dir = gmotion_platforma::cai::director_date()
         .map(|c| c.display().to_string())
         .unwrap_or_else(|e| format!("(indisponibil: {e})"));
+    // o configurare stricata nu ascunde restul: `diagnostic` e comanda de
+    // rulat cand ceva nu merge, deci spune tot si abia apoi iese cu eroarea
+    // (F-C7)
     let cfg = gmotion_platforma::cai::cale_configurare()
         .and_then(Configurare::citeste)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string());
+    let eroare_configurare = cfg.as_ref().err().cloned();
+    let cfg = cfg.ok();
 
     #[derive(serde::Serialize)]
     struct D<'a> {
@@ -38,7 +43,9 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
         protejare_criptata: bool,
         auth_integrata_disponibila: bool,
         tipuri_obiecte: Vec<&'a str>,
-        configurare_activa: Configurare,
+        configurare_activa: Option<Configurare>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        eroare_configurare: Option<String>,
     }
     let d = D {
         versiune: env!("CARGO_PKG_VERSION"),
@@ -49,9 +56,10 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
         auth_integrata_disponibila: gmotion_db::sqlserver::auth_integrata_disponibila(),
         tipuri_obiecte: gmotion_core::TIPURI_OBIECTE.to_vec(),
         configurare_activa: cfg,
+        eroare_configurare: eroare_configurare.clone(),
     };
 
-    match format {
+    let afisat = match format {
         Format::Json => afisare::scrie_json(&d).map_err(|e| e.to_string()),
         Format::Text => {
             scrie!("GMotion {} pe {}", d.versiune, d.sistem);
@@ -74,12 +82,17 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
                 }
             );
             scrie!("Tipuri comparate   : {}", d.tipuri_obiecte.join(", "));
-            scrie!(
-                "Timeout conectare  : {} s",
-                d.configurare_activa.timeout_conectare_s
-            );
+            match &d.configurare_activa {
+                Some(c) => scrie!("Timeout conectare  : {} s", c.timeout_conectare_s),
+                None => scrie!("Configurare activa : NU SE CITESTE (vezi eroarea)"),
+            }
             Ok(())
         }
+    };
+    afisat?;
+    match eroare_configurare {
+        Some(e) => Err(e),
+        None => Ok(()),
     }
 }
 
