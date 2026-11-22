@@ -350,6 +350,7 @@ fn ruleaza() -> Result<(), String> {
             let referinta = s.referinta.clone();
             let baze = s.baze();
             let bara = s.text_bara_lista(limba);
+            let verificare = s.text_verificare(limba);
             let progres = s.progres_recomparare(limba);
             // antetul arata o singura tinta: cu mai multe, cate sunt
             let baza = match baze.as_slice() {
@@ -405,6 +406,13 @@ fn ruleaza() -> Result<(), String> {
                         },
                         &model,
                     );
+                    match &verificare {
+                        Some((text, bine)) => {
+                            e_ui.set_verificare_text(text.as_str().into());
+                            e_ui.set_verificare_ok(*bine);
+                        }
+                        None => e_ui.set_verificare_text(Default::default()),
+                    }
                     gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista(), app.arbore());
                     gmotion_fereastra::incarca_taburi(&e_ui, app.taburi(), |c| {
                         app.are_text_final(c)
@@ -863,6 +871,8 @@ fn ruleaza() -> Result<(), String> {
         limba_si_tema!(deploy_ui, "deploy");
         // garda: se recitesc ambele baze si se compara amprentele
         pe_stare!(deploy_ui.on_verifica_baza(|st| st.porneste_garda()));
+        // textul final la SQL Server, fara efecte (etapa 26)
+        pe_stare!(editor_ui.on_verifica_pe_server(|st| st.verifica_pe_server()));
         // dialogul nativ (etapa 25): unde se scrie, si folderul deschis dupa
         pe_stare!(deploy_ui.on_alege_folderul(|st| {
             if let Some(d) = rfd::FileDialog::new().pick_folder() {

@@ -19,7 +19,9 @@ use tokio::net::TcpStream;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 
 use crate::eroare::{valideaza_baza, valideaza_nume, Eroare, Redactat, Rezultat};
-use crate::model::{Autentificare, Certificat, InfoServer, Obiect, Setari, Tinta};
+use crate::model::{
+    Autentificare, Certificat, InfoServer, MesajServer, Obiect, Setari, Tinta, VerificareServer,
+};
 use crate::sursa::SursaObiecte;
 
 /// Interogarea care aduce obiectele comparabile. Tipurile vin din
@@ -215,6 +217,86 @@ impl SursaSqlServer {
         rez
     }
 
+    /// Verificarea fara efecte pe conexiunea deschisa (vezi `verifica_cod`).
+    fn verifica_pe_conexiune(
+        &mut self,
+        baza: &str,
+        cod: &str,
+        setari: Option<Setari>,
+    ) -> Rezultat<VerificareServer> {
+        let Some((_, client)) = self.conexiune.as_mut() else {
+            return Err(Eroare::Interogare {
+                baza: baza.to_string(),
+                detaliu: "conexiunea lipseste dupa conectare".into(),
+            });
+        };
+        let eroare = |detaliu: String| Eroare::Interogare {
+            baza: baza.to_string(),
+            detaliu,
+        };
+        let on = |b: bool| if b { "ON" } else { "OFF" };
+        let (ansi, qi) = setari.map_or((true, true), |s| (s.ansi_nulls, s.quoted_identifier));
+        self.runtime.block_on(async {
+            tokio::time::timeout(TIMEOUT_INTEROGARE, async {
+                // ce se cere simplu si nu trebuie sa dea eroare
+                macro_rules! simplu {
+                    ($sql:expr) => {
+                        client
+                            .simple_query($sql)
+                            .await
+                            .map_err(|e| eroare(e.to_string()))?
+                            .into_results()
+                            .await
+                            .map_err(|e| eroare(e.to_string()))?
+                    };
+                }
+                // setarile cu care se compileaza obiectul: `"x"` e nume sau sir
+                simplu!(format!(
+                    "SET ANSI_NULLS {}; SET QUOTED_IDENTIFIER {};",
+                    on(ansi),
+                    on(qi)
+                ));
+                let mut rez = VerificareServer::default();
+                for mod_ in ["PARSEONLY", "NOEXEC"] {
+                    simplu!(format!("SET {mod_} ON"));
+                    // garda: in modul fara efecte, un SELECT nu intoarce nimic.
+                    // Daca intoarce, modul nu e activ si codul ar rula de-a
+                    // binelea: nu se trimite.
+                    let proba = simplu!("SELECT 1 AS gmotion_proba");
+                    if proba.iter().any(|r| !r.is_empty()) {
+                        return Err(Eroare::VerificareNeconfirmata {
+                            baza: baza.to_string(),
+                            mod_: mod_.to_string(),
+                        });
+                    }
+                    let trimis = match client.simple_query(cod).await {
+                        Ok(s) => s.into_results().await.map(|_| ()),
+                        Err(e) => Err(e),
+                    };
+                    let mesaj = match trimis {
+                        Ok(()) => None,
+                        Err(tiberius::error::Error::Server(t)) => Some(MesajServer {
+                            numar: t.code(),
+                            mesaj: t.message().to_string(),
+                            linie: t.line(),
+                        }),
+                        Err(e) => return Err(eroare(e.to_string())),
+                    };
+                    simplu!(format!("SET {mod_} OFF"));
+                    tracing::info!(target: "gmotion::db", %baza, mod_, eroare = ?mesaj, "cod verificat pe server");
+                    if mod_ == "PARSEONLY" {
+                        rez.sintaxa = mesaj;
+                    } else {
+                        rez.compilare = mesaj;
+                    }
+                }
+                Ok(rez)
+            })
+            .await
+            .map_err(|_| eroare(format!("timeout dupa {} s", TIMEOUT_INTEROGARE.as_secs())))?
+        })
+    }
+
     /// Verifica conexiunea si intoarce ce raporteaza serverul despre el insusi.
     /// Pentru ecranul de conectare si pentru `gmotion diagnostic`.
     pub fn verifica(&mut self, baza: &str) -> Rezultat<InfoServer> {
@@ -310,6 +392,22 @@ impl SursaObiecte for SursaSqlServer {
     fn obiecte(&mut self, baza: &str) -> Rezultat<Vec<Obiect>> {
         let randuri = self.interogheaza(baza, &interogare_obiecte())?;
         obiecte_din_randuri(&randuri, baza)
+    }
+
+    /// Pe o conexiune proaspata, aruncata la final: setarile de sesiune
+    /// (`PARSEONLY`, `NOEXEC`, `QUOTED_IDENTIFIER`) nu raman pentru citirile
+    /// de dupa.
+    fn verifica_cod(
+        &mut self,
+        baza: &str,
+        cod: &str,
+        setari: Option<Setari>,
+    ) -> Rezultat<VerificareServer> {
+        self.conexiune = None;
+        self.conectare(baza)?;
+        let rez = self.verifica_pe_conexiune(baza, cod, setari);
+        self.conexiune = None;
+        rez
     }
 
     /// Pana la `PARALELISM` baze deodata, pe conexiuni separate, ca v3.4

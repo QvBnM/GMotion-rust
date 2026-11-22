@@ -153,6 +153,10 @@ component CapPanou inherits Rectangle {
 }
 
 export component EditorDiferente inherits Window {
+    // „Verifica pe server" (etapa 26): cererea, si ce a raspuns serverul
+    callback verifica-pe-server();
+    in property <string> verificare-text;
+    in property <bool> verificare-ok;
     // ce nu se inchide in textul final (etapa 26), sau gol
     in property <string> probleme-structura;
     // campul de editare: textul la fiecare schimbare si randurile colorate
@@ -667,6 +671,7 @@ export component EditorDiferente inherits Window {
                             RandMeniu { text: Texte.anuleaza-ctrlz; tasta: "Ctrl Z"; activ: root.se-poate-anula; apasat => { root.anuleaza(); } }
                             Rectangle { height: 1px; background: Tema.linie-slaba; }
                             RandMeniu { text: Texte.editeaza; tasta: "Ctrl E"; apasat => { root.porneste-editarea(); } }
+                            RandMeniu { text: Texte.verifica-pe-server; apasat => { root.verifica-pe-server(); } }
                             RandMeniu {
                                 text: root.ghidat ? Texte.mod-ghidat-pornit : Texte.mod-ghidat;
                                 tasta: "Ctrl G";
@@ -1730,6 +1735,36 @@ export component EditorDiferente inherits Window {
                 font-size: 12.5px;
                 font-weight: 600;
                 color: Tema.del-text;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        // ---- ce a spus serverul (etapa 26): verde sau rosu, deasupra
+        // mesajului de structura, daca e si acela
+        if root.verificare-text != "": Rectangle {
+            x: root.stanga + root.width - root.ocupat - self.width - 24px;
+            y: root.height - root.jos - 12px - self.height
+                - (root.probleme-structura != "" ? 40px : 0px)
+                - (root.alege-activ ? 40px : 0px);
+            width: Math.min(verificare.preferred-width + 36px, (root.width - root.ocupat) * 0.6);
+            height: 30px;
+            border-radius: 8px;
+            background: root.verificare-ok ? Tema.add-fundal : Tema.del-fundal;
+            border-width: 1px;
+            border-color: root.verificare-ok ? Tema.add-bara : Tema.del-bara;
+            drop-shadow-blur: 16px;
+            drop-shadow-offset-y: 6px;
+            drop-shadow-color: Tema.intunecat ? #00000080 : #0f111530;
+            Rectangle { x: 0px; width: 4px; border-radius: 2px; background: root.verificare-ok ? Tema.add-bara : Tema.del-bara; }
+            verificare := Text {
+                x: 16px;
+                width: parent.width - 24px;
+                text: root.verificare-text;
+                font-family: Tema.font-ui;
+                font-size: 12.5px;
+                font-weight: 600;
+                color: root.verificare-ok ? Tema.add-text : Tema.del-text;
                 vertical-alignment: center;
                 overflow: elide;
             }

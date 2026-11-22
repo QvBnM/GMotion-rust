@@ -53,6 +53,20 @@ pub trait SursaObiecte {
     /// `progres` e `&mut dyn FnMut`, nu `impl FnMut`: un parametru generic ar
     /// face traitul incompatibil cu `dyn`, iar `Box<dyn SursaObiecte>` e exact
     /// cum alege linia de comanda intre server si instantaneu la rulare.
+    /// Trimite `cod` la server **fara efecte** (`SET PARSEONLY ON`, apoi
+    /// `SET NOEXEC ON`) si spune ce eroare da, pe fiecare mod (etapa 26).
+    /// Implicit: refuzat, fiindca un instantaneu n-are server.
+    fn verifica_cod(
+        &mut self,
+        _baza: &str,
+        _cod: &str,
+        _setari: Option<crate::Setari>,
+    ) -> Rezultat<crate::VerificareServer> {
+        Err(crate::Eroare::VerificareFaraServer {
+            sursa: self.identitate(),
+        })
+    }
+
     fn obiecte_multe(
         &mut self,
         baze: &[String],

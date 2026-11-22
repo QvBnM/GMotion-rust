@@ -70,7 +70,19 @@ pub struct Stare {
     /// directorul de date. Deploy-ul merge intr-un subfolder nou al lui, cu
     /// referinta si momentul in nume, ca un folder plin sa nu fie refuzat.
     pub folder_deploy: Option<std::path::PathBuf>,
+    /// „Verifica pe server" (etapa 26), pe alt fir: pentru ce cheie de obiect
+    /// si ce cod s-a trimis.
+    pub verificare: Option<(CheieVerificare, Lucru<gmotion_db::VerificareServer>)>,
+    /// Ultimul raspuns al serverului; se arata cat timp obiectul si codul
+    /// sunt aceleasi.
+    pub rezultat_verificare: Option<(
+        CheieVerificare,
+        Result<gmotion_db::VerificareServer, String>,
+    )>,
 }
+
+/// Ce s-a verificat pe server: obiectul (`baza`, `schema.nume`) si codul trimis.
+pub type CheieVerificare = ((String, String), String);
 
 /// Ce s-a intamplat cu compararea care rula, la o bataie de ceas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,6 +116,8 @@ impl Stare {
             uneste_implicit: false,
             mesaj_lista: String::new(),
             folder_deploy: None,
+            verificare: None,
+            rezultat_verificare: None,
         }
     }
 
@@ -423,6 +437,15 @@ impl Stare {
                 }
             }
         }
+        if let Some((_, l)) = self.verificare.as_mut() {
+            if let Some(r) = l.verifica() {
+                if let Some((cheie, _)) = self.verificare.take() {
+                    tracing::info!(target: "gmotion::app", reusita = r.is_ok(), "verificarea pe server s-a terminat");
+                    self.rezultat_verificare = Some((cheie, r));
+                    s_a_schimbat = true;
+                }
+            }
+        }
         if let Some(l) = self.garda.as_mut() {
             if let Some(r) = l.verifica() {
                 self.garda = None;
@@ -739,6 +762,90 @@ impl Stare {
             Ok(r) => Some(r.director.clone()),
             Err(_) => None,
         }
+    }
+
+    /// Ce s-ar trimite la verificarea pe server pentru obiectul deschis:
+    /// cheia, codul in forma care se deployeaza (`CREATE OR ALTER`, numele
+    /// din plan) si setarile lui de creare. `None` fara obiect deschis.
+    fn de_verificat(&self) -> Option<(CheieVerificare, Option<gmotion_db::Setari>)> {
+        let app = self.app.as_ref()?;
+        let cheie = app.obiect()?.cheie();
+        let (_, final_) = app.texte_curente()?;
+        let cod = modul::aplica_create_or_alter(&final_, &cheie.1);
+        let setari = app.sursa().get(&cheie.1).and_then(|o| o.setari);
+        Some(((cheie, cod), setari))
+    }
+
+    /// „Verifica pe server": textul final (sau al bazei) al obiectului
+    /// deschis, trimis fara efecte la baza modificata, pe alt fir.
+    pub fn verifica_pe_server(&mut self) {
+        if self.verificare.is_some() {
+            return;
+        }
+        let Some((cheie, setari)) = self.de_verificat() else {
+            return;
+        };
+        let c = self.conectare.clone();
+        let (baza, cod) = (cheie.0 .0.clone(), cheie.1.clone());
+        tracing::info!(target: "gmotion::app", %baza, obiect = %cheie.0 .1, "verific pe server");
+        self.verificare = Some((
+            cheie,
+            Lucru::porneste(move || {
+                let mut s = pornire::deschide(&c, &c.baza)?;
+                s.verifica_cod(&baza, &cod, setari)
+                    .map_err(|e| e.to_string())
+            }),
+        ));
+    }
+
+    /// Ce spune editorul despre verificarea pe server: textul si daca e de
+    /// bine. `None` cand nu e nimic de spus pentru obiectul si codul de acum
+    /// (un raspuns vechi nu mai e al lor).
+    pub fn text_verificare(&self, limba: gmotion_core::Limba) -> Option<(String, bool)> {
+        let (cheie, _) = self.de_verificat()?;
+        if self.verificare.as_ref().is_some_and(|(k, _)| *k == cheie) {
+            return Some((
+                limba
+                    .alege("Se verifica pe server…", "Checking on the server…")
+                    .to_string(),
+                true,
+            ));
+        }
+        let (k, r) = self.rezultat_verificare.as_ref()?;
+        if *k != cheie {
+            return None;
+        }
+        Some(match r {
+            Err(e) => (
+                format!(
+                    "{}: {e}",
+                    limba.alege("Nu s-a putut verifica", "Could not check")
+                ),
+                false,
+            ),
+            Ok(v) => match v.sintaxa.as_ref().or(v.compilare.as_ref()) {
+                None => (
+                    limba
+                        .alege(
+                            "Serverul accepta textul final (sintaxa si compilarea)",
+                            "The server accepts the final text (syntax and compilation)",
+                        )
+                        .to_string(),
+                    true,
+                ),
+                Some(m) => (
+                    format!(
+                        "{} {} {} {}: {}",
+                        limba.alege("Serverul: eroarea", "Server: error"),
+                        m.numar,
+                        limba.alege("la linia", "at line"),
+                        m.linie,
+                        m.mesaj
+                    ),
+                    false,
+                ),
+            },
+        })
     }
 
     /// Ce scrie in bara listei: un „In plan" refuzat bate mesajul tinut.
@@ -1415,6 +1522,40 @@ mod teste {
         s.deconecteaza();
         assert!(s.salvat_la.is_empty() && s.mesaj_lista.is_empty());
         assert!(s.conectare.eroare_comparare.is_none());
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// Etapa 26: verificarea pe server, pe un instantaneu, se termina cu
+    /// refuzul lui (GM-DB-012) aratat in editor; alt obiect nu-l mosteneste.
+    #[test]
+    fn verificarea_pe_server_pe_instantaneu_spune_ca_nu_se_poate() {
+        let (mut s, d) = stare("verificare");
+        let r = comparata(&s);
+        s.primeste_compararea(r);
+        let app = s.app.as_mut().unwrap();
+        app.comanda(Comanda::Selecteaza(0));
+        app.comanda(Comanda::Deschide);
+        assert!(s.text_verificare(gmotion_core::Limba::Romana).is_none());
+        s.verifica_pe_server();
+        let (t, _) = s
+            .text_verificare(gmotion_core::Limba::Romana)
+            .expect("in curs");
+        assert!(t.starts_with("Se verifica"), "{t}");
+        for _ in 0..500 {
+            if s.verifica_lucrarile() && s.verificare.is_none() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        let (t, bine) = s
+            .text_verificare(gmotion_core::Limba::Romana)
+            .expect("raspuns");
+        assert!(!bine && t.contains("GM-DB-012"), "{t}");
+        s.app.as_mut().unwrap().comanda(Comanda::Selecteaza(1));
+        assert!(
+            s.text_verificare(gmotion_core::Limba::Romana).is_none(),
+            "raspunsul era pentru alt obiect"
+        );
         std::fs::remove_dir_all(&d).ok();
     }
 

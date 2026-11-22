@@ -49,6 +49,14 @@ pub enum Eroare {
 
     #[error("[GM-DB-011] numele de baza {0:?} e gol, prea lung (peste 128 de caractere) sau contine caractere de control")]
     BazaInvalida(String),
+
+    #[error(
+        "[GM-DB-012] verificarea pe server cere o conexiune la SQL Server; {sursa} nu e un server"
+    )]
+    VerificareFaraServer { sursa: String },
+
+    #[error("[GM-DB-013] pe {baza}, serverul nu a confirmat modul fara efecte ({mod_}); codul nu s-a trimis")]
+    VerificareNeconfirmata { baza: String, mod_: String },
 }
 
 impl Eroare {
@@ -66,6 +74,8 @@ impl Eroare {
             Eroare::VersiuneInstantaneu { .. } => "GM-DB-009",
             Eroare::NumeInvalid(_) => "GM-DB-010",
             Eroare::BazaInvalida(_) => "GM-DB-011",
+            Eroare::VerificareFaraServer { .. } => "GM-DB-012",
+            Eroare::VerificareNeconfirmata { .. } => "GM-DB-013",
         }
     }
 

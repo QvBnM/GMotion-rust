@@ -222,6 +222,13 @@ enum Comanda {
         /// Scrie textul final la iesirea standard, in loc de rezumat.
         #[arg(long)]
         arata_final: bool,
+
+        /// Trimite si textul final (sau al bazei, daca nu e editat) la SQL
+        /// Server, fara efecte (`SET PARSEONLY ON`, apoi `SET NOEXEC ON`), in
+        /// baza modificata, si spune ce eroare da. Cere un server, nu un
+        /// instantaneu.
+        #[arg(long, conflicts_with = "arata_final")]
+        pe_server: bool,
     },
 
     /// Arata diferentele unui singur obiect, linie cu linie.
@@ -375,6 +382,7 @@ fn main() -> std::process::ExitCode {
             reset,
             din_fisier,
             arata_final,
+            pe_server,
         } => (|| {
             let actiune = if let Some(a) = aplica {
                 let numere = sursa::lista(a)
@@ -405,6 +413,7 @@ fn main() -> std::process::ExitCode {
                 obiect,
                 actiune,
                 *arata_final,
+                *pe_server,
                 format,
             )
         })(),

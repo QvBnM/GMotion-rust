@@ -929,6 +929,11 @@ fn textul_final_stricat_se_spune_la_editare_si_la_deploy() {
         "{}",
         out(&o)
     );
+
+    // pe server: un instantaneu nu e server, deci refuz clar, cu codul lui
+    let o = editare(false, &["--pe-server"]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("GM-DB-012"), "{}", err(&o));
     std::fs::remove_dir_all(&d).ok();
 }
 

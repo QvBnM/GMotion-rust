@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 1b4fe6f760898a3a -->
+<!-- api-hash: 9b798dd832101d95 -->
 
 ## Rol
 
@@ -35,6 +35,7 @@ se testeaza fara SQL Server.
 | `baze()` | bazele disponibile, sortate, fara cele de sistem |
 | `obiecte(baza)` | proceduri, view-uri, functii, triggere |
 | `obiecte_multe(baze, progres)` | bucla cu raportare de progres; prima eroare opreste citirea |
+| `verifica_cod(baza, cod, setari) -> VerificareServer` | trimite codul **fara efecte**: `SET PARSEONLY ON` (sintaxa), apoi `SET NOEXEC ON` (compilarea), cu `ANSI_NULLS` / `QUOTED_IDENTIFIER` ale obiectului; inainte de cod, un `SELECT 1` trebuie sa nu intoarca nimic, altfel codul nu se trimite (`GM-DB-013`); conexiune proaspata, aruncata dupa. Implicit (instantaneu): `GM-DB-012`. `MesajServer` = numarul, mesajul si linia erorii (etapa 26) |
 
 ### Tipuri
 
@@ -112,6 +113,8 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 | `GM-DB-003` | auth integrata ceruta pe un sistem care nu o are (orice non-Windows) | `src/sqlserver.rs` |
 | `GM-DB-004` | interogarea cade: drepturi lipsa pe `sys.sql_modules`, baza offline | `src/sqlserver.rs` |
 | `GM-DB-011` | nume de baza gol, peste 128 de caractere, sau cu caractere de control | `src/eroare.rs` |
+| `GM-DB-012` | verificarea pe server ceruta pe un instantaneu | `src/sursa.rs` |
+| `GM-DB-013` | serverul n-a confirmat `PARSEONLY` / `NOEXEC` (un `SELECT 1` a intors randuri): codul nu s-a trimis | `src/sqlserver.rs`, `verifica_pe_conexiune` |
 | `GM-DB-005` | baza ceruta nu exista in sursa | `src/sqlserver.rs`, `src/fixture.rs` |
 | `GM-DB-006` | descoperirea esueaza: socket UDP blocat local | `src/descoperire.rs` |
 | `GM-DB-007` | instantaneul nu se citeste: fisier lipsa sau JSON rupt | `src/fixture.rs` |

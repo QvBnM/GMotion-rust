@@ -35,6 +35,25 @@ pub struct Obiect {
     pub modificat: Option<String>,
 }
 
+/// Ce a spus serverul despre un cod verificat fara efecte (etapa 26): prima
+/// eroare, pe fiecare mod. `None` = serverul l-a acceptat in modul acela.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct VerificareServer {
+    /// `SET PARSEONLY ON`: doar sintaxa.
+    pub sintaxa: Option<MesajServer>,
+    /// `SET NOEXEC ON`: si compilarea (nume de coloane din tabele existente),
+    /// fara executie.
+    pub compilare: Option<MesajServer>,
+}
+
+/// O eroare a serverului: numarul, mesajul si linia din codul trimis (de la 1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MesajServer {
+    pub numar: u32,
+    pub mesaj: String,
+    pub linie: u32,
+}
+
 /// Setarile de sesiune pe care SQL Server le retine la crearea unui modul
 /// (`sys.sql_modules.uses_ansi_nulls` / `uses_quoted_identifier`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

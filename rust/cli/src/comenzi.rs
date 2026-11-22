@@ -719,6 +719,7 @@ pub fn editare(
     obiect: &str,
     actiune: ActiuneEditare,
     arata_final: bool,
+    pe_server: bool,
     format: Format,
 ) -> Result<(), String> {
     // cu `--arata-final`, iesirea standard e **fisierul** cerut de om: progresul
@@ -821,6 +822,18 @@ pub fn editare(
     } else {
         Vec::new()
     };
+    // si ce spune serverul, fara efecte, in forma care se deployeaza
+    let server = if pe_server {
+        let mut s = args.deschide()?;
+        let setari = r.referinta.get(&rand.obiect).and_then(|o| o.setari);
+        let cod = modul::aplica_create_or_alter(&curent, &rand.obiect);
+        Some(
+            s.verifica_cod(baza, &cod, setari)
+                .map_err(|e| e.to_string())?,
+        )
+    } else {
+        None
+    };
     if format == Format::Json {
         let lista_dif: Vec<serde_json::Value> = diferente
             .iter()
@@ -847,6 +860,7 @@ pub fn editare(
                 "linie": p.linie,
                 "text": p.to_string(),
             })).collect::<Vec<_>>(),
+            "server": server,
         }))
         .map_err(|e| e.to_string());
     }
@@ -866,6 +880,17 @@ pub fn editare(
     );
     for p in &probleme {
         println!("Atentie: textul final nu se mai compileaza: {p}.");
+    }
+    if let Some(v) = &server {
+        for (ce, m) in [("sintaxa", &v.sintaxa), ("compilarea", &v.compilare)] {
+            match m {
+                None => println!("Serverul, {ce}: fara erori."),
+                Some(m) => println!(
+                    "Serverul, {ce}: eroarea {} la linia {}: {}",
+                    m.numar, m.linie, m.mesaj
+                ),
+            }
+        }
     }
     if diferente.is_empty() {
         println!("Nicio diferenta ramasa fata de {referinta}.");

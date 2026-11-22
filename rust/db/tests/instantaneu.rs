@@ -232,3 +232,20 @@ fn ultima_modificare_trece_prin_instantaneu_iar_cele_vechi_merg() {
     assert_eq!(vechi.baze["B"][0].modificat, None);
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Etapa 26: un instantaneu nu are server, deci verificarea codului pe server
+/// e refuzata clar, cu codul ei, nu tacut.
+#[test]
+fn verificarea_pe_server_e_refuzata_pe_instantaneu() {
+    let mut i = Instantaneu::nou("SRV", "2026-11-22T10:00:00Z");
+    i.baze.insert(
+        "B".into(),
+        vec![obiect("dbo", "p", "P", "CREATE PROC dbo.p AS SELECT 1")],
+    );
+    let mut s = SursaFixture::din_instantaneu(i);
+    let e = s
+        .verifica_cod("B", "CREATE OR ALTER PROC dbo.p AS SELECT 1", None)
+        .expect_err("fara server");
+    assert_eq!(e.cod(), "GM-DB-012");
+    assert!(e.to_string().contains("nu e un server"), "{e}");
+}
