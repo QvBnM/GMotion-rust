@@ -152,6 +152,29 @@ pub fn baze(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
     }
 }
 
+/// „Testeaza conexiunea" din fereastra, din linia de comanda: editia,
+/// versiunea, de cand merge serverul si cate baze are. Fara ea, un esec al
+/// butonului nu se putea depana (F-B3).
+pub fn testeaza(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
+    let mut s = args.deschide_server()?;
+    let info = s.verifica("master").map_err(|e| e.to_string())?;
+    match format {
+        Format::Json => afisare::scrie_json(&info).map_err(|e| e.to_string()),
+        Format::Text => {
+            println!("Conexiune: ok");
+            println!("Editie   : {}", info.editie);
+            println!("Versiune : {}", info.sistem);
+            if let Some(sec) = info.pornit_de_secunde {
+                println!("Pornit de: {} ore", sec / 3600);
+            }
+            if let Some(n) = info.nr_baze {
+                println!("Baze     : {n}");
+            }
+            Ok(())
+        }
+    }
+}
+
 pub fn instantaneu(
     args: &ArgumenteSursa,
     baze_cerute: Option<&str>,

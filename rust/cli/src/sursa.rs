@@ -72,23 +72,34 @@ impl ArgumenteSursa {
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc din instantaneu");
                 Ok(Box::new(s))
             }
-            (None, Some(server)) => {
-                let auth: Autentificare = self.auth.rezolva()?;
-                let s = SursaSqlServer::nou(
-                    Tinta {
-                        server: server.clone(),
-                        port: self.port,
-                        certificat: certificat(&self.certificat),
-                    },
-                    auth,
-                )
-                .map_err(|e| e.to_string())?
-                .cu_timeout_conectare(std::time::Duration::from_secs(timeout_conectare_s()));
+            (None, Some(_)) => {
+                let s = self.deschide_server()?;
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc de pe server");
                 Ok(Box::new(s))
             }
             (None, None) => Err("da ori --server <SERVER>, ori --sursa <instantaneu.json>".into()),
         }
+    }
+
+    /// Doar serverul, pentru ce n-are sens pe un instantaneu: testul de
+    /// conexiune (`gmotion testeaza`, ca butonul din fereastra).
+    pub fn deschide_server(&self) -> Result<SursaSqlServer, String> {
+        let Some(server) = &self.server else {
+            return Err(
+                "comanda cere --server <SERVER>: un instantaneu n-are conexiune de testat".into(),
+            );
+        };
+        let auth: Autentificare = self.auth.rezolva()?;
+        Ok(SursaSqlServer::nou(
+            Tinta {
+                server: server.clone(),
+                port: self.port,
+                certificat: certificat(&self.certificat),
+            },
+            auth,
+        )
+        .map_err(|e| e.to_string())?
+        .cu_timeout_conectare(std::time::Duration::from_secs(timeout_conectare_s())))
     }
 }
 

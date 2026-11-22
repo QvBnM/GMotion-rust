@@ -1616,3 +1616,16 @@ fn golirea_pastreaza_textele_finale_si_refuza_alte_actiuni() {
         "textul final a ramas:\n{sql}"
     );
 }
+
+/// `testeaza` (butonul „Testeaza conexiunea", din cli): pe un instantaneu
+/// spune ca n-are ce testa; fara server, cod nenul si mesaj pe erori.
+#[test]
+fn testeaza_cere_server() {
+    let d = dir("testeaza");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let o = ruleaza(&["testeaza", "--sursa", inst.to_str().unwrap()]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("--server"), "{}", err(&o));
+    assert!(out(&o).is_empty());
+}

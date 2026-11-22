@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 624d8b63bf6726d5 -->
+<!-- api-hash: 756b1c1c2b6d4dc2 -->
 
 ## Rol
 
@@ -28,6 +28,7 @@ Doua lucruri trebuie sa ramana adevarate:
 | `diagnostic` | ce vede GMotion: versiune, cai, configurare, ce e disponibil. Prima comanda cand ceva nu merge |
 | `servere` | descoperire prin SQL Browser (UDP 1434) |
 | `baze` | bazele disponibile |
+| `testeaza` | testul de conexiune, ca butonul din fereastra: editia, versiunea, de cand merge, cate baze; doar pe server |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
 | `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge); `--goleste` sterge doar bifele (textele finale, notele si marcajele de deploy raman) |

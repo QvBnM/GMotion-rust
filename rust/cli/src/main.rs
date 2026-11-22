@@ -81,6 +81,13 @@ enum Comanda {
         sursa: ArgumenteSursa,
     },
 
+    /// Testeaza conexiunea la server, ca butonul din fereastra: editia,
+    /// versiunea, de cand merge si cate baze are. Doar pe server.
+    Testeaza {
+        #[command(flatten)]
+        sursa: ArgumenteSursa,
+    },
+
     /// Scrie obiectele brute intr-un fisier, ca sa poata fi reluate offline.
     Instantaneu {
         #[command(flatten)]
@@ -325,6 +332,7 @@ fn main() -> std::process::ExitCode {
         Comanda::Diagnostic => comenzi::diagnostic(format),
         Comanda::Servere => comenzi::servere(format),
         Comanda::Baze { sursa } => comenzi::baze(sursa, format),
+        Comanda::Testeaza { sursa } => comenzi::testeaza(sursa, format),
         Comanda::Instantaneu {
             sursa,
             baze,
