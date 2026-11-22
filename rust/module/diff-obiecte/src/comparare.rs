@@ -205,8 +205,25 @@ pub fn compara(
     referinta: &str,
     ref_obiecte: &Baza,
     altele: &[(String, Baza)],
-    mut progres: impl FnMut(Progres),
+    progres: impl FnMut(Progres),
 ) -> Comparare {
+    match compara_cu_oprire(referinta, ref_obiecte, altele, progres, || true) {
+        Some(c) => c,
+        // `continua` intoarce mereu `true`, deci nu se poate opri
+        None => unreachable!("compararea fara oprire s-a oprit"),
+    }
+}
+
+/// Ca [`compara`], dar se opreste (`None`) cand `continua` spune `false`;
+/// intrebat la fiecare 50 de obiecte. „Anuleaza" din fereastra lasa altfel
+/// firul sa arda CPU pana la capat (P8 din auditul QA).
+pub fn compara_cu_oprire(
+    referinta: &str,
+    ref_obiecte: &Baza,
+    altele: &[(String, Baza)],
+    mut progres: impl FnMut(Progres),
+    mut continua: impl FnMut() -> bool,
+) -> Option<Comparare> {
     let mut randuri = Vec::new();
     let mut n = Numaratoare {
         total_referinta: ref_obiecte.len(),
@@ -225,6 +242,9 @@ pub fn compara(
     });
 
     for (idx, (nume, r)) in ref_obiecte.iter().enumerate() {
+        if idx % 50 == 0 && !continua() {
+            return None;
+        }
         if idx % 1000 == 0 && idx > 0 {
             let procent = 5 + (85 * idx / total) as u8;
             progres(Progres {
@@ -374,12 +394,12 @@ pub fn compara(
         gata: true,
     });
 
-    Comparare {
+    Some(Comparare {
         referinta: referinta.to_string(),
         baze: altele.iter().map(|(b, _)| b.clone()).collect(),
         randuri,
         numaratoare: n,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -399,6 +419,35 @@ mod teste {
 
     fn fara_progres() -> impl FnMut(Progres) {
         |_| {}
+    }
+
+    /// P8: compararea se opreste cand i se cere, fara sa termine.
+    #[test]
+    fn compararea_se_opreste_la_cerere() {
+        let obiecte: Vec<Obiect> = (0..500)
+            .map(|i| {
+                ob(
+                    &format!("p{i}"),
+                    &format!("CREATE PROC dbo.p{i} AS SELECT {i}"),
+                )
+            })
+            .collect();
+        let r = pregateste(&obiecte);
+        let a = vec![("T".to_string(), pregateste(&obiecte[..10]))];
+        let mut intrebari = 0;
+        let rez = compara_cu_oprire(
+            "R",
+            &r,
+            &a,
+            |_| {},
+            || {
+                intrebari += 1;
+                intrebari < 3
+            },
+        );
+        assert!(rez.is_none());
+        assert_eq!(intrebari, 3, "s-a oprit la a treia intrebare, nu la capat");
+        assert!(compara_cu_oprire("R", &r, &a, |_| {}, || true).is_some());
     }
 
     #[test]

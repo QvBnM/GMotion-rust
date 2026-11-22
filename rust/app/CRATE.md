@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 5692c3e807e4c88e -->
+<!-- api-hash: 84d0c5059d30612c -->
 
 ## Rol
 
@@ -64,7 +64,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `pornire::instantanee_gasite()` | fisierele .json de ales in „Deschide un instantaneu", fara dialog nativ |
 | `pornire::compara_offline(sursa, tinta, limba)` | compararea a doua bucati de cod lipite, fara server |
 | `pornire::citeste(c, progres) -> Citit`, `reciteste(c)` | doar citirea obiectelor, fara comparare: atat ii trebuie garzii de deploy (P4) |
-| `pornire::compara(c) -> Comparata`, `compara_cu(c, progres)`, `Pas`, `ANULAT` | citeste referinta si fiecare baza bifata si compara; `compara_cu` da progresul si se poate anula. `Comparata::referinta` e baza **cu care a rulat**, nu ce scrie in formular la final (F-A3) |
+| `pornire::compara(c) -> Comparata`, `compara_cu(c, progres, continua)`, `Pas`, `ANULAT` | citeste referinta si fiecare baza bifata si compara; `compara_cu` da progresul si se poate anula si in timpul citirii (`progres` intoarce `false`), si in timpul compararii (`continua`, P8). `Comparata::referinta` e baza **cu care a rulat**, nu ce scrie in formular la final (F-A3) |
 
 ## Invariante
 
