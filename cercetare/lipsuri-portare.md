@@ -1,6 +1,6 @@
 # Ce lipseste din portare, fata de v3.4
 
-Inventar facut pe 2026-11-18, la cererea lui Mihai: **intai functionalitatile,
+Inventar facut pe 2026-11-18 si refacut pe cod pe 2026-11-22 (etapa 25), la cererea lui Mihai: **intai functionalitatile,
 apoi aspectul vizual**. Comparat codul din `mostenire/` (v3.4) cu `rust/`.
 Afirmatiile despre butoane nelegate sunt verificate in cod (handler `on_*`
 lipsa in `rust/app/src/main.rs`), nu doar deduse.
@@ -31,20 +31,19 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 | Functie v3.4 | Unde in v3.4 | Rust | Nota |
 |---|---|---|---|
-| Progres la **Recompara** (din lista) si la garda de deploy | — | inca sincrone: fereastra sta cat se recitesc bazele | compararea din conectare are deja fir, progres si Anuleaza |
-| Deschiderea unui instantaneu din fereastra | — (nou) | da: alegere din `.json`-urile gasite pe disc, sau cale scrisa | dialogul nativ (`rfd`) ramane de decis |
+| Progres la **Recompara** (din lista) | — | pe fir, dar lista nu arata progresul si nu are Anuleaza | etapa 25; garda de deploy e pe fir din P4 |
+| Deschiderea unui instantaneu din fereastra | — (nou) | alegere din `.json`-urile gasite pe disc, sau cale scrisa | etapa 25: dialogul nativ (`rfd`), decis de Mihai pe 2026-11-22 |
 
 ## 2. Comparare offline
 
-| Functie v3.4 | Unde | Rust | Nota |
-|---|---|---|---|
-| Lipesti doua bucati de cod SQL si le compari (Lipeste / Sterge) | `ui.py:1547,3116` | nu, nici in CLI | |
+Facuta (lipire de cod, `pornire::compara_offline`, ecranul offline din
+conectare).
 
 ## 3. Lista de rezultate
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Coloana „Ultima modificare" | `ui.py:2529` | nu, nici in CLI | trebuie citita si din `sys.objects.modify_date` |
+| Coloana „Ultima modificare" | `ui.py:2529` | nu, nici in CLI | etapa 25; din `sys.objects.modify_date` |
 
 Rezolvate in etapa 14: coloane redimensionabile cu autofit la dublu clic,
 Ajutor (F1), filtrul pe baza, Ctrl+F in cautare, filtrul pe stare (sase cazuri),
@@ -87,9 +86,11 @@ comuta (sectiunea 0).
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| „Include si ce a fost deja trimis la deploy" | `ui.py:1161` | da: „Toate in plan" din lista; starea „deployat" se tine pe amprenta | |
-| Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE`; GUI scrie in directorul de date, fara alegere | asteapta decizia pe `rfd` (selectorul de fisiere) |
-| Starea „deployat" tinuta minte | `ui.py:2533-2549` | nu: ce e „in plan" se pierde la inchidere | |
+| Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE`; GUI scrie in directorul de date, fara alegere | etapa 25, cu `rfd` |
+
+Facute: „Toate in plan" cu cele deja trimise, starea „deployat" tinuta in
+sesiune pe amprenta (`Aplicatie::marcheaza_deployate`), planul pastrat la
+recomparare (etapa 24).
 
 Nou fata de v3.4, in CLI si (din etapa 13) in fereastra: planul cu
 amprente, garda „baza n-a mai fost atinsa", scriptul de revenire, ordinea pe
@@ -99,11 +100,12 @@ dependente. Doar in CLI: garda de versiune, setarile `SET` refacute.
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Tab „Sesiuni": lista cu progres, Reia / Ignora, insigna | `ui.py:869,2218-2310`, `app.py:245-318` | partial: „Recente" pe ecranul de conectare; nu se pot sterge | |
-| Indicatorul „salvat" | `ui.py:2313` | nu (se salveaza tacit) | |
-| 6 teme, inclusiv intunecate | `ui.py:1075-1085` | partial: doua moduri, intunecat si luminos, cu butonul de tema (etapa 13) | decizia lui Mihai: aceeasi paleta, doua moduri |
-| Ecran complet | `app.py:695-870` | nu | |
-| „Despre" | — | nu | **cerut de licenta Slint** (vezi `JURNAL.md`) |
+| 6 teme, inclusiv intunecate | `ui.py:1075-1085` | doua moduri, intunecat si luminos | decizia lui Mihai: aceeasi paleta, doua moduri |
+| „Despre" | — | nu | etapa 25; **cerut de licenta Slint** (`AboutSlint`, vezi `JURNAL.md`) |
+
+Facute: „Recente" pe conectare cu progres, Reia si Ignora (sterge sesiunea);
+indicatorul „salvat la 14:52" in editor; ecranul complet (F11, pe toate
+ecranele).
 
 ---
 
