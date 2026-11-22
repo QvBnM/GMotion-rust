@@ -837,6 +837,12 @@ pub struct AntetEditor<'a> {
     pub revizuit: bool,
     /// Obiectul e in planul de deploy.
     pub in_plan: bool,
+    /// A cata construire a modelului (`Aplicatie::refaceri_model`). Cand e
+    /// aceeasi ca la incarcarea de dinainte (si optiunile de afisare la fel),
+    /// randurile si derularea raman: altfel orice comanda (bifa, „In plan")
+    /// arunca vederea la coloana 0 si la diferenta curenta (C6 din
+    /// `cercetare/audit-qa-2026-11-22.md`). `None`: incarca mereu.
+    pub generatie: Option<u64>,
 }
 
 /// „1 diferenta" / „4 diferente" / „21 de diferente".
@@ -997,6 +1003,25 @@ pub fn incarca_coloana_lista(
 
 /// se cheama o data, la pornire.
 pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEditor) {
+    let semnatura = antet.generatie.map(|g| {
+        format!(
+            "{}|{g}|{}|{}|{}|{}|{:?}",
+            antet.id,
+            ui.get_pliaza_identicul(),
+            ui.get_alaturat(),
+            ui.get_impacheteaza(),
+            ui.get_coloane_wrap(),
+            limba_curenta(ui)
+        )
+    });
+    if semnatura.is_some() && semnatura.as_deref() == Some(ui.get_semnatura_randuri().as_str()) {
+        // acelasi model, aceleasi optiuni: doar antetul se poate schimba
+        ui.set_in_plan(antet.in_plan);
+        ui.set_revizuit(antet.revizuit);
+        ui.set_stare_obiecte(antet.stare_obiecte.into());
+        return;
+    }
+    ui.set_semnatura_randuri(semnatura.unwrap_or_default().into());
     let (randuri, start, tinte) = randuri_ui_cu_tinte(
         model,
         ui.get_pliaza_identicul(),
@@ -1064,7 +1089,8 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_tinte_pana_la(ModelRc::new(VecModel::from(
         tinte.iter().map(|t| t.1).collect::<Vec<_>>(),
     )));
-    ui.set_diferenta_curenta(0);
+    // -1: `incarca_editarea` vede ca e alta decat cea ceruta si derulam la ea
+    ui.set_diferenta_curenta(-1);
     // cu wrap nu mai e nimic de derulat pe orizontala
     ui.set_latime_continut(if ui.get_impacheteaza() {
         0.0
@@ -1154,8 +1180,13 @@ pub fn incarca_editarea(ui: &EditorDiferente, e: &StareEditare) {
             ui.set_ghidat_terminat(false);
         }
     }
+    // doar cand diferenta ceruta e alta decat cea aratata (sau randurile s-au
+    // reincarcat): altfel vederea ramane unde a lasat-o omul (C6)
     if total > 0 {
-        ui.invoke_mergi_la(e.diferenta.min(total - 1) as i32);
+        let ceruta = e.diferenta.min(total - 1) as i32;
+        if ui.get_diferenta_curenta() != ceruta {
+            ui.invoke_mergi_la(ceruta);
+        }
     }
 }
 
@@ -2634,6 +2665,7 @@ mod teste {
                 stare_obiecte: "",
                 revizuit: false,
                 in_plan: false,
+                generatie: None,
             },
             &model,
         );
@@ -2787,6 +2819,7 @@ mod teste {
             stare_obiecte: "obiectul 1 din 2 nerevizuite",
             revizuit: false,
             in_plan: false,
+            generatie: None,
         }
     }
 
@@ -2955,6 +2988,7 @@ mod teste {
                 stare_obiecte: "obiectul 1 din 2 nerevizuite",
                 revizuit: false,
                 in_plan: false,
+                generatie: None,
             },
             &model,
         );
@@ -2991,6 +3025,7 @@ mod teste {
             stare_obiecte: "",
             revizuit: false,
             in_plan: false,
+            generatie: None,
         };
         ui.set_pliaza_identicul(false);
         incarca_editor(&ui, &antet, &model);
@@ -3036,6 +3071,7 @@ mod teste {
             stare_obiecte: "",
             revizuit: false,
             in_plan: false,
+            generatie: None,
         };
         ui.set_pliaza_identicul(false);
         ui.set_alaturat(true);
@@ -3717,6 +3753,7 @@ mod teste {
             stare_obiecte: "obiectul 1 din 2 nerevizuite",
             revizuit: false,
             in_plan: false,
+            generatie: None,
         };
         incarca_editor(&ui, &antet("Prod/dbo.pA", "pA"), &model);
         assert_eq!(ui.get_obiect_id(), "Prod/dbo.pA");
@@ -3879,6 +3916,46 @@ mod teste {
     /// panoul erau taiate fara elipsa, fara derulare si fara impachetare —
     /// o diferenta la coloana 90 era invizibila intr-o unealta de diff.
     #[test]
+    fn aceeasi_generatie_a_modelului_pastreaza_derularea() {
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1024, 768));
+        let lunga = format!("SELECT {} FROM t", "coloana_cu_nume_lung, ".repeat(20));
+        let a = format!("CREATE PROC dbo.p AS\n{lunga} WHERE a = 1");
+        let b = format!("CREATE PROC dbo.p AS\n{lunga} WHERE a = 2");
+        let model = model_editor::construieste(&a, &b);
+        let incarca = |generatie: u64, revizuit: bool| {
+            incarca_editor(
+                &ui,
+                &AntetEditor {
+                    id: "Prod/dbo.p",
+                    schema: "dbo",
+                    nume: "p",
+                    tip: "procedura",
+                    sursa_baza: "Dev",
+                    sursa_server: "srv",
+                    tinta_baza: "Prod",
+                    tinta_server: "srv",
+                    stare_obiecte: "",
+                    revizuit,
+                    in_plan: false,
+                    generatie: Some(generatie),
+                },
+                &model,
+            );
+        };
+        incarca(1, false);
+        ui.show().expect("fereastra se arata");
+        ui.set_derulare_x(120.0);
+        // C6: o bifa (acelasi model) nu arunca derularea
+        incarca(1, true);
+        assert_eq!(ui.get_derulare_x(), 120.0);
+        assert!(ui.get_revizuit(), "antetul se actualizeaza totusi");
+        // un model nou (alt text) incepe de la stanga
+        incarca(2, true);
+        assert_eq!(ui.get_derulare_x(), 0.0);
+    }
+
+    #[test]
     fn liniile_lungi_se_pot_derula_pe_orizontala() {
         let ui = fereastra();
         ui.window().set_size(slint::PhysicalSize::new(1024, 768));
@@ -3900,6 +3977,7 @@ mod teste {
                 stare_obiecte: "obiectul 1 din 1 nerevizuite",
                 revizuit: false,
                 in_plan: false,
+                generatie: None,
             },
             &model,
         );
@@ -3965,6 +4043,7 @@ mod teste {
                 stare_obiecte: "",
                 revizuit: false,
                 in_plan: false,
+                generatie: None,
             },
             &scurt,
         );

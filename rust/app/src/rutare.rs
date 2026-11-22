@@ -247,6 +247,9 @@ impl PanouDetalii {
     }
 }
 
+/// Previzualizarile calculate pentru un model, pe indexul diferentei.
+type Previzualizari = std::collections::HashMap<usize, Vec<LiniePrevizualizare>>;
+
 /// Cheia modelului tinut minte in `Aplicatie::model`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CheieModel {
@@ -294,6 +297,13 @@ pub struct Aplicatie {
     /// De cate ori s-a construit modelul. Numai asa se poate proba ca
     /// desenarea nu-l reface (P1); altfel testul ar masura timpi.
     refaceri_model: std::cell::Cell<u64>,
+    /// Previzualizarile la hover, pe diferenta, pentru modelul de acum. O
+    /// previzualizare realiniaza tot obiectul (~80% din deschidere), iar
+    /// mouse-ul trece de mai multe ori peste aceeasi sageata (C5 din
+    /// `cercetare/audit-qa-2026-11-22.md`).
+    previzualizari: std::cell::RefCell<Option<(CheieModel, Previzualizari)>>,
+    /// De cate ori s-a calculat o previzualizare (pentru test, ca la model).
+    calcule_previzualizare: std::cell::Cell<u64>,
     /// A cata comparare e asta. Dat de un numarator, la construire: ce s-a
     /// calculat pe o comparare (planul de deploy, garda lui) nu se poate
     /// refolosi dupa o recomparare, si uitarea era bug-ul C2 din auditul QA.
@@ -451,6 +461,8 @@ impl Aplicatie {
             uneste_cursorul: false,
             model: std::cell::RefCell::default(),
             refaceri_model: std::cell::Cell::new(0),
+            previzualizari: std::cell::RefCell::default(),
+            calcule_previzualizare: std::cell::Cell::new(0),
             id_comparare: urmatorul_id_comparare(),
             refuzat_in_plan: false,
             arbore: Arbore::default(),
@@ -1144,10 +1156,33 @@ impl Aplicatie {
     /// `aplica_blocuri` ca [`Comanda::AplicaDiferenta`], deci arata exact ce
     /// s-ar scrie.
     pub fn previzualizare(&self, k: usize) -> Option<Vec<LiniePrevizualizare>> {
+        let cheie = self.cheie_model()?;
+        if let Some((c, m)) = self.previzualizari.borrow().as_ref() {
+            if *c == cheie {
+                if let Some(v) = m.get(&k) {
+                    return Some(v.clone());
+                }
+            }
+        }
         let grup = self.model_editor()?.grupuri.get(k).cloned()?;
         let (sursa, curent) = self.texte_curente()?;
         let rezultat = gmotion_core::aplica_blocuri(&sursa, &curent, self.uneste_cursorul, &grup);
-        Some(previzualizare(&curent, &rezultat, 2, 12))
+        let v = previzualizare(&curent, &rezultat, 2, 12);
+        self.calcule_previzualizare
+            .set(self.calcule_previzualizare.get() + 1);
+        let mut c = self.previzualizari.borrow_mut();
+        if c.as_ref().map(|(x, _)| x) != Some(&cheie) {
+            *c = Some((cheie, Default::default()));
+        }
+        if let Some((_, m)) = c.as_mut() {
+            m.insert(k, v.clone());
+        }
+        Some(v)
+    }
+
+    /// De cate ori s-a calculat o previzualizare de la pornire (C5).
+    pub fn calcule_previzualizare(&self) -> u64 {
+        self.calcule_previzualizare.get()
     }
 
     /// Aplica diferenta `k` (indexul din editor) a obiectului curent: tot
@@ -2645,6 +2680,21 @@ mod teste {
         );
         criptate.comanda(Comanda::Deschide);
         assert_eq!(criptate.ecran(), Ecran::Lista, "deci ramane in lista");
+    }
+
+    /// C5: a doua trecere a mouse-ului peste aceeasi sageata nu mai
+    /// realiniaza obiectul; dupa o schimbare a textului, da.
+    #[test]
+    fn previzualizarea_se_tine_minte_pana_se_schimba_textul() {
+        let (mut a, _, _) = aplicatie_editare();
+        let n0 = a.calcule_previzualizare();
+        let p1 = a.previzualizare(0).expect("o diferenta");
+        assert_eq!(a.calcule_previzualizare(), n0 + 1);
+        assert_eq!(a.previzualizare(0), Some(p1));
+        assert_eq!(a.calcule_previzualizare(), n0 + 1, "din cache");
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(0))));
+        let _ = a.previzualizare(0);
+        assert_eq!(a.calcule_previzualizare(), n0 + 2, "textul s-a schimbat");
     }
 
     /// B4 din `cercetare/audit-qa-2026-11-22.md`: in editor, clicul in

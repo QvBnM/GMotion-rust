@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: c41d190b2e86ac39 -->
+<!-- api-hash: ff4396cd07e907c0 -->
 
 ## Rol
 
@@ -99,7 +99,7 @@ in Slint, pentru exemple si probe.
 | `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
 | `mod_curent(ui)` | modul pus ultima data in `Tema` |
 | `tigla_hasura(mod)` | tigla hasurii de pe partea fara linii, in culorile modului |
-| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `id` si `in_plan`) | umple editorul; cand `id` (`baza/schema.nume`) se schimba, **inchide editarea de mana** — altfel campul ramanea cu textul obiectului dinainte (F-A1) |
+| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `id`, `in_plan` si `generatie`) | umple editorul; cand `id` (`baza/schema.nume`) se schimba, **inchide editarea de mana** — altfel campul ramanea cu textul obiectului dinainte (F-A1). Cu aceeasi `generatie` a modelului si aceleasi optiuni de afisare, randurile si derularea raman (doar antetul se schimba): o bifa nu mai arunca vederea (C6) |
 
 ## Invariante
 

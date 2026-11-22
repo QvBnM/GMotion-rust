@@ -101,6 +101,7 @@ fn main() {
                     stare_obiecte: "obiectul 1 din 1 nerevizuite",
                     revizuit: false,
                     in_plan: false,
+                    generatie: None,
                 },
                 &model,
             );

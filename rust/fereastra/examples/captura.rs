@@ -166,6 +166,7 @@ fn main() {
             stare_obiecte: "obiectul 4 din 18 nerevizuite",
             revizuit: false,
             in_plan: false,
+            generatie: None,
         },
         &model,
     );
@@ -202,6 +203,7 @@ fn main() {
                 stare_obiecte: "obiectul 4 din 18 nerevizuite",
                 revizuit: false,
                 in_plan: false,
+                generatie: None,
             },
             &model,
         );

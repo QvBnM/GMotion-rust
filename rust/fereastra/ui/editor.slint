@@ -181,6 +181,8 @@ export component EditorDiferente inherits Window {
     in property <[int]> tinte-pana-la;
     in property <int> total-diferente;
     in-out property <int> diferenta-curenta: 0;
+    // ce randuri sunt incarcate acum (model + optiuni), din Rust (C6)
+    in-out property <string> semnatura-randuri;
     in property <image> tigla-hasura;
     // starea obiectului
     in property <bool> revizuit: false;

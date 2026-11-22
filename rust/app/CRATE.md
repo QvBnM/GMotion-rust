@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 839089257077b058 -->
+<!-- api-hash: 6e82c53b998a8b45 -->
 
 ## Rol
 
@@ -32,11 +32,12 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
 | `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran; `SalveazaText { id, text }` duce si cheia obiectului si se refuza daca nu e cel deschis (F-A1) |
-| `Aplicatie::previzualizare(k) -> Option<Vec<LiniePrevizualizare>>` | previzualizarea la hover a diferentei `k`: ce ar scrie „Aplica" (aceeasi `gmotion_core::aplica_blocuri`), fara sa schimbe nimic (etapa 21) |
+| `Aplicatie::previzualizare(k) -> Option<Vec<LiniePrevizualizare>>` | previzualizarea la hover a diferentei `k`: ce ar scrie „Aplica" (aceeasi `gmotion_core::aplica_blocuri`), fara sa schimbe nimic (etapa 21); tinuta minte pe model, deci a doua trecere peste aceeasi sageata nu mai realiniaza obiectul (C5) |
+| `Aplicatie::calcule_previzualizare()` | de cate ori s-a calculat o previzualizare: proba ca hover-ul repetat vine din cache |
 | `Aplicatie::id_obiect()` | cheia obiectului deschis, `baza/schema.nume`: pleaca spre fereastra si se intoarce cu textul scris de mana |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul; `model_editor` da un `Ref` la modelul tinut minte pe `(obiect, amprenta textului final, unirea cursorului)`, nu-l reface la fiecare desenare (P1) |
-| `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface |
+| `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface; fereastra il da ca `AntetEditor::generatie` |
 | `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `dependente_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul, „Folosit de" (in Modificata) si „Foloseste" (in Martor; la Extra, in Modificata), si nota (`PuneNota`). Dependentele se calculeaza **o data, la construire**, pe fiecare baza: lista le arata pe fiecare rand (etapa 22) |
 | comanda `Plaseaza { bloc, loc }` | un bloc tras si lasat in editor: pe locul sugerat (`loc` `None`, ca „Aplica" dar doar blocul tras) sau unde l-a lasat omul; cu Ctrl+Z (etapa 23) |
 | comenzile `FiltreazaImpact`, `SelecteazaDependenta(schema.nume)` | filtrul pe impact; clic pe un nume din panou il selecteaza in lista (goleste filtrele daca il ascund; daca nu e in lista, selectia ramane) |

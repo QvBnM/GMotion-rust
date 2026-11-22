@@ -663,6 +663,8 @@ fn ruleaza() -> Result<(), String> {
                 };
                 let app = s.app.as_mut().expect("verificat mai sus");
                 if let (Some(o), Some(model)) = (app.obiect().cloned(), app.model_editor()) {
+                    // dupa `model_editor`: o reconstruire tocmai s-a numarat
+                    let refaceri = app.refaceri_model();
                     incarca_editor(
                         &e_ui,
                         &AntetEditor {
@@ -677,6 +679,7 @@ fn ruleaza() -> Result<(), String> {
                             stare_obiecte: &pozitie,
                             revizuit: o.revizuit,
                             in_plan: o.in_plan,
+                            generatie: Some(refaceri),
                         },
                         &model,
                     );
