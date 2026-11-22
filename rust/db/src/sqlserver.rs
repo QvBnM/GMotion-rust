@@ -33,7 +33,8 @@ fn interogare_obiecte() -> String {
         .join(",");
     format!(
         "SELECT s.name, o.name, o.type, m.definition, \
-         m.uses_ansi_nulls, m.uses_quoted_identifier \
+         m.uses_ansi_nulls, m.uses_quoted_identifier, \
+         OBJECTPROPERTY(o.object_id, 'IsEncrypted') \
          FROM sys.objects o \
          JOIN sys.schemas s ON s.schema_id = o.schema_id \
          JOIN sys.sql_modules m ON m.object_id = o.object_id \
@@ -44,13 +45,16 @@ fn interogare_obiecte() -> String {
 
 /// `database_id > 4` sare peste master, tempdb, model si msdb. `state = 0`
 /// inseamna ONLINE: o baza in restaurare ar da eroare la citire.
-const INTEROGARE_BAZE: &str =
-    "SELECT name FROM sys.databases WHERE database_id > 4 AND state = 0 ORDER BY name";
+///
+/// `HAS_DBACCESS`: o baza online in care utilizatorul n-are acces ar opri
+/// toata citirea fara `--baze` (C11 din `cercetare/audit-qa-2026-11-22.md`).
+const INTEROGARE_BAZE: &str = "SELECT name FROM sys.databases \
+     WHERE database_id > 4 AND state = 0 AND HAS_DBACCESS(name) = 1 ORDER BY name";
 
 const INTEROGARE_INFO: &str = "SELECT \
      CAST(SERVERPROPERTY('Edition') AS NVARCHAR(200)), \
      CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(200)), \
-     DATEDIFF(SECOND, (SELECT sqlserver_start_time FROM sys.dm_os_sys_info), GETDATE()), \
+     DATEDIFF(SECOND, (SELECT create_date FROM sys.databases WHERE name = 'tempdb'), GETDATE()), \
      (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4)";
 
 /// Cat asteptam deschiderea conexiunii: TCP, TLS si login, impreuna.
@@ -455,6 +459,7 @@ async fn citeste_baza(
 /// Randurile interogarii de obiecte, ca `Obiect`.
 fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
     let mut out = Vec::with_capacity(randuri.len());
+    let mut fara_definitie: Vec<(String, Option<i32>)> = Vec::new();
     for r in randuri {
         let schema = text(r, 0, baza)?.unwrap_or("dbo");
         let nume = text(r, 1, baza)?.unwrap_or_default();
@@ -463,6 +468,7 @@ fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
         // deploy-ul ar suprascrie un obiect criptat al furnizorului.
         let definitie = text(r, 3, baza)?;
         if definitie.is_none() {
+            fara_definitie.push((format!("{schema}.{nume}"), intreg(r, 6, baza)?));
             tracing::warn!(
                 target: "gmotion::db",
                 %baza, obiect = %nume,
@@ -483,7 +489,37 @@ fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
             },
         });
     }
+    verifica_definitiile(baza, &fara_definitie)?;
     Ok(out)
+}
+
+/// Obiectele fara definitie: criptate (`IsEncrypted = 1`) sunt in regula si
+/// raman „criptat". Restul inseamna ca utilizatorul n-are `VIEW DEFINITION`:
+/// pana la auditul QA (F-B2) apareau toate „criptate", iar compararea parea
+/// reusita desi nu vazuse niciun cod. Acum e eroare, cu primele nume.
+fn verifica_definitiile(baza: &str, fara_definitie: &[(String, Option<i32>)]) -> Rezultat<()> {
+    let fara_drept: Vec<&str> = fara_definitie
+        .iter()
+        .filter(|(_, criptat)| *criptat != Some(1))
+        .map(|(n, _)| n.as_str())
+        .collect();
+    if fara_drept.is_empty() {
+        return Ok(());
+    }
+    let mut exemple = fara_drept
+        .iter()
+        .take(5)
+        .copied()
+        .collect::<Vec<_>>()
+        .join(", ");
+    if fara_drept.len() > 5 {
+        exemple.push_str(", ...");
+    }
+    Err(Eroare::FaraDreptDefinitie {
+        baza: baza.to_string(),
+        numar: fara_drept.len(),
+        exemple,
+    })
 }
 
 /// Erorile de la deschiderea conexiunii: parola gresita, baza inaccesibila sau
@@ -491,23 +527,42 @@ fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
 /// verifice reteaua, acreditarile sau numele bazei. Erorile de interogare nu
 /// trec pe aici (sunt `GM-DB-004`): pana la audit treceau, si o interogare
 /// respinsa aparea ca „nu pot deschide conexiunea", marcata ca reincercabila.
+#[derive(Debug, PartialEq, Eq)]
+enum FelConectare {
+    Autentificare,
+    BazaLipsa,
+    Retea,
+}
+
+/// Ce inseamna codul de eroare al serverului la conectare. 18486 (cont
+/// blocat), 18487 (parola expirata) si 18488 (parola trebuie schimbata) sunt
+/// tot autentificare: pana la auditul QA (F-B6) ieseau „nu pot deschide
+/// conexiunea", deci omul reincerca in loc sa-si schimbe parola.
+fn cod_conectare(cod: Option<u32>) -> FelConectare {
+    match cod {
+        Some(18456 | 18452 | 18451 | 18486 | 18487 | 18488) => FelConectare::Autentificare,
+        // 4060: „Cannot open database requested by the login": baza nu exista,
+        // e offline, sau utilizatorul nu are acces la ea.
+        Some(4060) => FelConectare::BazaLipsa,
+        _ => FelConectare::Retea,
+    }
+}
+
 fn clasifica_conectare(server: &str, baza: &str, e: tiberius::error::Error) -> Eroare {
     let cod = match &e {
         tiberius::error::Error::Server(t) => Some(t.code()),
         _ => None,
     };
-    match cod {
-        Some(18456 | 18452 | 18451) => Eroare::Autentificare {
+    match cod_conectare(cod) {
+        FelConectare::Autentificare => Eroare::Autentificare {
             server: server.to_string(),
             detaliu: e.to_string(),
         },
-        // 4060: „Cannot open database requested by the login": baza nu exista,
-        // e offline, sau utilizatorul nu are acces la ea.
-        Some(4060) => Eroare::BazaLipsa {
+        FelConectare::BazaLipsa => Eroare::BazaLipsa {
             server: server.to_string(),
             baza: baza.to_string(),
         },
-        _ => Eroare::Conectare {
+        FelConectare::Retea => Eroare::Conectare {
             server: server.to_string(),
             detaliu: e.to_string(),
         },
@@ -668,6 +723,39 @@ mod teste {
             port,
             instanta: instanta.map(Into::into),
         }
+    }
+
+    #[test]
+    fn contul_blocat_si_parola_expirata_sunt_autentificare() {
+        for c in [18456, 18486, 18487, 18488] {
+            assert_eq!(cod_conectare(Some(c)), FelConectare::Autentificare, "{c}");
+        }
+        assert_eq!(cod_conectare(Some(4060)), FelConectare::BazaLipsa);
+        assert_eq!(cod_conectare(None), FelConectare::Retea);
+    }
+
+    /// F-B2: o definitie lipsa fara `IsEncrypted = 1` e drept lipsa, nu
+    /// obiect criptat.
+    #[test]
+    fn definitia_lipsa_fara_criptare_e_drept_lipsa() {
+        assert!(verifica_definitiile("B", &[]).is_ok());
+        assert!(verifica_definitiile("B", &[("dbo.c".into(), Some(1))]).is_ok());
+        let e = verifica_definitiile(
+            "B",
+            &[
+                ("dbo.c".into(), Some(1)),
+                ("dbo.p".into(), Some(0)),
+                ("dbo.q".into(), None),
+            ],
+        )
+        .unwrap_err();
+        assert_eq!(e.cod(), "GM-DB-012");
+        let m = e.to_string();
+        assert!(
+            m.contains("VIEW DEFINITION") && m.contains("dbo.p, dbo.q"),
+            "{m}"
+        );
+        assert!(!m.contains("dbo.c"), "{m}");
     }
 
     #[test]

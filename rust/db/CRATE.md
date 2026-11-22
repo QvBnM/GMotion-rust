@@ -108,7 +108,7 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 | `GM-DB-001` cu „SQL Browser ... nu a raspuns” | instanta numita fara port: serviciul SQL Browser (UDP 1434) oprit, blocat de firewall, sau instanta nu exista. Ocolire: `--port` | `src/sqlserver.rs`, `rezolva_port_instanta` |
 | `GM-DB-001` cu „timeout dupa 30 s (TCP, TLS si autentificare)” | serverul accepta TCP dar nu termina login-ul: alt serviciu pe port, server blocat | `src/sqlserver.rs`, `conectare` |
 | `GM-DB-001` cu eroare de certificat | `--certificat sistem` pe un server cu certificat autosemnat sau cu alt nume | `src/sqlserver.rs`, `configuratie` |
-| `GM-DB-002` | autentificare refuzata: parola, utilizator, drepturi pe baza | `src/sqlserver.rs` |
+| `GM-DB-002` | autentificare refuzata: parola, utilizator, drepturi pe baza; si cont blocat (18486), parola expirata (18487) sau de schimbat (18488) | `src/sqlserver.rs`, `cod_conectare` |
 | `GM-DB-003` | auth integrata ceruta pe un sistem care nu o are (orice non-Windows) | `src/sqlserver.rs` |
 | `GM-DB-004` | interogarea cade: drepturi lipsa pe `sys.sql_modules`, baza offline | `src/sqlserver.rs` |
 | `GM-DB-011` | nume de baza gol, peste 128 de caractere, sau cu caractere de control | `src/eroare.rs` |
@@ -118,6 +118,7 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 | `GM-DB-008` | instantaneul nu se scrie: drepturi, disc plin | `src/fixture.rs` |
 | `GM-DB-009` | instantaneu de alta versiune | `src/fixture.rs` |
 | `GM-DB-010` | nume de server sau baza invalid | `src/eroare.rs` |
+| `GM-DB-012` | obiecte fara definitie care nu sunt criptate: utilizatorul n-are `VIEW DEFINITION` (inainte apareau „criptate”) | `src/sqlserver.rs`, `verifica_definitiile` |
 
 **Un server care exista si nu apare in lista** nu e, de obicei, un bug de cod:
 UDP 1434 blocat de firewall, subnet traversat fara IP helper, `Hide Instance =

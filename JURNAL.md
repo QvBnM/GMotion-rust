@@ -1395,9 +1395,9 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | Prefix | Zona |
 |---|---|
 | `GM-CORE-*` | motorul de comparare |
-| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-011**, vezi `rust/db/CRATE.md` |
+| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-012**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
-| `GM-MOD-*` | module — **diff-obiecte: 001-013**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-MOD-*` | module — **diff-obiecte: 001-017**, vezi `rust/module/diff-obiecte/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
 `core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide
@@ -1406,7 +1406,10 @@ UTF-8.
 `GM-DB-001` conectare · `002` autentificare · `003` auth integrata indisponibila
 · `004` interogare · `005` baza lipsa · `006` descoperire · `007` citire
 instantaneu · `008` scriere instantaneu · `009` versiune instantaneu · `010`
-nume invalid.
+nume invalid · `011` nume de baza invalid · `012` fara drept VIEW DEFINITION.
+
+`GM-MOD-014` numele din definitie · `015` cod fara `CREATE <tip>` · `016`
+text final gol · `017` tip schimbat intre martor si modificata.
 
 ---
 

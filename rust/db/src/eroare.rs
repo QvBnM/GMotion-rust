@@ -49,6 +49,13 @@ pub enum Eroare {
 
     #[error("[GM-DB-011] numele de baza {0:?} e gol, prea lung (peste 128 de caractere) sau contine caractere de control")]
     BazaInvalida(String),
+
+    #[error("[GM-DB-012] pe baza {baza}, {numar} obiecte n-au definitie si nu sunt criptate ({exemple}): utilizatorul n-are dreptul VIEW DEFINITION. Fara el codul nu se poate compara; cere dreptul (GRANT VIEW DEFINITION) sau foloseste alt utilizator")]
+    FaraDreptDefinitie {
+        baza: String,
+        numar: usize,
+        exemple: String,
+    },
 }
 
 impl Eroare {
@@ -66,6 +73,7 @@ impl Eroare {
             Eroare::VersiuneInstantaneu { .. } => "GM-DB-009",
             Eroare::NumeInvalid(_) => "GM-DB-010",
             Eroare::BazaInvalida(_) => "GM-DB-011",
+            Eroare::FaraDreptDefinitie { .. } => "GM-DB-012",
         }
     }
 
