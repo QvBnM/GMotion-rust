@@ -823,7 +823,14 @@ fn ruleaza() -> Result<(), String> {
         let stare = stare.clone();
         let deseneaza = deseneaza.clone();
         let salveaza = salveaza.clone();
+        let lista_slaba = lista_ui.as_weak();
         move |c: Comanda| {
+            // mesajul din bara listei („Nu intra in plan", CSV scris) e al
+            // comenzii de dinainte: altfel ramanea pe ecran la nesfarsit
+            // (F-A16); desenarea il pune din nou daca e inca adevarat
+            if let Some(l) = lista_slaba.upgrade() {
+                l.set_mesaj_csv("".into());
+            }
             let t = std::time::Instant::now();
             let text: String = format!("{c:?}").chars().take(200).collect();
             let schimbat = stare
@@ -1441,11 +1448,17 @@ fn ruleaza() -> Result<(), String> {
                 st.deploy = None;
                 st.rulare = None;
                 st.referinta = String::new();
+                // nimic din conexiunea de dinainte nu ramane pe ecran (F-A16)
+                st.salvat_la = String::new();
+                st.garda = None;
+                st.mesaj_lista = None;
                 let recente_noi = recente(&st.sesiuni);
                 st.conectare.recente = recente_noi;
                 drop(st);
                 if let Some(ui) = l.upgrade() {
                     ui.set_intreaba_deconectarea(false);
+                    ui.set_mesaj_csv("".into());
+                    ui.set_cautare("".into());
                 }
                 tracing::info!(target: "gmotion::app", "deconectat");
                 d();
