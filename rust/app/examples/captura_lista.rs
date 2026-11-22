@@ -70,6 +70,28 @@ fn main() {
         None => Some(0),
     };
     app.comanda(Comanda::Selecteaza(pozitie.unwrap_or(0)));
+    // `--operatie N` / `--modificat N` (de la 1): filtrele din etapa 27 active
+    let numar_dupa = |f: &str| {
+        a.iter()
+            .position(|x| x == f)
+            .and_then(|i| a.get(i + 1))
+            .and_then(|n| n.parse::<usize>().ok())
+            .filter(|&n| n > 0)
+    };
+    if let Some(n) = numar_dupa("--operatie") {
+        app.comanda(Comanda::FiltreazaOperatie(
+            gmotion_fereastra::model_lista::Operatie::TOATE
+                .get(n - 1)
+                .copied(),
+        ));
+    }
+    if let Some(n) = numar_dupa("--modificat") {
+        app.comanda(Comanda::FiltreazaModificat(
+            gmotion_fereastra::model_lista::Perioada::TOATE
+                .get(n - 1)
+                .copied(),
+        ));
+    }
     // antetul arata o singura tinta, ca in aplicatie
     let baze = app.baze();
     let tinta_baza = match baze.as_slice() {

@@ -31,8 +31,8 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 26 (verificarea textului final, local si
-pe server) s-a incheiat pe 2026-11-22.
+**Etapa activa:** niciuna. Etapa 27 (filtre pe data si operatie) s-a
+incheiat pe 2026-11-22. Urmeaza etapa 28: tabelele (doar comparare).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare

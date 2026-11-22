@@ -268,6 +268,7 @@ mod teste {
                     hash_referinta: Some("a".into()),
                     hash_curent: Some("b".into()),
                     modificat: None,
+                    creat: None,
                 },
                 Rand {
                     id: 1,
@@ -280,6 +281,7 @@ mod teste {
                     hash_referinta: Some("a".into()),
                     hash_curent: None,
                     modificat: None,
+                    creat: None,
                 },
             ],
             numaratoare: Numaratoare {

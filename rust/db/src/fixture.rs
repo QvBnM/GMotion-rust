@@ -206,6 +206,7 @@ mod teste {
             definitie: format!("CREATE PROCEDURE dbo.{nume} AS SELECT 1"),
             setari: None,
             modificat: None,
+            creat: None,
         }
     }
 

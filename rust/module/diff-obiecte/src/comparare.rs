@@ -67,6 +67,9 @@ pub struct Rand {
     /// modificare" din v3.4. `None` cand sursa nu o stie (instantaneu vechi).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modificat: Option<String>,
+    /// Data crearii, din aceeasi parte ca `modificat` (etapa 27).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creat: Option<String>,
 }
 
 /// Cat de departe a ajuns compararea. Platforma o publica prin metoda comuna
@@ -111,6 +114,8 @@ pub struct ObiectPregatit {
     pub hinturi: String,
     /// `Obiect::modificat`, purtat pana pe `Rand`.
     pub modificat: Option<String>,
+    /// `Obiect::creat`, la fel.
+    pub creat: Option<String>,
 }
 
 impl ObiectPregatit {
@@ -124,6 +129,7 @@ impl ObiectPregatit {
             hash: calc_hash(&normalizat),
             hinturi: hinturi(&o.definitie),
             modificat: o.modificat.clone(),
+            creat: o.creat.clone(),
         }
     }
 }
@@ -284,6 +290,7 @@ pub fn compara_cu_oprire(
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: None,
                     modificat: r.modificat.clone(),
+                    creat: r.creat.clone(),
                 });
                 id += 1;
                 continue;
@@ -301,6 +308,7 @@ pub fn compara_cu_oprire(
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: Some(c.hash.clone()),
                     modificat: c.modificat.clone(),
+                    creat: c.creat.clone(),
                 });
                 id += 1;
                 continue;
@@ -328,6 +336,7 @@ pub fn compara_cu_oprire(
                     hash_referinta: Some(r.hash.clone()),
                     hash_curent: Some(c.hash.clone()),
                     modificat: c.modificat.clone(),
+                    creat: c.creat.clone(),
                 });
                 id += 1;
                 continue;
@@ -345,6 +354,7 @@ pub fn compara_cu_oprire(
                 hash_referinta: Some(r.hash.clone()),
                 hash_curent: Some(c.hash.clone()),
                 modificat: c.modificat.clone(),
+                creat: None,
             });
             id += 1;
         }
@@ -373,6 +383,7 @@ pub fn compara_cu_oprire(
                 hash_referinta: None,
                 hash_curent: Some(o.hash.clone()),
                 modificat: o.modificat.clone(),
+                creat: o.creat.clone(),
             });
             id += 1;
         }
@@ -408,6 +419,7 @@ mod teste {
             definitie: def.into(),
             setari: None,
             modificat: None,
+            creat: None,
         }
     }
 
@@ -671,6 +683,7 @@ mod teste {
                 definitie: def.into(),
                 setari: None,
                 modificat: None,
+                creat: None,
             }])
         };
         let r = o("CREATE PROC dbo.pH AS SELECT a FROM t WITH (NOLOCK)");
@@ -702,6 +715,7 @@ mod teste {
             definitie: cod.into(),
             setari: Some(on),
             modificat: None,
+            creat: None,
         }]);
         let t = pregateste(&[Obiect {
             schema: "dbo".into(),
@@ -713,6 +727,7 @@ mod teste {
                 ..on
             }),
             modificat: None,
+            creat: None,
         }]);
         let c = compara("Ref", &r, &[("Tinta".to_string(), t)], |_| {});
         assert_eq!(c.numaratoare.identice, 0, "setarile nu sunt o bagatela");

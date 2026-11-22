@@ -1773,3 +1773,14 @@ lacate de schema pe un obiect din PROD si depinde de un `ROLLBACK` reusit.
 
 **Neprobat:** cat compileaza `NOEXEC` dintr-un `CREATE OR ALTER PROCEDURE`
 (proba in `STARE.md`).
+
+---
+
+## 2026-11-22 — Filtre in lista: data crearii / modificarii si CREATE / ALTER / DROP
+
+Ales de Mihai: perioade gata facute (azi, 7 zile, 30 de zile, oricand), nu
+interval de date; DROP doar ca filtru — decizia din 2026-11-19 („deploy-ul
+nu sterge obiecte") ramane. Obiectele fara data (instantanee vechi, cod
+lipit) nu trec de un filtru pe data activ: altfel „create azi" ar arata si ce
+nu se stie. Data crearii vine din `sys.objects.create_date`, ca text, ca
+`modify_date`: fara tip de data nou in model.

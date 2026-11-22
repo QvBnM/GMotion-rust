@@ -626,6 +626,14 @@ export component FereastraLista inherits Window {
     // filtrul pe impact: indice in `impacturi` (Ridicat, Mediu, Scazut), -1 = toate
     in property <[string]> impacturi;
     in property <int> impact-activ: -1;
+    // etapa 27: operatia (CREATE / ALTER / DROP) si perioadele de creare /
+    // modificare; indice in lista lor, -1 = oricare
+    in property <[string]> operatii;
+    in property <int> operatie-activa: -1;
+    in property <[string]> perioade-creat;
+    in property <int> creat-activ: -1;
+    in property <[string]> perioade-modificat;
+    in property <int> modificat-activ: -1;
     // panoul: cine foloseste obiectul si ce foloseste el (`schema.nume`);
     // `-rest` = „+N" cand lista e taiata
     in property <[string]> folosit-de-lista;
@@ -701,6 +709,9 @@ export component FereastraLista inherits Window {
     callback clic-margine-coloana(int);
     callback alege-starea(int);
     callback alege-impactul(int);
+    callback alege-operatia(int);
+    callback alege-creat(int);
+    callback alege-modificat(int);
     // clic pe un nume din „Folosit de" / „Foloseste"
     callback alege-dependenta(string);
     callback schimba-scorul(string, string);
@@ -977,6 +988,33 @@ export component FereastraLista inherits Window {
                             optiuni: root.impacturi;
                             ales: root.impact-activ;
                             alege(i) => { root.alege-impactul(i); }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        MeniuFiltru {
+                            eticheta: Texte.orice-operatie;
+                            optiuni: root.operatii;
+                            ales: root.operatie-activa;
+                            alege(i) => { root.alege-operatia(i); }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        MeniuFiltru {
+                            eticheta: Texte.creat-oricand;
+                            optiuni: root.perioade-creat;
+                            ales: root.creat-activ;
+                            alege(i) => { root.alege-creat(i); }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        MeniuFiltru {
+                            eticheta: Texte.modificat-oricand;
+                            optiuni: root.perioade-modificat;
+                            ales: root.modificat-activ;
+                            alege(i) => { root.alege-modificat(i); }
                         }
                     }
                     // intervalul de similaritate (v3.4: min–max %)

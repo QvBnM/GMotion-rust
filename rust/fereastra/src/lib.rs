@@ -1545,6 +1545,39 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             .position(|&x| x == i)
             .map_or(-1, |p| p as i32)
     }));
+    // etapa 27: operatia si perioadele
+    {
+        use model_lista::{Operatie, Perioada};
+        let lista_de = |v: Vec<SharedString>| ModelRc::new(VecModel::from(v));
+        ui.set_operatii(lista_de(vec![
+            t.get_op_create(),
+            t.get_op_alter(),
+            t.get_op_drop(),
+        ]));
+        ui.set_perioade_creat(lista_de(vec![
+            t.get_creat_azi(),
+            t.get_creat_7(),
+            t.get_creat_30(),
+        ]));
+        ui.set_perioade_modificat(lista_de(vec![
+            t.get_modificat_azi(),
+            t.get_modificat_7(),
+            t.get_modificat_30(),
+        ]));
+        let poz_p = |p: Option<&(Perioada, String)>| {
+            p.and_then(|(p, _)| Perioada::TOATE.iter().position(|x| x == p))
+                .map_or(-1, |i| i as i32)
+        };
+        ui.set_creat_activ(poz_p(lista.filtru().creat.as_ref()));
+        ui.set_modificat_activ(poz_p(lista.filtru().modificat.as_ref()));
+        ui.set_operatie_activa(
+            lista
+                .filtru()
+                .operatie
+                .and_then(|o| Operatie::TOATE.iter().position(|x| *x == o))
+                .map_or(-1, |i| i as i32),
+        );
+    }
     ui.set_stare_activa(lista.filtru().revizuire.map_or(-1, |f| {
         model_lista::FiltruRevizuire::TOATE
             .iter()
@@ -3378,6 +3411,7 @@ mod teste {
             folosit_de: Some(nume.len() % 3),
             impact: Some(model_lista::Impact::Mediu),
             modificat: None,
+            creat: None,
         };
         model_lista::Lista::noua(vec![
             o("usp_Stoc", "P", Stare::Modificat),
@@ -3535,6 +3569,7 @@ mod teste {
             folosit_de: None,
             impact: None,
             modificat: None,
+            creat: None,
         };
         let ui = fereastra_lista();
         let o_baza =
@@ -3570,6 +3605,7 @@ mod teste {
             folosit_de: None,
             impact: None,
             modificat: cand.map(str::to_string),
+            creat: None,
         };
         let ui = fereastra_lista();
         let mut l = model_lista::Lista::noua(vec![
@@ -3722,6 +3758,42 @@ mod teste {
         }
         assert!(text_despre(texte::Limba::Romana, "1", None, None).contains("(necunoscut)"));
         assert!(text_despre(texte::Limba::Engleza, "1", None, None).contains("Third-party"));
+    }
+
+    /// Etapa 27: filtrele pe operatie si pe date se vad in bara, cu
+    /// optiunile in limba aleasa.
+    #[test]
+    fn filtrele_de_operatie_si_data_se_vad_in_bara() {
+        use model_lista::{Operatie, Perioada};
+        let ui = fereastra_lista();
+        let mut lista = lista_de_proba();
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(
+            (
+                ui.get_operatie_activa(),
+                ui.get_creat_activ(),
+                ui.get_modificat_activ()
+            ),
+            (-1, -1, -1)
+        );
+        assert_eq!(ui.get_operatii().row_count(), 3);
+        assert!(ui.get_operatii().row_data(2).unwrap().starts_with("DROP"));
+        lista.filtreaza_operatie(Some(Operatie::Drop));
+        lista.filtreaza_creat(Some(Perioada::Zile7), "2026-11-22");
+        lista.filtreaza_modificat(Some(Perioada::Zile30), "2026-11-22");
+        incarca_lista(&ui, &antet_lista(), &lista);
+        assert_eq!(
+            (
+                ui.get_operatie_activa(),
+                ui.get_creat_activ(),
+                ui.get_modificat_activ()
+            ),
+            (2, 1, 2)
+        );
+        assert_eq!(
+            ui.get_perioade_creat().row_data(1).unwrap(),
+            "Creat in ultimele 7 zile"
+        );
     }
 
     #[test]

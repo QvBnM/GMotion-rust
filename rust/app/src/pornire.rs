@@ -274,6 +274,7 @@ pub fn compara_offline(sursa: &str, tinta: &str, l: Limba) -> Result<Comparata, 
         definitie: text.to_string(),
         setari: None,
         modificat: None,
+        creat: None,
     };
     let s = modul::pregateste(&[obiect(sursa)]);
     let t = modul::pregateste(&[obiect(tinta)]);

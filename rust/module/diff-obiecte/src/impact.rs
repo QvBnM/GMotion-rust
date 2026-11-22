@@ -173,6 +173,7 @@ mod teste {
             hash_referinta: None,
             hash_curent: None,
             modificat: None,
+            creat: None,
         }
     }
 
@@ -185,6 +186,7 @@ mod teste {
             definitie: cod.into(),
             setari: None,
             modificat: None,
+            creat: None,
         }
     }
 

@@ -346,6 +346,7 @@ mod teste {
                 definitie: (*def).into(),
                 setari: None,
                 modificat: None,
+                creat: None,
             })
             .collect();
         modul::pregateste(&v)

@@ -33,6 +33,10 @@ pub struct Obiect {
     /// instantaneele scrise inainte de etapa 25 si in codul lipit offline.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub modificat: Option<String>,
+    /// `sys.objects.create_date`, la fel (etapa 27). `None` in instantaneele
+    /// mai vechi si in codul lipit offline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creat: Option<String>,
 }
 
 /// Ce a spus serverul despre un cod verificat fara efecte (etapa 26): prima
@@ -223,6 +227,7 @@ mod teste {
             definitie: "CREATE PROCEDURE dbo.pClienti AS SELECT 1".into(),
             setari: None,
             modificat: None,
+            creat: None,
         };
         assert_eq!(o.id(), "dbo.pClienti");
     }
@@ -240,6 +245,7 @@ mod teste {
             definitie: "d".into(),
             setari: None,
             modificat: None,
+            creat: None,
         };
         accepta_serializabil(&o);
     }

@@ -60,6 +60,7 @@ fn obiecte(n: usize) -> Vec<model_lista::Obiect> {
                 folosit_de: Some(i % 9),
                 impact: None,
                 modificat: None,
+                creat: None,
             }
         })
         .collect()

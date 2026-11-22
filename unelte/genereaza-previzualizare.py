@@ -181,6 +181,8 @@ def main():
             luna, zi = 1 + (k * 7 + b) % 11, 1 + (k * 13 + b * 5) % 28
             ora, minut = 8 + (k * 3 + b) % 10, (k * 17 + b * 11) % 60
             o["modificat"] = f"2026-{luna:02}-{zi:02} {ora:02}:{minut:02}:00"
+            # creat inainte de modificare: unele in 2026 (recente), restul in 2025
+            o["creat"] = f"{2025 + (k % 3 == 0)}-{max(1, luna - 1):02}-{zi:02} 08:00:00"
     cale.write_text(json.dumps(date, indent=1, ensure_ascii=True) + "\n", encoding="utf-8")
     obiecte = sum(len(v) for v in date["baze"].values())
     print(f"scris {cale} ({len(date['baze'])} baze, {obiecte} obiecte)")

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 309db826614366c5 -->
+<!-- api-hash: a7095c4ea6b964cf -->
 
 ## Rol
 
@@ -35,6 +35,7 @@ si editorul de diferente (etapa 8).
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire, Impact}` | modelul listei; cheia unui rand e `(baza, schema.nume)`; `Obiect::{folosit_de, impact}` vin din `diff-obiecte::impact` (fereastra doar le arata, sorteaza si filtreaza: `Ordine::{FolositDe, Impact}`, `Lista::filtreaza_impact`); `Obiect::modificat` si `Ordine::Modificat`: coloana „Ultima modificare", recentele intai (etapa 25) |
+| `model_lista::{Perioada, Operatie, zile_inainte}`, `Obiect::{creat, operatie}`, `Lista::{filtreaza_creat, filtreaza_modificat, filtreaza_operatie}` | filtrele din etapa 27: creat / modificat azi, in 7 sau 30 de zile (fara data nu trece), si CREATE / ALTER / DROP (ce ar face deploy-ul; DROP doar filtru) |
 | `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
 | `ajutor(limba)`, `AJUTOR`, `AJUTOR_EN` | textul ferestrei de ajutor (F1), acelasi pe toate ecranele |
 | `text_despre(limba, versiune, jurnal, date)` | textul ecranului „Despre" (din Ajutor, etapa 25): versiunea, licentele componentelor terte, caile jurnalului si datelor; sub el, `AboutSlint` (atribuirea ceruta de licenta Slint) |

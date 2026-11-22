@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 9b798dd832101d95 -->
+<!-- api-hash: 90c09a245dd4e758 -->
 
 ## Rol
 
@@ -39,7 +39,7 @@ se testeaza fara SQL Server.
 
 ### Tipuri
 
-`Obiect` (`schema`, `nume`, `tip`, `definitie`, `modificat` = `sys.objects.modify_date` ca `AAAA-LL-ZZ HH:MM:SS`, optional in instantaneu, plus `id()` = `schema.nume`),
+`Obiect` (`schema`, `nume`, `tip`, `definitie`, `modificat` = `sys.objects.modify_date` si `creat` = `sys.objects.create_date` (etapa 27), ca `AAAA-LL-ZZ HH:MM:SS`, optionale in instantaneu, plus `id()` = `schema.nume`),
 `Tinta` (server + port optional), `Autentificare` (`Sql` sau `Integrata`),
 `Instanta` (cu `implicita` si `cluster`, din `IsClustered`), `InfoServer`.
 

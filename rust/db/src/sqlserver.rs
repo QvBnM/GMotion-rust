@@ -36,7 +36,8 @@ fn interogare_obiecte() -> String {
     format!(
         "SELECT s.name, o.name, o.type, m.definition, \
          m.uses_ansi_nulls, m.uses_quoted_identifier, \
-         CONVERT(nvarchar(19), o.modify_date, 120) \
+         CONVERT(nvarchar(19), o.modify_date, 120), \
+         CONVERT(nvarchar(19), o.create_date, 120) \
          FROM sys.objects o \
          JOIN sys.schemas s ON s.schema_id = o.schema_id \
          JOIN sys.sql_modules m ON m.object_id = o.object_id \
@@ -581,6 +582,7 @@ fn obiecte_din_randuri(randuri: &[Row], baza: &str) -> Rezultat<Vec<Obiect>> {
                 _ => None,
             },
             modificat: text(r, 6, baza)?.map(str::to_string),
+            creat: text(r, 7, baza)?.map(str::to_string),
         });
     }
     Ok(out)
@@ -1008,6 +1010,7 @@ mod teste {
         assert!(q.contains("sys.sql_modules"));
         // „Ultima modificare", ca text fara fus orar: fara tip de data nou
         assert!(q.contains("CONVERT(nvarchar(19), o.modify_date, 120)"));
+        assert!(q.contains("CONVERT(nvarchar(19), o.create_date, 120)"));
         assert!(
             q.contains("ORDER BY"),
             "ordinea trebuie stabila intre rulari"

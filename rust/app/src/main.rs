@@ -847,6 +847,24 @@ fn ruleaza() -> Result<(), String> {
                     .copied()
             }))
         }));
+        // etapa 27: operatia si perioadele de creare / modificare
+        pe_comanda!(lista_ui.on_alege_operatia(|i| Comanda::FiltreazaOperatie(
+            indice(i).and_then(|i| gmotion_fereastra::model_lista::Operatie::TOATE
+                .get(i)
+                .copied())
+        )));
+        pe_comanda!(
+            lista_ui.on_alege_creat(|i| Comanda::FiltreazaCreat(indice(i).and_then(|i| {
+                gmotion_fereastra::model_lista::Perioada::TOATE
+                    .get(i)
+                    .copied()
+            })))
+        );
+        pe_comanda!(lista_ui.on_alege_modificat(|i| Comanda::FiltreazaModificat(
+            indice(i).and_then(|i| gmotion_fereastra::model_lista::Perioada::TOATE
+                .get(i)
+                .copied())
+        )));
         pe_comanda!(
             lista_ui.on_alege_dependenta(|nume| Comanda::SelecteazaDependenta(nume.to_string()))
         );

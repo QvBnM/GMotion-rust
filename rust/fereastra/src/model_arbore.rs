@@ -219,6 +219,7 @@ mod teste {
             folosit_de: None,
             impact: None,
             modificat: None,
+            creat: None,
         }
     }
 

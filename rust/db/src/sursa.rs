@@ -117,6 +117,7 @@ mod teste {
                 definitie: "SELECT 1".into(),
                 setari: None,
                 modificat: None,
+                creat: None,
             }])
         }
     }

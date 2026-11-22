@@ -15,7 +15,7 @@ use crate::eroare::{Eroare, Rezultat};
 /// diacriticele.
 const BOM: &[u8] = &[0xEF, 0xBB, 0xBF];
 
-const CAP: [&str; 9] = [
+const CAP: [&str; 10] = [
     "Obiect",
     "Baza",
     "Tip",
@@ -27,6 +27,7 @@ const CAP: [&str; 9] = [
     // nu era in exportul v3.4; la sfarsit, ca o foaie care citeste dupa
     // pozitie coloanele vechi sa nu se strice (etapa 25)
     "Ultima modificare",
+    "Data crearii",
 ];
 
 /// Un camp CSV: se pun ghilimele doar daca e nevoie, iar ghilimelele din
@@ -95,6 +96,7 @@ pub fn scrie_csv(cale: &Path, randuri: &[Rand], stare: impl Fn(usize) -> Stare) 
             if s.rezolvat { "DA" } else { "NU" }.to_string(),
             if s.omis { "DA" } else { "NU" }.to_string(),
             camp(r.modificat.as_deref().unwrap_or("")),
+            camp(r.creat.as_deref().unwrap_or("")),
         ];
         scrie(rand.join(";").as_bytes())?;
         scrie(b"\r\n")?;
@@ -123,6 +125,7 @@ mod teste {
             hash_referinta: None,
             hash_curent: None,
             modificat: None,
+            creat: None,
         }
     }
 
@@ -223,14 +226,14 @@ mod teste {
         let text = String::from_utf8(std::fs::read(&cale).unwrap()[3..].to_vec()).unwrap();
         let linii: Vec<&str> = text.lines().collect();
         assert!(
-            linii[0].ends_with(";Omis;Ultima modificare"),
+            linii[0].ends_with(";Omis;Ultima modificare;Data crearii"),
             "{}",
             linii[0]
         );
-        // Rezolvat, Omis, apoi Ultima modificare
-        assert!(linii[1].ends_with("DA;NU;"), "{}", linii[1]);
+        // Rezolvat, Omis, apoi Ultima modificare si Data crearii
+        assert!(linii[1].ends_with("DA;NU;;"), "{}", linii[1]);
         assert!(
-            linii[2].ends_with("NU;DA;2026-11-22 10:32:15"),
+            linii[2].ends_with("NU;DA;2026-11-22 10:32:15;"),
             "{}",
             linii[2]
         );

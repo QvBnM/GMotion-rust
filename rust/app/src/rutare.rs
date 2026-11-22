@@ -77,6 +77,11 @@ pub enum Comanda {
     FiltreazaScor(f64, f64),
     /// Doar obiectele cu impactul asta (`None` = toate).
     FiltreazaImpact(Option<Impact>),
+    /// Create / modificate in perioada (`None` = oricand), de azi inapoi;
+    /// doar ce ar face deploy-ul asa (etapa 27).
+    FiltreazaCreat(Option<gmotion_fereastra::model_lista::Perioada>),
+    FiltreazaModificat(Option<gmotion_fereastra::model_lista::Perioada>),
+    FiltreazaOperatie(Option<gmotion_fereastra::model_lista::Operatie>),
     /// Un bloc tras si lasat (`bloc`: indexul lui in diff, ca in editor).
     /// `loc` `None` = lasat pe locul sugerat (ca „Aplica", doar blocul asta);
     /// altfel unde l-a lasat omul: peste un bloc il inlocuieste, intre
@@ -395,6 +400,7 @@ impl Aplicatie {
                         modul::Nivel::Ridicat => Impact::Ridicat,
                     }),
                     modificat: r.modificat.clone(),
+                    creat: r.creat.clone(),
                 }
             })
             .collect();
@@ -427,6 +433,7 @@ impl Aplicatie {
                     folosit_de: Some(cati(nume_baza, id)),
                     impact: None,
                     modificat: tinta.get(id).and_then(|o| o.modificat.clone()),
+                    creat: tinta.get(id).and_then(|o| o.creat.clone()),
                 });
             }
         }
@@ -963,6 +970,13 @@ impl Aplicatie {
             Comanda::FiltreazaRevizuire(f) => self.lista.filtreaza_revizuire(f),
             Comanda::FiltreazaScor(min, max) => self.lista.filtreaza_scor(min, max),
             Comanda::FiltreazaImpact(i) => self.lista.filtreaza_impact(i),
+            Comanda::FiltreazaCreat(p) => self
+                .lista
+                .filtreaza_creat(p, &gmotion_platforma::timp::acum()),
+            Comanda::FiltreazaModificat(p) => self
+                .lista
+                .filtreaza_modificat(p, &gmotion_platforma::timp::acum()),
+            Comanda::FiltreazaOperatie(o) => self.lista.filtreaza_operatie(o),
             Comanda::SelecteazaDependenta(id) => {
                 if let Some(baza) = self.obiect().map(|o| o.baza.clone()) {
                     // daca nu e vizibil, `selecteaza_cheie` goleste filtrele;
@@ -1445,6 +1459,7 @@ mod teste {
             definitie: definitie.into(),
             setari: None,
             modificat: None,
+            creat: None,
         }
     }
 
@@ -1729,6 +1744,22 @@ mod teste {
             .all(|&i| app.lista().obiecte()[i].impact == Some(Impact::Scazut)));
         assert!(!app.lista().vizibile().is_empty());
         app.comanda(Comanda::FiltreazaImpact(None));
+
+        // operatia (etapa 27): ALTER = ce difera
+        use gmotion_fereastra::model_lista::{Operatie, Perioada};
+        app.comanda(Comanda::FiltreazaOperatie(Some(Operatie::Alter)));
+        assert!(!app.lista().vizibile().is_empty());
+        assert!(app
+            .lista()
+            .vizibile()
+            .iter()
+            .all(|&i| app.lista().obiecte()[i].operatie() == Some(Operatie::Alter)));
+        app.comanda(Comanda::FiltreazaOperatie(None));
+        // obiectele de test n-au date: un filtru pe data nu lasa nimic
+        app.comanda(Comanda::FiltreazaCreat(Some(Perioada::Zile30)));
+        assert!(app.lista().vizibile().is_empty());
+        app.comanda(Comanda::FiltreazaCreat(None));
+        assert!(!app.lista().vizibile().is_empty());
     }
 
     #[test]
@@ -1885,8 +1916,9 @@ mod teste {
         a.comanda(Comanda::ComutaOmis);
         a.exporta_csv(&cale).unwrap();
         let text = std::fs::read_to_string(&cale).unwrap();
-        // Omis, apoi Ultima modificare (goala: aplicatia de test n-o stie)
-        assert!(text.trim_end().ends_with("NU;DA;"), "coloana Omis: {text}");
+        // Omis, apoi Ultima modificare si Data crearii (goale: aplicatia de
+        // test nu le stie)
+        assert!(text.trim_end().ends_with("NU;DA;;"), "coloana Omis: {text}");
         // o lista filtrata la zero nu scrie un fisier gol, da eroare
         a.comanda(Comanda::Cauta("nu-exista".into()));
         assert!(a.exporta_csv(&cale).is_err());

@@ -105,6 +105,84 @@ impl Impact {
     pub const TOATE: [Impact; 3] = [Impact::Ridicat, Impact::Mediu, Impact::Scazut];
 }
 
+/// O perioada pentru filtrele pe data (etapa 27), socotita inapoi de la azi.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Perioada {
+    Azi,
+    Zile7,
+    Zile30,
+}
+
+impl Perioada {
+    pub const TOATE: [Perioada; 3] = [Perioada::Azi, Perioada::Zile7, Perioada::Zile30];
+
+    /// Cate zile inapoi, in afara de azi.
+    fn zile(self) -> u32 {
+        match self {
+            Perioada::Azi => 0,
+            Perioada::Zile7 => 7,
+            Perioada::Zile30 => 30,
+        }
+    }
+
+    /// Prima zi din perioada, ca `AAAA-LL-ZZ`, de la `azi` (`AAAA-LL-ZZ...`).
+    /// `None` daca `azi` nu e o data.
+    pub fn de_la(self, azi: &str) -> Option<String> {
+        zile_inainte(azi, self.zile())
+    }
+}
+
+/// `AAAA-LL-ZZ` cu `n` zile inaintea lui `azi`. Fara biblioteca de date: zile
+/// de la 1970 si inapoi (algoritmul „days from civil").
+pub fn zile_inainte(azi: &str, n: u32) -> Option<String> {
+    let parte = |a: usize, b: usize| azi.get(a..b)?.parse::<i64>().ok();
+    let (y, m, d) = (parte(0, 4)?, parte(5, 7)?, parte(8, 10)?);
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    // din data civila in zile
+    let y2 = if m <= 2 { y - 1 } else { y };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let zi = era * 146097 + doe - 719468 - i64::from(n);
+    // si inapoi
+    let z = zi + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    Some(format!("{y:04}-{m:02}-{d:02}"))
+}
+
+/// Ce ar face deploy-ul cu obiectul (etapa 27): CREATE ce e doar in Martor,
+/// ALTER ce difera, DROP ce e doar in Modificata (deploy-ul nu sterge nimic;
+/// e doar un filtru, decizia din 2026-11-19).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Operatie {
+    Create,
+    Alter,
+    Drop,
+}
+
+impl Operatie {
+    pub const TOATE: [Operatie; 3] = [Operatie::Create, Operatie::Alter, Operatie::Drop];
+
+    pub fn eticheta(self) -> &'static str {
+        match self {
+            Operatie::Create => "CREATE",
+            Operatie::Alter => "ALTER",
+            Operatie::Drop => "DROP",
+        }
+    }
+}
+
 /// Filtrul pe ce ai facut cu obiectul (v3.4: „Stare").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FiltruRevizuire {
@@ -178,9 +256,21 @@ pub struct Obiect {
     /// HH:MM:SS`); pentru „doar in Martor", a celui din martor. `None` cand
     /// sursa nu o stie (instantaneu vechi, cod lipit).
     pub modificat: Option<String>,
+    /// Data crearii, din aceeasi parte ca `modificat` (etapa 27).
+    pub creat: Option<String>,
 }
 
 impl Obiect {
+    /// Ce ar face deploy-ul cu el (etapa 27); `None` la identic si criptat.
+    pub fn operatie(&self) -> Option<Operatie> {
+        match self.stare {
+            Stare::DoarSursa => Some(Operatie::Create),
+            Stare::Modificat => Some(Operatie::Alter),
+            Stare::DoarBaza => Some(Operatie::Drop),
+            Stare::Identic | Stare::Criptat => None,
+        }
+    }
+
     pub fn id(&self) -> String {
         format!("{}.{}", self.schema, self.nume)
     }
@@ -251,6 +341,11 @@ pub struct Filtru {
     pub scor_max: f64,
     /// Doar obiectele cu impactul asta; `None` = toate.
     pub impact: Option<Impact>,
+    /// Create, respectiv modificate in perioada, cu prima ei zi (etapa 27).
+    pub creat: Option<(Perioada, String)>,
+    pub modificat: Option<(Perioada, String)>,
+    /// Doar ce ar face deploy-ul asa.
+    pub operatie: Option<Operatie>,
 }
 
 impl Default for Filtru {
@@ -264,6 +359,9 @@ impl Default for Filtru {
             scor_min: 0.0,
             scor_max: 100.0,
             impact: None,
+            creat: None,
+            modificat: None,
+            operatie: None,
         }
     }
 }
@@ -461,6 +559,24 @@ impl Lista {
     /// Doar obiectele cu impactul `i` (`None` = toate).
     pub fn filtreaza_impact(&mut self, i: Option<Impact>) {
         self.filtru.impact = i;
+        self.recalculeaza();
+    }
+
+    /// Doar obiectele create in perioada, de la `azi` (`AAAA-LL-ZZ...`).
+    /// Fara data (instantaneu vechi) nu trec.
+    pub fn filtreaza_creat(&mut self, p: Option<Perioada>, azi: &str) {
+        self.filtru.creat = p.and_then(|p| Some((p, p.de_la(azi)?)));
+        self.recalculeaza();
+    }
+
+    /// La fel, pe data ultimei modificari.
+    pub fn filtreaza_modificat(&mut self, p: Option<Perioada>, azi: &str) {
+        self.filtru.modificat = p.and_then(|p| Some((p, p.de_la(azi)?)));
+        self.recalculeaza();
+    }
+
+    pub fn filtreaza_operatie(&mut self, o: Option<Operatie>) {
+        self.filtru.operatie = o;
         self.recalculeaza();
     }
 
@@ -690,6 +806,16 @@ impl Lista {
                             x >= self.filtru.scor_min && x <= self.filtru.scor_max
                         }))
                     && self.filtru.impact.is_none_or(|i| o.impact == Some(i))
+                    && self.filtru.creat.as_ref().is_none_or(|(_, de_la)| {
+                        o.creat.as_deref().is_some_and(|c| c >= de_la.as_str())
+                    })
+                    && self.filtru.modificat.as_ref().is_none_or(|(_, de_la)| {
+                        o.modificat.as_deref().is_some_and(|c| c >= de_la.as_str())
+                    })
+                    && self
+                        .filtru
+                        .operatie
+                        .is_none_or(|op| o.operatie() == Some(op))
             })
             .map(|(i, _)| i)
             .collect();
@@ -788,6 +914,7 @@ mod teste {
                 _ => Some(Impact::Scazut),
             },
             modificat: None,
+            creat: None,
         }
     }
 
@@ -840,6 +967,97 @@ mod teste {
             fara.obiect_selectat().map(Obiect::cheie),
             Some(cheie("usp_Import"))
         );
+    }
+
+    #[test]
+    fn zilele_inainte_trec_peste_luna_an_si_februarie() {
+        assert_eq!(zile_inainte("2026-11-22", 0).as_deref(), Some("2026-11-22"));
+        assert_eq!(
+            zile_inainte("2026-11-22 10:32:15", 7).as_deref(),
+            Some("2026-11-15")
+        );
+        assert_eq!(zile_inainte("2026-03-05", 7).as_deref(), Some("2026-02-26"));
+        assert_eq!(
+            zile_inainte("2024-03-01", 1).as_deref(),
+            Some("2024-02-29"),
+            "an bisect"
+        );
+        assert_eq!(
+            zile_inainte("2026-01-10", 30).as_deref(),
+            Some("2025-12-11")
+        );
+        assert_eq!(zile_inainte("nu e data", 7), None);
+    }
+
+    #[test]
+    fn filtrele_pe_data_si_operatie() {
+        let cu = |nume: &str, stare: Stare, creat: Option<&str>, modificat: Option<&str>| Obiect {
+            creat: creat.map(str::to_string),
+            modificat: modificat.map(str::to_string),
+            ..obiect(nume, "P", stare)
+        };
+        let mut l = Lista::noua(vec![
+            cu(
+                "pNou",
+                Stare::DoarSursa,
+                Some("2026-11-21 09:00:00"),
+                Some("2026-11-22 08:00:00"),
+            ),
+            cu(
+                "pVechi",
+                Stare::Modificat,
+                Some("2020-01-01 00:00:00"),
+                Some("2026-11-01 00:00:00"),
+            ),
+            cu(
+                "pExtra",
+                Stare::DoarBaza,
+                Some("2026-11-20 00:00:00"),
+                Some("2026-11-20 00:00:00"),
+            ),
+            cu("pFaraDate", Stare::Modificat, None, None),
+            cu(
+                "pLaFel",
+                Stare::Identic,
+                Some("2026-11-22 00:00:00"),
+                Some("2026-11-22 00:00:00"),
+            ),
+        ]);
+        let azi = "2026-11-22 12:00:00";
+        let nume = |l: &Lista| -> Vec<String> {
+            let mut v: Vec<String> = (0..l.vizibile().len())
+                .map(|p| l.obiect(p).unwrap().nume.clone())
+                .collect();
+            v.sort();
+            v
+        };
+        l.filtreaza_creat(Some(Perioada::Zile7), azi);
+        assert_eq!(nume(&l), ["pExtra", "pLaFel", "pNou"], "fara data nu trece");
+        l.filtreaza_creat(None, azi);
+        l.filtreaza_modificat(Some(Perioada::Azi), azi);
+        assert_eq!(nume(&l), ["pLaFel", "pNou"]);
+        l.filtreaza_modificat(Some(Perioada::Zile30), azi);
+        assert_eq!(nume(&l), ["pExtra", "pLaFel", "pNou", "pVechi"]);
+        l.filtreaza_modificat(None, azi);
+        l.filtreaza_operatie(Some(Operatie::Alter));
+        assert_eq!(nume(&l), ["pFaraDate", "pVechi"]);
+        l.filtreaza_operatie(Some(Operatie::Drop));
+        assert_eq!(nume(&l), ["pExtra"]);
+        // se combina
+        l.filtreaza_operatie(Some(Operatie::Create));
+        l.filtreaza_creat(Some(Perioada::Azi), azi);
+        assert!(nume(&l).is_empty(), "pNou e creat ieri");
+        // si raman la recomparare
+        let mut noua = Lista::noua(vec![cu(
+            "pNou",
+            Stare::DoarSursa,
+            Some("2026-11-22 01:00:00"),
+            None,
+        )]);
+        noua.preia_vederea(&l);
+        assert_eq!(noua.filtru().operatie, Some(Operatie::Create));
+        assert_eq!(nume(&noua), ["pNou"]);
+        assert_eq!(Operatie::Drop.eticheta(), "DROP");
     }
 
     #[test]
