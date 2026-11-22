@@ -59,6 +59,8 @@ static RE_COLLATE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\bCOLLATE\s+database_default\b").unwrap());
 static RE_PARANTEZE_DREPTE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[([^\[\]]+)\]").unwrap());
 static RE_SPATII: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+").unwrap());
+/// Un sir de spatii care trece de un capat de rand: reindentarea SQL-ului dinamic.
+static RE_SPATII_CU_RAND: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s*[\r\n]\s*").unwrap());
 static RE_SPATIU_ORFAN: Lazy<Regex> = Lazy::new(|| Regex::new(r"\s+([,;)])").unwrap());
 
 /// Marcajele pentru bucatile care trec neatinse prin regulile de cod. Din zona
@@ -106,10 +108,12 @@ pub fn norm(s: &str) -> String {
             Fel::ComentariuLinie | Fel::ComentariuBloc => cod.push(' '),
             Fel::IdentificatorParanteze if RE_IDENTIFICATOR_SIMPLU.is_match(t) => cod.push_str(t),
             Fel::IdentificatorParanteze => pastreaza(&mut cod, t.to_lowercase()),
-            // in string-uri spatiile se strang intr-unul, ca in v3.4: SQL-ul
-            // dinamic (`'... \n\t\tJOIN ...'`) difera des doar in indentare,
-            // iar asta nu e o modificare (proba pe Windows, 2026-11-19)
-            Fel::Sir => pastreaza(&mut cod, RE_SPATII.replace_all(t, " ").into_owned()),
+            // in string-uri se strang doar spatiile care trec de un capat de
+            // rand: SQL-ul dinamic (`'... \n\t\tJOIN ...'`) difera des doar in
+            // indentare (proba pe Windows, 2026-11-19). Pe acelasi rand, un tab
+            // fata de un spatiu sau doua spatii fata de unul sunt alte date
+            // (Mihai, 2026-11-22; v3.4 le strangea pe toate).
+            Fel::Sir => pastreaza(&mut cod, RE_SPATII_CU_RAND.replace_all(t, " ").into_owned()),
             Fel::IdentificatorGhilimele => pastreaza(&mut cod, t.to_string()),
         }
     }
@@ -349,6 +353,23 @@ pub fn scor_similaritate(referinta: &str, curent: &str) -> f64 {
 mod teste {
     use super::*;
 
+    /// C2 din `cercetare/audit-qa-2026-11-22.md`: in interiorul unui sir, un
+    /// tab fata de un spatiu pe acelasi rand e alta valoare (`REPLACE(x, TAB,
+    /// ';')`); reindentarea pe mai multe randuri a SQL-ului dinamic nu e.
+    #[test]
+    fn in_sir_se_strange_doar_spatiul_care_trece_de_rand() {
+        assert_ne!(normalizeaza("SELECT 'a\tb'"), normalizeaza("SELECT 'a b'"));
+        assert_ne!(normalizeaza("SELECT 'a  b'"), normalizeaza("SELECT 'a b'"));
+        assert_eq!(
+            normalizeaza("EXEC('SELECT 1\n\t\tFROM t')"),
+            normalizeaza("EXEC('SELECT 1\r\n    FROM t')")
+        );
+        assert_eq!(
+            normalizeaza("SELECT 'a \n b'"),
+            normalizeaza("SELECT 'a b'")
+        );
+    }
+
     /// C5 din `cercetare/audit-qa-2026-11-18.md`: textul pregatit pentru
     /// afisare e si textul pe care „Aplica toate" trimite in baza. Daca
     /// taierea spatiilor de la capatul liniei intra intr-un sir, deploy-ul
@@ -459,10 +480,10 @@ mod teste {
             ("SELECT x COLLATE database_default , y", "SELECT x, y"),
             ("\u{FEFF}SELECT 1", "SELECT 1"),
             ("WHERE s = 'Activ'", "where S = 'Activ'"),
-            // spatiile din string-uri, ca in v3.4: SQL dinamic reindentat
-            ("SELECT 'a  b'", "SELECT 'a b'"),
+            // SQL dinamic reindentat: spatiile care trec de rand se strang
+            // (pe acelasi rand nu: `in_sir_se_strange_doar_spatiul_care_trece_de_rand`)
             (
-                "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a  '",
+                "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a '",
                 "SET @s = ') W\n            JOIN t X ON W.a=X.a '",
             ),
             ("SELECT [Coloana_1] FROM t", "SELECT coloana_1 FROM t"),

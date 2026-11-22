@@ -151,11 +151,18 @@ fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
         let vb: String = tb[op.j1..op.j2].concat();
         let mut schimbat = op.tag != Tag::Equal;
         let in_literal = la[op.i1..op.i2].iter().any(|&x| x) || lb[op.j1..op.j2].iter().any(|&x| x);
-        // in string, spatii schimbate pe spatii (tab in loc de spatii,
-        // indentare) sunt cosmetice, ca in `norm`; un spatiu aparut sau
-        // disparut ramane schimbare
+        // in string, reindentarea (spatii care trec de rand, de ambele parti)
+        // e cosmetica, ca in `norm`; pe acelasi rand, tab in loc de spatiu sau
+        // un spatiu aparut ramane schimbare (Mihai, 2026-11-22)
         let doar_spatii = |v: &str| !v.is_empty() && v.chars().all(char::is_whitespace);
-        if schimbat && in_literal && doar_spatii(&va) && doar_spatii(&vb) {
+        let trece_de_rand = |v: &str| v.contains(['\n', '\r']);
+        if schimbat
+            && in_literal
+            && doar_spatii(&va)
+            && doar_spatii(&vb)
+            && trece_de_rand(&va)
+            && trece_de_rand(&vb)
+        {
             schimbat = false;
         }
         if schimbat
@@ -548,11 +555,16 @@ mod teste {
     }
 
     /// Un spatiu aparut intr-un string se marcheaza; acelasi spatiu in cod nu.
-    /// (Doua spatii in loc de unul, in string, sunt egale, ca in v3.4.)
+    /// Doua spatii in loc de unul, in string, pe acelasi rand, sunt alte date
+    /// (Mihai, 2026-11-22; v3.4 le socotea egale). Reindentarea nu.
     #[test]
     fn spatiile_din_string_se_marcheaza_cele_din_cod_nu() {
         assert_eq!(
             tipuri(&diff_aliniat("PRINT 'a b'", "PRINT 'a  b'")),
+            vec!["modificat"]
+        );
+        assert_eq!(
+            tipuri(&diff_aliniat("PRINT 'a\n  b'", "PRINT 'a\n\tb'")),
             vec!["egal"]
         );
         let r = diff_aliniat(
@@ -607,8 +619,8 @@ mod teste {
     }
 
     /// Proba pe Windows (2026-11-19): SQL dinamic reindentat intr-un string
-    /// (tab in loc de spatii) nu se evidentiaza; un spatiu aparut in string
-    /// da, fiindca schimba textul.
+    /// (tab in loc de spatii) nu se evidentiaza; un spatiu aparut in string,
+    /// sau un tab in loc de spatiu pe acelasi rand, da (Mihai, 2026-11-22).
     #[test]
     fn spatiile_schimbate_in_string_nu_se_evidentiaza() {
         let marcat = |a: &str, b: &str| -> Vec<String> {
@@ -620,12 +632,17 @@ mod teste {
                 .collect()
         };
         let m = marcat(
-            "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a\t' + @x",
+            "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a ' + @x",
             "SET @s = ') W\n            JOIN t X ON W.a=X.a ' + @y",
         );
         assert_eq!(m, ["@x", "@y"], "doar variabila difera: {m:?}");
         let m = marcat("PRINT 'a b'", "PRINT 'ab'");
         assert!(!m.is_empty(), "spatiul disparut din string se vede");
+        let m = marcat("PRINT 'a\tb'", "PRINT 'a b'");
+        assert!(
+            !m.is_empty(),
+            "tabul in loc de spatiu, pe acelasi rand, se vede"
+        );
     }
 
     #[test]

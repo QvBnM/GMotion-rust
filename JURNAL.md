@@ -1619,3 +1619,27 @@ putea lasa decat pe locul sugerat.
   v3.4 (`renderTargets`). Locul sugerat ramane aprins.
 - Plierea liniilor identice e oprita implicit; comutatorul se tine in
   configurare, ca tema.
+
+---
+
+## 2026-11-22 — Spatiile din string-uri: se strang doar cele care trec de rand
+
+**Context.** Auditul din 2026-11-22 (C2): cu regula din 2026-11-19, `'a\tb'`
+si `'a b'` ieseau identice, deci o schimbare reala de date (separator tab
+schimbat in spatiu, `REPLACE(x, TAB, ';')`, `WHERE Cod = 'A  B'`) nu ajungea
+niciodata in deploy.
+
+**Decizie (Mihai, varianta 2 din trei).** In `norm` si in evidentierea din
+editor, intr-un string se strange intr-un singur spatiu doar un sir de spatii
+care contine un capat de rand: reindentarea SQL-ului dinamic ramane
+cosmetica. Pe acelasi rand, tab fata de spatiu si doua spatii fata de unul
+sunt diferente. Divergenta fata de v3.4.
+
+**Alternative.** (1) regula de pana acum, ca v3.4: mai putine diferente
+false, dar date schimbate ascunse. (3) string-urile exact: cel mai sigur, dar
+fiecare reindentare de SQL dinamic redevine „modificat", problema din
+2026-11-19.
+
+**Fixture.** Nu s-a regenerat: niciun caz din `referinta/cazuri.json` nu are
+spatii pe acelasi rand intr-un string, conformitatea trece neschimbata.
+Regula e tinuta de testele din `normalizare.rs` si `diff.rs`.
