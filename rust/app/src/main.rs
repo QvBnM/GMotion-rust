@@ -873,6 +873,7 @@ fn ruleaza() -> Result<(), String> {
         pe_stare!(deploy_ui.on_verifica_baza(|st| st.porneste_garda()));
         // textul final la SQL Server, fara efecte (etapa 26)
         pe_stare!(editor_ui.on_verifica_pe_server(|st| st.verifica_pe_server()));
+        pe_stare!(editor_ui.on_inchide_verificarea(|st| st.rezultat_verificare = None));
         // dialogul nativ (etapa 25): unde se scrie, si folderul deschis dupa
         pe_stare!(deploy_ui.on_alege_folderul(|st| {
             if let Some(d) = rfd::FileDialog::new().pick_folder() {

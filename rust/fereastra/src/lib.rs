@@ -3674,6 +3674,28 @@ mod teste {
         );
     }
 
+    /// Mesajul de structura inchis cu × nu revine pentru acelasi text, dar
+    /// revine cand problema se schimba; × pe raspunsul serverului cere
+    /// inchiderea lui (aplicatia il sterge).
+    #[test]
+    fn mesajele_se_inchid_cu_x_si_nu_raman_blocate() {
+        use std::cell::Cell;
+        let ui = fereastra();
+        ui.set_probleme_structura("linia 14: BEGIN fara END".into());
+        assert!(ui.get_arata_probleme());
+        ui.set_probleme_ascunse(ui.get_probleme_structura());
+        assert!(!ui.get_arata_probleme(), "× il ascunde");
+        ui.set_probleme_structura("linia 20: BEGIN fara END".into());
+        assert!(ui.get_arata_probleme(), "alta problema, se arata din nou");
+        ui.set_probleme_structura("".into());
+        assert!(!ui.get_arata_probleme(), "textul reparat: dispare");
+        let inchis = std::rc::Rc::new(Cell::new(false));
+        let i = inchis.clone();
+        ui.on_inchide_verificarea(move || i.set(true));
+        ui.invoke_inchide_verificarea();
+        assert!(inchis.get());
+    }
+
     #[test]
     fn problemele_de_structura_se_spun_cu_linia_in_ambele_limbi() {
         let p = gmotion_core::structura::verifica("BEGIN\nSELECT (1\nGO");
