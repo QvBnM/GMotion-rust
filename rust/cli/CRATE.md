@@ -78,10 +78,15 @@ autoritati de certificare.
 
 | Simptom | Cauza | Unde caut |
 |---|---|---|
-| „da ori --server, ori --sursa" | nu s-a dat niciuna | `src/sursa.rs` |
-| „lipseste parola pentru utilizatorul X" | `GMOTION_PAROLA` nu e setata | `src/acreditari.rs` |
+| `GM-CLI-001` | argumente lipsa sau care nu merg impreuna („da ori --server, ori --sursa", `--la` fara o singura diferenta) | `src/main.rs`, `src/sursa.rs` |
+| `GM-CLI-002` | parola: lipsa (`GMOTION_PAROLA` nesetata), goala, fisier sau intrare standard ilizibile | `src/acreditari.rs` |
+| `GM-CLI-003` | un fisier de intrare (text final, plan) nu se citeste | `src/comenzi.rs` |
+| `GM-CLI-004` | planul nu e JSON valid sau e facut cu alt martor | `src/comenzi.rs`, `deploy` |
+| `GM-CLI-005` | un nume (baza, obiect, `--doar`) nu e in comparare; mesajul listeaza ce exista | `src/comenzi.rs` |
+| `GM-CLI-006` | nimic de facut (nicio baza, nimic de exportat) | `src/comenzi.rs` |
+| `GM-CLI-007` | un fisier de iesire nu se scrie | `src/comenzi.rs` |
+| `GM-CLI-008` | martorul nu s-a putut citi | `src/comenzi.rs` |
 | `GM-DB-007` | instantaneul nu se citeste | `gmotion-db`, `src/fixture.rs` |
-| „baza de referinta nu exista in sursa" | nume gresit; mesajul listeaza ce exista | `src/comenzi.rs` |
 | `--json` da iesire neparsabila | ceva scrie la iesirea standard in afara de JSON | `src/afisare.rs`, `platforma/src/jurnal.rs` |
 | `GM-MOD-002` | tot ce e marcat exista doar in baza comparata | `gmotion-modul-diff-obiecte` |
 

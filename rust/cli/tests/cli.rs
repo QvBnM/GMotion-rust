@@ -323,6 +323,7 @@ fn doar_anumite_obiecte() {
     ]);
     assert!(!o.status.success());
     assert!(err(&o).contains("dbo.NuExista"), "{}", err(&o));
+    assert!(err(&o).contains("[GM-CLI-005]"), "cod stabil: {}", err(&o));
     assert!(!d.join("dep3").exists());
     std::fs::remove_dir_all(&d).ok();
 }
@@ -1657,6 +1658,7 @@ fn testeaza_cere_server() {
     scrie_instantaneu(&inst);
     let o = ruleaza(&["testeaza", "--sursa", inst.to_str().unwrap()]);
     assert!(!o.status.success());
+    assert!(err(&o).contains("[GM-CLI-001]"), "{}", err(&o));
     assert!(err(&o).contains("--server"), "{}", err(&o));
     assert!(out(&o).is_empty());
 }

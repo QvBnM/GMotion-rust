@@ -1398,6 +1398,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-012**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
 | `GM-MOD-*` | module — **diff-obiecte: 001-017**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-CLI-*` | linia de comanda — **alocate 001-008**, vezi `rust/cli/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
 `core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide

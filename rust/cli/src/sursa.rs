@@ -77,7 +77,9 @@ impl ArgumenteSursa {
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc de pe server");
                 Ok(Box::new(s))
             }
-            (None, None) => Err("da ori --server <SERVER>, ori --sursa <instantaneu.json>".into()),
+            (None, None) => {
+                Err("[GM-CLI-001] da ori --server <SERVER>, ori --sursa <instantaneu.json>".into())
+            }
         }
     }
 
@@ -86,7 +88,7 @@ impl ArgumenteSursa {
     pub fn deschide_server(&self) -> Result<SursaSqlServer, String> {
         let Some(server) = &self.server else {
             return Err(
-                "comanda cere --server <SERVER>: un instantaneu n-are conexiune de testat".into(),
+                "[GM-CLI-001] comanda cere --server <SERVER>: un instantaneu n-are conexiune de testat".into(),
             );
         };
         let auth: Autentificare = self.auth.rezolva()?;

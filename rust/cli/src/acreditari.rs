@@ -72,32 +72,38 @@ impl ArgumenteAuth {
     fn rezolva_o_data(&self) -> Result<Autentificare, String> {
         let Some(utilizator) = self.utilizator.clone() else {
             if self.parola_fisier.is_some() || self.parola_stdin {
-                return Err("ai dat o parola dar niciun --utilizator. Pentru \
+                return Err(
+                    "[GM-CLI-001] ai dat o parola dar niciun --utilizator. Pentru \
                     autentificare integrata Windows nu da parola; pentru SQL \
                     Auth da si --utilizator"
-                    .into());
+                        .into(),
+                );
             }
             return Ok(Autentificare::Integrata);
         };
 
         let parola = if let Some(cale) = &self.parola_fisier {
-            let text = std::fs::read_to_string(cale)
-                .map_err(|e| format!("nu pot citi parola din {}: {e}", cale.display()))?;
+            let text = std::fs::read_to_string(cale).map_err(|e| {
+                format!(
+                    "[GM-CLI-002] nu pot citi parola din {}: {e}",
+                    cale.display()
+                )
+            })?;
             prima_linie(&text)
         } else if self.parola_stdin {
             // O singura linie: tastata in terminal, citirea pana la sfarsitul
             // intrarii astepta Ctrl-D / Ctrl-Z si parea agatata. Gasit la audit.
             let mut text = String::new();
-            std::io::stdin()
-                .read_line(&mut text)
-                .map_err(|e| format!("nu pot citi parola de la intrarea standard: {e}"))?;
+            std::io::stdin().read_line(&mut text).map_err(|e| {
+                format!("[GM-CLI-002] nu pot citi parola de la intrarea standard: {e}")
+            })?;
             prima_linie(&text)
         } else {
             match std::env::var(VAR_PAROLA) {
                 Ok(p) if !p.is_empty() => p,
                 _ => {
                     return Err(format!(
-                        "lipseste parola pentru utilizatorul {utilizator}. Pune-o in \
+                        "[GM-CLI-002] lipseste parola pentru utilizatorul {utilizator}. Pune-o in \
                          variabila {VAR_PAROLA}, sau foloseste --parola-fisier / \
                          --parola-stdin.\n\
                          Nu exista --parola ca argument: ar ajunge in istoricul \
@@ -108,7 +114,7 @@ impl ArgumenteAuth {
         };
 
         if parola.is_empty() {
-            return Err("parola citita e goala".into());
+            return Err("[GM-CLI-002] parola citita e goala".into());
         }
         Ok(Autentificare::Sql { utilizator, parola })
     }

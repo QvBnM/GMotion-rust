@@ -408,7 +408,9 @@ fn main() -> std::process::ExitCode {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 if la.is_some() && numere.len() != 1 {
-                    return Err("--la merge cu o singura diferenta (--aplica N)".to_string());
+                    return Err(
+                        "[GM-CLI-001] --la merge cu o singura diferenta (--aplica N)".to_string(),
+                    );
                 }
                 comenzi::ActiuneEditare::Aplica(numere, *la)
             } else if *aplica_toate {

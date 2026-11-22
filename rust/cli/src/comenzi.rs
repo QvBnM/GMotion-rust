@@ -191,7 +191,7 @@ pub fn instantaneu(
         }
     };
     if lista_baze.is_empty() {
-        return Err("nicio baza de citit".into());
+        return Err("[GM-CLI-006] nicio baza de citit".into());
     }
 
     // Numele serverului, nu descrierea pentru jurnal (care vorbeste si despre
@@ -253,7 +253,7 @@ fn ruleaza_comparare(
     let disponibile = s.baze().map_err(|e| e.to_string())?;
     if !disponibile.iter().any(|b| b == referinta) {
         return Err(format!(
-            "baza martor {referinta:?} nu exista in sursa data. Disponibile: {}",
+            "[GM-CLI-005] baza martor {referinta:?} nu exista in sursa data. Disponibile: {}",
             disponibile.join(", ")
         ));
     }
@@ -296,7 +296,7 @@ fn ruleaza_comparare(
         .into_iter();
     let ref_obiecte = match citite.next() {
         Some((_, obiecte)) => modul::pregateste(&obiecte),
-        None => return Err("martorul nu a putut fi citit".into()),
+        None => return Err("[GM-CLI-008] martorul nu a putut fi citit".into()),
     };
     let altele: Vec<(String, modul::Baza)> = citite
         .map(|(baza, obiecte)| (baza, modul::pregateste(&obiecte)))
@@ -519,7 +519,7 @@ pub fn revizuire(
     }
     if !necunoscute.is_empty() {
         return Err(format!(
-            "obiecte care nu sunt in comparare (sau nu erau bifate): {}",
+            "[GM-CLI-005] obiecte care nu sunt in comparare (sau nu erau bifate): {}",
             necunoscute.join(", ")
         ));
     }
@@ -677,7 +677,9 @@ pub fn impact(
         .collect();
     if let Some(o) = obiect {
         if randuri.is_empty() {
-            return Err(format!("obiectul {o:?} nu difera in nicio baza comparata"));
+            return Err(format!(
+                "[GM-CLI-005] obiectul {o:?} nu difera in nicio baza comparata"
+            ));
         }
     }
     randuri.sort_by(|a, b| {
@@ -792,13 +794,15 @@ pub fn editare(
         .randuri
         .iter()
         .find(|x| x.baza == baza && x.obiect.eq_ignore_ascii_case(obiect))
-        .ok_or_else(|| format!("{obiect} nu difera intre {referinta} si {baza}"))?
+        .ok_or_else(|| format!("[GM-CLI-005] {obiect} nu difera intre {referinta} si {baza}"))?
         .clone();
     let text_sursa = r
         .referinta
         .get(&rand.obiect)
         .map(|o| o.afisare.clone())
-        .ok_or_else(|| format!("{obiect} nu exista in {referinta}: nu e nimic de adus"))?;
+        .ok_or_else(|| {
+            format!("[GM-CLI-005] {obiect} nu exista in {referinta}: nu e nimic de adus")
+        })?;
     let text_baza = r
         .altele
         .iter()
@@ -839,7 +843,7 @@ pub fn editare(
                     let total = curent.lines().count();
                     if linie == 0 || linie > total + 1 {
                         return Err(format!(
-                            "--la {linie}: textul curent are {total} linii (1..={})",
+                            "[GM-CLI-001] --la {linie}: textul curent are {total} linii (1..={})",
                             total + 1
                         ));
                     }
@@ -863,7 +867,7 @@ pub fn editare(
         ActiuneEditare::Reset => editari.reset(&rand),
         ActiuneEditare::DinFisier(cale) => {
             let text = std::fs::read_to_string(&cale)
-                .map_err(|e| format!("nu pot citi {}: {e}", cale.display()))?;
+                .map_err(|e| format!("[GM-CLI-003] nu pot citi {}: {e}", cale.display()))?;
             // un BOM (Notepad, PowerShell) ar ajunge in mijlocul scriptului
             let text = gmotion_core::pregateste_afisare(text.trim_start_matches('\u{feff}'));
             // un text care n-ar trece de deploy se refuza acum, nu abia la
@@ -966,7 +970,7 @@ pub fn export(
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
     if r.comparare.randuri.is_empty() {
-        return Err("nimic de exportat: bazele sunt identice cu martorul".into());
+        return Err("[GM-CLI-006] nimic de exportat: bazele sunt identice cu martorul".into());
     }
     let cale =
         iesire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
@@ -1012,7 +1016,7 @@ fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<mod
                 .collect();
             if !necunoscute.is_empty() {
                 return Err(format!(
-                    "--doar: {} nu sunt in comparare (nu exista, sau sunt identice cu martorul)",
+                    "[GM-CLI-005] --doar: {} nu sunt in comparare (nu exista, sau sunt identice cu martorul)",
                     necunoscute
                         .iter()
                         .map(|s| s.as_str())
@@ -1123,7 +1127,8 @@ pub fn plan(
     }
     let cale = iesire.unwrap_or_else(|| PathBuf::from(format!("plan_{}.json", acum_compact())));
     let text = serde_json::to_string_pretty(&p).map_err(|e| e.to_string())?;
-    std::fs::write(&cale, text).map_err(|e| format!("nu pot scrie {}: {e}", cale.display()))?;
+    std::fs::write(&cale, text)
+        .map_err(|e| format!("[GM-CLI-007] nu pot scrie {}: {e}", cale.display()))?;
     format.progres(&format!(
         "Scris {} ({} pasi{}).\n\
          Deploy-ul, cu verificarea ca baza n-a mai fost atinsa:\n  \
@@ -1160,12 +1165,12 @@ pub fn deploy(
     let (plan, r) = match cale_plan {
         Some(c) => {
             let text = std::fs::read_to_string(c)
-                .map_err(|e| format!("nu pot citi planul {}: {e}", c.display()))?;
+                .map_err(|e| format!("[GM-CLI-003] nu pot citi planul {}: {e}", c.display()))?;
             let plan: modul::Plan = serde_json::from_str(&text)
-                .map_err(|e| format!("planul {} nu e valid: {e}", c.display()))?;
+                .map_err(|e| format!("[GM-CLI-004] planul {} nu e valid: {e}", c.display()))?;
             if plan.referinta != referinta {
                 return Err(format!(
-                    "planul e facut cu martorul {:?}, nu {referinta:?}",
+                    "[GM-CLI-004] planul e facut cu martorul {:?}, nu {referinta:?}",
                     plan.referinta
                 ));
             }
@@ -1299,7 +1304,7 @@ pub fn diferente(
 
     let (Some(r), Some(c)) = (gaseste(&ref_ob), gaseste(&cur_ob)) else {
         return Err(format!(
-            "obiectul {obiect:?} nu exista in ambele baze ({referinta} si {baza})"
+            "[GM-CLI-005] obiectul {obiect:?} nu exista in ambele baze ({referinta} si {baza})"
         ));
     };
     let text_ref = gmotion_core::pregateste_afisare(&r.definitie);
