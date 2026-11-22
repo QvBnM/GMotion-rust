@@ -175,6 +175,12 @@ def main():
         "nota": "instantaneu sintetic pentru `gmotion-ui --previzualizare`; generat de unelte/genereaza-previzualizare.py",
         "baze": {REFERINTA: referinta(), **{n: baza(i, n) for i, n in enumerate(BAZE)}},
     }
+    # ultima modificare (etapa 25), deterministica: aceeasi la fiecare generare
+    for b, (nume_baza, obiecte) in enumerate(date["baze"].items()):
+        for k, o in enumerate(obiecte):
+            luna, zi = 1 + (k * 7 + b) % 11, 1 + (k * 13 + b * 5) % 28
+            ora, minut = 8 + (k * 3 + b) % 10, (k * 17 + b * 11) % 60
+            o["modificat"] = f"2026-{luna:02}-{zi:02} {ora:02}:{minut:02}:00"
     cale.write_text(json.dumps(date, indent=1, ensure_ascii=True) + "\n", encoding="utf-8")
     obiecte = sum(len(v) for v in date["baze"].values())
     print(f"scris {cale} ({len(date['baze'])} baze, {obiecte} obiecte)")

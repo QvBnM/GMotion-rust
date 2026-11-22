@@ -31,9 +31,9 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/25-ce-a-ramas-din-portare.md` — progres la
-Recompara, „Ultima modificare", „Despre", dialogul nativ (`rfd`), evidentierea
-in timp ce scrii.
+**Etapa activa:** niciuna. Etapa 25 (ce a ramas din portare) s-a incheiat
+pe 2026-11-22; din `lipsuri-portare.md` mai ramane doar ce e decis altfel
+(doua teme in loc de sase).
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -45,6 +45,19 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-22, etapa 25, de vazut si probat de Mihai:**
+
+1. Capturile din `cercetare/machete/etapa-25/` (lista in recomparare cu
+   coloana „Ultima modificare", „Despre", editarea colorata): „da" sau ce
+   schimb.
+2. Pe Windows: „Deschide un instantaneu" -> „Alege fisierul…"; la deploy,
+   „Alege folderul…" si „Deschide folderul" dupa scriere. Dialogul nativ nu
+   se poate proba pe Linux.
+3. Pe un server real: coloana „Ultima modificare" vine din
+   `sys.objects.modify_date` (interogarea e noua, neprobata pe SQL Server).
+4. In editare (`e`): scrisul, selectia si cursorul raman normale, iar
+   culorile urmeaza textul fara intarziere.
 
 **2026-11-22, de probat de Mihai pe Windows** (etapa 24, nimic din asta nu se
 poate vedea pe Linux):

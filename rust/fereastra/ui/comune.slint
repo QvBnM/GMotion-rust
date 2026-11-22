@@ -1081,9 +1081,18 @@ export component Despre inherits Rectangle {
                         color: Tema.text-secundar;
                         wrap: word-wrap;
                     }
+                    // `AboutSlint` are culorile lui, gandite pe fond deschis: in
+                    // modul intunecat versiunea de sub sigla nu se vedea
                     HorizontalLayout {
                         alignment: start;
-                        AboutSlint { }
+                        Rectangle {
+                            background: #f4f5f7;
+                            border-radius: 10px;
+                            HorizontalLayout {
+                                padding: 8px;
+                                AboutSlint { }
+                            }
+                        }
                     }
                 }
             }

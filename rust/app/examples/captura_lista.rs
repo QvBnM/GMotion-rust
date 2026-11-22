@@ -2,7 +2,7 @@
 //! adevarata dintr-un instantaneu.
 //!
 //!   cargo run --release -p gmotion-app --example captura_lista -- \
-//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--inaltime 900] [--harta]
+//!       instantaneu.json SURSA BAZE iesire.png [schema.obiect-selectat] [--tema intunecat|luminos] [--limba ro|en] [--toate] [--latime 960] [--inaltime 900] [--harta] [--recompara] [--despre]
 //!
 //! `BAZE` poate fi o lista separata prin virgula: asa se fotografiaza si
 //! coloana „Baza".
@@ -133,6 +133,27 @@ fn main() {
             .unwrap_or(gmotion_fereastra::harta::SCARI[0])
             .pas as f32;
         ui.invoke_peste_harta(0, 2.0 * pas + 2.0, 2.0);
+    }
+    // `--recompara`: bara listei cat ruleaza o recomparare (etapa 25)
+    if a.iter().any(|x| x == "--recompara") {
+        ui.set_recompara_ruleaza(true);
+        ui.set_recompara_text("Citesc CharismaERP_Client2_Prod (3 din 4) · 0:07".into());
+        ui.set_recompara_fractie(0.5);
+    }
+    // `--despre`: ecranul „Despre" (etapa 25)
+    if a.iter().any(|x| x == "--despre") {
+        ui.set_text_despre(
+            gmotion_fereastra::text_despre(
+                gmotion_fereastra::texte::Limba::Romana,
+                env!("CARGO_PKG_VERSION"),
+                Some(std::path::Path::new(
+                    "C:\\Users\\mihai\\AppData\\Roaming\\GMotion\\jurnale\\gmotion-20261122_103215.log",
+                )),
+                Some(std::path::Path::new("C:\\Users\\mihai\\AppData\\Roaming\\GMotion")),
+            )
+            .into(),
+        );
+        ui.set_arata_despre(true);
     }
     let mut buf = vec![PremultipliedRgbaColor::background(); (w * h) as usize];
     fereastra.draw_if_needed(|rd| {

@@ -29,10 +29,17 @@ ecran care nu ajungea in conexiune: rezolvate in etapa 14.
 
 ## 1. Conectare si servere
 
+Facute in etapa 25: progres si Anuleaza la Recompara, pe lista; dialogul
+nativ pentru instantaneu (`rfd`).
+
 | Functie v3.4 | Unde in v3.4 | Rust | Nota |
 |---|---|---|---|
-| Progres la **Recompara** (din lista) | — | pe fir, dar lista nu arata progresul si nu are Anuleaza | etapa 25; garda de deploy e pe fir din P4 |
-| Deschiderea unui instantaneu din fereastra | — (nou) | alegere din `.json`-urile gasite pe disc, sau cale scrisa | etapa 25: dialogul nativ (`rfd`), decis de Mihai pe 2026-11-22 |
+
+## 3b. Facute in etapa 25
+
+Coloana „Ultima modificare" (si in `--json` si CSV), sintaxa colorata cat
+scrii in editare, alegerea folderului de deploy si „Deschide folderul",
+ecranul „Despre" (din Ajutor).
 
 ## 2. Comparare offline
 
@@ -43,7 +50,6 @@ conectare).
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Coloana „Ultima modificare" | `ui.py:2529` | nu, nici in CLI | etapa 25; din `sys.objects.modify_date` |
 
 Rezolvate in etapa 14: coloane redimensionabile cu autofit la dublu clic,
 Ajutor (F1), filtrul pe baza, Ctrl+F in cautare, filtrul pe stare (sase cazuri),
@@ -60,7 +66,6 @@ conexiunea cu detaliile serverului (neverificat inca pe server real).
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Evidentierea de sintaxa **in timp ce scrii** | `ui.py` | nu: editarea de mana e text simplu, culorile revin la salvare | |
 
 Rezolvate in etapa 14: tinta editabila (panoul Baza, „Editeaza", `e`),
 Aplica bloc (sageata din canal), Aplica toate, Reset, Ctrl+Z, modul ghidat
@@ -86,7 +91,6 @@ comuta (sectiunea 0).
 
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
-| Alegerea folderului si deschiderea lui dupa scriere | `app.py:660` | CLI `-d CALE`; GUI scrie in directorul de date, fara alegere | etapa 25, cu `rfd` |
 
 Facute: „Toate in plan" cu cele deja trimise, starea „deployat" tinuta in
 sesiune pe amprenta (`Aplicatie::marcheaza_deployate`), planul pastrat la
@@ -101,7 +105,6 @@ dependente. Doar in CLI: garda de versiune, setarile `SET` refacute.
 | Functie v3.4 | Unde | Rust | Nota |
 |---|---|---|---|
 | 6 teme, inclusiv intunecate | `ui.py:1075-1085` | doua moduri, intunecat si luminos | decizia lui Mihai: aceeasi paleta, doua moduri |
-| „Despre" | — | nu | etapa 25; **cerut de licenta Slint** (`AboutSlint`, vezi `JURNAL.md`) |
 
 Facute: „Recente" pe conectare cu progres, Reia si Ignora (sterge sesiunea);
 indicatorul „salvat la 14:52" in editor; ecranul complet (F11, pe toate
