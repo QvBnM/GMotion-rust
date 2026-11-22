@@ -162,7 +162,14 @@ fn curata_linie(s: &str) -> String {
             '\n' => out.push_str("\\n"),
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
-            c if c.is_control() => out.push_str(&format!("\\u{{{:x}}}", c as u32)),
+            // si caracterele de directie (U+202E inverseaza textul afisat) si
+            // separatorii de rand Unicode: nu sunt `is_control`, dar fac o
+            // linie sa arate altceva decat contine (F-B7)
+            c if c.is_control()
+                || matches!(c, '\u{200e}' | '\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{2028}' | '\u{2029}') =>
+            {
+                out.push_str(&format!("\\u{{{:x}}}", c as u32))
+            }
             c => out.push(c),
         }
     }
@@ -277,6 +284,12 @@ mod teste {
     // toate testele din proces (si cu jurnalul lor, dupa `porneste`), deci un
     // test pe el care presupune ca nu scrie nimeni altcineva cade aleator:
     // asa a cazut `linii_cere_doar_ce_e_nou`, ~1 rulare din 100.
+
+    #[test]
+    fn caracterele_de_directie_se_scapa() {
+        let l = curata_linie("a\u{202e}b\u{2028}c");
+        assert_eq!(l, "a\\u{202e}b\\u{2028}c");
+    }
 
     #[test]
     fn linii_cere_doar_ce_e_nou() {

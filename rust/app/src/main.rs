@@ -808,7 +808,9 @@ fn ruleaza() -> Result<(), String> {
                 Ok(_) => {
                     // ora, nu data: „ultima data la 14:52"
                     let acum = gmotion_platforma::timp::acum();
-                    s.salvat_la = acum.split(' ').nth(1).unwrap_or(&acum).to_string();
+                    // ceasul din `platforma::timp` e UTC: se spune, altfel
+                    // „14:52" pare ora locala (F-B7)
+                    s.salvat_la = format!("{} UTC", acum.split(' ').nth(1).unwrap_or(&acum));
                 }
                 Err(e) => {
                     tracing::warn!(target: "gmotion::app", eroare = %e, "progresul nu s-a salvat");

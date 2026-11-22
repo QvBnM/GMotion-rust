@@ -64,10 +64,32 @@ pub fn director_date() -> Rezultat<PathBuf> {
 /// Scrie un fisier atomic: intai alaturi, apoi redenumit peste. O cadere la
 /// jumatatea scrierii lasa fisierul vechi intreg, nu unul trunchiat (care, la
 /// configurare, ar bloca orice comanda). Gasit la audit.
+///
+/// Numele temporar e unic pe proces si pe apel: doua scrieri simultane (cli si
+/// fereastra pe aceeasi sesiune) nu-si mai calca fisierul temporar. Datele se
+/// duc pe disc (`sync_all`) inainte de redenumire, altfel o cadere de curent
+/// putea lasa fisierul nou gol. Pe Unix fisierul e doar al utilizatorului
+/// (0600): sesiunea e in clar acolo (F-B7).
 pub(crate) fn scrie_atomic(cale: &std::path::Path, date: &[u8]) -> std::io::Result<()> {
-    let temporar = cale.with_extension("tmp-gmotion");
-    std::fs::write(&temporar, date)?;
-    std::fs::rename(&temporar, cale).inspect_err(|_e| {
+    use std::io::Write;
+    static CONTOR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = CONTOR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let temporar = cale.with_extension(format!("tmp-gmotion-{}-{n}", std::process::id()));
+    let scrie = || -> std::io::Result<()> {
+        let mut o = std::fs::OpenOptions::new();
+        o.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            o.mode(0o600);
+        }
+        let mut f = o.open(&temporar)?;
+        f.write_all(date)?;
+        f.sync_all()?;
+        drop(f);
+        std::fs::rename(&temporar, cale)
+    };
+    scrie().inspect_err(|_e| {
         let _ = std::fs::remove_file(&temporar);
     })
 }
@@ -96,6 +118,25 @@ pub fn director_jurnale() -> Rezultat<PathBuf> {
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn scrierea_atomica_lasa_doar_fisierul_final() {
+        let d = std::env::temp_dir().join(format!("gmotion-atomic-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("x.json");
+        scrie_atomic(&cale, b"unu").unwrap();
+        scrie_atomic(&cale, b"doi").unwrap();
+        assert_eq!(std::fs::read(&cale).unwrap(), b"doi");
+        let ramase: Vec<_> = std::fs::read_dir(&d).unwrap().flatten().collect();
+        assert_eq!(ramase.len(), 1, "niciun fisier temporar ramas");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mod_ = std::fs::metadata(&cale).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mod_, 0o600);
+        }
+        std::fs::remove_dir_all(&d).ok();
+    }
 
     #[test]
     fn suprascrierea_din_mediu_are_prioritate() {
