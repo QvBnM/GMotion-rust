@@ -27,7 +27,7 @@ button,input,select{font-family:inherit}
   <div style="flex-grow: 1; display: flex; justify-content: center; padding: 56px 40px 0; box-sizing: border-box; min-height: 0;">
     <div style="width: 920px; display: flex; flex-direction: column; gap: 40px;">
 
-      <section aria-label="Comparare nouă" style="display: flex; flex-direction: column; gap: 22px;">
+      <section aria-label="Comparare noua" style="display: flex; flex-direction: column; gap: 22px;">
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); align-items: start;">
           <sc-for list="{{parti}}" as="p" hint-placeholder-count="2">
             <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -50,7 +50,7 @@ button,input,select{font-family:inherit}
               </div>
               <sc-if value="{{p.sql}}" hint-placeholder-val="{{false}}">
                 <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span style="color: #6b675e;">Utilizator</span><input value="deploy_ro" style="height: 30px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; font-size: 13px;"></label>
-                <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span style="color: #6b675e;">Parolă</span><input type="password" value="xxxxxxxxxx" style="height: 30px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; font-size: 13px;"></label>
+                <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span style="color: #6b675e;">Parola</span><input type="password" value="xxxxxxxxxx" style="height: 30px; padding: 0 8px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; font-size: 13px;"></label>
               </sc-if>
               <label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">
                 <span style="color: #6b675e;">Baza</span>
@@ -63,7 +63,7 @@ button,input,select{font-family:inherit}
             </div>
             <sc-if value="{{p.sageata}}" hint-placeholder-val="{{true}}">
               <div style="display: flex; justify-content: center; padding-top: 2px;">
-                <button aria-label="Inversează" style="width: 28px; height: 28px; border: 1px solid #dedbd3; border-radius: 3px; background: #fbfaf7; display: flex; align-items: center; justify-content: center;">
+                <button aria-label="Inverseaza" style="width: 28px; height: 28px; border: 1px solid #dedbd3; border-radius: 3px; background: #fbfaf7; display: flex; align-items: center; justify-content: center;">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b675e" stroke-width="1.5" aria-hidden="true"><path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3"/></svg>
                 </button>
               </div>
@@ -72,22 +72,22 @@ button,input,select{font-family:inherit}
         </div>
 
         <div style="display: flex; align-items: center; gap: 14px; padding-top: 16px; border-top: 1px solid #dedbd3;">
-          <span style="color: #6b675e;">Certificatul serverului nu se verifică.</span>
-          <a href="#" style="font-size: 13px;">Schimbă</a>
+          <span style="color: #6b675e;">Certificatul serverului nu se verifica.</span>
+          <a href="#" style="font-size: 13px;">Schimba</a>
           <div style="flex-grow: 1;"></div>
-          <span style="color: #6b675e; font-size: 12px;">Se citește, nu se scrie nimic.</span>
-          <a href="Main.dc.html" style="height: 32px; padding: 0 18px; border-radius: 3px; background: #1c1b18; color: #fbfaf7; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; text-decoration: none;">Compară</a>
+          <span style="color: #6b675e; font-size: 12px;">Se citeste, nu se scrie nimic.</span>
+          <a href="Main.dc.html" style="height: 32px; padding: 0 18px; border-radius: 3px; background: #1c1b18; color: #fbfaf7; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; text-decoration: none;">Compara</a>
         </div>
       </section>
 
-      <section aria-label="Comparări recente" style="display: flex; flex-direction: column;">
+      <section aria-label="Comparari recente" style="display: flex; flex-direction: column;">
         <div style="font-weight: 600; padding-bottom: 8px; border-bottom: 1px solid #1c1b18;">Recente</div>
         <sc-for list="{{sesiuni}}" as="s" hint-placeholder-count="3">
           <a href="Main.dc.html" style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 200px 90px; align-items: center; gap: 12px; height: 38px; border-bottom: 1px solid #ebe8e1; color: #1c1b18; text-decoration: none;">
             <span><span style="font-weight: 500;">{{s.sursa}}</span> <span style="color: #6b675e;">→</span> <span style="font-weight: 500;">{{s.baza}}</span> <span style="{{s.envSty}}">{{s.env}}</span></span>
             <span style="color: #6b675e;">{{s.cand}}</span>
             <span style="color: #6b675e;">{{s.rev}}</span>
-            <span style="text-align: right; color: #2b4a6f;">Continuă</span>
+            <span style="text-align: right; color: #2b4a6f;">Continua</span>
           </a>
         </sc-for>
       </section>
@@ -106,7 +106,7 @@ class Component extends DCLogic {
     ];
     const sesiuni = [
       { sursa: 'CharismaDev', baza: 'CharismaProd', env: 'PROD', envSty: ENV.PROD, cand: 'ieri, 17:40', rev: '124 din 336 revizuite' },
-      { sursa: 'CharismaDev', baza: 'CharismaTest', env: 'TEST', envSty: ENV.TEST, cand: 'luni, 10:12', rev: 'deploy făcut' },
+      { sursa: 'CharismaDev', baza: 'CharismaTest', env: 'TEST', envSty: ENV.TEST, cand: 'luni, 10:12', rev: 'deploy facut' },
       { sursa: 'Charisma_Copy', baza: 'CharismaDev', env: 'DEV', envSty: ENV.DEV, cand: '12 noiembrie', rev: '96 din 1.204 revizuite' },
     ];
     return { parti, sesiuni };

@@ -20,25 +20,25 @@ button,input{font-family:inherit}
 
   <header style="height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 16px; border-bottom: 1px solid #dedbd3; background: #fbfaf7;">
     <a href="Main.dc.html" style="color: #6b675e; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b675e" stroke-width="1.5" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>Listă
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6b675e" stroke-width="1.5" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>Lista
     </a>
     <span style="width: 1px; height: 20px; background: #dedbd3;"></span>
     <span style="font-weight: 600; font-size: 14px;">Deploy pe CharismaProd</span>
     <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-size: 11px; font-weight: 600; color: #b3261e; letter-spacing: 0.6px;">PROD</span>
-    <span style="color: #6b675e; font-size: 12px;">din CharismaDev · plan făcut la 14:41</span>
+    <span style="color: #6b675e; font-size: 12px;">din CharismaDev · plan facut la 14:41</span>
   </header>
 
   <div style="flex-grow: 1; min-height: 0; display: flex;">
     <main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #fbfaf7;">
       <div role="tablist" aria-label="Plan" style="height: 40px; flex-shrink: 0; display: flex; align-items: flex-end; gap: 22px; padding: 0 24px; border-bottom: 1px solid #dedbd3;">
         <button role="tab" aria-selected="true" style="height: 40px; padding: 0; border: 0; border-bottom: 2px solid #1c1b18; background: transparent; color: #1c1b18; font-weight: 600; font-size: 13px;">Ordinea</button>
-        <button role="tab" style="height: 40px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #6b675e; font-size: 13px;">Atenționări <span style="font-family: 'IBM Plex Mono', Consolas, monospace; color: #8a5a00;">2</span></button>
+        <button role="tab" style="height: 40px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #6b675e; font-size: 13px;">Atentionari <span style="font-family: 'IBM Plex Mono', Consolas, monospace; color: #8a5a00;">2</span></button>
         <button role="tab" style="height: 40px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #6b675e; font-size: 13px;">Script <span style="font-family: 'IBM Plex Mono', Consolas, monospace;">1.412</span></button>
       </div>
 
       <div style="padding: 20px 24px 10px; display: flex; align-items: baseline; gap: 14px;">
         <span style="font-size: 18px; font-weight: 600;">12 obiecte</span>
-        <span style="color: #6b675e;"><span style="color: #8a5a00;">9 modificate</span>, <span style="color: #3d6b35;">2 noi</span>, <span style="color: #a3392b;">1 șters</span> — în ordinea în care se folosesc unul pe altul</span>
+        <span style="color: #6b675e;"><span style="color: #8a5a00;">9 modificate</span>, <span style="color: #3d6b35;">2 noi</span>, <span style="color: #a3392b;">1 sters</span> — in ordinea in care se folosesc unul pe altul</span>
       </div>
 
       <div role="list" style="margin: 0 24px; border-top: 1px solid #1c1b18;">
@@ -53,8 +53,8 @@ button,input{font-family:inherit}
       </div>
     </main>
 
-    <aside aria-label="Verificări și rulare" style="width: 400px; flex-shrink: 0; border-left: 1px solid #dedbd3; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; gap: 16px;">
-      <div style="font-weight: 600;">Înainte de rulare</div>
+    <aside aria-label="Verificari si rulare" style="width: 400px; flex-shrink: 0; border-left: 1px solid #dedbd3; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; gap: 16px;">
+      <div style="font-weight: 600;">Inainte de rulare</div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <sc-for list="{{verif}}" as="v" hint-placeholder-count="5">
           <div style="display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; line-height: 1.45;">
@@ -66,17 +66,17 @@ button,input{font-family:inherit}
 
       <label style="display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; line-height: 1.45; padding-top: 16px; border-top: 1px solid #dedbd3;">
         <input type="checkbox" checked="{{true}}" style="margin: 3px 0 0; accent-color: #1c1b18;">
-        <span>Salvează întâi versiunea actuală a celor 12 obiecte, ca să poți reveni.</span>
+        <span>Salveaza intai versiunea actuala a celor 12 obiecte, ca sa poti reveni.</span>
       </label>
 
       <div style="flex-grow: 1;"></div>
 
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <label for="confirma" style="line-height: 1.45;">E producție și se șterge un obiect. Scrie <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600;">CharismaProd</span> ca să pornești.</label>
+        <label for="confirma" style="line-height: 1.45;">E productie si se sterge un obiect. Scrie <span style="font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600;">CharismaProd</span> ca sa pornesti.</label>
         <input id="confirma" style="height: 32px; padding: 0 10px; border: 1px solid #b3261e; border-radius: 3px; font-size: 13px; font-family: 'IBM Plex Mono', Consolas, monospace; background: #ffffff;">
         <div style="display: flex; gap: 8px;">
-          <button style="height: 32px; padding: 0 12px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; color: #1c1b18; font-size: 13px;">Salvează .sql</button>
-          <button disabled="{{true}}" style="flex-grow: 1; height: 32px; border: 0; border-radius: 3px; background: #d9d5cc; color: #6b675e; font-weight: 500; font-size: 13px;">Rulează</button>
+          <button style="height: 32px; padding: 0 12px; border: 1px solid #dedbd3; border-radius: 3px; background: #ffffff; color: #1c1b18; font-size: 13px;">Salveaza .sql</button>
+          <button disabled="{{true}}" style="flex-grow: 1; height: 32px; border: 0; border-radius: 3px; background: #d9d5cc; color: #6b675e; font-weight: 500; font-size: 13px;">Ruleaza</button>
         </div>
       </div>
     </aside>
@@ -88,18 +88,18 @@ const OPC = { ALTER: '#8a5a00', CREATE: '#3d6b35', DROP: '#a3392b' };
 class Component extends DCLogic {
   renderVals() {
     const P = [
-      ['CREATE', 'dbo', 'fn_StocLot', 'nouă, o folosește pasul 4', ''],
-      ['ALTER', 'dbo', 'fn_PretCuTva', 'o folosește pasul 3', ''],
+      ['CREATE', 'dbo', 'fn_StocLot', 'noua, o foloseste pasul 4', ''],
+      ['ALTER', 'dbo', 'fn_PretCuTva', 'o foloseste pasul 3', ''],
       ['ALTER', 'dbo', 'vw_FacturiNeincasate', '', ''],
       ['ALTER', 'dbo', 'usp_CalculeazaStoc', '', ''],
       ['CREATE', 'dbo', 'usp_ImportClienti', '', ''],
       ['ALTER', 'dbo', 'GenerateOrderByRecommendedOrder', '', ''],
-      ['ALTER', 'dbo', 'usp_InchideLuna', 'rămâne cu QUOTED_IDENTIFIER OFF', 'w'],
+      ['ALTER', 'dbo', 'usp_InchideLuna', 'ramane cu QUOTED_IDENTIFIER OFF', 'w'],
       ['ALTER', 'rpt', 'usp_RaportVanzariLunar', '', ''],
-      ['ALTER', 'dbo', 'trg_Comenzi_Audit', 'diferă doar setarea SET', ''],
-      ['ALTER', 'dbo', 'usp_Facturare', 'rămâne cu QUOTED_IDENTIFIER OFF', 'w'],
+      ['ALTER', 'dbo', 'trg_Comenzi_Audit', 'difera doar setarea SET', ''],
+      ['ALTER', 'dbo', 'usp_Facturare', 'ramane cu QUOTED_IDENTIFIER OFF', 'w'],
       ['ALTER', 'dbo', 'usp_ExportAnaf', '', ''],
-      ['DROP', 'dbo', 'fn_CursVechi', 'nu mai e în sursă', 'd'],
+      ['DROP', 'dbo', 'fn_CursVechi', 'nu mai e in sursa', 'd'],
     ];
     const pasi = P.map(([op, schema, obj, nota, f], i) => ({
       n: i + 1, op, schema, obj, nota,
@@ -108,14 +108,14 @@ class Component extends DCLogic {
       sty: 'display: grid; grid-template-columns: 22px 64px minmax(0, 1fr) 280px; align-items: center; gap: 12px; height: 34px; border-bottom: 1px solid #ebe8e1',
     }));
     const glif = (s) => s === 'ok'
-      ? { ic: '✓', stare: 'în regulă', icSty: "font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; color: #3d6b35" }
-      : { ic: '!', stare: 'atenție', icSty: "font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; color: #8a5a00; padding-left: 3px" };
+      ? { ic: '✓', stare: 'in regula', icSty: "font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; color: #3d6b35" }
+      : { ic: '!', stare: 'atentie', icSty: "font-family: 'IBM Plex Mono', Consolas, monospace; font-weight: 600; color: #8a5a00; padding-left: 3px" };
     const verif = [
-      ['ok', 'SQL Server 2016 SP2.', 'Știe CREATE OR ALTER; scriptul se oprește singur pe unul mai vechi.'],
-      ['ok', 'Baza n-a mai fost atinsă.', 'Recitită acum 30 s, cele 12 obiecte sunt exact cum le-ai comparat.'],
-      ['ok', 'Ordinea e completă.', 'Nicio dependență circulară.'],
-      ['w', 'Se șterge dbo.fn_CursVechi.', 'Nimic din bază n-o mai folosește.'],
-      ['w', 'Două proceduri au QUOTED_IDENTIFIER OFF.', 'Setarea li se păstrează.'],
+      ['ok', 'SQL Server 2016 SP2.', 'Stie CREATE OR ALTER; scriptul se opreste singur pe unul mai vechi.'],
+      ['ok', 'Baza n-a mai fost atinsa.', 'Recitita acum 30 s, cele 12 obiecte sunt exact cum le-ai comparat.'],
+      ['ok', 'Ordinea e completa.', 'Nicio dependenta circulara.'],
+      ['w', 'Se sterge dbo.fn_CursVechi.', 'Nimic din baza n-o mai foloseste.'],
+      ['w', 'Doua proceduri au QUOTED_IDENTIFIER OFF.', 'Setarea li se pastreaza.'],
     ].map(([s, titlu, det]) => Object.assign(glif(s), { titlu, det }));
     return { pasi, verif };
   }

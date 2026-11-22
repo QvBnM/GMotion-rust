@@ -37,7 +37,7 @@ input{font-family:inherit}
   <div role="dialog" aria-label="Paleta de comenzi" style="position: absolute; left: 420px; top: 96px; width: 600px; background: #fbfaf7; border: 1px solid #1c1b18; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column;">
     <label style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border-bottom: 1px solid #dedbd3;">
       <span style="font-family: 'IBM Plex Mono', Consolas, monospace; color: #9c978b;">›</span>
-      <input aria-label="Comandă sau obiect" value="plan" style="border: 0; outline: none; flex-grow: 1; font-size: 15px; color: #1c1b18; background: transparent;">
+      <input aria-label="Comanda sau obiect" value="plan" style="border: 0; outline: none; flex-grow: 1; font-size: 15px; color: #1c1b18; background: transparent;">
     </label>
     <sc-for list="{{grupuri}}" as="g" hint-placeholder-count="3">
       <div style="padding: 6px 0;">
@@ -75,9 +75,9 @@ class Component extends DCLogic {
     const grupuri = [
       { titlu: 'Comenzi', items: [
         it('Deschide planul de deploy', '12 obiecte', 'ctrl d', true, false),
-        it('Pune în plan obiectul curent', '', 'a', false, false),
-        it('Pune în plan tot ce e revizuit', '124', '', false, false),
-        it('Salvează planul ca .sql', '', 'ctrl e', false, false),
+        it('Pune in plan obiectul curent', '', 'a', false, false),
+        it('Pune in plan tot ce e revizuit', '124', '', false, false),
+        it('Salveaza planul ca .sql', '', 'ctrl e', false, false),
       ] },
       { titlu: 'Obiecte', items: [
         it('dbo.usp_PlanificaProductie', 'modificat', '', false, true),
