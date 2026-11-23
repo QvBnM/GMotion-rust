@@ -2485,6 +2485,43 @@ mod teste {
         );
     }
 
+    /// Un dialog deschis e modal si la tastatura: Enter si Ctrl+I nu lucreaza
+    /// pe sub „Te deconectezi?" sau pe sub Ajutor (auditul 2026-11-23).
+    #[test]
+    fn tastele_listei_nu_trec_pe_sub_dialoguri() {
+        use slint::platform::{Key, WindowEvent};
+        use std::cell::Cell;
+        use std::rc::Rc;
+        let ui = fereastra_lista();
+        incarca_lista(&ui, &antet_lista(), &lista_de_proba());
+        let deschideri = Rc::new(Cell::new(0));
+        let d = deschideri.clone();
+        ui.on_deschide_obiectul(move || d.set(d.get() + 1));
+        let renuntari = Rc::new(Cell::new(0));
+        let r = renuntari.clone();
+        ui.on_renunta_la_deconectare(move || r.set(r.get() + 1));
+        ui.show().expect("fereastra se arata");
+        let tasta = |t: slint::SharedString| {
+            ui.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
+            ui.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: t });
+        };
+        ui.set_intreaba_deconectarea(true);
+        tasta(Key::Return.into());
+        assert_eq!(deschideri.get(), 0, "Enter sub dialogul de deconectare");
+        tasta(Key::Escape.into());
+        assert_eq!(renuntari.get(), 1);
+        ui.set_intreaba_deconectarea(false);
+        ui.set_arata_ajutorul(true);
+        tasta(Key::Return.into());
+        assert_eq!(deschideri.get(), 0, "Enter sub ajutor");
+        tasta(Key::Escape.into());
+        assert!(!ui.get_arata_ajutorul());
+        tasta(Key::Return.into());
+        assert_eq!(deschideri.get(), 1, "fara dialog, Enter deschide");
+    }
+
     /// Clicul pe rand, dublu clicul, X-ul, Esc, `o` si nota ajung la
     /// actiunile lor, prin mouse si tastatura adevarate (nu prin `invoke_`):
     /// un `TouchArea` acoperit de alt element ar trece de un test cu

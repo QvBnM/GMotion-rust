@@ -277,6 +277,9 @@ pub struct Aplicatie {
     /// Pentru Ctrl+Z: obiectul si textul lui final de dinainte de fiecare
     /// schimbare. Nu se salveaza: anularea tine cat sesiunea de lucru.
     istoric: Vec<(Rand, Option<TextFinal>)>,
+    /// Lungimea istoricului dupa un „Aplica toate" care a pus bifa
+    /// „Revizuit": Ctrl+Z pe el scoate si bifa (auditul 2026-11-23).
+    bifa_de_anulat: Option<usize>,
     /// Diferenta curenta din editor; ramane pe loc dupa „Aplica", cand
     /// diferenta aplicata dispare si urmatoarea ii ia locul.
     diferenta: usize,
@@ -454,6 +457,7 @@ impl Aplicatie {
             tinte,
             editari: Editari::noi(),
             istoric: Vec::new(),
+            bifa_de_anulat: None,
             diferenta: 0,
             ghidat: None,
             dependente,
@@ -830,7 +834,18 @@ impl Aplicatie {
             return false;
         }
         let inainte = self.lista.selectat();
+        let obiect_inainte = self.cheia_curenta();
         let rez = self.executa(c);
+        // orice comanda care schimba obiectul curent (clic in coloana, tab, j/k,
+        // lista) goleste istoricul Ctrl+Z si modul ghidat: altfel Ctrl+Z anula
+        // pe obiectul de dinainte, nevazut (N6 din auditul 2026-11-23). Intr-un
+        // singur loc, nu pe fiecare drum: un drum uitat era exact bug-ul.
+        if self.cheia_curenta() != obiect_inainte {
+            self.istoric.clear();
+            self.bifa_de_anulat = None;
+            self.ghidat = None;
+            self.diferenta = 0;
+        }
         // obiectul selectat (j / k, tab, alt ecran) nu sta intr-un dosar inchis
         if let Some(p) = self.lista.selectat().filter(|p| Some(*p) != inainte) {
             self.arbore.deschide_calea(&self.lista, p);
@@ -1016,6 +1031,8 @@ impl Aplicatie {
                 // revizuit (F-A18); o bifa pusa deja ramane
                 if schimbat && !self.obiect().is_some_and(|o| o.revizuit) {
                     self.comuta_revizuit();
+                    // bifa pusa de „Aplica toate" pleaca odata cu el la Ctrl+Z
+                    self.bifa_de_anulat = Some(self.istoric.len());
                 }
                 return schimbat;
             }
@@ -1039,6 +1056,12 @@ impl Aplicatie {
             Comanda::Anuleaza => {
                 if let Some((r, inainte)) = self.istoric.pop() {
                     self.editari.restaureaza(&r, inainte);
+                    if self.bifa_de_anulat == Some(self.istoric.len() + 1) {
+                        self.bifa_de_anulat = None;
+                        if self.obiect().is_some_and(|o| o.revizuit) {
+                            self.comuta_revizuit();
+                        }
+                    }
                     return true;
                 }
             }
@@ -2760,6 +2783,39 @@ mod teste {
         assert_eq!(a.mesaj_tab(), Some(MesajTab::FaraEditor));
         a.comanda(Comanda::ComutaRevizuit);
         assert!(a.obiect().unwrap().revizuit, "bifa e pe pA");
+    }
+
+    #[test]
+    fn ctrl_z_dupa_aplica_toate_scoate_si_bifa() {
+        let (mut a, _, _) = aplicatie_editare();
+        assert!(a.comanda(Comanda::AplicaToate));
+        assert!(a.obiect().unwrap().revizuit);
+        a.comanda(Comanda::Anuleaza);
+        assert!(!a.obiect().unwrap().revizuit, "bifa pusa de Aplica toate");
+    }
+
+    /// N6: dupa un clic in coloana editorului pe alt obiect, Ctrl+Z nu mai
+    /// anuleaza nimic pe obiectul de dinainte.
+    #[test]
+    fn ctrl_z_dupa_clic_in_coloana_nu_atinge_obiectul_vechi() {
+        let mut a = aplicatie();
+        let poz = |a: &Aplicatie, n: &str| {
+            (0..a.lista().vizibile().len())
+                .find(|&p| a.lista().obiect(p).unwrap().nume == n)
+                .unwrap()
+        };
+        let p_a = poz(&a, "pA");
+        a.comanda(Comanda::Selecteaza(p_a));
+        a.comanda(Comanda::Deschide);
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(0))));
+        assert!(a.se_poate_anula());
+        let p_b = poz(&a, "pB");
+        a.comanda(Comanda::Selecteaza(p_b));
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        assert!(!a.se_poate_anula(), "istoricul era al lui pA");
+        let texte_inainte = a.texte_finale();
+        a.comanda(Comanda::Anuleaza);
+        assert_eq!(a.texte_finale(), texte_inainte, "textul lui pA a ramas");
     }
 
     /// N5: un text final facut pe alta versiune a obiectului din plan apare in

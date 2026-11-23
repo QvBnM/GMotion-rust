@@ -768,6 +768,17 @@ export component FereastraLista inherits Window {
             }
             if (e.text == Key.Escape && root.arata-harta) { root.arata-harta = false; return accept; }
             if (root.arata-harta) { return reject; }
+            // un dialog deschis (deconectarea, ajutorul) e modal si la
+            // tastatura: Enter, Ctrl+I, Ctrl+R lucrau pe sub el (auditul
+            // 2026-11-23). Doar Esc (si F1 pe ajutor) il inchide.
+            if (root.intreaba-deconectarea) {
+                if (e.text == Key.Escape) { root.renunta-la-deconectare(); }
+                return accept;
+            }
+            if (root.arata-ajutorul) {
+                if (e.text == Key.Escape || e.text == Key.F1) { root.arata-ajutorul = false; }
+                return accept;
+            }
             if (e.text == Key.DownArrow || (e.modifiers.control && (e.text == "j" || e.text == "J"))) { root.muta-selectia(1); return accept; }
             if (e.text == Key.UpArrow || (e.modifiers.control && (e.text == "k" || e.text == "K"))) { root.muta-selectia(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
