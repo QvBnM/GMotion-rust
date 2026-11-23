@@ -47,6 +47,11 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
+**2026-11-23, audit independent dupa remediere:
+`cercetare/audit-qa-2026-11-23.md` — nota 6/10.** Primul lucru: N1 (o linie
+goala in mijlocul unei instructiuni taie blocul; „Aplica" da `DELETE` fara
+`WHERE`), N3, N2, apoi ordinea de la finalul auditului.
+
 **2026-11-22/23, audit nou: `cercetare/audit-qa-2026-11-22.md` (nota 6/10
 la pornire).** Mihai: varianta 2 la C2, apoi „rezolva toate problemele".
 Facute: toate criticele si marile (A1-A3, B1-B4), toate mediile (C1-C12) si
