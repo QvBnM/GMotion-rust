@@ -96,6 +96,25 @@ else
   ruleaza "core compileaza pe wasm32" cargo build --manifest-path rust/Cargo.toml -p gmotion-core --target wasm32-unknown-unknown
 fi
 
+# Compilarea pe wasm32 **nu** dovedeste „fara I/O": `std::fs`, `std::net` si
+# `std::process` exista si acolo, ca stub-uri care cad abia la rulare, deci un
+# `std::fs::read_to_string` in `core` trecea verde (auditul 2026-11-23). Lipsa
+# lor se verifica pe text, in `rust/core/src`, unde e si regula (CLAUDE.md §3).
+python3 - <<'PY_IO'
+import glob, re, sys
+INTERZIS = re.compile(r"\bstd\s*::\s*(fs|net|process|env|io)\b|\binclude_str!|\binclude_bytes!")
+gasite = []
+for f in sorted(glob.glob("rust/core/src/**/*.rs", recursive=True)):
+    for nr, linie in enumerate(open(f, encoding="utf-8"), 1):
+        if INTERZIS.search(linie.split("//")[0]):
+            gasite.append(f"{f}:{nr}: {linie.strip()[:80]}")
+if gasite:
+    print("`core` nu are voie cu I/O (CLAUDE.md §3); pe wasm32 ar compila oricum:")
+    print("\n".join(gasite))
+    sys.exit(1)
+PY_IO
+if [ $? -eq 0 ]; then pas "core nu atinge I/O"; else cade "core nu atinge I/O"; fi
+
 # ---------------------------------------------------------------- 5. tinta Windows
 # Tinta reala de rulare e Windows, dar dezvoltarea se face pe Linux. Codul
 # `#[cfg(windows)]` — DPAPI, auth integrata, apeluri Win32 — nu e nici compilat
@@ -142,7 +161,7 @@ for cale in glob.glob("rust/**/Cargo.toml", recursive=True):
     # `gmotion-x = ...`, `[dependencies.gmotion-x]` si redenumirea cu
     # `package = "gmotion-x"` (auditul 2026-11-23: ultimele doua scapau)
     deps = set(re.findall(r'^(gmotion-[a-z0-9-]+)\s*[=.]', txt, re.M))
-    deps |= set(re.findall(r'^\[(?:dev-|build-)?dependencies\.(gmotion-[a-z0-9-]+)\]', txt, re.M))
+    deps |= set(re.findall(r'^\[[^]]*dependencies\.(gmotion-[a-z0-9-]+)\]', txt, re.M))
     deps |= set(re.findall(r'package\s*=\s*"(gmotion-[a-z0-9-]+)"', txt))
     for dep in sorted(deps):
         e_modul_dep = dep not in NIVEL
@@ -269,8 +288,16 @@ for cale in sorted(glob.glob("etape/*.md")):
     if m.group(1) == "INCHEIATA" and "(se completeaza la incheiere)" in txt:
         avertismente.append(f"{cale}: incheiata, dar 'Ce a iesit altfel decat planul' e necompletat")
 
+# „Exact o etapa poate fi ACTIVA" (CLAUDE.md §0). Pana la auditul din
+# 2026-11-23 se verifica doar „nu mai multe": zero etape active trecea verde,
+# desi atunci nimeni nu stie ce se lucreaza.
 if len(active) > 1:
     probleme.append("mai multe etape ACTIVA: " + ", ".join(active) + " — nu se poate sti unde suntem")
+elif not active:
+    probleme.append(
+        "nicio etapa ACTIVA — deschide una noua din etape/SABLON.md "
+        "si numeste-o in STARE.md (CLAUDE.md §0)"
+    )
 
 # STARE.md trebuie sa numeasca etapa activa, altfel trimite in alta parte.
 if os.path.exists("STARE.md") and active:
@@ -326,7 +353,7 @@ gasite = []
 for f in fisiere:
     if not f or f.startswith("mostenire/") or (f.startswith("referinta/") and f != "referinta/README.md"):
         continue
-    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml|html|js|css)$", f) or "LICENSE" in f:
+    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml|html|js|css|sql|txt)$", f) or "LICENSE" in f:
         continue
     try:
         linii = open(f, encoding="utf-8").read().split("\n")
@@ -362,9 +389,13 @@ for f in sorted(glob.glob("rust/fereastra/ui/*.slint")):
         # pana la acolada care inchide componenta (prima linie "}" fara indentare)
         sfarsit = re.search(r"^\}", corp, re.M)
         corp = corp[: sfarsit.start() if sfarsit else len(corp)]
-        for c in re.finditer(r"^    callback ([a-z0-9-]+)", corp, re.M):
+        # `_` in nume, `pure callback` si alta indentare treceau neobservate,
+        # iar potrivirea pe `\bon_x\(` gasea si un `on_x(` dintr-un comentariu
+        # sau dintr-un nume mai lung: `compara_tot` se taia la `compara` si
+        # gasea `on_compara` (auditul 2026-11-23). Se cere `.on_x(`.
+        for c in re.finditer(r"^[ \t]+(?:pure\s+)?callback\s+([A-Za-z0-9_-]+)", corp, re.M):
             nume = "on_" + c.group(1).replace("-", "_")
-            if not re.search(r"\b" + nume + r"\(", cod):
+            if not re.search(r"\." + nume + r"\s*\(", cod):
                 lipsa.append(f"{f}: {m.group(1)}.{c.group(1)} n-are {nume}")
 if lipsa:
     print("\n".join(lipsa))
@@ -423,16 +454,45 @@ fi
 # Nu valideaza Rust-ul (asta o face cargo test), ci verifica faptul ca harness-ul
 # de referinta inca ruleaza — plasa de siguranta pentru tot ce urmeaza.
 titlu "harness de referinta"
+# Cele doua `genereaza.*` **scriu** fixture-urile. Pana la auditul din
+# 2026-11-23 poarta le rula direct, deci isi rescria singura asteptarea pe
+# care regula 2 din CLAUDE.md o declara intangibila: o schimbare in motorul de
+# referinta dadea rosu o singura data, iar a doua rulare era verde pe fixture-ul
+# nou — exact mecanismul prin care au divergat cele doua motoare din v3.4, pus
+# in poarta. Acum fixture-ul se pune la loc si se **compara**: daca regenerarea
+# l-ar schimba, poarta cade si spune sa se treaca prin
+# `unelte/regenereaza-fixture.sh`, cu motivul in `JURNAL.md`.
+harness() {
+  local generator="$1" fixture="$2"; shift 2
+  local copie; copie="$(mktemp)"
+  cp "$fixture" "$copie"
+  local ies rc
+  ies="$("$@" 2>&1)"; rc=$?
+  if [ $rc -ne 0 ]; then
+    cp "$copie" "$fixture"; rm -f "$copie"
+    printf '%s\n' "$ies"; return 1
+  fi
+  if ! cmp -s "$copie" "$fixture"; then
+    diff -u "$copie" "$fixture" | head -20
+    cp "$copie" "$fixture"; rm -f "$copie"
+    printf 'regenerarea ar schimba %s. Daca e intentionat, ruleaza\n' "$fixture"
+    printf 'unelte/regenereaza-fixture.sh ca pas propriu si noteaza motivul in JURNAL.md\n'
+    return 1
+  fi
+  rm -f "$copie"
+}
 if [ "$MOD" = rapid ]; then
   sare "harness" "mod rapid"
 else
   if command -v python3 >/dev/null; then
-    ruleaza "motorul Python ruleaza cazurile" python3 -I referinta/genereaza.py
+    ruleaza "motorul Python da acelasi fixture" \
+      harness py referinta/rezultate_python.json python3 -I referinta/genereaza.py
   else
     sare "harness Python" "python3 nu e instalat"
   fi
   if command -v node >/dev/null; then
-    ruleaza "motorul JS ruleaza cazurile" node referinta/genereaza.mjs
+    ruleaza "motorul JS da acelasi fixture" \
+      harness js referinta/rezultate_js.json node referinta/genereaza.mjs
   else
     sare "harness JS" "node nu e instalat"
   fi

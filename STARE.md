@@ -31,8 +31,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** niciuna. Etapa 28 (tabelele, doar comparare) s-a
-incheiat pe 2026-11-22.
+**Etapa activa:** `etape/29-remediere-audit-clever-cerf.md` — unirea cu
+`claude/dreamy-ritchie-jdnfct` si remedierea auditului din
+`cercetare/audit-qa-2026-11-23-clever-cerf.md`. Etapa 28 (tabelele, doar
+comparare) s-a incheiat pe 2026-11-22.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
