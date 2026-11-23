@@ -171,9 +171,17 @@ fn director_deploy(referinta: &str) -> std::path::PathBuf {
         referinta.replace(|c: char| !c.is_ascii_alphanumeric(), "_"),
         gmotion_platforma::timp::acum_compact()
     );
-    gmotion_platforma::cai::director_date()
+    let baza = gmotion_platforma::cai::director_date()
         .map(|d| d.join("deploy").join(&nume))
-        .unwrap_or_else(|_| std::path::PathBuf::from(format!("deploy_{nume}")))
+        .unwrap_or_else(|_| std::path::PathBuf::from(format!("deploy_{nume}")));
+    // a doua scriere in aceeasi secunda nu cade pe „director negol"
+    let mut cale = baza.clone();
+    let mut n = 2;
+    while cale.exists() {
+        cale = std::path::PathBuf::from(format!("{}_{n}", baza.display()));
+        n += 1;
+    }
+    cale
 }
 
 /// Unde se scrie exportul CSV: in directorul de date, langa deploy-uri.
@@ -263,7 +271,7 @@ fn porneste_detalii(app: &Aplicatie) -> std::sync::mpsc::Receiver<DetaliiCalcula
 }
 
 /// Compararile salvate, cele mai noi intai.
-fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
+fn recente(sesiuni: &gmotion_platforma::Sesiuni, limba: gmotion_core::Limba) -> Vec<Recenta> {
     let mut s = sesiuni.lista().unwrap_or_default();
     s.sort_by(|a, b| b.salvata.cmp(&a.salvata));
     s.into_iter()
@@ -275,7 +283,7 @@ fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
                 progres: if revizuite == 0 {
                     String::new()
                 } else {
-                    format!("{revizuite} revizuite")
+                    format!("{revizuite} {}", limba.alege("revizuite", "reviewed"))
                 },
                 cand: s.salvata.clone(),
                 sursa: s.referinta.clone(),
@@ -309,7 +317,7 @@ fn ruleaza() -> Result<(), String> {
 
     let previzualizare = std::env::args().any(|a| a == "--previzualizare");
     let mut conectare = Conectare::noua();
-    conectare.recente = recente(&sesiuni);
+    conectare.recente = recente(&sesiuni, conectare.limba);
     conectare.instantaneu = argument("--sursa");
     if previzualizare && conectare.instantaneu.is_none() {
         match cale_previzualizare() {
@@ -574,7 +582,9 @@ fn ruleaza() -> Result<(), String> {
                 } = &mut *s;
                 if let Some(app) = app.as_ref().filter(|a| a.ecran() == Ecran::Deploy) {
                     let acum = gmotion_platforma::timp::acum();
-                    gmotion_app::deploy::asigura_planul(deploy, app, referinta, &acum);
+                    gmotion_app::deploy::asigura_planul(deploy, app, referinta, &acum, || {
+                        director_deploy(referinta)
+                    });
                 }
             }
             // referinta cu care a rulat compararea, nu ce scrie acum in
@@ -588,7 +598,11 @@ fn ruleaza() -> Result<(), String> {
             // antetul arata o singura tinta: cu mai multe, cate sunt
             let baza = match baze.as_slice() {
                 [una] => una.clone(),
-                multe => format!("{} baze", multe.len()),
+                multe => format!(
+                    "{} {}",
+                    multe.len(),
+                    s.conectare.limba.alege("baze", "databases")
+                ),
             };
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
@@ -726,10 +740,19 @@ fn ruleaza() -> Result<(), String> {
                 arata(&e_ui, [l_ui.window(), d_ui.window(), c_ui.window()]);
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
-                if let Some(st) = s.deploy.as_ref().map(|d| &d.stare) {
-                    let director = director_deploy(&referinta).display().to_string();
-                    let e =
-                        gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier.get());
+                if let Some((st, dir)) = s.deploy.as_ref().map(|d| (&d.stare, &d.director)) {
+                    // dupa scriere, directorul scris; inainte, cel in care se va scrie
+                    let director = match &st.rezultat {
+                        Some(Ok(r)) => r.director.display().to_string(),
+                        _ => dir.display().to_string(),
+                    };
+                    let e = gmotion_app::deploy::ecran(
+                        st,
+                        &sursa,
+                        &director,
+                        cate_per_fisier.get(),
+                        limba,
+                    );
                     incarca_deploy(&d_ui, &e);
                 }
                 arata(&d_ui, [l_ui.window(), e_ui.window(), c_ui.window()]);
@@ -1294,7 +1317,7 @@ fn ruleaza() -> Result<(), String> {
                         st.app = Some(app);
                         // numele bazelor din antet: offline nu vine de pe server
                         st.conectare.sursa.baza = st.referinta.clone();
-                        st.conectare.baza.baza = "Lipit".into();
+                        st.conectare.baza.baza = st.conectare.limba.alege("Lipit", "Pasted").into();
                         drop(st);
                         if let Some(ui) = c_ui.upgrade() {
                             ui.set_offline(false);
@@ -1326,7 +1349,7 @@ fn ruleaza() -> Result<(), String> {
                     Ok(_) => tracing::info!(target: "gmotion::app", referinta = %r.sursa, "comparare ignorata"),
                     Err(e) => tracing::warn!(target: "gmotion::app", eroare = %e, "nu pot sterge sesiunea"),
                 }
-                let recente_noi = recente(&st.sesiuni);
+                let recente_noi = recente(&st.sesiuni, st.conectare.limba);
                 st.conectare.recente = recente_noi;
             }
             drop(st);
@@ -1475,7 +1498,7 @@ fn ruleaza() -> Result<(), String> {
                 st.garda = None;
                 st.mesaj_lista = None;
                 st.salvate_ultima = Default::default();
-                let recente_noi = recente(&st.sesiuni);
+                let recente_noi = recente(&st.sesiuni, st.conectare.limba);
                 st.conectare.recente = recente_noi;
                 drop(st);
                 if let Some(ui) = l.upgrade() {
@@ -1695,7 +1718,11 @@ fn ruleaza() -> Result<(), String> {
                 _ => match app.exporta_csv(&cale) {
                     Ok(n) => {
                         tracing::info!(target: "gmotion::app", cale = %cale.display(), randuri = n, "CSV scris");
-                        format!("{n} randuri in {}", cale.display())
+                        format!(
+                            "{n} {} {}",
+                            st.conectare.limba.alege("randuri in", "rows in"),
+                            cale.display()
+                        )
                     }
                     Err(e) => e,
                 },
@@ -1797,9 +1824,15 @@ fn ruleaza() -> Result<(), String> {
             // textele finale se iau acum, din aplicatie, nu dintr-un
             // instantaneu luat la deschiderea planului (C1 din auditul QA)
             let texte = st.app.as_ref().map(|a| a.texte_finale()).unwrap_or_default();
-            if let Some(dep) = st.deploy.as_mut().map(|d| &mut d.stare) {
-                let dir = director_deploy(&referinta);
+            if let Some(d) = st.deploy.as_mut() {
+                let dir = d.director.clone();
+                let dep = &mut d.stare;
                 dep.scrie(&dir, &gmotion_platforma::timp::acum(), &texte);
+                if matches!(dep.rezultat, Some(Ok(_))) {
+                    // o a doua scriere (alta impartire) merge in alt director
+                    d.director = director_deploy(&referinta);
+                }
+                let dep = &d.stare;
                 if let Some(Ok(r)) = &dep.rezultat {
                     tracing::info!(target: "gmotion::app", director = %r.director.display(), fisiere = r.fisiere.len(), "deploy scris");
                     scris = Some(dep.plan.clone());

@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 721c61c8b8b41d82 -->
+<!-- api-hash: d42a1bae1b1d8bb4 -->
 
 ## Rol
 
@@ -49,6 +49,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::{lucrari_detalii, pune_detalii, pune_detalii_multe}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
 | `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea, selectia si „In plan” celei vechi |
 | `Aplicatie::decizii_cazute(plan)`, `StareDeploy::decizii_cazute` | omiterile si textele finale ale obiectelor din plan care nu mai sunt valabile; garda le arata ca schimbari si nu lasa scrierea (N4, N5) |
+| `deploy::Deschis::director`, `deploy::ecran(..., limba)` | directorul de deploy se alege o data, la deschiderea planului: ecranul arata exact unde se scrie; textele ecranului in limba interfetei |
 | `Aplicatie::preia_starea(revizuire, editari)` | starea unita la salvare cu ce a scris cli in sesiune (`Revizuire::uneste`); lista se actualizeaza |
 | `Aplicatie::cu_ecranul(e)` | la recomparare, ramai pe ecranul de dinainte daca mai are ce arata (editorul cu model, deploy-ul cu ceva in plan); altfel lista (C7) |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |

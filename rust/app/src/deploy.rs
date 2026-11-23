@@ -229,6 +229,11 @@ impl Cheie {
 pub struct Deschis {
     pub cheie: Cheie,
     pub stare: StareDeploy,
+    /// Directorul in care se va scrie, ales o data la deschidere: ecranul
+    /// il arata, scrierea il foloseste. Inainte fiecare desenare calcula
+    /// altul (marcaj pe secunda), deci ecranul arata alt director decat cel
+    /// scris (auditul 2026-11-23).
+    pub director: std::path::PathBuf,
 }
 
 /// Se asigura ca planul deschis e al starii de acum; altfel il reface de la
@@ -236,7 +241,13 @@ pub struct Deschis {
 ///
 /// `referinta` e numele bazei sursa, `acum` momentul compararii pe care se
 /// sprijina planul.
-pub fn asigura_planul(deschis: &mut Option<Deschis>, app: &Aplicatie, referinta: &str, acum: &str) {
+pub fn asigura_planul(
+    deschis: &mut Option<Deschis>,
+    app: &Aplicatie,
+    referinta: &str,
+    acum: &str,
+    director: impl FnOnce() -> std::path::PathBuf,
+) {
     let cheie = Cheie::a_aplicatiei(app);
     if deschis.as_ref().is_some_and(|d| d.cheie == cheie) {
         return;
@@ -244,7 +255,11 @@ pub fn asigura_planul(deschis: &mut Option<Deschis>, app: &Aplicatie, referinta:
     let plan = app.plan(referinta, acum);
     let mut stare = StareDeploy::nou(plan);
     stare.decizii_cazute = app.decizii_cazute(&stare.plan);
-    *deschis = Some(Deschis { cheie, stare });
+    *deschis = Some(Deschis {
+        cheie,
+        stare,
+        director: director(),
+    });
 }
 
 /// Modul de impartire dupa pozitia din ecran (0 per baza, 1 unul, 2 per
@@ -273,6 +288,7 @@ pub fn ecran(
     sursa: &Baza,
     director: &str,
     cate: usize,
+    limba: gmotion_core::Limba,
 ) -> gmotion_fereastra::model_deploy::EcranDeploy {
     use gmotion_fereastra::model_deploy::{EcranDeploy, GardaDeploy, PasDeploy, RezultatDeploy};
     let pasi = st.pasi_in_ordine(sursa);
@@ -287,7 +303,8 @@ pub fn ecran(
         tinta: match baze.as_slice() {
             [] => String::new(),
             [una] => una.clone(),
-            multe => format!("{} baze", multe.len()),
+            // in limba interfetei, nu mereu in romana (auditul 2026-11-23)
+            multe => format!("{} {}", multe.len(), limba.alege("baze", "databases")),
         },
         baze: baze.clone(),
         pasi: pasi
@@ -469,7 +486,7 @@ mod teste {
             &t,
             &["dbo.pRaport", "dbo.vwStoc", "dbo.pVechi"],
         ));
-        let e = ecran(&st, &s, "C:\\deploy", 10);
+        let e = ecran(&st, &s, "C:\\deploy", 10, gmotion_core::Limba::Romana);
         assert_eq!(e.pasi.len(), 3);
         assert_eq!(
             e.pasi.iter().filter(|p| p.creeaza).count(),
@@ -479,7 +496,7 @@ mod teste {
         assert!(!e.poate_scrie);
         assert_eq!(e.impartire, 0);
         st.aplica_verificarea(s.clone(), vec![("Prod".to_string(), t.clone())], "14:05");
-        let e = ecran(&st, &s, "C:\\deploy", 10);
+        let e = ecran(&st, &s, "C:\\deploy", 10, gmotion_core::Limba::Romana);
         assert!(e.poate_scrie);
         for i in 0..4 {
             assert_eq!(pozitia_impartirii(impartire_din(i, 10)), i);
