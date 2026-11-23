@@ -107,6 +107,18 @@ pub fn cel_mai_apropiat(
     blocuri: &[String],
     indice_preferat: Option<usize>,
 ) -> Option<(usize, f64)> {
+    let tok: Vec<Vec<String>> = blocuri.iter().map(|b| tokeni_potrivire(b)).collect();
+    cel_mai_apropiat_tok(text, &tok, indice_preferat)
+}
+
+/// Ca [`cel_mai_apropiat`], cu tokenii blocurilor deja calculati: `plasari`
+/// ii calculeaza o singura data, nu pentru fiecare bloc cautat (era patratic:
+/// 16 s la 4.000 de instructiuni, M7 din auditul 2026-11-23).
+fn cel_mai_apropiat_tok(
+    text: &str,
+    blocuri: &[Vec<String>],
+    indice_preferat: Option<usize>,
+) -> Option<(usize, f64)> {
     if blocuri.is_empty() {
         return None;
     }
@@ -114,7 +126,7 @@ pub fn cel_mai_apropiat(
     let mut rez: Vec<(usize, f64)> = blocuri
         .iter()
         .enumerate()
-        .map(|(k, b)| (k, scor_potrivire(&ta, &tokeni_potrivire(b))))
+        .map(|(k, b)| (k, scor_potrivire(&ta, b)))
         .collect();
     // sortare stabila: la scor egal ramane ordinea blocurilor
     rez.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -202,6 +214,16 @@ pub fn sugereaza(
     pozitie: usize,
     blocuri_tinta: &[String],
 ) -> Option<Sugestie> {
+    let tok: Vec<Vec<String>> = blocuri_tinta.iter().map(|b| tokeni_potrivire(b)).collect();
+    sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok)
+}
+
+fn sugereaza_tok(
+    randuri: &[RandDiff],
+    pozitie: usize,
+    blocuri_tinta: &[String],
+    tok_tinta: &[Vec<String>],
+) -> Option<Sugestie> {
     let rand = randuri.get(pozitie)?;
     let text_bloc = rand.stanga.clone()?;
     let (indici, text_grup) = grup_plasare(randuri, pozitie);
@@ -217,7 +239,7 @@ pub fn sugereaza(
             scor: 100.0,
         }
     } else {
-        match cel_mai_apropiat(&text_bloc, blocuri_tinta, Some(preferat)) {
+        match cel_mai_apropiat_tok(&text_bloc, tok_tinta, Some(preferat)) {
             Some((indice, scor)) if scor >= PRAG_INLOCUIRE => Tinta::Bloc { indice, scor },
             // scor -1 inseamna „n-a fost ales niciun candidat" (ca in v3.4),
             // nu „candidat cu scor zero"
@@ -296,6 +318,21 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
             k += 1;
         }
     }
+    // candidati la inlocuire sunt doar blocurile libere (cele imperecheate
+    // sunt refuzate oricum, A1): celelalte primesc tokeni goi, deci scor 0 fara
+    // SequenceMatcher pe ele. Cu un singur bloc liber in tinta, cautarea nu mai
+    // e patratica in marimea obiectului (M7 din auditul 2026-11-23)
+    let tok_tinta: Vec<Vec<String>> = blocuri_tinta
+        .iter()
+        .zip(&libere)
+        .map(|(b, &liber)| {
+            if liber {
+                tokeni_potrivire(b)
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
     let mut out = Vec::new();
     let mut bloc_tinta_urmator = 0usize;
     for (pozitie, r) in randuri.iter().enumerate() {
@@ -319,7 +356,7 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
                 vec![pozitie],
             ),
             None => {
-                let Some(s) = sugereaza(randuri, pozitie, blocuri_tinta) else {
+                let Some(s) = sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok_tinta) else {
                     continue;
                 };
                 match s.tinta {
