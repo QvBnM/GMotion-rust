@@ -609,3 +609,47 @@ fn aplicarea_grup_cu_grup_ajunge_la_martor() {
         esecuri.first().cloned().unwrap_or_default()
     );
 }
+
+/// N1 si N3 din `cercetare/audit-qa-2026-11-23.md`: linii goale in mijlocul
+/// instructiunilor (inainte de WHERE, dupa UNION ALL, in ciclul unui cursor)
+/// nu fac „Aplica" sa piarda sau sa dubleze linii, cu si fara cursorul unit.
+#[test]
+fn liniile_goale_din_instructiuni_nu_strica_aplicarea() {
+    let cazuri = [
+        (
+            "CREATE PROC p AS\nDELETE FROM Comenzi\n\nWHERE id = @id\nSELECT 9",
+            "CREATE PROC p AS\nDELETE FROM Comenzi\nWHERE id = @id2\nSELECT 9",
+        ),
+        (
+            "CREATE PROC p AS\nSELECT a FROM t1\nUNION ALL\n\nSELECT a FROM t2\nSELECT 9",
+            "CREATE PROC p AS\nSELECT a FROM t1\nUNION ALL\nSELECT b FROM t2\nSELECT 9",
+        ),
+        (
+            "CREATE PROC p AS\nSELECT a FROM t1 UNION ALL\n\nSELECT a FROM t2\nSELECT 9",
+            "CREATE PROC p AS\nSELECT a FROM t1 UNION ALL\nSELECT b FROM t2\nSELECT 9",
+        ),
+        (
+            "CREATE PROC p AS\nDECLARE c CURSOR FOR SELECT id FROM t\n\nOPEN c\nFETCH NEXT FROM c INTO @id\nCLOSE c\nDEALLOCATE c\nSELECT 9",
+            "CREATE PROC p AS\nDECLARE c CURSOR FOR SELECT id FROM t2\nOPEN c\nFETCH NEXT FROM c INTO @id\nCLOSE c\nDEALLOCATE c\nSELECT 9",
+        ),
+    ];
+    for uneste in [false, true] {
+        for (st, dr) in cazuri {
+            let mut cur = dr.to_string();
+            for _ in 0..20 {
+                let a = gmotion_core::aliniaza_cu(st, &cur, uneste);
+                let pl = gmotion_core::plasari_aliniere(&a, &cur, uneste);
+                let g = gmotion_core::grupuri_diferente(&a.diff, &pl);
+                let Some(g) = g.first() else { break };
+                cur = gmotion_core::aplica_blocuri(st, &cur, uneste, g);
+            }
+            assert_eq!(
+                gmotion_core::normalizeaza(&cur),
+                gmotion_core::normalizeaza(st),
+                "uneste={uneste}\n--- martor\n{st}\n--- rezultat\n{cur}"
+            );
+            // nicio instructiune nu ramane fara WHERE pe drum
+            assert!(!cur.contains("Comenzi\nSELECT"), "{cur}");
+        }
+    }
+}

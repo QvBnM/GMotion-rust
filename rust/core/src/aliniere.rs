@@ -283,6 +283,26 @@ pub fn aliniaza(text_stanga: &str, text_dreapta: &str) -> Aliniere {
     aliniaza_cu(text_stanga, text_dreapta, false)
 }
 
+/// Indicele din `original` al fiecarei linii din `linii_bloc`, de la `start`:
+/// liniile goale din cod care nu sunt in bloc se sar. Pe un bloc contiguu da
+/// `start, start + 1, ...`, ca inainte.
+fn harta_linii(original: &[&str], start: usize, linii_bloc: &[&str]) -> Vec<usize> {
+    let egal = |a: &str, b: &str| a.trim_end_matches('\r') == b.trim_end_matches('\r');
+    let mut cursor = start;
+    let mut out = Vec::with_capacity(linii_bloc.len());
+    for l in linii_bloc {
+        while cursor < original.len()
+            && !egal(original[cursor], l)
+            && original[cursor].trim().is_empty()
+        {
+            cursor += 1;
+        }
+        out.push(cursor);
+        cursor += 1;
+    }
+    out
+}
+
 /// Ca [`aliniaza`], dar cu „uneste ciclul cursorului" pornit: blocurile se
 /// taie altfel, deci si alinierea. Optiunea trebuie sa ajunga **si** la diff,
 /// **si** la inceputurile de blocuri — altfel cele doua n-ar mai vorbi despre
@@ -370,19 +390,24 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                     })
                     .collect(),
             };
+        // linia din cod a fiecarei linii din bloc: un bloc unit (UNION,
+        // cursor) a pierdut liniile goale dintre parti, deci nu mai e
+        // contiguu in cod (N3 din `cercetare/audit-qa-2026-11-23.md`)
+        let harta_st = s_st.map(|s| harta_linii(&original_st, s, &linii_st));
+        let harta_dr = s_dr.map(|s| harta_linii(&original_dr, s, &linii_dr));
         for (k, (is, id, ignorata)) in perechi.iter().copied().enumerate() {
-            let linie = |idx: Option<usize>, linii: &[&str], start: Option<usize>| match (
+            let linie = |idx: Option<usize>, linii: &[&str], harta: &Option<Vec<usize>>| match (
                 idx.and_then(|i| linii.get(i)),
                 idx,
-                start,
+                harta,
             ) {
-                (Some(t), Some(i), Some(s)) => Some(Linie {
-                    nr: s + i + 1,
+                (Some(t), Some(i), Some(h)) => Some(Linie {
+                    nr: h.get(i).copied().unwrap_or(i) + 1,
                     text: (*t).to_string(),
                 }),
                 _ => None,
             };
-            let dreapta = linie(id, &linii_dr, s_dr);
+            let dreapta = linie(id, &linii_dr, &harta_dr);
             // Pe un rand fara linie in dreapta, acolo s-ar insera ce se aduce
             // din stanga: inaintea urmatoarei linii din dreapta a blocului.
             let urmatoarea_dr = perechi[k..]
@@ -392,7 +417,7 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
             randuri.push(RandAliniat {
                 primul_din_bloc: k == 0,
                 ultimul_din_bloc: k + 1 == perechi.len(),
-                stanga: linie(is, &linii_st, s_st),
+                stanga: linie(is, &linii_st, &harta_st),
                 poz_dreapta: dreapta
                     .as_ref()
                     .map_or(inceput_dr + urmatoarea_dr, |l| l.nr - 1),
@@ -404,11 +429,11 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                 ignorata,
             });
         }
-        if let Some(s) = s_st {
-            ultim_st = s + linii_st.len();
+        if let Some(h) = &harta_st {
+            ultim_st = h.last().map_or(ultim_st, |&l| l + 1);
         }
-        if let Some(s) = s_dr {
-            ultim_dr = s + linii_dr.len();
+        if let Some(h) = &harta_dr {
+            ultim_dr = h.last().map_or(ultim_dr, |&l| l + 1);
         }
     }
     completeaza(
@@ -641,11 +666,33 @@ pub fn compune_plasat(
     // fiecare bloc aplicat devine „inlocuieste liniile [s, e) din dreapta cu
     // liniile lui din stanga" (s == e: inserare)
     let mut operatii: Vec<(usize, usize, usize)> = Vec::new(); // (s, e, bloc)
+                                                               // un bloc venit doar ca parte a grupului altuia se insereaza cu grupul,
+                                                               // nu unde l-ar pune propria lui plasare: corpul unui `IF` adus in gol
+                                                               // pleca altundeva decat arata ecranul (MEDIU 5 din auditul 2026-11-23)
+    let doar_din_grup: Vec<usize> = aplicate
+        .iter()
+        .copied()
+        .filter(|&b| a.diff[b].tip != TipDiferenta::Egal && !aplica(b))
+        .collect();
+    // membrul unui grup se insereaza la locul primului bloc al grupului, in
+    // ordine, nu la propria lui pozitie din diff (care poate fi dupa un bloc
+    // egal din tinta)
+    let liderul: std::collections::HashMap<usize, usize> = plasari
+        .iter()
+        .filter(|p| !p.inlocuieste)
+        .flat_map(|p| p.randuri.iter().map(move |&m| (m, p.rand)))
+        .filter(|&(m, l)| m != l)
+        .collect();
     for &b in &aplicate {
         let Some(mut loc) = linii_dreapta(b) else {
             continue;
         };
-        if a.diff[b].tip == TipDiferenta::Sters {
+        if let Some(l) = liderul.get(&b).filter(|l| aplicate.contains(l)) {
+            if let Some((s, _)) = linii_dreapta(*l) {
+                loc = (s, s);
+            }
+        }
+        if a.diff[b].tip == TipDiferenta::Sters && !doar_din_grup.contains(&b) {
             if let Some(p) = plasari.iter().find(|p| p.rand == b && p.inlocuieste) {
                 if let Some(l) = al_ordinalului
                     .get(p.bloc_tinta)
