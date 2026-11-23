@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: 54cc44dc57f2eb4e -->
+<!-- api-hash: e69e55c0eb740b6a -->
 
 ## Rol
 

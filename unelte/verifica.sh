@@ -109,7 +109,9 @@ elif ! command -v cargo >/dev/null; then
 elif ! rustup target list --installed 2>/dev/null | grep -qx x86_64-pc-windows-msvc; then
   sare "windows-msvc" "tinta lipseste: rustup target add x86_64-pc-windows-msvc"
 else
-  ruleaza "cargo check pe windows-msvc" cargo check --manifest-path rust/Cargo.toml --all-targets --target x86_64-pc-windows-msvc
+  # clippy, nu doar check, si cu -D warnings: codul `cfg(windows)` nu e
+  # vazut de nimic altceva pe masina de dezvoltare (auditul 2026-11-23)
+  ruleaza "clippy pe windows-msvc" cargo clippy --manifest-path rust/Cargo.toml --all-targets --target x86_64-pc-windows-msvc -- -D warnings
 fi
 
 # ---------------------------------------------------------------- 6. dependente
@@ -137,7 +139,12 @@ for cale in glob.glob("rust/**/Cargo.toml", recursive=True):
     if nivel is None:
         probleme.append(f"{nume}: crate necunoscut, adauga-l in unelte/verifica.sh si in ARHITECTURA.md")
         continue
-    for dep in re.findall(r'^(gmotion-[a-z0-9-]+)\s*[=.]', txt, re.M):
+    # `gmotion-x = ...`, `[dependencies.gmotion-x]` si redenumirea cu
+    # `package = "gmotion-x"` (auditul 2026-11-23: ultimele doua scapau)
+    deps = set(re.findall(r'^(gmotion-[a-z0-9-]+)\s*[=.]', txt, re.M))
+    deps |= set(re.findall(r'^\[(?:dev-|build-)?dependencies\.(gmotion-[a-z0-9-]+)\]', txt, re.M))
+    deps |= set(re.findall(r'package\s*=\s*"(gmotion-[a-z0-9-]+)"', txt))
+    for dep in sorted(deps):
         e_modul_dep = dep not in NIVEL
         nivel_dep = 3 if e_modul_dep else NIVEL[dep]
         if nivel_dep >= nivel:
@@ -392,12 +399,19 @@ PY_TEXTE
 if [ $? -eq 0 ]; then pas "niciun text pentru om scris direct in .slint"; else cade "text scris direct in .slint: pune-l in fereastra::texte"; fi
 
 titlu "mostenire/ nemodificat"
+# Arborele lui mostenire/ e fixat aici: o stergere, o modificare deja commitata
+# sau un fisier nou schimba hash-ul. Varianta pe `git diff --diff-filter=M`
+# nu vedea nici stergerile, nici ce s-a commitat deja (auditul 2026-11-23).
+# Se schimba doar odata cu regula 2 din CLAUDE.md, explicit.
+ARBORE_MOSTENIRE=f7f1455dd4054a2bb310c1a971fe027f8c63dcc8
 if git rev-parse --git-dir >/dev/null 2>&1; then
-  # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:
-  # altfel commit-ul care a mutat Python-ul in mostenire/ ar cadea pe sine.
-  if git diff --name-only --diff-filter=M HEAD -- mostenire/ 2>/dev/null | grep -q .; then
-    cade "mostenire/ e modificat — vezi regula 2 din CLAUDE.md"
-    git diff --name-only --diff-filter=M HEAD -- mostenire/ | sed 's/^/      /'
+  actual="$(git rev-parse HEAD:mostenire 2>/dev/null || echo lipsa)"
+  local_schimbat="$(git status --porcelain -- mostenire/ 2>/dev/null)"
+  if [ "$actual" != "$ARBORE_MOSTENIRE" ]; then
+    cade "mostenire/ s-a schimbat in commit-uri (arbore $actual) — vezi regula 2 din CLAUDE.md"
+  elif [ -n "$local_schimbat" ]; then
+    cade "mostenire/ e modificat local — vezi regula 2 din CLAUDE.md"
+    printf '%s\n' "$local_schimbat" | sed 's/^/      /'
   else
     pas "mostenire/ nemodificat"
   fi

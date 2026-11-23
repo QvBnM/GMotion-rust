@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: bec346e59fe1af2c -->
+<!-- api-hash: 9590f7f0eda4d6d4 -->
 
 ## Rol
 
