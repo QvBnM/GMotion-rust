@@ -471,12 +471,7 @@ pub fn revizuire(
             // pe toate bazele comparate, ca `--omite` si `--scoate`: cu
             // `.find` se bifa doar prima, tacut (F-C1 din auditul QA)
             let mut gasit = false;
-            for rand in r
-                .comparare
-                .randuri
-                .iter()
-                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
-            {
+            for rand in potrivite(&r.comparare.randuri, &obiect) {
                 revizuire.marcheaza(rand);
                 gasit = true;
             }
@@ -489,12 +484,7 @@ pub fn revizuire(
     if let Some(l) = omite {
         for obiect in lista(l) {
             let mut gasit = false;
-            for rand in r
-                .comparare
-                .randuri
-                .iter()
-                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
-            {
+            for rand in potrivite(&r.comparare.randuri, &obiect) {
                 revizuire.omite(rand);
                 gasit = true;
             }
@@ -510,12 +500,7 @@ pub fn revizuire(
             // bifat separat pe fiecare baza comparata (deci fara `any`, care
             // s-ar opri la prima)
             let mut gasit = false;
-            for x in r
-                .comparare
-                .randuri
-                .iter()
-                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
-            {
+            for x in potrivite(&r.comparare.randuri, &obiect) {
                 gasit |= revizuire.scoate(&x.baza, &x.obiect);
                 gasit |= revizuire.scoate_omis(&x.baza, &x.obiect);
             }
@@ -527,12 +512,7 @@ pub fn revizuire(
     }
     if let Some((obiect, text)) = nota {
         let mut gasit = false;
-        for x in r
-            .comparare
-            .randuri
-            .iter()
-            .filter(|x| acelasi_nume(&x.obiect, obiect))
-        {
+        for x in potrivite(&r.comparare.randuri, obiect) {
             schimbat |= revizuire.pune_nota(&x.baza, &x.obiect, text);
             gasit = true;
         }
@@ -761,6 +741,20 @@ pub fn impact(
 
 /// Acelasi nume de obiect, fara sa conteze majusculele, si dincolo de ASCII
 /// (`pȘtergere` / `pștergere`): colatia SQL Server nu le deosebeste. diacritice-permise
+/// Randurile obiectului cerut: cele cu numele **exact**, daca exista; altfel
+/// cele care difera doar prin majuscule. `dbo.P1` nu mai bifeaza si obiectul
+/// distinct `dbo.p1` cand amandoua exista (auditul 2026-11-23).
+fn potrivite<'a>(randuri: &'a [modul::Rand], obiect: &str) -> Vec<&'a modul::Rand> {
+    let exacte: Vec<&modul::Rand> = randuri.iter().filter(|x| x.obiect == obiect).collect();
+    if !exacte.is_empty() {
+        return exacte;
+    }
+    randuri
+        .iter()
+        .filter(|x| acelasi_nume(&x.obiect, obiect))
+        .collect()
+}
+
 fn acelasi_nume(a: &str, b: &str) -> bool {
     a.eq_ignore_ascii_case(b) || a.to_lowercase() == b.to_lowercase()
 }
@@ -822,7 +816,13 @@ pub fn editare(
         .comparare
         .randuri
         .iter()
-        .find(|x| x.baza == baza && acelasi_nume(&x.obiect, obiect))
+        .find(|x| x.baza == baza && x.obiect == obiect)
+        .or_else(|| {
+            r.comparare
+                .randuri
+                .iter()
+                .find(|x| x.baza == baza && acelasi_nume(&x.obiect, obiect))
+        })
         .ok_or_else(|| {
             // „nu difera" doar daca exista; altfel numele e gresit
             let exista = r.referinta.keys().any(|n| acelasi_nume(n, obiect));
@@ -1392,7 +1392,13 @@ pub fn diferente(
     let mut s = args.deschide()?;
     let ref_ob = s.obiecte(referinta).map_err(|e| e.to_string())?;
     let cur_ob = s.obiecte(baza).map_err(|e| e.to_string())?;
-    let gaseste = |v: &[gmotion_db::Obiect]| v.iter().find(|o| o.id() == obiect).cloned();
+    // exact, apoi fara majuscule, ca la `editare` (auditul 2026-11-23)
+    let gaseste = |v: &[gmotion_db::Obiect]| {
+        v.iter()
+            .find(|o| o.id() == obiect)
+            .or_else(|| v.iter().find(|o| acelasi_nume(&o.id(), obiect)))
+            .cloned()
+    };
 
     let (Some(r), Some(c)) = (gaseste(&ref_ob), gaseste(&cur_ob)) else {
         return Err(format!(
@@ -1636,6 +1642,34 @@ fn text_diferente(a: &gmotion_core::Aliniere, culori: bool) -> (Vec<String>, Vec
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn potrivirea_exacta_bate_potrivirea_fara_majuscule() {
+        let rand = |o: &str| modul::Rand {
+            id: 0,
+            obiect: o.into(),
+            baza: "B".into(),
+            scor: None,
+            rezumat: String::new(),
+            tip: "P".into(),
+            categorie: modul::Categorie::Diferit,
+            hash_referinta: None,
+            hash_curent: None,
+            exacta_curent: None,
+        };
+        let r = [rand("dbo.p1"), rand("dbo.P1")];
+        let p: Vec<&str> = potrivite(&r, "dbo.P1")
+            .iter()
+            .map(|x| x.obiect.as_str())
+            .collect();
+        assert_eq!(p, ["dbo.P1"], "doar cel exact");
+        assert_eq!(potrivite(&r, "DBO.P2").len(), 0);
+        assert_eq!(
+            potrivite(&r[..1], "DBO.P1").len(),
+            1,
+            "fara exact, fara majuscule"
+        );
+    }
 
     #[test]
     fn numele_se_potrivesc_fara_majuscule_si_dincolo_de_ascii() {

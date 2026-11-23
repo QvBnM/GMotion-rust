@@ -92,6 +92,42 @@ pub fn adauga_linie(linie: impl Into<String>) {
         .adauga(linie, MAX_LINII);
 }
 
+/// Scriitor care scapa caracterele de control (ESC, CR...) inainte de
+/// terminal sau fisier: un nume de server dintr-un instantaneu, cu ESC in el,
+/// rescria terminalul (auditul 2026-11-23). Randul nou si tab-ul raman: sunt
+/// ale formatului.
+struct Curatat<W>(W);
+
+impl<W: std::io::Write> std::io::Write for Curatat<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        // o secventa de culoare (ESC [ cifre ; m), pusa de formatul jurnalului
+        // pe terminal, trece; orice alt ESC (stergere de ecran, mutare de
+        // cursor) se scapa
+        let e_culoare = |i: usize| {
+            buf.get(i + 1) == Some(&b'[')
+                && buf[i + 2..]
+                    .iter()
+                    .position(|&c| !(c.is_ascii_digit() || c == b';'))
+                    .is_some_and(|k| buf[i + 2 + k] == b'm')
+        };
+        let mut out = Vec::with_capacity(buf.len());
+        for (i, &b) in buf.iter().enumerate() {
+            if b == 0x1b && e_culoare(i) {
+                out.push(b);
+            } else if (b < 0x20 && b != b'\n' && b != b'\t') || b == 0x7f {
+                out.extend_from_slice(format!("\\x{b:02x}").as_bytes());
+            } else {
+                out.push(b);
+            }
+        }
+        self.0.write_all(&out)?;
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
+}
+
 /// Strat de `tracing` care scrie si in tamponul din memorie.
 struct StratTampon;
 
@@ -250,7 +286,7 @@ fn porneste_intern(fisier: Option<std::fs::File>) {
         tracing_subscriber::fmt::layer()
             .with_target(true)
             .with_ansi(false)
-            .with_writer(Mutex::new(f))
+            .with_writer(Mutex::new(Curatat(f)))
             .with_filter(tracing_subscriber::EnvFilter::new(
                 "info,tiberius=warn,gmotion=debug",
             ))
@@ -267,7 +303,7 @@ fn porneste_intern(fisier: Option<std::fs::File>) {
                 // Culori doar pe terminal: redirectat intr-un fisier sau
                 // capturat de alt program, codurile ANSI devin gunoi.
                 .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
-                .with_writer(std::io::stderr)
+                .with_writer(|| Curatat(std::io::stderr()))
                 .with_filter(env()),
         )
         // banda de jurnal din fereastra vede ce vede si terminalul, nu debug
@@ -284,6 +320,19 @@ mod teste {
     // toate testele din proces (si cu jurnalul lor, dupa `porneste`), deci un
     // test pe el care presupune ca nu scrie nimeni altcineva cade aleator:
     // asa a cazut `linii_cere_doar_ce_e_nou`, ~1 rulare din 100.
+
+    #[test]
+    fn scriitorul_scapa_caracterele_de_control() {
+        use std::io::Write;
+        let mut v = Vec::new();
+        Curatat(&mut v)
+            .write_all(b"server S\x1b[2J;rm\tok\n")
+            .unwrap();
+        assert_eq!(String::from_utf8(v).unwrap(), "server S\\x1b[2J;rm\tok\n");
+        let mut v = Vec::new();
+        Curatat(&mut v).write_all(b"\x1b[2mINFO\x1b[0m").unwrap();
+        assert_eq!(v, b"\x1b[2mINFO\x1b[0m", "culorile trec");
+    }
 
     #[test]
     fn caracterele_de_directie_se_scapa() {
