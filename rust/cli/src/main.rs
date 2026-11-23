@@ -406,9 +406,17 @@ fn main() -> std::process::ExitCode {
                     .map(|n| {
                         n.trim()
                             .parse::<usize>()
-                            .map_err(|_| format!("{n:?} nu e un numar de diferenta"))
+                            .map_err(|_| format!("[GM-CLI-001] {n:?} nu e un numar de diferenta"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
+                // `--aplica ""` (o variabila goala intr-un script) salva tacut un
+                // text final egal cu Modificata, care pleca apoi in deploy in
+                // locul Martorului (auditul 2026-11-23)
+                if numere.is_empty() {
+                    return Err(
+                        "[GM-CLI-001] --aplica cere cel putin un numar de diferenta".to_string()
+                    );
+                }
                 if la.is_some() && numere.len() != 1 {
                     return Err(
                         "[GM-CLI-001] --la merge cu o singura diferenta (--aplica N)".to_string(),

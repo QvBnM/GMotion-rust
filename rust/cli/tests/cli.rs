@@ -1938,3 +1938,81 @@ fn deciziile_cazute_opresc_deploy_ul() {
     assert!(!o.status.success(), "omis dupa plan");
     assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
 }
+
+/// N8 din auditul 2026-11-23: cu iesirea standard inchisa, `deploy` isi face
+/// totusi treaba (progresul nu e rezultatul comenzii); inainte iesea cu 0 fara
+/// sa scrie nimic. Si tabelul lui `compara` (N7) nu mai da panica.
+#[test]
+fn teava_inchisa_nu_opreste_o_comanda_cu_efect() {
+    use std::process::{Command, Stdio};
+    let d = dir("teava-efect");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let ruleaza_inchis = |args: &[&str]| {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_gmotion"))
+            .args(args)
+            .env("GMOTION_DIR_DATE", d.join("date"))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        drop(c.stdout.take());
+        c.wait_with_output().unwrap()
+    };
+    let iesire = d.join("out");
+    let o = ruleaza_inchis(&[
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    assert!(iesire.join("Client1.sql").exists(), "deploy-ul s-a scris");
+    let o = ruleaza_inchis(&[
+        "compara",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+    ]);
+    let erori = String::from_utf8_lossy(&o.stderr);
+    assert!(!erori.contains("panicked"), "{erori}");
+    assert_eq!(o.status.code(), Some(0), "{erori}");
+}
+
+/// `editare --aplica ""` (variabila goala intr-un script) e eroare, nu un
+/// text final egal cu Modificata salvat tacut (auditul 2026-11-23).
+#[test]
+fn aplica_gol_e_eroare() {
+    let d = dir("aplica-gol");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    for gol in ["", ","] {
+        let o = ruleaza_in(
+            &[
+                "editare",
+                "--sursa",
+                inst.to_str().unwrap(),
+                "--referinta",
+                "Referinta",
+                "--baza",
+                "Client1",
+                "--obiect",
+                "dbo.pClienti",
+                "--aplica",
+                gol,
+            ],
+            Some(&d.join("date")),
+        );
+        assert!(!o.status.success(), "{gol:?}");
+        assert!(err(&o).contains("GM-CLI-001"), "{}", err(&o));
+    }
+}

@@ -32,7 +32,13 @@ impl Format {
     pub fn progres(self, mesaj: &str) {
         let mesaj = fara_control(mesaj);
         match self {
-            Format::Text => linie(format_args!("{mesaj}")),
+            // progresul nu e rezultatul comenzii: o teava inchisa nu opreste
+            // un deploy inainte sa scrie (N8 din auditul 2026-11-23)
+            Format::Text => {
+                use std::io::Write;
+                let mut o = std::io::stdout().lock();
+                let _ = writeln!(o, "{mesaj}");
+            }
             Format::Json => eprintln!("{mesaj}"),
         }
     }
@@ -247,6 +253,15 @@ pub fn scrie_json<T: serde::Serialize>(v: &T) -> std::io::Result<()> {
         o.write_all(text.as_bytes())
             .and_then(|()| o.write_all(b"\n")),
     )
+}
+
+/// Text fara rand nou la final (tabelele), cu aceeasi regula de teava ca
+/// `scrie!`: `print!` dadea panica pe o teava inchisa (N7).
+pub fn bucata(text: &str) {
+    let mut o = std::io::stdout().lock();
+    if let Err(e) = teava(o.write_all(text.as_bytes())) {
+        eprintln!("Eroare la scrierea iesirii: {e}");
+    }
 }
 
 /// O linie pe iesirea standard (`scrie!`).

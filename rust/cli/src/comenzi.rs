@@ -139,10 +139,10 @@ pub fn servere(format: Format) -> Result<(), String> {
                     ]
                 })
                 .collect();
-            print!(
-                "{}",
-                afisare::tabel(&["SERVER", "IP", "PORT", "VERSIUNE", "ETICHETE"], &randuri)
-            );
+            afisare::bucata(&afisare::tabel(
+                &["SERVER", "IP", "PORT", "VERSIUNE", "ETICHETE"],
+                &randuri,
+            ));
             Ok(())
         }
     }
@@ -345,7 +345,7 @@ pub fn compara(
         Format::Json => afisare::scrie_json(&afisare::comparare_json(&r.comparare, &detalii))
             .map_err(|e| e.to_string()),
         Format::Text => {
-            print!("{}", afisare::comparare_text(&r.comparare, &detalii));
+            afisare::bucata(&afisare::comparare_text(&r.comparare, &detalii));
             Ok(())
         }
     }
@@ -856,7 +856,7 @@ pub fn editare(
                     .and_then(|i| grupuri.get(i))
                     .ok_or_else(|| {
                         format!(
-                            "nu exista diferenta {n}: obiectul are {} diferente ramase",
+                            "[GM-CLI-005] nu exista diferenta {n}: obiectul are {} diferente ramase",
                             grupuri.len()
                         )
                     })?;

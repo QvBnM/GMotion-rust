@@ -122,6 +122,23 @@ fn nume_lizibil(nume: &str) -> String {
 /// `incarca` intorcea sesiunea celuilalt server (F-B4). Partea lizibila
 /// ramane numele bazei; discriminantul e hash-ul perechii exacte.
 pub fn slug_sesiune(server: &str, referinta: &str) -> String {
+    let server = server_normalizat(server);
+    let h = gmotion_core::calc_hash(&format!("{server}\0{referinta}"));
+    format!("{}-{}", nume_lizibil(referinta), &h[..12])
+}
+
+/// Acelasi server, oricum ar fi scris: `SRV`, `srv`, `SRV,1433` si
+/// `SRV:1433` (portul implicit) sunt unul singur. Altfel omiterile si
+/// textele finale facute sub o forma nu se vedeau sub alta, iar deploy-ul le
+/// ignora tacut (auditul 2026-11-23).
+pub fn server_normalizat(server: &str) -> String {
+    let s = server.trim().to_lowercase().replace(',', ":");
+    s.strip_suffix(":1433").unwrap_or(&s).to_string()
+}
+
+/// Cheia de dinainte de normalizarea serverului: se citeste o data, ca sa
+/// mute sesiunea pe cheia noua.
+fn slug_sesiune_exact(server: &str, referinta: &str) -> String {
     let h = gmotion_core::calc_hash(&format!("{server}\0{referinta}"));
     format!("{}-{}", nume_lizibil(referinta), &h[..12])
 }
@@ -234,6 +251,16 @@ impl Sesiuni {
     /// referinta) se muta pe numele nou la prima citire.
     pub fn incarca(&self, server: &str, referinta: &str) -> Rezultat<Option<Sesiune>> {
         let mut cale = self.cale(server, referinta);
+        if !cale.exists() {
+            // sesiune scrisa cu forma exacta a serverului (inainte de
+            // normalizare): se muta pe cheia noua
+            let exacta = self
+                .director
+                .join(format!("{}.dat", slug_sesiune_exact(server, referinta)));
+            if exacta != cale && exacta.exists() {
+                let _ = std::fs::rename(&exacta, &cale);
+            }
+        }
         if !cale.exists() && self.migreaza(referinta) {
             cale = self.cale(server, referinta);
         }
@@ -272,7 +299,7 @@ impl Sesiuni {
                 ),
             });
         }
-        if s.server != server {
+        if server_normalizat(&s.server) != server_normalizat(server) {
             return Err(Eroare::CitireSesiune {
                 cale: cale.display().to_string(),
                 detaliu: format!(

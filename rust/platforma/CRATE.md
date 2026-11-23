@@ -1,6 +1,6 @@
 # gmotion-platforma
 
-<!-- api-hash: 6fc46b3c0c1616cb -->
+<!-- api-hash: adc39093fb92bd1a -->
 
 ## Rol
 
@@ -25,7 +25,7 @@ unei unelte sta in crate-ul uneltei.
 |---|---|
 | `cai` | `director_date`, `director_sesiuni(modul)`, `cale_configurare`, `director_jurnale` |
 | `protejare` | `protejeaza`, `deprotejeaza`, `e_criptat` |
-| `sesiune` | `Sesiune` (`adauga_baze` — bazele comparate se adauga, nu se inlocuiesc), `Sesiuni::pentru_modul(m)` cu `salveaza`, `incarca(server, referinta)`, `sterge(server, referinta)`, `pune_deoparte(server, referinta)` (o sesiune ilizibila se muta in `.corupt-<marcaj>.dat.bak`, nu se scrie peste ea), `lista`; `slug`, `slug_sesiune(server, referinta)` |
+| `sesiune` | `Sesiune` (`adauga_baze` — bazele comparate se adauga, nu se inlocuiesc), `Sesiuni::pentru_modul(m)` cu `salveaza`, `incarca(server, referinta)`, `sterge(server, referinta)`, `pune_deoparte(server, referinta)` (o sesiune ilizibila se muta in `.corupt-<marcaj>.dat.bak`, nu se scrie peste ea), `lista`; `slug`, `slug_sesiune(server, referinta)`, `server_normalizat` (`SRV`, `srv`, `SRV,1433` = acelasi server; o sesiune sub forma exacta veche se muta singura) |
 | `configurare` | `Configurare::citeste/scrie`, cu implicite in cod; `tema` tine modul ferestrei ales cu butonul (`intunecat` / `luminos` / gol); `pliaza_identicul` tine comutatorul din editor (implicit oprit: se vede tot codul) |
 | `timp` | `acum()` („2026-11-18 14:52"), `acum_compact()` („20261118_1452"): marcajul de timp, acelasi in `cli` si in fereastra |
 | `jurnal` | `porneste_cu_fisier(director)` (jurnalul sesiunii si intr-un fisier `gmotion-<moment>.log`, `gmotion` la debug; se pastreaza `PASTRATE` = 10), `porneste`, `linii(de_la)`, `adauga_linie`, `goleste` (Sterge log: uita liniile fara sa dea indexul inapoi) |

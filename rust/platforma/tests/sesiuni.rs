@@ -228,3 +228,22 @@ fn sesiunea_ilizibila_se_pune_deoparte() {
     assert!(s.lista().unwrap().is_empty());
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// Acelasi server scris altfel (`SRV`, `srv`, `SRV,1433`) e aceeasi sesiune;
+/// una scrisa inainte de normalizare se muta singura pe cheia noua.
+#[test]
+fn serverul_scris_altfel_e_aceeasi_sesiune() {
+    let (_lacat, dir) = pregateste("server-normalizat");
+    let s = Sesiuni::pentru_modul("diff-obiecte").unwrap();
+    s.salveaza(&sesiune("Ref", "munca")).unwrap(); // server "SRV01"
+    for forma in ["SRV01", "srv01", "SRV01,1433", "SRV01:1433", " srv01 "] {
+        let g = s.incarca(forma, "Ref").unwrap();
+        assert!(g.is_some(), "{forma:?}");
+    }
+    assert!(
+        s.incarca("SRV01,1500", "Ref").unwrap().is_none(),
+        "alt port, alt server"
+    );
+    assert_eq!(gmotion_platforma::server_normalizat("SRV,1433"), "srv");
+    std::fs::remove_dir_all(&dir).ok();
+}
