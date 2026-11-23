@@ -580,7 +580,9 @@ export component EditorDiferente inherits Window {
                         }
                         VerticalLayout { alignment: center; ButonCap { text: "↓"; apasat => { root.navigheaza(root.diferenta-curenta + 1); } } }
                     }
-                    VerticalLayout {
+                    // „Revizuit" e si in bara de sus: aici doar cand e loc
+                    // (la 1024 px impingea „Actiuni" afara din ecran)
+                    if root.width - root.ocupat > 900px: VerticalLayout {
                         alignment: center;
                         ButonCap {
                             text: root.revizuit ? Texte.revizuit-bifat : Texte.revizuit;
@@ -610,8 +612,10 @@ export component EditorDiferente inherits Window {
                             }
                         }
                     }
-                    // plierea liniilor identice: comutator vizibil, nu doar in meniu
-                    VerticalLayout {
+                    // plierea si wrap-ul: comutatoare vizibile cand e loc; altfel
+                    // raman in meniul „Actiuni" (si Ctrl+L), care nu mai iese
+                    // din ecran (auditul 2026-11-23, 1024x768)
+                    if root.width - root.ocupat > 1100px: VerticalLayout {
                         alignment: center;
                         ButonCap {
                             text: root.pliaza-identicul ? Texte.pliaza-identicul-bifat : Texte.pliaza-identicul;
@@ -619,7 +623,7 @@ export component EditorDiferente inherits Window {
                         }
                     }
                     // wrap: liniile lungi continua dedesubt, fara derulare
-                    VerticalLayout {
+                    if root.width - root.ocupat > 1100px: VerticalLayout {
                         alignment: center;
                         ButonCap {
                             text: root.impacheteaza ? Texte.impacheteaza-bifat : Texte.impacheteaza;
@@ -664,6 +668,11 @@ export component EditorDiferente inherits Window {
                             RandMeniu {
                                 text: root.pliaza-identicul ? Texte.pliaza-identicul-bifat : Texte.pliaza-identicul;
                                 apasat => { root.pliaza-identicul = !root.pliaza-identicul; root.comuta-plierea(root.pliaza-identicul); }
+                            }
+                            RandMeniu {
+                                text: root.impacheteaza ? Texte.impacheteaza-bifat : Texte.impacheteaza;
+                                tasta: "Ctrl L";
+                                apasat => { root.impacheteaza = !root.impacheteaza; root.derulare-x = 0px; root.comuta-wrap(root.impacheteaza); }
                             }
                             RandMeniu {
                                 text: root.ascunde-diferentele ? Texte.arata-diferentele : Texte.ascunde-diferentele;

@@ -202,7 +202,9 @@ export component FereastraDeploy inherits Window {
                                         Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                                     }
                                     if root.mai-multe-baze: Text { width: 150px; text: p.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
-                                    Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                                    // tipul cedeaza locul numelui cand ecranul e ingust: la 1024 px
+                                    // numele pasilor deveneau identice (auditul 2026-11-23)
+                                    if root.width > 1200px: Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                                     VerticalLayout {
                                         alignment: center;
                                         Rectangle {

@@ -729,6 +729,24 @@ export component FereastraLista inherits Window {
     changed width => {
         root.latime-fereastra = self.width;
         if (root.arata-harta) { root.harta-redimensionata(); }
+        root.potriveste-coloanele();
+    }
+
+    // Pe un ecran ingust, coloanele lasate la latimea implicita se strang, ca
+    // numele obiectului sa nu mai fie „dbo.TESTSIMILITUDINE_Ca..." pe fiecare
+    // rand (auditul 2026-11-23, 1024x768). O latime trasa de mana nu se atinge.
+    function potriveste-coloanele() {
+        if (self.width < 1200px) {
+            if (Coloane.scor == 118px) { Coloane.scor = 76px; }
+            if (Coloane.difera == 124px) { Coloane.difera = 96px; }
+            if (Coloane.deploy == 130px) { Coloane.deploy = 100px; }
+            if (Coloane.tip == 84px) { Coloane.tip = 72px; }
+        } else {
+            if (Coloane.scor == 76px) { Coloane.scor = 118px; }
+            if (Coloane.difera == 96px) { Coloane.difera = 124px; }
+            if (Coloane.deploy == 100px) { Coloane.deploy = 130px; }
+            if (Coloane.tip == 72px) { Coloane.tip = 84px; }
+        }
     }
     changed height => {
         if (root.arata-harta) { root.harta-redimensionata(); }
@@ -1610,6 +1628,7 @@ export component FereastraLista inherits Window {
 
     init => {
         root.latime-fereastra = self.width;
+        root.potriveste-coloanele();
         taste.focus();
     }
 }
