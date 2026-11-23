@@ -1127,16 +1127,57 @@ fn salvate(
     let sesiuni =
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
     let id = args.identitate()?;
-    Ok(sesiuni
-        .incarca(&id, referinta)
-        .map_err(|e| e.to_string())?
-        .map(|s| {
-            (
-                modul::Revizuire::din_sesiune(&s),
-                modul::Editari::din_sesiune(&s),
-            )
-        })
-        .unwrap_or_default())
+    match sesiuni.incarca(&id, referinta).map_err(|e| e.to_string())? {
+        None => Ok(Default::default()),
+        // o parte a sesiunii care nu se citeste e eroare, nu stare goala:
+        // goala, omisele intrau in deploy si apoi se stergeau de pe disc
+        Some(s) => Ok((
+            modul::Revizuire::din_sesiune_verificat(&s).map_err(|e| e.to_string())?,
+            modul::Editari::din_sesiune_verificat(&s).map_err(|e| e.to_string())?,
+        )),
+    }
+}
+
+/// Deciziile salvate care nu mai sunt valabile pentru obiectele din plan:
+/// omiteri ale unor obiecte schimbate de atunci, texte finale facute pe alta
+/// versiune, sau (cu un plan vechi) obiecte omise dupa plan. Fiecare ar fi
+/// schimbat tacut ce pleaca in baza (N4, N5 din auditul 2026-11-23).
+fn decizii_cazute(
+    plan: &modul::Plan,
+    randuri: &[modul::Rand],
+    revizuire: &modul::Revizuire,
+    editari: &modul::Editari,
+    plan_vechi: bool,
+) -> Result<(), String> {
+    let in_plan = |b: &str, o: &str| plan.pasi.iter().any(|p| p.baza == b && p.obiect == o);
+    let mut lista: Vec<String> = Vec::new();
+    for (b, o) in revizuire.omise_cazute(randuri) {
+        if in_plan(&b, &o) {
+            lista.push(format!("{o} pe {b} (omis, apoi schimbat)"));
+        }
+    }
+    for (b, o) in editari.cazute(randuri) {
+        if in_plan(&b, &o) {
+            lista.push(format!("{o} pe {b} (text final facut pe alta versiune)"));
+        }
+    }
+    // un plan facut acum (fara `--plan`) a sarit deja omisele, iar `--doar`
+    // le poate cere explicit; doar unul vechi poate contine o omitere ulterioara
+    for p in plan.pasi.iter().filter(|_| plan_vechi) {
+        if randuri
+            .iter()
+            .any(|r| r.baza == p.baza && r.obiect == p.obiect && revizuire.e_omis(r))
+        {
+            lista.push(format!("{} pe {} (omis dupa plan)", p.obiect, p.baza));
+        }
+    }
+    if lista.is_empty() {
+        return Ok(());
+    }
+    Err(modul::Eroare::DecizieCazuta {
+        lista: lista.join("; "),
+    }
+    .to_string())
 }
 
 /// Scrie planul de deploy, cu amprentele de acum, ca sa fie verificat de
@@ -1154,6 +1195,9 @@ pub fn plan(
     if p.pasi.is_empty() {
         return Err(modul::Eroare::NimicDeDeployat.to_string());
     }
+    // un plan scris peste decizii cazute le-ar ascunde de deploy-ul de mai tarziu
+    let (revizuire, editari) = salvate(args, referinta)?;
+    decizii_cazute(&p, &r.comparare.randuri, &revizuire, &editari, false)?;
     let cale = iesire.unwrap_or_else(|| PathBuf::from(format!("plan_{}.json", acum_compact())));
     let text = serde_json::to_string_pretty(&p).map_err(|e| e.to_string())?;
     std::fs::write(&cale, text)
@@ -1227,9 +1271,15 @@ pub fn deploy(
 
     // textele finale facute in editor (sau cu `gmotion editare`), daca sunt
     // inca valabile pentru obiectele de acum
-    let texte_finale = salvate(args, referinta)?
-        .1
-        .pentru_deploy(&r.comparare.randuri);
+    let (revizuire, editari) = salvate(args, referinta)?;
+    decizii_cazute(
+        &plan,
+        &r.comparare.randuri,
+        &revizuire,
+        &editari,
+        cale_plan.is_some(),
+    )?;
+    let texte_finale = editari.pentru_deploy(&r.comparare.randuri);
     // cu `--plan`, textele finale trebuie sa fie cele de la plan: un text
     // schimbat dupa plan ar pleca in baza fara sa-l fi vazut cine a aprobat
     // planul (F-D5)

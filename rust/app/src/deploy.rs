@@ -50,6 +50,9 @@ pub struct StareDeploy {
     /// Obiectele recitite la verificare (referinta, si fiecare baza tinta):
     /// din ele se scrie, nu din cele de la comparare.
     recitite: Option<(Baza, Vec<(String, Baza)>)>,
+    /// Decizii salvate care nu mai sunt valabile (N4, N5): garda le arata ca
+    /// schimbari si nu lasa scrierea.
+    pub decizii_cazute: Vec<String>,
 }
 
 impl StareDeploy {
@@ -60,6 +63,7 @@ impl StareDeploy {
             impartire: ModImpartire::default(),
             rezultat: None,
             recitite: None,
+            decizii_cazute: Vec::new(),
         }
     }
 
@@ -103,13 +107,19 @@ impl StareDeploy {
 
     /// Garda, pe obiectele recitite acum. Le tine minte: din ele se scrie.
     pub fn aplica_verificarea(&mut self, referinta: Baza, tinte: Vec<(String, Baza)>, la: &str) {
-        let schimbari = self.plan.verifica(&referinta, &tinte);
+        let mut schimbari: Vec<String> = self
+            .plan
+            .verifica(&referinta, &tinte)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        schimbari.extend(self.decizii_cazute.iter().cloned());
         self.rezultat = None;
         if schimbari.is_empty() {
             self.garda = Garda::Ok { la: la.to_string() };
             self.recitite = Some((referinta, tinte));
         } else {
-            self.garda = Garda::Schimbata(schimbari.iter().map(ToString::to_string).collect());
+            self.garda = Garda::Schimbata(schimbari);
             self.recitite = None;
         }
     }
@@ -231,10 +241,10 @@ pub fn asigura_planul(deschis: &mut Option<Deschis>, app: &Aplicatie, referinta:
     if deschis.as_ref().is_some_and(|d| d.cheie == cheie) {
         return;
     }
-    *deschis = Some(Deschis {
-        cheie,
-        stare: StareDeploy::nou(app.plan(referinta, acum)),
-    });
+    let plan = app.plan(referinta, acum);
+    let mut stare = StareDeploy::nou(plan);
+    stare.decizii_cazute = app.decizii_cazute(&stare.plan);
+    *deschis = Some(Deschis { cheie, stare });
 }
 
 /// Modul de impartire dupa pozitia din ecran (0 per baza, 1 unul, 2 per

@@ -181,9 +181,11 @@ impl Editari {
                 continue;
             }
             obiecte.retain(|obiect, t| {
-                let pastreaza = index
-                    .get(&(baza.as_str(), obiect.as_str()))
-                    .is_some_and(|a| *a == t.amprenta);
+                // un text final pe alta versiune ramane cat obiectul e in
+                // comparare: deploy-ul spune ca a cazut (`cazute`), in loc sa
+                // dispara tacut la prima salvare (N5); Reset il sterge
+                let _ = &t.amprenta;
+                let pastreaza = index.contains_key(&(baza.as_str(), obiect.as_str()));
                 scoase += usize::from(!pastreaza);
                 pastreaza
             });
@@ -210,6 +212,32 @@ impl Editari {
 
     /// Citeste starea dintr-o sesiune; una lipsa sau de neinteles da o stare
     /// goala, ca la revizuire.
+    /// Ca [`Self::din_sesiune`], dar o stare care exista si nu se poate
+    /// citi e eroare, nu stare goala.
+    pub fn din_sesiune_verificat(s: &Sesiune) -> crate::Rezultat<Self> {
+        match s.date.get(CHEIE_SESIUNE) {
+            None => Ok(Self::default()),
+            Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
+                crate::Eroare::Date(format!("textele finale din sesiune nu se pot citi: {e}"))
+            }),
+        }
+    }
+
+    /// Textele finale facute pe o versiune care s-a schimbat de atunci: nu
+    /// mai ajung in deploy, dar nici nu trebuie sa dispara tacut (N5).
+    pub fn cazute(&self, randuri: &[Rand]) -> Vec<(String, String)> {
+        randuri
+            .iter()
+            .filter(|r| {
+                self.baze
+                    .get(&r.baza)
+                    .is_some_and(|b| b.contains_key(&r.obiect))
+                    && self.text_final(r).is_none()
+            })
+            .map(|r| (r.baza.clone(), r.obiect.clone()))
+            .collect()
+    }
+
     pub fn din_sesiune(s: &Sesiune) -> Self {
         s.date
             .get(CHEIE_SESIUNE)
@@ -247,6 +275,16 @@ mod teste {
             hash_curent: Some(hc.into()),
             exacta_curent: None,
         }
+    }
+
+    #[test]
+    fn textul_final_cazut_se_vede() {
+        let mut r = rand("h1", "h2");
+        let mut e = Editari::noi();
+        e.pune(&r, "CREATE PROCEDURE dbo.p AS SELECT 1".into(), true);
+        assert!(e.cazute(std::slice::from_ref(&r)).is_empty());
+        r.hash_curent = Some("h3".into());
+        assert_eq!(e.cazute(&[r]).len(), 1);
     }
 
     /// F-D5: un comentariu adaugat in baza (hash normalizat neschimbat) face
@@ -358,7 +396,11 @@ mod teste {
             "sursa s-a schimbat"
         );
         assert_eq!(e.curent(&rand("a", "b2"), BAZA), BAZA);
-        assert_eq!(e.curata(&[rand("a", "b2")], &["Client1".to_string()]), 1);
+        // ramane, ca deploy-ul sa poata spune ca a cazut (N5); dispare doar
+        // cand obiectul nu mai e in comparare
+        assert_eq!(e.curata(&[rand("a", "b2")], &["Client1".to_string()]), 0);
+        assert_eq!(e.cazute(&[rand("a", "b2")]).len(), 1);
+        assert_eq!(e.curata(&[], &["Client1".to_string()]), 1);
     }
 
     #[test]

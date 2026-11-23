@@ -64,6 +64,9 @@ pub enum Eroare {
         modificata: String,
     },
 
+    #[error("[GM-MOD-018] o decizie salvata nu mai e valabila, deci deploy-ul nu se scrie: {lista}. Obiectul s-a schimbat de cand ai decis (sau l-ai omis dupa plan): revizuieste-l in editor (omite din nou sau scoate omiterea; refa textul final sau Reset) si apoi deploy")]
+    DecizieCazuta { lista: String },
+
     #[error("[GM-MOD-012] baza s-a schimbat de la comparare, deci deploy-ul nu se scrie: {schimbari}. Compara din nou si revizuieste ce s-a schimbat")]
     BazaAtinsa { schimbari: String },
 }
@@ -88,6 +91,7 @@ impl Eroare {
             Eroare::CodFaraCreate { .. } => "GM-MOD-015",
             Eroare::TextFinalGol { .. } => "GM-MOD-016",
             Eroare::TipSchimbat { .. } => "GM-MOD-017",
+            Eroare::DecizieCazuta { .. } => "GM-MOD-018",
         }
     }
 }

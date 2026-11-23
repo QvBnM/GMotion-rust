@@ -1285,6 +1285,28 @@ impl Aplicatie {
     /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii.
     /// `referinta` e numele bazei sursa; `facut_la`, momentul. Bazele tinta
     /// sunt cele comparate: planul le acopera pe toate deodata.
+    /// Deciziile salvate pentru obiectele din `plan` care nu mai sunt
+    /// valabile: omiteri ale unor obiecte schimbate, texte finale facute pe alta
+    /// versiune. Deploy-ul le arata si nu scrie pana nu sunt revizuite (N4, N5
+    /// din auditul 2026-11-23).
+    pub fn decizii_cazute(&self, plan: &modul::Plan) -> Vec<String> {
+        let in_plan = |b: &str, o: &str| plan.pasi.iter().any(|p| p.baza == b && p.obiect == o);
+        let mut v: Vec<String> = Vec::new();
+        for (b, o) in self.revizuire.omise_cazute(&self.randuri) {
+            if in_plan(&b, &o) {
+                v.push(format!("{b}: {o} a fost omis, apoi s-a schimbat"));
+            }
+        }
+        for (b, o) in self.editari.cazute(&self.randuri) {
+            if in_plan(&b, &o) {
+                v.push(format!(
+                    "{b}: textul final al lui {o} e facut pe alta versiune (Reset sau refa-l)"
+                ));
+            }
+        }
+        v
+    }
+
     pub fn plan(&self, referinta: &str, facut_la: &str) -> modul::Plan {
         let alese = self.lista.in_plan();
         let comparare = modul::Comparare {
@@ -2738,6 +2760,35 @@ mod teste {
         assert_eq!(a.mesaj_tab(), Some(MesajTab::FaraEditor));
         a.comanda(Comanda::ComutaRevizuit);
         assert!(a.obiect().unwrap().revizuit, "bifa e pe pA");
+    }
+
+    /// N5: un text final facut pe alta versiune a obiectului din plan apare in
+    /// deciziile cazute, iar garda deploy-ului nu lasa scrierea.
+    #[test]
+    fn textul_final_cazut_blocheaza_deploy_ul_din_fereastra() {
+        let mut a = aplicatie();
+        let p = (0..a.lista().vizibile().len())
+            .find(|&p| a.lista().obiect(p).unwrap().nume == "pA")
+            .unwrap();
+        a.comanda(Comanda::Selecteaza(p));
+        a.comanda(Comanda::ComutaInPlan);
+        let mut vechi = a
+            .randuri
+            .iter()
+            .find(|r| r.obiect == "dbo.pA")
+            .unwrap()
+            .clone();
+        vechi.hash_curent = Some("versiunea-de-ieri".into());
+        let mut e = Editari::noi();
+        e.pune(&vechi, "CREATE PROC dbo.pA AS\nSELECT 7".into(), true);
+        let a = a.cu_editari(e);
+        let plan = a.plan("Referinta", "acum");
+        let c = a.decizii_cazute(&plan);
+        assert_eq!(c.len(), 1, "{c:?}");
+        let mut st = crate::deploy::StareDeploy::nou(plan);
+        st.decizii_cazute = c;
+        st.aplica_verificarea(a.sursa.clone(), a.tinte.clone(), "acum");
+        assert!(!st.poate_scrie());
     }
 
     /// C7: o recomparare pastreaza „In plan" si ecranul (daca mai are ce

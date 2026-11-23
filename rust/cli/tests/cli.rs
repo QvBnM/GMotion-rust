@@ -1811,3 +1811,130 @@ fn diagnostic_pe_configurare_stricata_si_cate_invalid() {
         assert!(!dest.exists());
     }
 }
+
+/// N4, N5 si omiterea dupa plan (auditul 2026-11-23): o decizie salvata care
+/// nu mai e valabila opreste deploy-ul (GM-MOD-018), nu dispare tacut.
+#[test]
+fn deciziile_cazute_opresc_deploy_ul() {
+    let d = dir("decizii-cazute");
+    let date = d.join("date");
+    let inst = |nume: &str, tinta: &str| {
+        let f = d.join(nume);
+        std::fs::write(
+            &f,
+            format!(
+                r#"{{"versiune":1,"server":"SRV","creat":"2026-11-23T10:00:00Z","nota":"","baze":{{
+                "M":[{{"schema":"dbo","nume":"x","tip":"P","definitie":"CREATE PROCEDURE dbo.x AS SELECT 'martor'"}}],
+                "T":[{{"schema":"dbo","nume":"x","tip":"P","definitie":"{tinta}"}}]}}}}"#
+            ),
+        )
+        .unwrap();
+        f.to_str().unwrap().to_string()
+    };
+    let o1 = inst("o1.json", "CREATE PROCEDURE dbo.x AS SELECT 'client'");
+    let o2 = inst(
+        "o2.json",
+        "CREATE PROCEDURE dbo.x AS SELECT 'client' -- hotfix\\nSELECT 'urgent'",
+    );
+    let rul = |a: &[&str]| ruleaza_in(a, Some(&date));
+    let deploy = |sursa: &str, dest: &str, extra: &[&str]| {
+        let iesire = d.join(dest);
+        let mut a = vec!["deploy", "--sursa", sursa, "--referinta", "M", "-d"];
+        let s = iesire.to_str().unwrap().to_string();
+        a.push(&s);
+        a.extend_from_slice(extra);
+        (rul(&a), iesire)
+    };
+
+    // 1. omis, apoi schimbat in Modificata
+    assert!(rul(&[
+        "revizuire",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--omite",
+        "dbo.x"
+    ])
+    .status
+    .success());
+    let (o, iesire) = deploy(&o2, "d1", &[]);
+    assert!(!o.status.success(), "omis apoi schimbat");
+    assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
+    assert!(!iesire.exists());
+    assert!(rul(&[
+        "revizuire",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--scoate",
+        "dbo.x"
+    ])
+    .status
+    .success());
+
+    // 2. text final facut pe versiunea veche
+    let f = d.join("t.sql");
+    std::fs::write(&f, "CREATE PROCEDURE dbo.x AS SELECT 'pastrat'").unwrap();
+    assert!(rul(&[
+        "editare",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--baza",
+        "T",
+        "--obiect",
+        "dbo.x",
+        "--din-fisier",
+        f.to_str().unwrap(),
+    ])
+    .status
+    .success());
+    let (o, _) = deploy(&o2, "d2", &[]);
+    assert!(!o.status.success(), "text final cazut");
+    assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
+    assert!(rul(&[
+        "editare",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--baza",
+        "T",
+        "--obiect",
+        "dbo.x",
+        "--reset"
+    ])
+    .status
+    .success());
+
+    // 3. omis dupa plan
+    let plan = d.join("plan.json");
+    assert!(rul(&[
+        "plan",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "-o",
+        plan.to_str().unwrap()
+    ])
+    .status
+    .success());
+    assert!(rul(&[
+        "revizuire",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--omite",
+        "dbo.x"
+    ])
+    .status
+    .success());
+    let (o, _) = deploy(&o1, "d3", &["--plan", plan.to_str().unwrap()]);
+    assert!(!o.status.success(), "omis dupa plan");
+    assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
+}

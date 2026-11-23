@@ -228,7 +228,11 @@ impl Revizuire {
                 )
             })
             .collect();
-        let mut curata_harta = |harta: &mut BTreeMap<String, BTreeMap<String, Amprenta>>| {
+        // bifele „revizuit" cad cand obiectul se schimba; omiterile raman cat
+        // obiectul e in comparare, ca deploy-ul sa poata spune ca au cazut
+        // (`omise_cazute`), in loc sa le stearga tacut la prima salvare (N4)
+        let mut curata_harta = |harta: &mut BTreeMap<String, BTreeMap<String, Amprenta>>,
+                                pe_amprenta: bool| {
             for (baza, obiecte) in harta.iter_mut() {
                 // o baza care nu e in compararea de acum nu se atinge: n-are
                 // randuri, deci totul ar parea „nu mai corespunde" si s-ar
@@ -239,15 +243,15 @@ impl Revizuire {
                 obiecte.retain(|obiect, amprenta| {
                     let pastreaza = index
                         .get(&(baza.as_str(), obiect.as_str()))
-                        .is_some_and(|a| a == amprenta);
+                        .is_some_and(|a| !pe_amprenta || a == amprenta);
                     scoase += usize::from(!pastreaza);
                     pastreaza
                 });
             }
             harta.retain(|_, obiecte| !obiecte.is_empty());
         };
-        curata_harta(&mut self.baze);
-        curata_harta(&mut self.omise);
+        curata_harta(&mut self.baze, true);
+        curata_harta(&mut self.omise, false);
         scoase
     }
 
@@ -274,6 +278,36 @@ impl Revizuire {
     /// pe care nu o mai intelegem, da o stare goala: progresul se pierde, dar
     /// aplicatia porneste. (Invers ar insemna sa nu se mai poata deschide o
     /// sesiune veche.)
+    /// Ca [`Self::din_sesiune`], dar o stare care exista si nu se poate citi
+    /// (alta versiune, fisier editat) e eroare, nu stare goala: goala, omisele
+    /// ar fi intrat in deploy si apoi ar fi fost sterse de pe disc (auditul
+    /// 2026-11-23).
+    pub fn din_sesiune_verificat(s: &Sesiune) -> crate::Rezultat<Self> {
+        match s.date.get(CHEIE_SESIUNE) {
+            None => Ok(Self::default()),
+            Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
+                crate::Eroare::Date(format!(
+                    "starea de revizuire din sesiune nu se poate citi: {e}"
+                ))
+            }),
+        }
+    }
+
+    /// Obiectele omise care s-au schimbat de atunci: omiterea nu mai e
+    /// valabila, dar nici nu trebuie sa intre tacut in deploy (N4).
+    pub fn omise_cazute(&self, randuri: &[Rand]) -> Vec<(String, String)> {
+        randuri
+            .iter()
+            .filter(|r| {
+                self.omise
+                    .get(&r.baza)
+                    .and_then(|b| b.get(&r.obiect))
+                    .is_some_and(|a| *a != Amprenta::a_randului(r))
+            })
+            .map(|r| (r.baza.clone(), r.obiect.clone()))
+            .collect()
+    }
+
     pub fn din_sesiune(s: &Sesiune) -> Self {
         s.date
             .get(CHEIE_SESIUNE)
@@ -315,6 +349,21 @@ mod teste {
     }
 
     /// C10: golirea lasa notele si marcajele de deploy.
+    /// N4: omiterea unui obiect schimbat apare in `omise_cazute`.
+    #[test]
+    fn omiterea_unui_obiect_schimbat_se_vede() {
+        let r = rand("dbo.p", "a", "b");
+        let mut v = Revizuire::noua();
+        v.omite(&r);
+        assert!(v.omise_cazute(std::slice::from_ref(&r)).is_empty());
+        let schimbat = rand("dbo.p", "a", "c");
+        assert!(!v.e_omis(&schimbat));
+        assert_eq!(
+            v.omise_cazute(&[schimbat]),
+            [("Client1".to_string(), "dbo.p".to_string())]
+        );
+    }
+
     #[test]
     fn golirea_sterge_doar_bifele() {
         let r = rand("dbo.p", "a", "b");
@@ -460,7 +509,13 @@ mod teste {
         let schimbat = rand_test("a", "b2");
         assert!(!v.e_omis(&schimbat));
         assert!(!v.e_goala());
-        assert_eq!(v.curata(&[schimbat], &["Client1".to_string()]), 1);
+        // omiterea ramane, ca deploy-ul sa spuna ca a cazut (N4)
+        assert_eq!(
+            v.curata(std::slice::from_ref(&schimbat), &["Client1".to_string()]),
+            0
+        );
+        assert_eq!(v.omise_cazute(&[schimbat]).len(), 1);
+        assert_eq!(v.curata(&[], &["Client1".to_string()]), 1);
         assert!(v.e_goala());
     }
 

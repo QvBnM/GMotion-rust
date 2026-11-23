@@ -1397,7 +1397,7 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | `GM-CORE-*` | motorul de comparare |
 | `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-012**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
-| `GM-MOD-*` | module — **diff-obiecte: 001-017**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-MOD-*` | module — **diff-obiecte: 001-018**, vezi `rust/module/diff-obiecte/CRATE.md` |
 | `GM-CLI-*` | linia de comanda — **alocate 001-008**, vezi `rust/cli/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
@@ -1410,7 +1410,8 @@ instantaneu · `008` scriere instantaneu · `009` versiune instantaneu · `010`
 nume invalid · `011` nume de baza invalid · `012` fara drept VIEW DEFINITION.
 
 `GM-MOD-014` numele din definitie · `015` cod fara `CREATE <tip>` · `016`
-text final gol · `017` tip schimbat intre martor si modificata.
+text final gol · `017` tip schimbat intre martor si modificata · `018`
+decizie salvata cazuta.
 
 ---
 
@@ -1694,3 +1695,23 @@ Deciziile luate pe drum, fiecare cu testul ei (detaliile in
   cu semn, nu la o lista fixa.
 - **Evidentierea**: un bloc modificat aprinde mereu ceva; cand tot ce difera
   e cosmetic (`a,b` / `a, b`), aprinde si cosmeticul (F-M1).
+
+---
+
+## 2026-11-23 — O decizie a omului care cade opreste deploy-ul
+
+**Context.** Auditul independent din 2026-11-23 (N4, N5): o omitere sau un
+text final facut pe o versiune care s-a schimbat de atunci (de exemplu un
+hotfix in Modificata) disparea tacut: omisul intra inapoi in deploy si
+suprascria hotfix-ul cu Martorul, textul final era inlocuit de Martor.
+Curatarea sesiunii le si stergea de pe disc la prima salvare.
+
+**Decizie.** Omiterile si textele finale raman in sesiune cat obiectul e in
+comparare, chiar daca nu mai sunt valabile; `deploy`, `plan` si garda din
+fereastra se opresc cu `GM-MOD-018` si le numesc. Omul decide din nou (omite
+din nou, scoate omiterea, refa textul, Reset). Bifele „revizuit" cad ca
+inainte: sunt despre ce ai citit, nu despre ce pleaca in baza.
+
+**Alternative.** Avertisment si deploy totusi: tocmai „tacut" era problema,
+iar un avertisment intr-un script se pierde. Pastrarea vechii decizii pe
+obiectul nou: ar fi aplicat o decizie luata pe alt cod.
