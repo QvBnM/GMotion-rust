@@ -26,6 +26,13 @@ de pe alt cont. Deci starea trebuie sa fie in repo, nu in memoria sesiunii.
 
 **La pornire, in ordinea asta:**
 
+0. `unelte/ultima-versiune.sh` (pe Windows `.\unelte\ultima-versiune.ps1`) —
+   care e cel mai nou branch si daca exista **lucru paralel neunit**. Daca
+   branch-ul curent nu e ultima versiune, sau scriptul iese cu 2 (munca
+   impartita pe branch-uri neunite), **se spune utilizatorului inainte de
+   orice** si se cere sa aleaga de unde se porneste. S-a lucrat si s-a auditat
+   o data o zi intreaga pe o versiune veche, pentru ca `STARE.md` numea alt
+   branch (2026-11-23).
 1. `CLAUDE.md` — asta. Regulile.
 2. `STARE.md` — unde suntem, urmatorul pas concret, capcanele active.
 3. etapa activa din `etape/` — scopul si criteriile de terminare.

@@ -203,7 +203,7 @@ export component EditorDiferente inherits Window {
     // care se deseneaza peste el (etapa 25)
     callback text-editat(string);
     in property <[LinieUi]> ed-linii;
-    title: "gmotion — " + root.obiect-nume;
+    title: "gmotion — " + root.obiect-nume; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
     background: Tema.fundal;
@@ -231,6 +231,8 @@ export component EditorDiferente inherits Window {
     in property <[int]> tinte-pana-la;
     in property <int> total-diferente;
     in-out property <int> diferenta-curenta: 0;
+    // ce randuri sunt incarcate acum (model + optiuni), din Rust (C6)
+    in-out property <string> semnatura-randuri;
     in property <image> tigla-hasura;
     // starea obiectului
     in property <bool> revizuit: false;
@@ -324,6 +326,8 @@ export component EditorDiferente inherits Window {
     callback reset();
     callback anuleaza();
     callback salveaza-textul(string, string);   // (obiect-id, text)
+    // textul editat de mana inca nesalvat ("" = nimic tastat)
+    in-out property <string> text-in-lucru;
     callback ghidat-porneste();
     callback ghidat-opreste();
     callback ghidat-alege(bool);
@@ -502,7 +506,10 @@ export component EditorDiferente inherits Window {
                     alignment: start;
                     for t[i] in root.taburi: Rectangle {
                         visible: i < root.taburi-incap;
-                        width: i < root.taburi-incap ? Math.min(220px, tt.preferred-width + 44px) : 0px;
+                        // textul + marginile (14 + 8) + X (16) + pinul (18) sau punctul (6)
+                        // + golurile dintre ele (2 x 8); cu 44px numele se taia la
+                        // cateva litere langa spatiu liber (auditul 2026-11-22)
+                        width: i < root.taburi-incap ? Math.min(220px, tt.preferred-width + (t.previzualizare ? 72px : 60px)) : 0px;
                         y: 4px;
                         height: 32px;
                         border-top-left-radius: 8px;
@@ -638,7 +645,9 @@ export component EditorDiferente inherits Window {
                         }
                         VerticalLayout { alignment: center; ButonCap { text: "↓"; apasat => { root.navigheaza(root.diferenta-curenta + 1); } } }
                     }
-                    VerticalLayout {
+                    // „Revizuit" e si in bara de sus: aici doar cand e loc
+                    // (la 1024 px impingea „Actiuni" afara din ecran)
+                    if root.width - root.ocupat > 900px: VerticalLayout {
                         alignment: center;
                         ButonCap {
                             text: root.revizuit ? Texte.revizuit-bifat : Texte.revizuit;
@@ -668,8 +677,10 @@ export component EditorDiferente inherits Window {
                             }
                         }
                     }
-                    // plierea liniilor identice: comutator vizibil, nu doar in meniu
-                    VerticalLayout {
+                    // plierea si wrap-ul: comutatoare vizibile cand e loc; altfel
+                    // raman in meniul „Actiuni" (si Ctrl+L), care nu mai iese
+                    // din ecran (auditul 2026-11-23, 1024x768)
+                    if root.width - root.ocupat > 1100px: VerticalLayout {
                         alignment: center;
                         ButonCap {
                             text: root.pliaza-identicul ? Texte.pliaza-identicul-bifat : Texte.pliaza-identicul;
@@ -677,7 +688,7 @@ export component EditorDiferente inherits Window {
                         }
                     }
                     // wrap: liniile lungi continua dedesubt, fara derulare
-                    VerticalLayout {
+                    if root.width - root.ocupat > 1100px: VerticalLayout {
                         alignment: center;
                         ButonCap {
                             text: root.impacheteaza ? Texte.impacheteaza-bifat : Texte.impacheteaza;
@@ -723,6 +734,11 @@ export component EditorDiferente inherits Window {
                             RandMeniu {
                                 text: root.pliaza-identicul ? Texte.pliaza-identicul-bifat : Texte.pliaza-identicul;
                                 apasat => { root.pliaza-identicul = !root.pliaza-identicul; root.comuta-plierea(root.pliaza-identicul); }
+                            }
+                            RandMeniu {
+                                text: root.impacheteaza ? Texte.impacheteaza-bifat : Texte.impacheteaza;
+                                tasta: "Ctrl L";
+                                apasat => { root.impacheteaza = !root.impacheteaza; root.derulare-x = 0px; root.comuta-wrap(root.impacheteaza); }
                             }
                             RandMeniu {
                                 text: root.ascunde-diferentele ? Texte.arata-diferentele : Texte.ascunde-diferentele;
@@ -955,7 +971,9 @@ export component EditorDiferente inherits Window {
                                         // peste panoul din dreapta; e acelasi
                                         // lucru ca sageata din canal, doar ca
                                         // se face cu mana
-                                        if r.diferenta >= 0 && r.stare != 0 && !root.ascunde-diferentele: TouchArea {
+                                        // (un rand gol, bloc doar in Modificata,
+                                        // n-are ce sa traga)
+                                        if r.diferenta >= 0 && r.stare != 0 && r.stare != 3 && !root.ascunde-diferentele: TouchArea {
                                             mouse-cursor: self.pressed ? grabbing : grab;
                                             moved => {
                                                 // se considera tragere abia dupa cativa
@@ -1403,17 +1421,20 @@ export component EditorDiferente inherits Window {
                                     selection-background-color: Tema.tine.transparentize(0.6);
                                     selection-foreground-color: Tema.text;
                                     init => { self.focus(); root.text-editat(self.text); }
-                                    edited => { root.text-editat(self.text); }
+                                    // `text-in-lucru`: ce s-a scris, ca Rust sa-l poata
+                                    // salva pe obiectul lui daca omul trece pe altul;
+                                    // `text-editat`: sintaxa colorata cat scrii (etapa 25)
+                                    edited => { root.text-in-lucru = self.text; root.text-editat(self.text); }
                                 }
                                 // sintaxa cat scrii (etapa 25): randuri colorate
                                 // desenate peste glifele campului, la aceleasi
                                 // pozitii; cursorul si selectia raman ale lui
-                // pasul liniilor din camp e fractionar (~16,23 px la 12,5 px),
+                                // pasul liniilor din camp e fractionar (~16,23 px la 12,5 px),
                                 // iar un `Text` de o linie e rotunjit (17 px): pasul se ia
                                 // dintr-un text de 100 de linii, altfel suprapunerea aluneca
                                 proba-1 := Text { visible: false; text: "X"; font-family: Tema.font-mono; font-size: 12.5px; }
-                                proba-100 := Text { visible: false; text: "X\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX"; font-family: Tema.font-mono; font-size: 12.5px; }
-                                proba-x := Text { visible: false; text: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; font-family: Tema.font-mono; font-size: 12.5px; }
+                                proba-100 := Text { visible: false; text: "X\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX\nX"; font-family: Tema.font-mono; font-size: 12.5px; } // text-permis: proba de masurare, nu text pentru om
+                                proba-x := Text { visible: false; text: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; font-family: Tema.font-mono; font-size: 12.5px; } // text-permis: proba de masurare, nu text pentru om
                                 proba-tab := Text { visible: false; text: "\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}\u{9}X"; font-family: Tema.font-mono; font-size: 12.5px; }
                                 for l[i] in root.ed-linii: BucatiEditare {
                                     caracter: proba-x.preferred-width / 100;
@@ -1768,6 +1789,9 @@ export component EditorDiferente inherits Window {
                     Text { text: k.e; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; }
                 }
                 Rectangle { horizontal-stretch: 1; }
+                // pozitia si ce s-a intamplat cu ultima comanda pe taburi
+                // (capat, tab refuzat, obiect fara editor)
+                Text { text: root.stare-obiecte; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; min-width: 0; horizontal-stretch: 1; horizontal-alignment: right; }
                 Text { text: root.salvat; font-family: Tema.font-ui; font-size: 11px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; }
             }
         }

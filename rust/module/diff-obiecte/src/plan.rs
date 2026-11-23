@@ -49,6 +49,16 @@ pub struct Pas {
     /// deploy-ul il creeaza si revenirea il sterge.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tinta: Option<String>,
+    /// Tipul obiectului in tinta, cand exista si difera de `tip`: o procedura
+    /// in martor si un view in modificata nu se pot deploia cu `CREATE OR
+    /// ALTER` (F-D3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tip_tinta: Option<String>,
+    /// Amprenta textului final cu care s-a facut planul (`None`: fara text
+    /// final, deci codul din martor). `deploy --plan` o verifica: un text
+    /// schimbat dupa plan nu pleaca nevazut (F-D5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_final: Option<String>,
 }
 
 /// Ce intra in deploy, cu amprentele de la comparare.
@@ -72,6 +82,9 @@ pub enum Parte {
     Referinta,
     /// Baza pe care se deployeaza a fost atinsa.
     Tinta,
+    /// Textul final (din editor sau `gmotion editare`) nu mai e cel din plan.
+    #[serde(rename = "text_final")]
+    TextFinal,
 }
 
 /// Cum s-a schimbat.
@@ -106,6 +119,11 @@ impl fmt::Display for Schimbare {
             Parte::Referinta => write!(
                 f,
                 "{} {fel} in martor de la comparare (deploy pe {})",
+                self.obiect, self.baza
+            ),
+            Parte::TextFinal => write!(
+                f,
+                "textul final al lui {} (deploy pe {}) {fel} de la plan",
                 self.obiect, self.baza
             ),
         }
@@ -170,15 +188,19 @@ impl Plan {
                 sarite += 1;
                 continue;
             }
-            let tinta = baza_tinta(altele, &r.baza)
-                .and_then(|b| gaseste(b, &r.obiect))
-                .map(amprenta_exacta);
+            let in_tinta = baza_tinta(altele, &r.baza).and_then(|b| gaseste(b, &r.obiect));
+            let tinta = in_tinta.map(amprenta_exacta);
+            let tip_tinta = in_tinta
+                .map(|t| t.tip.trim().to_string())
+                .filter(|t| t != r.tip.trim());
             pasi.push(Pas {
                 baza: r.baza.clone(),
                 obiect: r.obiect.clone(),
                 tip: r.tip.clone(),
                 referinta: amprenta_exacta(o),
                 tinta,
+                tip_tinta,
+                text_final: None,
             });
         }
         Plan {
@@ -231,6 +253,42 @@ impl Plan {
     }
 
     /// Garda ca eroare: `GM-MOD-012` cu fiecare schimbare pe nume.
+    /// Pune in plan amprenta textelor finale de acum (cheie: baza, obiect).
+    pub fn cu_texte_finale(mut self, texte: &BTreeMap<(String, String), String>) -> Self {
+        for p in &mut self.pasi {
+            p.text_final = texte
+                .get(&(p.baza.clone(), p.obiect.clone()))
+                .map(|t| calc_hash(t));
+        }
+        self
+    }
+
+    /// Garda pentru textele finale: sunt cele cu care s-a facut planul? Lista
+    /// goala inseamna da. Un text aparut, disparut (Reset) sau schimbat dupa
+    /// plan opreste deploy-ul, ca o baza atinsa.
+    pub fn verifica_texte(&self, texte: &BTreeMap<(String, String), String>) -> Vec<Schimbare> {
+        self.pasi
+            .iter()
+            .filter_map(|p| {
+                let acum = texte
+                    .get(&(p.baza.clone(), p.obiect.clone()))
+                    .map(|t| calc_hash(t));
+                let fel = match (&p.text_final, &acum) {
+                    (a, b) if a == b => return None,
+                    (None, Some(_)) => FelSchimbare::Aparut,
+                    (Some(_), None) => FelSchimbare::Disparut,
+                    _ => FelSchimbare::Modificat,
+                };
+                Some(Schimbare {
+                    baza: p.baza.clone(),
+                    obiect: p.obiect.clone(),
+                    parte: Parte::TextFinal,
+                    fel,
+                })
+            })
+            .collect()
+    }
+
     pub fn verifica_sau_opreste(
         &self,
         referinta: &Baza,
@@ -270,6 +328,24 @@ impl Plan {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
                 schimbari: format!("{} a disparut din martor", p.obiect),
             })?;
+            if let Some(t) = &p.tip_tinta {
+                return Err(Eroare::TipSchimbat {
+                    obiect: p.obiect.clone(),
+                    baza: p.baza.clone(),
+                    martor: p.tip.trim().to_string(),
+                    modificata: t.clone(),
+                });
+            }
+            // un text final gol ar ajunge „criptat" in verificare, cu un mesaj
+            // fals; e o greseala de editare, si se spune asa (B2)
+            if texte_finale
+                .get(&(p.baza.clone(), p.obiect.clone()))
+                .is_some_and(|t| t.trim().is_empty())
+            {
+                return Err(Eroare::TextFinalGol {
+                    obiect: p.obiect.clone(),
+                });
+            }
             pe_baza.entry(p.baza.clone()).or_default().push(DeDeployat {
                 obiect: p.obiect.clone(),
                 tip: p.tip.clone(),
@@ -662,6 +738,83 @@ mod teste {
         assert_eq!(t.len(), 2);
         assert_eq!(t[0].cod, "CREATE OR ALTER PROCEDURE dbo.pA AS SELECT 1");
         assert!(p.de_deployat(&Baza::new()).is_err());
+    }
+
+    /// F-D5: un text final schimbat, aparut sau sters dupa plan se vede.
+    #[test]
+    fn textele_finale_din_plan_se_verifica() {
+        let (r, a) = scena();
+        let cheie = ("Tinta".to_string(), "dbo.pA".to_string());
+        let la_plan = BTreeMap::from([(
+            cheie.clone(),
+            "CREATE PROCEDURE dbo.pA AS SELECT 7".to_string(),
+        )]);
+        let p = plan(&r, &a).cu_texte_finale(&la_plan);
+        assert!(p.verifica_texte(&la_plan).is_empty());
+        let schimbat = BTreeMap::from([(
+            cheie.clone(),
+            "CREATE PROCEDURE dbo.pA AS DELETE FROM t".to_string(),
+        )]);
+        let s = p.verifica_texte(&schimbat);
+        assert_eq!(
+            (s.len(), s[0].parte, s[0].fel),
+            (1, Parte::TextFinal, FelSchimbare::Modificat)
+        );
+        assert!(
+            s[0].to_string().contains("textul final al lui dbo.pA"),
+            "{}",
+            s[0]
+        );
+        assert_eq!(
+            p.verifica_texte(&BTreeMap::new())[0].fel,
+            FelSchimbare::Disparut
+        );
+        let fara = plan(&r, &a);
+        assert_eq!(fara.verifica_texte(&la_plan)[0].fel, FelSchimbare::Aparut);
+        assert!(fara.verifica_texte(&BTreeMap::new()).is_empty());
+    }
+
+    /// F-D3: procedura in martor, view in modificata. Randul o spune, iar
+    /// deploy-ul refuza inainte de orice fisier; un plan vechi, fara campul
+    /// nou, se citeste la fel.
+    #[test]
+    fn tipul_schimbat_se_spune_si_opreste_deploy_ul() {
+        let r = pregateste(&[ob("pA", "CREATE PROCEDURE dbo.pA AS SELECT 1")]);
+        let mut v = ob("pA", "CREATE VIEW dbo.pA AS SELECT 1 AS a");
+        v.tip = "V ".into();
+        let a = vec![("Tinta".to_string(), pregateste(&[v]))];
+        let c = compara("Ref", &r, &a, |_| {});
+        assert!(
+            c.randuri[0]
+                .rezumat
+                .starts_with("tip schimbat: P in martor, V"),
+            "{}",
+            c.randuri[0].rezumat
+        );
+        let p = plan(&r, &a);
+        assert_eq!(p.pasi[0].tip_tinta.as_deref(), Some("V"));
+        let e = p.de_deployat_cu(&r, &BTreeMap::new()).unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-017");
+        let json = serde_json::to_string(&p).unwrap();
+        let vechi = json.replace(",\"tip_tinta\":\"V\"", "");
+        assert_ne!(json, vechi);
+        let citit: Plan = serde_json::from_str(&vechi).unwrap();
+        assert_eq!(citit.pasi[0].tip_tinta, None);
+        let (r, a) = scena();
+        assert!(plan(&r, &a).pasi.iter().all(|p| p.tip_tinta.is_none()));
+    }
+
+    /// B2: un text final gol e spus ca atare, nu ca „criptat".
+    #[test]
+    fn textul_final_gol_e_refuzat_cu_motivul_lui() {
+        let (r, a) = scena();
+        let p = plan(&r, &a);
+        let texte = BTreeMap::from([(
+            ("Tinta".to_string(), "dbo.pA".to_string()),
+            "  \n".to_string(),
+        )]);
+        let e = p.de_deployat_cu(&r, &texte).unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-016");
     }
 
     #[test]

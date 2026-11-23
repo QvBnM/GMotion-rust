@@ -109,7 +109,9 @@ elif ! command -v cargo >/dev/null; then
 elif ! rustup target list --installed 2>/dev/null | grep -qx x86_64-pc-windows-msvc; then
   sare "windows-msvc" "tinta lipseste: rustup target add x86_64-pc-windows-msvc"
 else
-  ruleaza "cargo check pe windows-msvc" cargo check --manifest-path rust/Cargo.toml --all-targets --target x86_64-pc-windows-msvc
+  # clippy, nu doar check, si cu -D warnings: codul `cfg(windows)` nu e
+  # vazut de nimic altceva pe masina de dezvoltare (auditul 2026-11-23)
+  ruleaza "clippy pe windows-msvc" cargo clippy --manifest-path rust/Cargo.toml --all-targets --target x86_64-pc-windows-msvc -- -D warnings
 fi
 
 # ---------------------------------------------------------------- 6. dependente
@@ -137,13 +139,18 @@ for cale in glob.glob("rust/**/Cargo.toml", recursive=True):
     if nivel is None:
         probleme.append(f"{nume}: crate necunoscut, adauga-l in unelte/verifica.sh si in ARHITECTURA.md")
         continue
-    for dep in re.findall(r'^(gmotion-[a-z0-9-]+)\s*[=.]', txt, re.M):
+    # `gmotion-x = ...`, `[dependencies.gmotion-x]` si redenumirea cu
+    # `package = "gmotion-x"` (auditul 2026-11-23: ultimele doua scapau)
+    deps = set(re.findall(r'^(gmotion-[a-z0-9-]+)\s*[=.]', txt, re.M))
+    deps |= set(re.findall(r'^\[(?:dev-|build-)?dependencies\.(gmotion-[a-z0-9-]+)\]', txt, re.M))
+    deps |= set(re.findall(r'package\s*=\s*"(gmotion-[a-z0-9-]+)"', txt))
+    for dep in sorted(deps):
         e_modul_dep = dep not in NIVEL
         nivel_dep = 3 if e_modul_dep else NIVEL[dep]
         if nivel_dep >= nivel:
             probleme.append(f"{nume} -> {dep}: dependinta la dreapta sau laterala")
         if e_modul and e_modul_dep:
-            probleme.append(f"{nume} -> {dep}: un modul nu depinde de alt modul; mutǎ in platforma")
+            probleme.append(f"{nume} -> {dep}: un modul nu depinde de alt modul; muta in platforma")
 
 if probleme:
     print("\n".join(probleme)); sys.exit(1)
@@ -300,13 +307,26 @@ fi
 titlu "fara diacritice"
 python3 - <<'PY_DIACRITICE'
 import re, subprocess, sys
-fisiere = subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split("\n")
-r = re.compile("[\u0103\u00e2\u00ee\u0219\u015f\u021b\u0163\u0102\u00c2\u00ce\u0218\u015e\u021a\u0162]")
+import unicodedata
+# si fisierele noi, inca neadaugate: altfel trec pana la commit (auditul 2026-11-22)
+fisiere = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"], capture_output=True, text=True).stdout.split("\n")
+class _Diacritic:
+    """Orice litera latina cu semn (a cu caciula, s cu virgula, dar si a cu
+    caron U+01CE, e accentuat, I cu punct): o lista fixa scapa semnele
+    asemanatoare, cum a scapat U+01CE din chiar acest fisier."""
+    def search(self, l):
+        for c in l:
+            if ord(c) > 127 and c.isalpha():
+                d = unicodedata.normalize("NFD", c)
+                if len(d) > 1 and d[0].isascii() and unicodedata.combining(d[1]):
+                    return True
+        return False
+r = _Diacritic()
 gasite = []
 for f in fisiere:
     if not f or f.startswith("mostenire/") or (f.startswith("referinta/") and f != "referinta/README.md"):
         continue
-    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml)$", f) or "LICENSE" in f:
+    if not re.search(r"\.(rs|slint|md|sh|bat|ps1|py|toml|html|js|css)$", f) or "LICENSE" in f:
         continue
     try:
         linii = open(f, encoding="utf-8").read().split("\n")
@@ -352,13 +372,46 @@ if lipsa:
 PY_BUTOANE
 if [ $? -eq 0 ]; then pas "fiecare buton are actiune"; else cade "fiecare buton are actiune"; fi
 
+titlu "niciun text pentru om scris direct in .slint"
+# CLAUDE.md, sectiunea 6: textele trec prin `fereastra::texte` (romana si
+# engleza). Se cauta un sir cu litere dat lui `text`, `t`, `gol` sau `title`;
+# marca si cuvintele SQL se marcheaza pe aceeasi linie cu `text-permis`.
+python3 - <<'PY_TEXTE'
+import glob, re, sys
+LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"')
+# numele tastelor (`Ctrl J K`, `Shift F7`) nu se traduc
+TASTE = re.compile(r'^(?:(?:ctrl|shift|alt|esc|enter|tab|f\d{1,2}|[a-z])\b\s*)+$', re.I)
+gasite = []
+for f in sorted(glob.glob("rust/fereastra/ui/*.slint")):
+    for nr, linie in enumerate(open(f, encoding="utf-8"), 1):
+        if "text-permis" in linie or linie.lstrip().startswith(("//", "import")):
+            continue
+        if not re.search(r"\b(?:text|t|gol|title)\s*:", linie):
+            continue
+        for m in LITERAL.finditer(linie):
+            continut = m.group(0)[1:-1]
+            if re.search(r"[A-Za-z]{2,}", continut) and not TASTE.match(continut.strip()):
+                gasite.append(f"{f}:{nr}: {continut}")
+if gasite:
+    print("\n".join(gasite))
+    sys.exit(1)
+PY_TEXTE
+if [ $? -eq 0 ]; then pas "niciun text pentru om scris direct in .slint"; else cade "text scris direct in .slint: pune-l in fereastra::texte"; fi
+
 titlu "mostenire/ nemodificat"
+# Arborele lui mostenire/ e fixat aici: o stergere, o modificare deja commitata
+# sau un fisier nou schimba hash-ul. Varianta pe `git diff --diff-filter=M`
+# nu vedea nici stergerile, nici ce s-a commitat deja (auditul 2026-11-23).
+# Se schimba doar odata cu regula 2 din CLAUDE.md, explicit.
+ARBORE_MOSTENIRE=f7f1455dd4054a2bb310c1a971fe027f8c63dcc8
 if git rev-parse --git-dir >/dev/null 2>&1; then
-  # Doar CONTINUT modificat (filtrul M). O cale nou adaugata nu e o modificare:
-  # altfel commit-ul care a mutat Python-ul in mostenire/ ar cadea pe sine.
-  if git diff --name-only --diff-filter=M HEAD -- mostenire/ 2>/dev/null | grep -q .; then
-    cade "mostenire/ e modificat — vezi regula 2 din CLAUDE.md"
-    git diff --name-only --diff-filter=M HEAD -- mostenire/ | sed 's/^/      /'
+  actual="$(git rev-parse HEAD:mostenire 2>/dev/null || echo lipsa)"
+  local_schimbat="$(git status --porcelain -- mostenire/ 2>/dev/null)"
+  if [ "$actual" != "$ARBORE_MOSTENIRE" ]; then
+    cade "mostenire/ s-a schimbat in commit-uri (arbore $actual) — vezi regula 2 din CLAUDE.md"
+  elif [ -n "$local_schimbat" ]; then
+    cade "mostenire/ e modificat local — vezi regula 2 din CLAUDE.md"
+    printf '%s\n' "$local_schimbat" | sed 's/^/      /'
   else
     pas "mostenire/ nemodificat"
   fi

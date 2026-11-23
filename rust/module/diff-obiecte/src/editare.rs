@@ -32,6 +32,12 @@ pub struct TextFinal {
     pub manual: bool,
     /// Amprenta obiectului cand s-a facut editarea.
     pub amprenta: Amprenta,
+    /// Amprenta exacta a bazei comparate cand s-a facut editarea. Amprenta
+    /// de mai sus e pe textul normalizat, deci nu vede un comentariu adaugat
+    /// in baza (un hotfix); textul final, facut peste versiunea veche, l-ar
+    /// fi sters la deploy (F-D5). `None` in sesiunile de dinainte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exacta: Option<String>,
 }
 
 /// Textele finale, pe baza comparata si obiect.
@@ -46,12 +52,24 @@ impl Editari {
         Self::default()
     }
 
+    /// Unirea in trei cai, ca [`crate::Revizuire::uneste`]: textele scrise
+    /// din cli cat fereastra era deschisa nu se mai pierd la salvare.
+    pub fn uneste(baza: &Self, ai_mei: &Self, ai_lor: &Self) -> Self {
+        Editari {
+            baze: crate::revizuire::uneste_harta(&baza.baze, &ai_mei.baze, &ai_lor.baze),
+        }
+    }
+
     /// Textul final, **numai daca** obiectul e acelasi ca la editare.
     pub fn text_final(&self, r: &Rand) -> Option<&TextFinal> {
         self.baze
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
             .filter(|t| t.amprenta == Amprenta::a_randului(r))
+            .filter(|t| match (&t.exacta, &r.exacta_curent) {
+                (Some(a), Some(b)) => a == b,
+                _ => true,
+            })
     }
 
     /// Textul din dreapta pe care lucreaza editorul acum: textul final, daca
@@ -75,6 +93,7 @@ impl Editari {
                 text,
                 manual,
                 amprenta: Amprenta::a_randului(r),
+                exacta: r.exacta_curent.clone(),
             },
         );
     }
@@ -155,14 +174,26 @@ impl Editari {
     /// deploy-ul ei scria codul referintei in locul lor (C3/C4 din auditul QA).
     pub fn curata(&mut self, randuri: &[Rand], baze_comparate: &[String]) -> usize {
         let mut scoase = 0;
+        // index, nu `any` pe toate randurile pentru fiecare text (P6)
+        let index: std::collections::HashMap<(&str, &str), Amprenta> = randuri
+            .iter()
+            .map(|r| {
+                (
+                    (r.baza.as_str(), r.obiect.as_str()),
+                    Amprenta::a_randului(r),
+                )
+            })
+            .collect();
         for (baza, obiecte) in self.baze.iter_mut() {
             if !baze_comparate.iter().any(|b| b == baza) {
                 continue;
             }
             obiecte.retain(|obiect, t| {
-                let pastreaza = randuri.iter().any(|r| {
-                    r.baza == *baza && r.obiect == *obiect && Amprenta::a_randului(r) == t.amprenta
-                });
+                // un text final pe alta versiune ramane cat obiectul e in
+                // comparare: deploy-ul spune ca a cazut (`cazute`), in loc sa
+                // dispara tacut la prima salvare (N5); Reset il sterge
+                let _ = &t.amprenta;
+                let pastreaza = index.contains_key(&(baza.as_str(), obiect.as_str()));
                 scoase += usize::from(!pastreaza);
                 pastreaza
             });
@@ -189,6 +220,32 @@ impl Editari {
 
     /// Citeste starea dintr-o sesiune; una lipsa sau de neinteles da o stare
     /// goala, ca la revizuire.
+    /// Ca [`Self::din_sesiune`], dar o stare care exista si nu se poate
+    /// citi e eroare, nu stare goala.
+    pub fn din_sesiune_verificat(s: &Sesiune) -> crate::Rezultat<Self> {
+        match s.date.get(CHEIE_SESIUNE) {
+            None => Ok(Self::default()),
+            Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
+                crate::Eroare::Date(format!("textele finale din sesiune nu se pot citi: {e}"))
+            }),
+        }
+    }
+
+    /// Textele finale facute pe o versiune care s-a schimbat de atunci: nu
+    /// mai ajung in deploy, dar nici nu trebuie sa dispara tacut (N5).
+    pub fn cazute(&self, randuri: &[Rand]) -> Vec<(String, String)> {
+        randuri
+            .iter()
+            .filter(|r| {
+                self.baze
+                    .get(&r.baza)
+                    .is_some_and(|b| b.contains_key(&r.obiect))
+                    && self.text_final(r).is_none()
+            })
+            .map(|r| (r.baza.clone(), r.obiect.clone()))
+            .collect()
+    }
+
     pub fn din_sesiune(s: &Sesiune) -> Self {
         s.date
             .get(CHEIE_SESIUNE)
@@ -226,7 +283,37 @@ mod teste {
             hash_curent: Some(hc.into()),
             modificat: None,
             creat: None,
+            exacta_curent: None,
         }
+    }
+
+    #[test]
+    fn textul_final_cazut_se_vede() {
+        let mut r = rand("h1", "h2");
+        let mut e = Editari::noi();
+        e.pune(&r, "CREATE PROCEDURE dbo.p AS SELECT 1".into(), true);
+        assert!(e.cazute(std::slice::from_ref(&r)).is_empty());
+        r.hash_curent = Some("h3".into());
+        assert_eq!(e.cazute(&[r]).len(), 1);
+    }
+
+    /// F-D5: un comentariu adaugat in baza (hash normalizat neschimbat) face
+    /// textul final facut peste versiunea veche nevalabil.
+    #[test]
+    fn un_comentariu_nou_in_baza_invalideaza_textul_final() {
+        let mut r = rand("h1", "h2");
+        r.exacta_curent = Some("e1".into());
+        let mut e = Editari::noi();
+        e.pune(&r, "CREATE PROCEDURE dbo.p AS SELECT 1".into(), true);
+        assert!(e.text_final(&r).is_some());
+        r.exacta_curent = Some("e2-cu-hotfix".into());
+        assert!(e.text_final(&r).is_none(), "baza s-a schimbat dupa editare");
+        // sesiunile vechi n-au amprenta exacta: raman valabile ca inainte
+        let mut vechi = Editari::noi();
+        r.exacta_curent = None;
+        vechi.pune(&r, "x".into(), true);
+        r.exacta_curent = Some("e3".into());
+        assert!(vechi.text_final(&r).is_some());
     }
 
     const SURSA: &str = "SELECT 1\n\nUPDATE t SET a = 1\n\nDELETE x WHERE id = 1";
@@ -319,7 +406,11 @@ mod teste {
             "sursa s-a schimbat"
         );
         assert_eq!(e.curent(&rand("a", "b2"), BAZA), BAZA);
-        assert_eq!(e.curata(&[rand("a", "b2")], &["Client1".to_string()]), 1);
+        // ramane, ca deploy-ul sa poata spune ca a cazut (N5); dispare doar
+        // cand obiectul nu mai e in comparare
+        assert_eq!(e.curata(&[rand("a", "b2")], &["Client1".to_string()]), 0);
+        assert_eq!(e.cazute(&[rand("a", "b2")]).len(), 1);
+        assert_eq!(e.curata(&[], &["Client1".to_string()]), 1);
     }
 
     #[test]

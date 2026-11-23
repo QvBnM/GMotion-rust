@@ -1395,9 +1395,10 @@ cautabil in jurnale vechi si in rapoarte de bug.
 | Prefix | Zona |
 |---|---|
 | `GM-CORE-*` | motorul de comparare |
-| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-011**, vezi `rust/db/CRATE.md` |
+| `GM-DB-*` | conexiune, driver, citire obiecte — **alocate 001-012**, vezi `rust/db/CRATE.md` |
 | `GM-PLAT-*` | configurare, sesiuni, rutare — **alocate 001-011**, vezi `rust/platforma/CRATE.md` |
-| `GM-MOD-*` | module — **diff-obiecte: 001-013**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-MOD-*` | module — **diff-obiecte: 001-018**, vezi `rust/module/diff-obiecte/CRATE.md` |
+| `GM-CLI-*` | linia de comanda — **alocate 001-008**, vezi `rust/cli/CRATE.md` |
 | `GM-UI-*` | fereastra, randare |
 
 `core` nu intoarce erori tipate: functiile lui sunt totale pe intrari valide
@@ -1406,7 +1407,11 @@ UTF-8.
 `GM-DB-001` conectare · `002` autentificare · `003` auth integrata indisponibila
 · `004` interogare · `005` baza lipsa · `006` descoperire · `007` citire
 instantaneu · `008` scriere instantaneu · `009` versiune instantaneu · `010`
-nume invalid.
+nume invalid · `011` nume de baza invalid · `012` fara drept VIEW DEFINITION.
+
+`GM-MOD-014` numele din definitie · `015` cod fara `CREATE <tip>` · `016`
+text final gol · `017` tip schimbat intre martor si modificata · `018`
+decizie salvata cazuta.
 
 ---
 
@@ -1803,3 +1808,92 @@ editorul, filtrele, instantaneul si „Folosit de" merg fara cod nou.
 coloane in alta ordine ies diferite: e o diferenta reala pentru `SELECT *`).
 Nu intra inca: valori implicite, chei, indecsi, coloane calculate, colatie.
 Deploy-ul le sare (`Plan::din_comparare`, `se_poate_deploia`).
+
+## 2026-11-22 — Spatiile din string-uri: se strang doar cele care trec de rand
+
+**Context.** Auditul din 2026-11-22 (C2): cu regula din 2026-11-19, `'a\tb'`
+si `'a b'` ieseau identice, deci o schimbare reala de date (separator tab
+schimbat in spatiu, `REPLACE(x, TAB, ';')`, `WHERE Cod = 'A  B'`) nu ajungea
+niciodata in deploy.
+
+**Decizie (Mihai, varianta 2 din trei).** In `norm` si in evidentierea din
+editor, intr-un string se strange intr-un singur spatiu doar un sir de spatii
+care contine un capat de rand: reindentarea SQL-ului dinamic ramane
+cosmetica. Pe acelasi rand, tab fata de spatiu si doua spatii fata de unul
+sunt diferente. Divergenta fata de v3.4.
+
+**Alternative.** (1) regula de pana acum, ca v3.4: mai putine diferente
+false, dar date schimbate ascunse. (3) string-urile exact: cel mai sigur, dar
+fiecare reindentare de SQL dinamic redevine „modificat", problema din
+2026-11-19.
+
+**Fixture.** Nu s-a regenerat: niciun caz din `referinta/cazuri.json` nu are
+spatii pe acelasi rand intr-un string, conformitatea trece neschimbata.
+Regula e tinuta de testele din `normalizare.rs` si `diff.rs`.
+
+---
+
+## 2026-11-22 — Plasarea nu mai scrie peste blocuri imperecheate (A1)
+
+**Context.** Auditul din 2026-11-22: `plasari` lua sugestia lui `sugereaza`
+(cel mai apropiat bloc din **toata** tinta) ca loc de scriere. Un bloc din
+Martor care semana cu unul deja egal in Modificata il inlocuia: „Aplica" pe
+o diferenta, tragerea pe locul sugerat si `editare --aplica` stergeau cod
+identic, iar textul ajungea in deploy. 31% din perechile generate nu
+ajungeau la Martor aplicand diferentele una cate una.
+
+**Decizie.** Un bloc fara pereche inlocuieste doar un bloc al tintei care e
+si el fara pereche, si doar daca nu e identic (normalizat) — un bloc identic
+pe alt loc e o mutare: se insereaza unde il vrea Martorul, iar copia din
+tinta ramane diferenta ei. Altfel se insereaza in golul lui, cu grupul.
+`sugereaza` ramane ca in v3.4 (paritatea din `tests/plasare.rs`); se schimba
+doar ce face `plasari` cu raspunsul. Antetul (pozitia 0) se potriveste ca
+inainte.
+
+**Alternative.** Restrangerea candidatilor chiar in `sugereaza`: ar fi rupt
+paritatea cu sugestiile v3.4 fara castig, fiindca doar `plasari` scrie.
+
+---
+
+## 2026-11-23 — Ce s-a schimbat in comportament la remedierea auditului 2026-11-22
+
+Deciziile luate pe drum, fiecare cu testul ei (detaliile in
+`cercetare/audit-qa-2026-11-22.md`, „Verdicte"):
+
+- **`revizuire --goleste` sterge doar bifele** (revizuit, omis). Textele
+  finale, notele si marcajele de deploy raman; nu se combina cu alte actiuni.
+  Inainte stergea toata sesiunea, si textele scrise de mana cu ea.
+- **O a doua scriere de deploy cere o noua verificare** a bazei (F-A10).
+  Rastoarna testul `alta_impartire_permite_o_noua_scriere`, care cerea
+  refolosirea garzii: intre doua scrieri baza se poate schimba.
+- **Codul de deploy trebuie sa creeze obiectul din plan** (`GM-MOD-015`);
+  tip schimbat intre martor si modificata e `GM-MOD-017`, obiect de deployat
+  de mana. Un text final gol e `GM-MOD-016`.
+- **Sesiune ilizibila**: cli se opreste (`deploy`, `plan`, `export`),
+  fereastra o pune deoparte (`.corupt-<marcaj>.dat.bak`) si incepe alta.
+- **Erorile proprii ale cli au coduri** `GM-CLI-001..008`.
+- **Machetele HTML fara diacritice**, ca regula sa fie „nicaieri" si pentru
+  ele; poarta se uita acum si la `.html`, la fisierele noi si la orice litera
+  cu semn, nu la o lista fixa.
+- **Evidentierea**: un bloc modificat aprinde mereu ceva; cand tot ce difera
+  e cosmetic (`a,b` / `a, b`), aprinde si cosmeticul (F-M1).
+
+---
+
+## 2026-11-23 — O decizie a omului care cade opreste deploy-ul
+
+**Context.** Auditul independent din 2026-11-23 (N4, N5): o omitere sau un
+text final facut pe o versiune care s-a schimbat de atunci (de exemplu un
+hotfix in Modificata) disparea tacut: omisul intra inapoi in deploy si
+suprascria hotfix-ul cu Martorul, textul final era inlocuit de Martor.
+Curatarea sesiunii le si stergea de pe disc la prima salvare.
+
+**Decizie.** Omiterile si textele finale raman in sesiune cat obiectul e in
+comparare, chiar daca nu mai sunt valabile; `deploy`, `plan` si garda din
+fereastra se opresc cu `GM-MOD-018` si le numesc. Omul decide din nou (omite
+din nou, scoate omiterea, refa textul, Reset). Bifele „revizuit" cad ca
+inainte: sunt despre ce ai citit, nu despre ce pleaca in baza.
+
+**Alternative.** Avertisment si deploy totusi: tocmai „tacut" era problema,
+iar un avertisment intr-un script se pierde. Pastrarea vechii decizii pe
+obiectul nou: ar fi aplicat o decizie luata pe alt cod.

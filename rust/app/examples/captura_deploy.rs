@@ -86,7 +86,13 @@ fn main() {
         .unwrap_or_default();
     aplica_tema(&ui, tema);
     gmotion_fereastra::aplica_limba(&ui, Default::default());
-    let e = ecran(&st, app.sursa(), &director.display().to_string(), 10);
+    let e = ecran(
+        &st,
+        app.sursa(),
+        &director.display().to_string(),
+        10,
+        gmotion_core::Limba::Romana,
+    );
     incarca_deploy(&ui, &e);
     ui.show().expect("fereastra nu se arata");
     fereastra.set_size(slint::PhysicalSize::new(w, h));

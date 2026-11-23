@@ -45,7 +45,11 @@ static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
         r"SET\s+(?:DATEFIRST|DATEFORMAT|DEADLOCK_PRIORITY|LANGUAGE|LOCK_TIMEOUT|ROWCOUNT|TEXTSIZE|CONTEXT_INFO)\s+[^=\s]|",
         r"SET\s+\w+(?:\s*,\s*\w+)*\s+(?:ON|OFF)\s*;?\s*$|",
         r"[A-Za-z_][0-9A-Za-z_]*:\s*$|",
-        r";?\s*WITH\s+[0-9A-Za-z_#\[\]]+\s*(?:\([^)]*\)\s*)?AS\s*(?:\(|$)",
+        r";?\s*WITH\s+[0-9A-Za-z_#\[\]]+\s*(?:\([^)]*\)\s*)?AS\s*(?:\(|$)|",
+        // `WITH` singur pe linie si `WITH XMLNAMESPACES`: tot inceput de CTE,
+        // altfel se lipeau de instructiunea dinainte si se desparteau de cea
+        // care ii foloseste (C3 din `cercetare/audit-qa-2026-11-22.md`)
+        r";?\s*WITH\s*$|;?\s*WITH\s+XMLNAMESPACES\b",
         r")"
     ))
     .unwrap()
@@ -53,6 +57,16 @@ static RE_INCEPUT_INSTRUCTIUNE: Lazy<Regex> = Lazy::new(|| {
 
 /// Inceputul unui CTE: blocul lui asteapta instructiunea care il foloseste.
 static RE_CTE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^;?\s*with\b").unwrap());
+/// O linie care continua instructiunea de dinainte, oricate linii goale ar fi
+/// intre ele: `DELETE FROM t` + linie goala + `WHERE ...` e o singura
+/// instructiune. Taiata la linia goala, „Aplica" pe primul bloc scria un
+/// `DELETE` fara `WHERE` (N1 din `cercetare/audit-qa-2026-11-23.md`).
+static RE_CONTINUARE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)^(?:where|from|inner|left|right|full|cross|outer|join|on|and|or|group\s+by|order\s+by|having|option|output|values|,)\b|^,",
+    )
+    .unwrap()
+});
 /// O linie de control (`IF`, `WHILE`, `ELSE`, eventual dupa un `END`): corpul
 /// ei e urmatoarea instructiune, care nu porneste bloc nou.
 static RE_CONTROL: Lazy<Regex> =
@@ -83,6 +97,8 @@ static RE_INCEPE_INSERT: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^insert\b")
 static RE_SURSA_INSERT: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\b(?:select|exec|execute)\b").unwrap());
 static RE_INCEPE_UPDATE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^update\b").unwrap());
+static RE_UPDATE_STATISTICS: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)^update\s+statistics\b").unwrap());
 static RE_SET: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bset\b").unwrap());
 static RE_POATE_CONTINUA: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)^(?:declare|insert|update|merge)\b").unwrap());
@@ -156,7 +172,9 @@ fn bloc_este_continuat(curent: &str) -> bool {
     if RE_INCEPE_MERGE.is_match(&n) {
         return !RE_PUNCT_VIRGULA_FINAL.is_match(&n);
     }
-    if RE_INCEPE_UPDATE.is_match(&n) && !RE_SET.is_match(&n) {
+    // `UPDATE STATISTICS t` e complet: n-are `SET`, si asteptat ar fi
+    // inghitit tot restul obiectului intr-un bloc (C3)
+    if RE_INCEPE_UPDATE.is_match(&n) && !RE_SET.is_match(&n) && !RE_UPDATE_STATISTICS.is_match(&n) {
         return true;
     }
     if RE_INCEPE_INSERT.is_match(&n)
@@ -342,6 +360,9 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
 
     let mut blocuri: Vec<String> = Vec::new();
     let mut curent: Vec<&str> = Vec::new();
+    // liniile goale dupa o instructiune: se decide la urmatoarea linie cu cod
+    // daca o despart (instructiune noua) sau nu (continuare, N1)
+    let mut goale: Vec<&str> = Vec::new();
     // indexul in `curent` al liniei care a pornit instructiunea curenta
     let mut inceput_instructiune = 0usize;
     let mut in_antet = true;
@@ -373,8 +394,11 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
     let mut poz_linie = 0usize;
 
     for linie in cod.split('\n') {
-        let s = linie.trim();
-        let curata = curate.next().unwrap_or("");
+        // BOM-ul de la inceputul fisierului nu e cod: lasat aici, prima linie
+        // nu mai era recunoscuta ca inceput de instructiune sau de CTE
+        // (COSMETIC 11 din auditul 2026-11-23)
+        let s = linie.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}');
+        let curata = curate.next().unwrap_or("").trim_start_matches('\u{feff}');
         let in_text_deschis = deschis_la(poz_linie);
         poz_linie += linie.len() + 1;
 
@@ -401,13 +425,26 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
             if in_construct || neterminat {
                 curent.push(linie);
             } else if !in_antet && !curent.is_empty() {
-                blocuri.push(curent.join("\n"));
-                curent.clear();
+                goale.push(linie);
             } else if in_antet && !curent.is_empty() {
                 curent.push(linie);
             }
             actualizeaza_stiva(curata, &mut stiva_case);
             continue;
+        }
+
+        // linii goale in asteptare: o continuare (`WHERE`, `FROM`, `JOIN`...)
+        // le ia in blocul de dinainte; orice altceva incepe bloc nou
+        if !goale.is_empty() {
+            if RE_CONTINUARE.is_match(s) {
+                curent.append(&mut goale);
+            } else {
+                goale.clear();
+                if !curent.is_empty() {
+                    blocuri.push(curent.join("\n"));
+                    curent.clear();
+                }
+            }
         }
 
         // continuarea aceleiasi instructiuni (`INSERT INTO` + `SELECT`) vs o
@@ -508,6 +545,50 @@ pub fn cheie_bloc(bloc: &str) -> String {
 /// 2026-11-18 blocul `SELECT 1` se aseza pe linia `SELECT 1 din comentariu`
 /// dintr-un `/* ... */` (gasit de fuzz-ul compunerii, seed 61): editorul il
 /// desena acolo, iar „Aplica" ar fi inlocuit linii gresite.
+/// `bloc` in `cod`, de la `poz`, linie cu linie: prima linie a blocului la
+/// inceput de linie (in afara sirurilor si comentariilor), apoi fiecare linie
+/// urmatoare a blocului pe urmatoarea linie negoala din cod. Intoarce
+/// (inceput, sfarsit) in `cod`.
+fn cauta_pe_linii(
+    cod: &str,
+    poz: usize,
+    bloc: &str,
+    la_inceput_de_linie: &dyn Fn(usize) -> bool,
+    in_interior: &dyn Fn(usize) -> bool,
+) -> Option<(usize, usize)> {
+    let linii: Vec<&str> = bloc.split('\n').filter(|l| !l.trim().is_empty()).collect();
+    let prima = *linii.first()?;
+    let rest = cod.get(poz..)?;
+    'candidat: for (i, _) in rest.match_indices(prima) {
+        let start = poz + i;
+        if !la_inceput_de_linie(start) || in_interior(start) {
+            continue;
+        }
+        let mut cursor = start;
+        for (k, l) in linii.iter().enumerate() {
+            if k > 0 {
+                // urmatoarea linie negoala din cod
+                loop {
+                    let Some(nl) = cod[cursor..].find('\n') else {
+                        continue 'candidat;
+                    };
+                    cursor += nl + 1;
+                    let linie = cod[cursor..].split('\n').next().unwrap_or("");
+                    if !linie.trim().is_empty() {
+                        break;
+                    }
+                }
+            }
+            if !cod[cursor..].starts_with(l) {
+                continue 'candidat;
+            }
+        }
+        let ultima = linii.last().map_or(0, |l| l.len());
+        return Some((start, cursor + ultima));
+    }
+    None
+}
+
 pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
     use crate::lexer::{segmente, Fel};
     // segmentele sunt in ordinea pozitiei, deci se cauta binar; cautarea
@@ -535,15 +616,22 @@ pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
         let gasit = if bloc.is_empty() {
             None
         } else {
-            cod.get(poz..).and_then(|rest| {
-                rest.match_indices(bloc.as_str())
-                    .map(|(i, _)| poz + i)
-                    .find(|&idx| la_inceput_de_linie(idx) && !in_interior(idx))
-            })
+            cod.get(poz..)
+                .and_then(|rest| {
+                    rest.match_indices(bloc.as_str())
+                        .map(|(i, _)| (poz + i, poz + i + bloc.len()))
+                        .find(|&(idx, _)| la_inceput_de_linie(idx) && !in_interior(idx))
+                })
+                // blocurile unite (UNION, cursor) pierd liniile goale dintre
+                // ele, deci nu mai sunt subsir al codului: atunci blocul se
+                // cauta linie cu linie, sarind liniile goale. Fara asta, blocul
+                // primea inceputul celui de dinainte si „Aplica" pierdea sau
+                // dubla linii (N3 din `cercetare/audit-qa-2026-11-23.md`)
+                .or_else(|| cauta_pe_linii(cod, poz, bloc, &la_inceput_de_linie, &in_interior))
         };
         match gasit {
             None => out.push(out.last().copied().unwrap_or(0)),
-            Some(idx) => {
+            Some((idx, sfarsit)) => {
                 if idx >= numarat_pana {
                     linii_pana += cod[numarat_pana..idx].matches('\n').count();
                 } else {
@@ -551,7 +639,7 @@ pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
                 }
                 numarat_pana = idx;
                 out.push(linii_pana);
-                poz = idx + bloc.len();
+                poz = sfarsit;
             }
         }
     }
@@ -732,6 +820,74 @@ mod teste {
             false,
         );
         assert_eq!(b.len(), 9, "{b:?}");
+    }
+
+    #[test]
+    fn bom_ul_nu_schimba_taierea() {
+        let fara = split_statements(
+            "IF @x = 1\nBEGIN\nSELECT 1\nEND\n;WITH c AS (SELECT 1 a)\nSELECT * FROM c",
+            false,
+        );
+        let cu = split_statements(
+            "\u{feff}IF @x = 1\nBEGIN\nSELECT 1\nEND\n;WITH c AS (SELECT 1 a)\nSELECT * FROM c",
+            false,
+        );
+        assert_eq!(cu.len(), fara.len(), "{cu:?}");
+    }
+
+    /// N1: o linie goala in mijlocul unei instructiuni nu o taie.
+    #[test]
+    fn linia_goala_nu_taie_instructiunea_inainte_de_where() {
+        assert_eq!(
+            split_statements("DELETE FROM Comenzi\n\nWHERE id = @id\nSELECT 9", false),
+            ["DELETE FROM Comenzi\n\nWHERE id = @id", "SELECT 9"]
+        );
+        assert_eq!(
+            split_statements(
+                "SELECT a\n\nFROM t\n\nINNER JOIN u ON 1 = 1\n\nSELECT 9",
+                false
+            )
+            .len(),
+            2
+        );
+        // o instructiune noua dupa linia goala ramane bloc separat
+        assert_eq!(
+            split_statements("SELECT 1\n\nSELECT 2", false),
+            ["SELECT 1", "SELECT 2"]
+        );
+        assert_eq!(
+            split_statements("SELECT 1\n\n-- x\nSELECT 2", false).len(),
+            2
+        );
+    }
+
+    #[test]
+    fn update_statistics_si_cte_cu_with_singur_se_taie_corect() {
+        assert_eq!(
+            split_statements(
+                "UPDATE STATISTICS dbo.T\nSELECT 1\nDELETE FROM u\nEXEC p",
+                false
+            )
+            .len(),
+            4
+        );
+        let b = split_statements(
+            "SET @a = 1\n;WITH\nx AS (SELECT 1 a)\nSELECT * FROM x",
+            false,
+        );
+        assert_eq!(
+            b,
+            ["SET @a = 1", ";WITH\nx AS (SELECT 1 a)\nSELECT * FROM x"]
+        );
+        let b = split_statements(
+            "SET @a = 1\n;WITH XMLNAMESPACES ('u' AS n)\nSELECT 1 AS x FOR XML PATH",
+            false,
+        );
+        assert_eq!(b.len(), 2, "{b:?}");
+        assert!(
+            b[1].starts_with(";WITH XMLNAMESPACES") && b[1].contains("SELECT 1"),
+            "{b:?}"
+        );
     }
 
     #[test]

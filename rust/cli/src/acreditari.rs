@@ -22,7 +22,8 @@ use gmotion_db::Autentificare;
 /// de eroare.
 pub const VAR_PAROLA: &str = "GMOTION_PAROLA";
 
-#[derive(Debug, Clone, clap::Args)]
+/// `Debug` e scris de mana: dupa rezolvare tine parola (`rezolvata`).
+#[derive(Clone, clap::Args)]
 pub struct ArgumenteAuth {
     /// Utilizator SQL Server. Lipsa lui inseamna autentificare integrata
     /// Windows.
@@ -36,6 +37,24 @@ pub struct ArgumenteAuth {
     /// Citeste parola de la intrarea standard (prima linie).
     #[arg(long)]
     pub parola_stdin: bool,
+
+    /// Autentificarea, rezolvata o singura data pe rulare: o comanda deschide
+    /// sursa de mai multe ori (identitate, comparare, garda), iar
+    /// `--parola-stdin` se poate citi o singura data. A doua citire era goala
+    /// (B3 din `cercetare/audit-qa-2026-11-22.md`).
+    #[arg(skip)]
+    pub rezolvata: std::sync::OnceLock<Autentificare>,
+}
+
+impl std::fmt::Debug for ArgumenteAuth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArgumenteAuth")
+            .field("utilizator", &self.utilizator)
+            .field("parola_fisier", &self.parola_fisier)
+            .field("parola_stdin", &self.parola_stdin)
+            .field("rezolvata", &self.rezolvata.get().is_some())
+            .finish()
+    }
 }
 
 impl ArgumenteAuth {
@@ -43,34 +62,48 @@ impl ArgumenteAuth {
     /// faca utilizatorul, fiindca asta e primul loc in care se blocheaza
     /// cineva care foloseste unealta prima data.
     pub fn rezolva(&self) -> Result<Autentificare, String> {
+        if let Some(a) = self.rezolvata.get() {
+            return Ok(a.clone());
+        }
+        let a = self.rezolva_o_data()?;
+        Ok(self.rezolvata.get_or_init(|| a).clone())
+    }
+
+    fn rezolva_o_data(&self) -> Result<Autentificare, String> {
         let Some(utilizator) = self.utilizator.clone() else {
             if self.parola_fisier.is_some() || self.parola_stdin {
-                return Err("ai dat o parola dar niciun --utilizator. Pentru \
+                return Err(
+                    "[GM-CLI-001] ai dat o parola dar niciun --utilizator. Pentru \
                     autentificare integrata Windows nu da parola; pentru SQL \
                     Auth da si --utilizator"
-                    .into());
+                        .into(),
+                );
             }
             return Ok(Autentificare::Integrata);
         };
 
         let parola = if let Some(cale) = &self.parola_fisier {
-            let text = std::fs::read_to_string(cale)
-                .map_err(|e| format!("nu pot citi parola din {}: {e}", cale.display()))?;
+            let text = std::fs::read_to_string(cale).map_err(|e| {
+                format!(
+                    "[GM-CLI-002] nu pot citi parola din {}: {e}",
+                    cale.display()
+                )
+            })?;
             prima_linie(&text)
         } else if self.parola_stdin {
             // O singura linie: tastata in terminal, citirea pana la sfarsitul
             // intrarii astepta Ctrl-D / Ctrl-Z si parea agatata. Gasit la audit.
             let mut text = String::new();
-            std::io::stdin()
-                .read_line(&mut text)
-                .map_err(|e| format!("nu pot citi parola de la intrarea standard: {e}"))?;
+            std::io::stdin().read_line(&mut text).map_err(|e| {
+                format!("[GM-CLI-002] nu pot citi parola de la intrarea standard: {e}")
+            })?;
             prima_linie(&text)
         } else {
             match std::env::var(VAR_PAROLA) {
                 Ok(p) if !p.is_empty() => p,
                 _ => {
                     return Err(format!(
-                        "lipseste parola pentru utilizatorul {utilizator}. Pune-o in \
+                        "[GM-CLI-002] lipseste parola pentru utilizatorul {utilizator}. Pune-o in \
                          variabila {VAR_PAROLA}, sau foloseste --parola-fisier / \
                          --parola-stdin.\n\
                          Nu exista --parola ca argument: ar ajunge in istoricul \
@@ -81,7 +114,7 @@ impl ArgumenteAuth {
         };
 
         if parola.is_empty() {
-            return Err("parola citita e goala".into());
+            return Err("[GM-CLI-002] parola citita e goala".into());
         }
         Ok(Autentificare::Sql { utilizator, parola })
     }
@@ -108,6 +141,7 @@ mod teste {
             utilizator: utilizator.map(str::to_string),
             parola_fisier: None,
             parola_stdin: false,
+            rezolvata: Default::default(),
         }
     }
 
@@ -125,6 +159,7 @@ mod teste {
             utilizator: None,
             parola_fisier: Some(PathBuf::from("/x")),
             parola_stdin: false,
+            rezolvata: Default::default(),
         };
         let e = a.rezolva().unwrap_err();
         assert!(e.contains("--utilizator"), "{e}");
@@ -164,6 +199,7 @@ mod teste {
             utilizator: Some("sa".into()),
             parola_fisier: Some(cale),
             parola_stdin: false,
+            rezolvata: Default::default(),
         };
         assert_eq!(
             a.rezolva().unwrap(),
@@ -175,12 +211,33 @@ mod teste {
         std::fs::remove_dir_all(&d).ok();
     }
 
+    /// B3 din `cercetare/audit-qa-2026-11-22.md`: o comanda deschide sursa de
+    /// mai multe ori; parola se citeste o singura data. Fisierul sters dupa
+    /// prima rezolvare dovedeste ca a doua nu mai citeste nimic.
+    #[test]
+    fn parola_se_citeste_o_singura_data_pe_rulare() {
+        let d = std::env::temp_dir().join(format!("gmotion-par1-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let cale = d.join("p.txt");
+        std::fs::write(&cale, "parola-mea\n").unwrap();
+        let a = ArgumenteAuth {
+            utilizator: Some("sa".into()),
+            parola_fisier: Some(cale),
+            parola_stdin: false,
+            rezolvata: Default::default(),
+        };
+        let prima = a.rezolva().unwrap();
+        std::fs::remove_dir_all(&d).unwrap();
+        assert_eq!(a.rezolva().unwrap(), prima);
+    }
+
     #[test]
     fn fisier_de_parola_lipsa_da_mesaj_cu_calea() {
         let a = ArgumenteAuth {
             utilizator: Some("sa".into()),
             parola_fisier: Some(PathBuf::from("/cale/inexistenta/p.txt")),
             parola_stdin: false,
+            rezolvata: Default::default(),
         };
         let e = a.rezolva().unwrap_err();
         assert!(e.contains("/cale/inexistenta/p.txt"), "{e}");

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: a7095c4ea6b964cf -->
+<!-- api-hash: b2ca301c326b5c8d -->
 
 ## Rol
 
@@ -30,7 +30,7 @@ si editorul de diferente (etapa 8).
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie; `aceeasi_instanta()` (15 F) recunoaste acelasi server sub alte nume; `StareConexiune::SeCauta` = cautarea in retea ruleaza |
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta, ServerGasit}` | modelul lui; `Acreditari` **nu are `Debug` derivat**; `Parte::{comuta_baza, baze_alese, e_aleasa}` tin bifele cand se compara mai multe baze; `Recenta::server` nu se deseneaza, dar e jumatatea cheii de sesiune |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare (etapa 17, `cercetare/machete/conectare-noua/`): doua carduri simetrice (martor, modificata), fiecare cu conexiunea sus si lista bazelor cu cerc dedesubt; bifa „Aceeasi conexiune"; Compara la mijloc; tabul Sesiuni; Setari (certificatul) |
-| `model_conectare::Conectare::{aceeasi_conexiune, pune_aceeasi_conexiune, sincronizeaza, alege_baza_modificata, e_baza_martorului}` | bifa „Aceeasi conexiune": `sincronizeaza` copiaza conexiunea martorului in modificata (se cheama inainte de fiecare desenare); la modificata se alege **o singura** baza, iar baza martorului nu, cand conexiunea e aceeasi |
+| `model_conectare::Conectare::{aceeasi_conexiune, pune_aceeasi_conexiune, sincronizeaza, alege_baza_modificata, e_baza_martorului, reia}` | bifa „Aceeasi conexiune": `sincronizeaza` copiaza conexiunea martorului in modificata (se cheama inainte de fiecare desenare; nu goleste alegerea cat bazele nu sunt citite); `reia(recenta)` pune serverul si ambele baze ale unei comparari recente; la modificata se alege **o singura** baza, iar baza martorului nu, cand conexiunea e aceeasi |
 | `scara::{scara, ScaraFereastra, REFERINTA, MINIM, MAXIM, SISTEM_MARIT}`, `leaga_scara(ui)` | scara unica a conectarii: `min(latime/1440, inaltime/900)` intre 0,85 si 1,3; cu sistemul marit la 125%+ minimul e 1; se pune pe fereastra ca factor de scala (sistem x scara) la fiecare redimensionare |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
@@ -50,7 +50,7 @@ si editorul de diferente (etapa 8).
 | `model_arbore::{Arbore, Nod, Fel, Dosar}`, `incarca_coloana_lista(ui, lista, arbore)`, `NodUi` | arborele ca Object Explorer, in coloana din stanga editorului: baza › dosar pe tip › obiect, din obiectele vizibile; nodurile inchise raman inchise intre redesenari; `Arbore::cauta` filtreaza doar arborele (cautarea din coloana), cu toate nodurile deschise cat se cauta |
 | `harta::{aseaza, aseaza_la, picteaza, picteaza_la, picteaza_bara, picteaza_bara_la, proportii, indice_la, celula_la, coltul_in_grila, pozitie_randului, latime_titlu, Scara, SCARI, INALTIME_MAXIMA}` | harta (`h` din lista, ecran separat): o coloana pe tip, latimi apropiate (`n^0,25`), bara de proportie, patrate pe blocuri de 5 randuri pictate la pixelii fizici, zoom pe trepte ca sa intre in ecran; clic → rand |
 | `incarca_harta(ui, selectat)`, `rand_din_harta(ui, grup, x, y)`, `leaga_harta(ui)` | harta in fereastra: deschiderea, reasezarea la redimensionare, bula; calculul patratului e doar in `harta::indice_la` |
-| `model_lista::Lista::{pune_detalii_cheie, chei_fara_detalii, detalii_sosite}` | detaliile calculate pe alt fir, puse dupa cheie (filtrul se poate schimba intre timp); `detalii_sosite` resorteaza o lista sortata dupa Linii / Difera in (F-A6) |
+| `model_lista::Lista::pune_stare_cheie` (revizuit / omis / deploy dupa cheie, dupa o unire cu sesiunea), `model_lista::Lista::{pune_detalii_cheie, pune_detalii_multe, chei_fara_detalii, detalii_sosite}` | detaliile calculate pe alt fir, puse dupa cheie (filtrul se poate schimba intre timp), un lot printr-un index; `detalii_sosite` resorteaza o lista sortata dupa „Linii” sau „Difera in” (F-A6) |
 | `ordine_din_cod(cod)`, `latime_autofit(lista, coloana)` | sortarea pe capul de coloana si latimea ceruta la dublu clic pe marginea lui |
 | `model_lista::Lista::preia_vederea` | filtrul, ordinea, selectia si ce e in plan (daca se mai poate deploia) ale altei liste: recomparare (F-A8) |
 | `dublu_clic::DubluClic` | dublul clic numarat in Rust din doua clicuri simple pe aceeasi tinta (500 ms); `double-clicked` din Slint nu ajungea pe Windows |
@@ -104,7 +104,7 @@ in Slint, pentru exemple si probe.
 | `aplica_tema(ui, mod)` | pune paleta modului in `Tema` (la pornire si la fiecare comutare) |
 | `mod_curent(ui)` | modul pus ultima data in `Tema` |
 | `tigla_hasura(mod)` | tigla hasurii de pe partea fara linii, in culorile modului |
-| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `id` si `in_plan`) | umple editorul; cand `id` (`baza/schema.nume`) se schimba, **inchide editarea de mana** — altfel campul ramanea cu textul obiectului dinainte (F-A1) |
+| `incarca_editor(ui, antet, model)`, `AntetEditor` (cu `id`, `in_plan` si `generatie`) | umple editorul; cand `id` (`baza/schema.nume`) se schimba, **inchide editarea de mana** — altfel campul ramanea cu textul obiectului dinainte (F-A1). Cu aceeasi `generatie` a modelului si aceleasi optiuni de afisare, randurile si derularea raman (doar antetul se schimba): o bifa nu mai arunca vederea (C6) |
 
 ## Invariante
 

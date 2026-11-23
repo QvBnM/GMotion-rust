@@ -68,27 +68,58 @@ impl ArgumenteSursa {
     pub fn deschide(&self) -> Result<Box<dyn SursaObiecte>, String> {
         match (&self.sursa, &self.server) {
             (Some(cale), _) => {
+                // argumentele de server n-au sens pe un instantaneu: erau
+                // acceptate si ignorate tacut (auditul 2026-11-23)
+                let in_plus: Vec<&str> = [
+                    (self.port.is_some(), "--port"),
+                    (self.certificat != "nevalidat", "--certificat"),
+                    (self.auth.utilizator.is_some(), "--utilizator"),
+                    (self.auth.parola_fisier.is_some(), "--parola-fisier"),
+                    (self.auth.parola_stdin, "--parola-stdin"),
+                ]
+                .into_iter()
+                .filter_map(|(da, nume)| da.then_some(nume))
+                .collect();
+                if !in_plus.is_empty() {
+                    return Err(format!(
+                        "[GM-CLI-001] {} merg doar cu --server, nu cu --sursa (instantaneu)",
+                        in_plus.join(", ")
+                    ));
+                }
                 let s = SursaFixture::din_fisier(cale).map_err(|e| e.to_string())?;
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc din instantaneu");
                 Ok(Box::new(s))
             }
-            (None, Some(server)) => {
-                let auth: Autentificare = self.auth.rezolva()?;
-                let s = SursaSqlServer::nou(
-                    Tinta {
-                        server: server.clone(),
-                        port: self.port,
-                        certificat: certificat(&self.certificat),
-                    },
-                    auth,
-                )
-                .map_err(|e| e.to_string())?
-                .cu_timeout_conectare(std::time::Duration::from_secs(timeout_conectare_s()));
+            (None, Some(_)) => {
+                let s = self.deschide_server()?;
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc de pe server");
                 Ok(Box::new(s))
             }
-            (None, None) => Err("da ori --server <SERVER>, ori --sursa <instantaneu.json>".into()),
+            (None, None) => {
+                Err("[GM-CLI-001] da ori --server <SERVER>, ori --sursa <instantaneu.json>".into())
+            }
         }
+    }
+
+    /// Doar serverul, pentru ce n-are sens pe un instantaneu: testul de
+    /// conexiune (`gmotion testeaza`, ca butonul din fereastra).
+    pub fn deschide_server(&self) -> Result<SursaSqlServer, String> {
+        let Some(server) = &self.server else {
+            return Err(
+                "[GM-CLI-001] comanda cere --server <SERVER>: un instantaneu n-are conexiune de testat".into(),
+            );
+        };
+        let auth: Autentificare = self.auth.rezolva()?;
+        Ok(SursaSqlServer::nou(
+            Tinta {
+                server: server.clone(),
+                port: self.port,
+                certificat: certificat(&self.certificat),
+            },
+            auth,
+        )
+        .map_err(|e| e.to_string())?
+        .cu_timeout_conectare(std::time::Duration::from_secs(timeout_conectare_s())))
     }
 }
 
@@ -165,6 +196,7 @@ mod teste {
                 utilizator: Some("sa".into()),
                 parola_fisier: None,
                 parola_stdin: false,
+                rezolvata: Default::default(),
             },
         };
         assert_eq!(a.eticheta_server().as_deref(), Some(r"TS2409\MIHAIG"));
@@ -185,6 +217,7 @@ mod teste {
                 utilizator: None,
                 parola_fisier: None,
                 parola_stdin: false,
+                rezolvata: Default::default(),
             },
         };
         let e = eroarea(&a);
@@ -203,6 +236,7 @@ mod teste {
                 utilizator: None,
                 parola_fisier: None,
                 parola_stdin: false,
+                rezolvata: Default::default(),
             },
         };
         let e = eroarea(&a);

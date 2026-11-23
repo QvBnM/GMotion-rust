@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 8ffbab85b3e10d40 -->
+<!-- api-hash: 811c72b8b41fa6bf -->
 
 ## Rol
 
@@ -215,7 +215,7 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-core          # 37 teste, ~1.5 s
+cd rust && cargo test -p gmotion-core          # 136 teste, ~15 s (invariantele)
 ```
 
 Trei straturi:

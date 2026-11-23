@@ -63,7 +63,7 @@ component Oprire inherits HorizontalLayout {
 }
 
 export component FereastraDeploy inherits Window {
-    title: "gmotion — deploy";
+    title: "gmotion — deploy"; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
     background: Tema.fundal;
@@ -196,7 +196,7 @@ export component FereastraDeploy inherits Window {
                                             height: 22px;
                                             border-radius: 6px;
                                             background: p.creeaza ? Tema.add-fundal : Tema.mod-fundal;
-                                            Text { text: p.creeaza ? "CREATE" : "ALTER"; font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
+                                            Text { text: p.creeaza ? "CREATE" : "ALTER"; /* text-permis: cuvinte SQL */ font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
                                         }
                                     }
                                     HorizontalLayout {
@@ -206,7 +206,9 @@ export component FereastraDeploy inherits Window {
                                         Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                                     }
                                     if root.mai-multe-baze: Text { width: 150px; text: p.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
-                                    Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                                    // tipul cedeaza locul numelui cand ecranul e ingust: la 1024 px
+                                    // numele pasilor deveneau identice (auditul 2026-11-23)
+                                    if root.width > 1200px: Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
                                     VerticalLayout {
                                         alignment: center;
                                         Rectangle {
@@ -214,7 +216,9 @@ export component FereastraDeploy inherits Window {
                                             height: 28px;
                                             border-radius: 8px;
                                             background: zx.has-hover ? Tema.strat : transparent;
-                                            opacity: rand.has-hover ? 1 : 0;
+                                            // vizibil si fara hover (slab): un control
+                                            // ascuns nu se descopera (V15)
+                                            opacity: rand.has-hover ? 1 : 0.35;
                                             Text { text: "×"; font-family: Tema.font-ui; font-size: 16px; color: Tema.text-secundar; }
                                             zx := TouchArea { clicked => { root.scoate-din-plan(p.baza, p.id); } }
                                         }
@@ -237,7 +241,8 @@ export component FereastraDeploy inherits Window {
 
                         Oprire {
                             stare: root.garda == 1 ? 1 : (root.garda == 0 || root.garda == 4) ? 0 : 2;
-                            titlu: Texte.baza-neatinsa;
+                            // titlul spune ce a gasit garda, nu ce speram (auditul 2026-11-22)
+                            titlu: root.garda == 2 ? Texte.baza-atinsa : root.garda == 3 ? Texte.verificare-esuata : Texte.baza-neatinsa;
                             text: root.text-garda;
                             for s in root.schimbari: Text { text: s; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.del-text; wrap: word-wrap; }
                             HorizontalLayout {
@@ -347,6 +352,7 @@ export component FereastraDeploy inherits Window {
                             Text {
                                 text: root.poate-scrie ? Texte.scrie-scripturile
                                     : root.rezultat == 1 ? Texte.scris
+                                    : root.garda == 2 ? Texte.compara-din-nou-intai
                                     : Texte.scrie-dupa-verificare;
                                 font-family: Tema.font-ui;
                                 font-size: 15px;

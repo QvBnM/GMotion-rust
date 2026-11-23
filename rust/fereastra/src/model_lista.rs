@@ -481,6 +481,11 @@ impl Lista {
         self.filtru = alta.filtru.clone();
         self.ordine = alta.ordine;
         self.descrescator = alta.descrescator;
+        // „In plan" e alegerea omului, nu a compararii: o recomparare nu-l
+        // pierde (C7 din `cercetare/audit-qa-2026-11-22.md`). Garda deploy-ului
+        // se reface oricum, pe compararea noua. Obiectele care intre timp au
+        // devenit identice sau au disparut din martor nu se pun inapoi: filtrul
+        // e mai sus, pe `se_poate_deploia`.
         self.recalculeaza();
         if let Some(c) = alta.obiect_selectat().map(Obiect::cheie) {
             if let Some(p) = self
@@ -620,6 +625,26 @@ impl Lista {
 
     /// Starea de revizuire a obiectului vizibil: revizuit, omis, sau niciuna.
     /// Cele doua se exclud; un obiect omis iese si din plan.
+    /// Starea de revizuire si de deploy a unui obiect, dupa cheie (dupa o
+    /// unire cu ce a scris cli in sesiune).
+    pub fn pune_stare_cheie(
+        &mut self,
+        cheie: &(String, String),
+        revizuit: bool,
+        omis: bool,
+        deploy: Deploy,
+    ) {
+        for o in self.obiecte.iter_mut().filter(|o| &o.cheie() == cheie) {
+            o.revizuit = revizuit && !omis;
+            o.omis = omis;
+            o.deploy = deploy;
+            if omis {
+                o.in_plan = false;
+            }
+        }
+        self.recalculeaza();
+    }
+
     pub fn pune_revizuirea(&mut self, pozitie: usize, revizuit: bool, omis: bool) {
         if let Some(&i) = self.vizibile.get(pozitie) {
             let o = &mut self.obiecte[i];
@@ -676,9 +701,30 @@ impl Lista {
     /// Pentru calculul de pe alt fir: rezultatele vin dupa cheie, nu dupa
     /// pozitie, fiindca intre timp filtrul se poate schimba.
     pub fn pune_detalii_cheie(&mut self, cheie: &(String, String), d: Detalii) {
-        if let Some(o) = self.obiecte.iter_mut().find(|o| &o.cheie() == cheie) {
-            o.detalii = Some(d);
+        self.pune_detalii_multe(vec![(cheie.clone(), d)]);
+    }
+
+    /// Un lot de detalii venite de pe fir: cautate printr-un index, nu cu
+    /// `find` pe toata lista pentru fiecare. Daca ordinea depinde de ele
+    /// („Linii", „Difera in"), lista se resorteaza, altfel sortarea minte
+    /// pana la urmatorul clic pe antet (F-A6).
+    pub fn pune_detalii_multe(&mut self, lot: Vec<((String, String), Detalii)>) {
+        if lot.is_empty() {
+            return;
         }
+        let index: std::collections::HashMap<(String, String), usize> = self
+            .obiecte
+            .iter()
+            .enumerate()
+            .map(|(i, o)| (o.cheie(), i))
+            .collect();
+        for (cheie, d) in lot {
+            if let Some(&i) = index.get(&cheie) {
+                self.obiecte[i].detalii = Some(d);
+            }
+        }
+        // resortarea NU se face aici: costa cat lista si ar rula la fiecare
+        // lot. O face `detalii_sosite`, o data pe tura de detalii (F-A6).
     }
 
     /// Au sosit detalii (de pe firul lor): daca lista e sortata dupa ele
@@ -922,6 +968,28 @@ mod teste {
 
     fn cheie(nume: &str) -> (String, String) {
         ("Client1".to_string(), format!("dbo.{nume}"))
+    }
+
+    /// F-A6: sortata pe „Linii", lista se reface cand vin detaliile.
+    #[test]
+    fn detaliile_venite_resorteaza_pe_linii() {
+        let mut l = Lista::noua(vec![
+            obiect("pA", "P", Stare::Modificat),
+            obiect("pB", "P", Stare::Modificat),
+        ]);
+        l.sorteaza(Ordine::Linii);
+        let cu = |n: usize| Detalii {
+            linii_plus: n,
+            ..Detalii::default()
+        };
+        let a = l.obiecte()[0].cheie();
+        let b = l.obiecte()[1].cheie();
+        l.pune_detalii_multe(vec![(a.clone(), cu(1)), (b.clone(), cu(50))]);
+        assert_ne!(a, b);
+        // resortarea vine o data pe tura, din `detalii_sosite`, nu la fiecare lot
+        l.detalii_sosite();
+        let primul = l.obiect(0).unwrap().cheie();
+        assert_eq!(primul, b, "cele mai multe linii primele");
     }
 
     #[test]

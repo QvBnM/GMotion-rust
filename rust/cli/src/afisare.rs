@@ -32,7 +32,13 @@ impl Format {
     pub fn progres(self, mesaj: &str) {
         let mesaj = fara_control(mesaj);
         match self {
-            Format::Text => println!("{mesaj}"),
+            // progresul nu e rezultatul comenzii: o teava inchisa nu opreste
+            // un deploy inainte sa scrie (N8 din auditul 2026-11-23)
+            Format::Text => {
+                use std::io::Write;
+                let mut o = std::io::stdout().lock();
+                let _ = writeln!(o, "{mesaj}");
+            }
             Format::Json => eprintln!("{mesaj}"),
         }
     }
@@ -243,8 +249,38 @@ pub fn scrie_json<T: serde::Serialize>(v: &T) -> std::io::Result<()> {
     let text = serde_json::to_string_pretty(v)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     let mut o = std::io::stdout().lock();
-    o.write_all(text.as_bytes())?;
-    o.write_all(b"\n")
+    teava(
+        o.write_all(text.as_bytes())
+            .and_then(|()| o.write_all(b"\n")),
+    )
+}
+
+/// Text fara rand nou la final (tabelele), cu aceeasi regula de teava ca
+/// `scrie!`: `print!` dadea panica pe o teava inchisa (N7).
+pub fn bucata(text: &str) {
+    let mut o = std::io::stdout().lock();
+    if let Err(e) = teava(o.write_all(text.as_bytes())) {
+        eprintln!("Eroare la scrierea iesirii: {e}");
+    }
+}
+
+/// O linie pe iesirea standard (`scrie!`).
+pub fn linie(args: std::fmt::Arguments<'_>) {
+    let mut o = std::io::stdout().lock();
+    // o alta eroare de scriere (disc plin la redirectare) nu are unde fi spusa
+    // decat pe erori; comanda merge mai departe, ca `println!` pana acum
+    if let Err(e) = teava(o.write_fmt(args).and_then(|()| o.write_all(b"\n"))) {
+        eprintln!("Eroare la scrierea iesirii: {e}");
+    }
+}
+
+/// Cititorul a inchis teava (`| head`): nu mai e nimeni de anuntat, deci
+/// comanda se opreste cu 0, ca la `cat`.
+fn teava(r: std::io::Result<()>) -> std::io::Result<()> {
+    match r {
+        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => std::process::exit(0),
+        alt => alt,
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +305,7 @@ mod teste {
                     hash_curent: Some("b".into()),
                     modificat: None,
                     creat: None,
+                    exacta_curent: None,
                 },
                 Rand {
                     id: 1,
@@ -282,6 +319,7 @@ mod teste {
                     hash_curent: None,
                     modificat: None,
                     creat: None,
+                    exacta_curent: None,
                 },
             ],
             numaratoare: Numaratoare {

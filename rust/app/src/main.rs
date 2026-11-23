@@ -274,9 +274,11 @@ fn ruleaza() -> Result<(), String> {
             // o redesenare cheama uneori alta din interiorul ei: un `changed`
             // din `.slint` (latimea de wrap) se declanseaza cand Rust citeste
             // proprietatea. Cu `borrow_mut`, aplicatia cadea („RefCell already
-            // borrowed", proba pe Windows 2026-11-19); acum a doua asteapta.
+            // borrowed", proba pe Windows 2026-11-19); acum a doua se renunta:
+            // cea in curs deseneaza oricum starea de acum. Singurul drum
+            // cunoscut (wrap-ul) e amanat cu un Timer, deci nu se pierde nimic.
             let Ok(mut s) = stare.try_borrow_mut() else {
-                tracing::debug!(target: "gmotion::app", "redesenare ceruta din alta redesenare; amanata");
+                tracing::debug!(target: "gmotion::app", "redesenare ceruta din alta redesenare; sarita");
                 return;
             };
             let (Some(c_ui), Some(l_ui), Some(e_ui), Some(d_ui)) = (
@@ -342,7 +344,9 @@ fn ruleaza() -> Result<(), String> {
                 } = &mut *s;
                 if let Some(app) = app.as_ref().filter(|a| a.ecran() == Ecran::Deploy) {
                     let acum = gmotion_platforma::timp::acum();
-                    gmotion_app::deploy::asigura_planul(deploy, app, referinta, &acum);
+                    gmotion_app::deploy::asigura_planul(deploy, app, referinta, &acum, || {
+                        stare::director_deploy(referinta)
+                    });
                 }
             }
             // referinta cu care a rulat compararea, nu ce scrie acum in
@@ -355,7 +359,11 @@ fn ruleaza() -> Result<(), String> {
             // antetul arata o singura tinta: cu mai multe, cate sunt
             let baza = match baze.as_slice() {
                 [una] => una.clone(),
-                multe => format!("{} baze", multe.len()),
+                multe => format!(
+                    "{} {}",
+                    multe.len(),
+                    s.conectare.limba.alege("baze", "databases")
+                ),
             };
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
@@ -389,6 +397,8 @@ fn ruleaza() -> Result<(), String> {
                 let salvat = s.text_salvat(limba);
                 let app = s.app.as_mut().expect("verificat mai sus");
                 if let (Some(o), Some(model)) = (app.obiect().cloned(), app.model_editor()) {
+                    // dupa `model_editor`: o reconstruire tocmai s-a numarat
+                    let refaceri = app.refaceri_model();
                     incarca_editor(
                         &e_ui,
                         &AntetEditor {
@@ -403,6 +413,7 @@ fn ruleaza() -> Result<(), String> {
                             stare_obiecte: &pozitie,
                             revizuit: o.revizuit,
                             in_plan: o.in_plan,
+                            generatie: Some(refaceri),
                         },
                         &model,
                     );
@@ -443,10 +454,22 @@ fn ruleaza() -> Result<(), String> {
                 arata(&e_ui, [l_ui.window(), d_ui.window(), c_ui.window()]);
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
+                // dupa o scriere reusita, directorul scris; inainte, cel in
+                // care se va scrie. Pana la audit se arata mereu al doilea,
+                // deci „Deschide folderul" ducea in alta parte.
+                let director = s
+                    .director_scris()
+                    .unwrap_or_else(|| s.director_deploy_curent())
+                    .display()
+                    .to_string();
                 if let Some(st) = s.deploy.as_ref().map(|d| &d.stare) {
-                    let director = s.director_deploy_curent().display().to_string();
-                    let e =
-                        gmotion_app::deploy::ecran(st, &sursa, &director, cate_per_fisier.get());
+                    let e = gmotion_app::deploy::ecran(
+                        st,
+                        &sursa,
+                        &director,
+                        cate_per_fisier.get(),
+                        limba,
+                    );
                     incarca_deploy(&d_ui, &e);
                 }
                 arata(&d_ui, [l_ui.window(), e_ui.window(), c_ui.window()]);
@@ -488,7 +511,14 @@ fn ruleaza() -> Result<(), String> {
         let stare = stare.clone();
         let deseneaza = deseneaza.clone();
         let salveaza = salveaza.clone();
+        let lista_slaba = lista_ui.as_weak();
         move |c: Comanda| {
+            // mesajul din bara listei („Nu intra in plan", CSV scris) e al
+            // comenzii de dinainte: altfel ramanea pe ecran la nesfarsit
+            // (F-A16); desenarea il pune din nou daca e inca adevarat
+            if let Some(l) = lista_slaba.upgrade() {
+                l.set_mesaj_csv("".into());
+            }
             let t = std::time::Instant::now();
             let text: String = format!("{c:?}").chars().take(200).collect();
             let schimbat = stare
@@ -1004,10 +1034,17 @@ fn ruleaza() -> Result<(), String> {
         let st = stare.clone();
         editor_ui.on_previzualizeaza(move |k| {
             actiune("editor", "previzualizeaza", &format!("{:?}", (&k,)), true);
+            // `try_borrow`: hover-ul vine dintr-un `changed`, care poate porni
+            // in mijlocul unei desenari (care tine starea imprumutata); un
+            // `borrow` simplu ar fi panica, deci in release caderea aplicatiei
+            let Ok(stare) = st.try_borrow() else {
+                return;
+            };
             let linii = usize::try_from(k)
                 .ok()
-                .and_then(|k| st.borrow().app.as_ref().and_then(|a| a.previzualizare(k)))
+                .and_then(|k| stare.app.as_ref().and_then(|a| a.previzualizare(k)))
                 .unwrap_or_default();
+            drop(stare);
             if let Some(ui) = e.upgrade() {
                 ui.set_previzualizare_linii(gmotion_fereastra::previzualizare_ui(&linii));
             }

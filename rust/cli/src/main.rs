@@ -17,6 +17,18 @@
 //! [`afisare`] (JSON care nu se parseaza), [`comenzi`] (comanda face altceva
 //! decat spune).
 
+/// `println!` care nu da panica pe o teava inchisa (`gmotion compara | head`):
+/// `println!` panica, iar cu `panic = "abort"` comanda iesea cu 134 in loc de
+/// 0 (auditul 2026-11-22). Toata iesirea standard trece pe aici.
+macro_rules! scrie {
+    () => {
+        $crate::afisare::linie(format_args!(""))
+    };
+    ($($t:tt)*) => {
+        $crate::afisare::linie(format_args!($($t)*))
+    };
+}
+
 mod acreditari;
 mod afisare;
 mod comenzi;
@@ -77,6 +89,13 @@ enum Comanda {
 
     /// Listeaza bazele disponibile.
     Baze {
+        #[command(flatten)]
+        sursa: ArgumenteSursa,
+    },
+
+    /// Testeaza conexiunea la server, ca butonul din fereastra: editia,
+    /// versiunea, de cand merge si cate baze are. Doar pe server.
+    Testeaza {
         #[command(flatten)]
         sursa: ArgumenteSursa,
     },
@@ -146,8 +165,10 @@ enum Comanda {
         #[arg(long, value_name = "schema.obiect,...")]
         scoate: Option<String>,
 
-        /// Sterge tot progresul salvat pentru martorul asta.
-        #[arg(long)]
+        /// Sterge bifele (revizuit si omis) pentru martorul asta. Textele
+        /// finale, notele si marcajele de deploy raman. Nu se combina cu
+        /// celelalte actiuni.
+        #[arg(long, conflicts_with_all = ["marcheaza", "omite", "scoate", "nota", "baze"])]
         goleste: bool,
 
         /// Obiectul caruia i se pune nota (pe toate bazele unde apare).
@@ -267,9 +288,11 @@ enum Comanda {
         #[arg(long, value_enum, default_value = "per-baza")]
         mod_fisiere: ModArg,
 
-        /// Cate obiecte per fisier, pentru --mod-fisiere cate-n.
-        #[arg(long, default_value = "10")]
-        cate: usize,
+        /// Cate obiecte per fisier, pentru --mod-fisiere cate-n (implicit 10).
+        /// Dat cu alt mod, sau 0, e eroare: inainte se ignora, respectiv
+        /// devenea 1 fara sa spuna (F-C7).
+        #[arg(long, value_parser = clap::value_parser!(u64).range(1..))]
+        cate: Option<u64>,
 
         /// Doar obiectele astea, ca `schema.nume`, separate prin virgula.
         #[arg(long, value_name = "A,B", conflicts_with = "plan")]
@@ -330,6 +353,7 @@ fn main() -> std::process::ExitCode {
         Comanda::Diagnostic => comenzi::diagnostic(format),
         Comanda::Servere => comenzi::servere(format),
         Comanda::Baze { sursa } => comenzi::baze(sursa, format),
+        Comanda::Testeaza { sursa } => comenzi::testeaza(sursa, format),
         Comanda::Instantaneu {
             sursa,
             baze,
@@ -390,11 +414,21 @@ fn main() -> std::process::ExitCode {
                     .map(|n| {
                         n.trim()
                             .parse::<usize>()
-                            .map_err(|_| format!("{n:?} nu e un numar de diferenta"))
+                            .map_err(|_| format!("[GM-CLI-001] {n:?} nu e un numar de diferenta"))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
+                // `--aplica ""` (o variabila goala intr-un script) salva tacut un
+                // text final egal cu Modificata, care pleca apoi in deploy in
+                // locul Martorului (auditul 2026-11-23)
+                if numere.is_empty() {
+                    return Err(
+                        "[GM-CLI-001] --aplica cere cel putin un numar de diferenta".to_string()
+                    );
+                }
                 if la.is_some() && numere.len() != 1 {
-                    return Err("--la merge cu o singura diferenta (--aplica N)".to_string());
+                    return Err(
+                        "[GM-CLI-001] --la merge cu o singura diferenta (--aplica N)".to_string(),
+                    );
                 }
                 comenzi::ActiuneEditare::Aplica(numere, *la)
             } else if *aplica_toate {
@@ -432,21 +466,28 @@ fn main() -> std::process::ExitCode {
             cate,
             doar,
             plan,
-        } => comenzi::deploy(
-            sursa,
-            referinta,
-            baze.as_deref(),
-            director.clone(),
-            match mod_fisiere {
-                ModArg::Unul => ModImpartire::Unul,
-                ModArg::PerBaza => ModImpartire::PerBaza,
-                ModArg::PerObiect => ModImpartire::PerObiect,
-                ModArg::CateN => ModImpartire::CateN(*cate),
-            },
-            doar.as_deref(),
-            plan.as_deref(),
-            format,
-        ),
+        } => (|| {
+            if cate.is_some() && !matches!(mod_fisiere, ModArg::CateN) {
+                return Err("[GM-CLI-001] --cate merge doar cu --mod-fisiere cate-n".to_string());
+            }
+            comenzi::deploy(
+                sursa,
+                referinta,
+                baze.as_deref(),
+                director.clone(),
+                match mod_fisiere {
+                    ModArg::Unul => ModImpartire::Unul,
+                    ModArg::PerBaza => ModImpartire::PerBaza,
+                    ModArg::PerObiect => ModImpartire::PerObiect,
+                    ModArg::CateN => ModImpartire::CateN(
+                        usize::try_from(cate.unwrap_or(10)).unwrap_or(usize::MAX),
+                    ),
+                },
+                doar.as_deref(),
+                plan.as_deref(),
+                format,
+            )
+        })(),
         Comanda::Plan {
             sursa,
             referinta,

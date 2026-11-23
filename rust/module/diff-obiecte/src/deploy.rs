@@ -467,7 +467,7 @@ pub fn aplica_create_or_alter(cod: &str, obiect: &str) -> String {
     // numele intai: rescris de la coada, pozitiile capului raman valabile
     let mut rez = cod.to_string();
     if let Some((s, f)) = span_nume(cod, tip_sfarsit) {
-        if parti_nume(&cod[s..f]) != parti_nume(obiect) {
+        if !acelasi_nume(&parti_nume(&cod[s..f]), obiect) {
             rez = format!("{}{}{}", &cod[..s], nume_calificat(obiect), &cod[f..]);
         }
     }
@@ -497,6 +497,95 @@ fn verifica_nume(nume: &str) -> Rezultat<()> {
     if nume.chars().any(char::is_control) {
         return Err(Eroare::NumeNesigur {
             nume: nume.to_string(),
+        });
+    }
+    Ok(())
+}
+
+/// Cuvantul de dupa `CREATE` care corespunde tipului din `sys.objects`, daca
+/// tipul e unul pe care il deployam.
+fn tip_create(tip: &str) -> Option<&'static str> {
+    match tip.trim().to_ascii_uppercase().as_str() {
+        "P" | "PC" => Some("PROCEDURE"),
+        "V" => Some("VIEW"),
+        "FN" | "IF" | "TF" | "FS" | "FT" => Some("FUNCTION"),
+        "TR" | "TA" => Some("TRIGGER"),
+        _ => None,
+    }
+}
+
+/// Codul unui obiect incepe (dupa comentarii) cu `CREATE [OR ALTER] <tip>`
+/// sau `ALTER <tip>`, cu tipul din plan. Un text final scris de mana putea
+/// fi `DELETE FROM dbo.Facturi`: se scria ca batch dupa `USE` si se rula
+/// (B2 din `cercetare/audit-qa-2026-11-22.md`); o procedura care devenise
+/// view se scria ca `CREATE OR ALTER VIEW` peste procedura (F-D3).
+fn verifica_capul(o: &DeDeployat) -> Rezultat<()> {
+    let cuv = cuvinte_de_cod(&o.cod);
+    let asteptat = tip_create(&o.tip);
+    let gasit: Vec<&str> = cuv.iter().take(4).map(|c| c.text).collect();
+    let e = |w: Option<&&str>, x: &str| w.is_some_and(|w| w.eq_ignore_ascii_case(x));
+    let pozitie_tip = if e(gasit.first(), "create") {
+        if e(gasit.get(1), "or") && e(gasit.get(2), "alter") {
+            Some(3)
+        } else {
+            Some(1)
+        }
+    } else if e(gasit.first(), "alter") {
+        Some(1)
+    } else {
+        None
+    };
+    let tip_gasit = pozitie_tip.and_then(|k| gasit.get(k)).map(|t| {
+        if t.eq_ignore_ascii_case("proc") {
+            "PROCEDURE".to_string()
+        } else {
+            t.to_ascii_uppercase()
+        }
+    });
+    // un tip pe care nu-l deployam (`plan.json` scris de mana cu `"tip":
+    // "ZZ"`) nu trece: revenirea n-ar sti sa-l stearga (auditul 2026-11-23)
+    let bun = match (asteptat, &tip_gasit) {
+        (Some(a), Some(t)) => a == t,
+        _ => false,
+    };
+    if bun {
+        return Ok(());
+    }
+    Err(Eroare::CodFaraCreate {
+        obiect: o.obiect.clone(),
+        asteptat: asteptat.unwrap_or("<tip>").to_string(),
+        gasit: if gasit.is_empty() {
+            "nimic".to_string()
+        } else {
+            format!("`{}`", gasit.join(" "))
+        },
+    })
+}
+
+/// Un text final care n-ar trece de deploy, spus **cand se scrie**, nu abia la
+/// deploy: gol, fara `CREATE <tip>` la inceput, sau cu o linie `GO`. Aceleasi
+/// reguli ca verificarea dinaintea scrierii scripturilor.
+pub fn verifica_text_final(obiect: &str, tip: &str, text: &str) -> Rezultat<()> {
+    if text.trim().is_empty() {
+        return Err(Eroare::TextFinalGol {
+            obiect: obiect.to_string(),
+        });
+    }
+    verifica_capul(&DeDeployat {
+        obiect: obiect.to_string(),
+        tip: tip.to_string(),
+        cod: text.to_string(),
+        setari: None,
+    })?;
+    let linii = gmotion_core::lexer::linii_go(text);
+    if !linii.is_empty() {
+        return Err(Eroare::GoInDefinitie {
+            obiect: obiect.to_string(),
+            linii: linii
+                .iter()
+                .map(|l| l.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
         });
     }
     Ok(())
@@ -534,13 +623,14 @@ fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>
                     nume: o.obiect.clone(),
                 });
             }
+            verifica_capul(o)?;
             // ultima garda pentru F-D4: `aplica_create_or_alter` rescrie
             // numele, dar un `DeDeployat` construit altfel (plan `.json` scris
             // de mana, alt apelant al modulului) poate avea in cod un nume pe
             // care nu l-a vazut nimeni. Un cod fara `CREATE <tip>` nu se
             // verifica: acolo nu se poate sti ce creeaza.
             if let Some(gasit) = numele_creat(&o.cod) {
-                if parti_nume(&gasit) != parti_nume(&o.obiect) {
+                if gasit != o.obiect && parti_nume(&gasit) != parti_nume(&o.obiect) {
                     return Err(Eroare::NumeDinDefinitie {
                         obiect: o.obiect.clone(),
                         gasit,
@@ -747,6 +837,18 @@ fn nume_referite(cod: &str) -> Vec<Vec<String>> {
                     .replace("]]", "]");
                 parti.push(interior.to_lowercase());
             }
+            // `"dbo"."f"`: tot un nume (cu QUOTED_IDENTIFIER ON, implicitul);
+            // inainte era separator, deci dependenta se pierdea din ordinea
+            // de deploy (F-D11)
+            Fel::IdentificatorGhilimele => {
+                inchide_cuvant(&mut cuvant, &mut parti);
+                let interior = text
+                    .strip_prefix('"')
+                    .and_then(|s| s.strip_suffix('"'))
+                    .unwrap_or(text)
+                    .replace("\"\"", "\"");
+                parti.push(interior.to_lowercase());
+            }
             _ => {
                 inchide_cuvant(&mut cuvant, &mut parti);
                 inchide_nume(&mut parti, &mut nume);
@@ -930,9 +1032,20 @@ fn in_director_temporar(
         cale: cale.display().to_string(),
         detaliu: e.to_string(),
     };
-    let lucru = director.with_extension("tmp");
-    std::fs::remove_dir_all(&lucru).ok();
-    std::fs::create_dir_all(&lucru).map_err(|e| eroare(&lucru, e))?;
+    // numele directorului de lucru se **adauga** la cel cerut si e unic pe
+    // proces; `create_dir` (nu `_all`) refuza unul existent. Inainte era
+    // `with_extension("tmp")`, sters recursiv fara intrebare: `-d proiect`
+    // stergea `proiect.tmp`, iar `-d deploy_2026.11.23` stergea
+    // `deploy_2026.11.tmp` (N2 din auditul 2026-11-23)
+    static CONTOR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = CONTOR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut nume = director.file_name().unwrap_or_default().to_os_string();
+    nume.push(format!(".gmotion-lucru-{}-{n}", std::process::id()));
+    let lucru = director.with_file_name(nume);
+    if let Some(p) = lucru.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(p).map_err(|e| eroare(p, e))?;
+    }
+    std::fs::create_dir(&lucru).map_err(|e| eroare(&lucru, e))?;
     let raport = match f(&lucru) {
         Ok(r) => r,
         Err(e) => {
@@ -1061,6 +1174,37 @@ fn scrie_totul(
 
 /// `[schema].[nume]` din `schema.nume`. Se taie la primul punct: o schema cu
 /// punct in nume ar iesi gresit, dar `Baza` nu pastreaza partile separat.
+/// Numele din definitie (pe parti, din paranteze) e `obiect` (`schema.nume`)?
+/// O schema cu punct (`[my.s].[x]`, deci `my.s.x`) nu se mai desparte gresit
+/// la primul punct: era rescrisa in `[my].[s.x]`, alt obiect (auditul
+/// 2026-11-23).
+fn acelasi_nume(parti_def: &[String], obiect: &str) -> bool {
+    if parti_def == parti_nume(obiect).as_slice() {
+        return true;
+    }
+    match parti_def {
+        [.., schema, nume] => format!("{schema}.{nume}") == obiect.to_lowercase(),
+        _ => false,
+    }
+}
+
+/// Numele calificat pentru `DROP`: din definitie, cand ea numeste chiar
+/// obiectul (pastreaza o schema cu punct intreaga), altfel din `schema.nume`.
+fn nume_calificat_din_cod(cod: &str, obiect: &str) -> String {
+    // un singur punct: `schema.nume` e neambiguu, ca inainte
+    if obiect.matches('.').count() <= 1 {
+        return nume_calificat(obiect);
+    }
+    // altfel numele exact cum e scris in definitie, daca o numeste chiar pe ea
+    capul(cod)
+        .and_then(|(_, t)| span_nume(cod, t))
+        .filter(|&(s, f)| acelasi_nume(&parti_nume(&cod[s..f]), obiect))
+        .map_or_else(
+            || nume_calificat(obiect),
+            |(s, f)| cod[s..f].trim().to_string(),
+        )
+}
+
 fn nume_calificat(obiect: &str) -> String {
     match obiect.split_once('.') {
         Some((schema, nume)) => format!("{}.{}", paranteze(schema), paranteze(nume)),
@@ -1087,7 +1231,7 @@ fn sterge(o: &DeDeployat) -> String {
     let mut text = crlf(&format!(
         "-- ═══ {} ═══ (creat de deploy)\nDROP {fel} IF EXISTS {};\nGO\n",
         o.obiect,
-        nume_calificat(&o.obiect)
+        nume_calificat_din_cod(&o.cod, &o.obiect)
     ));
     text.push_str(&opreste_daca_a_cazut(&o.obiect));
     text
@@ -1162,9 +1306,12 @@ fn scrie_deploy(
     match mod_impartire {
         ModImpartire::PerObiect => {
             for (baza, obiecte) in pe_baza {
+                // cate cifre cere ultimul numar: peste 999 de obiecte,
+                // `1000_` venea alfabetic inaintea lui `101_` (F-D9)
+                let latime = obiecte.len().to_string().len().max(3);
                 for (i, o) in obiecte.iter().enumerate() {
                     let nume = format!(
-                        "{:03}_{}_{}_{}",
+                        "{:0latime$}_{}_{}_{}",
                         i + 1,
                         slug(baza),
                         tip_nume(&o.tip),
@@ -1177,10 +1324,11 @@ fn scrie_deploy(
         ModImpartire::CateN(n) => {
             let n = n.max(1);
             for (baza, obiecte) in pe_baza {
+                let latime = obiecte.len().div_ceil(n).to_string().len().max(2);
                 for (parte, grup) in obiecte.chunks(n).enumerate() {
                     let primul = parte * n + 1;
                     let nume = format!(
-                        "{}_part{:02}_obj{}-{}",
+                        "{}_part{:0latime$}_obj{}-{}",
                         slug(baza),
                         parte + 1,
                         primul,
@@ -1509,7 +1657,7 @@ mod teste {
 
     #[test]
     fn caracterele_care_isi_schimba_lungimea_la_minuscule_nu_strica_nimic() {
-        // `K` (semnul Kelvin) si `İ`: minusculele au alta lungime in octeti.
+        // `K` (semnul Kelvin) si `İ`: minusculele au alta lungime in octeti. (diacritice-permise)
         // Inainte: panica, respectiv `CCREATE OR ALTER PROCEDUREdbo...`.
         assert_eq!(
             aplica_create_or_alter("-- 5\u{212A}\nCREATE PROCEDURE dbo.p AS SELECT 1", "dbo.p"),
@@ -1517,10 +1665,10 @@ mod teste {
         );
         assert_eq!(
             aplica_create_or_alter(
-                "-- İstanbul\nCREATE PROCEDURE dbo.pTurc AS SELECT 1",
+                "-- İstanbul\nCREATE PROCEDURE dbo.pTurc AS SELECT 1", // diacritice-permise: date de test
                 "dbo.pTurc"
             ),
-            "-- İstanbul\nCREATE OR ALTER PROCEDURE dbo.pTurc AS SELECT 1"
+            "-- İstanbul\nCREATE OR ALTER PROCEDURE dbo.pTurc AS SELECT 1" // diacritice-permise: date de test
         );
     }
 
@@ -1766,6 +1914,47 @@ mod teste {
         assert_eq!(ordonat(&obiecte), ["dbo.p3", "dbo.p2", "dbo.p1"]);
     }
 
+    /// F-D11: `"dbo"."f"` e o referinta ca `[dbo].[f]`.
+    #[test]
+    fn referintele_cu_ghilimele_conteaza() {
+        let obiecte = [
+            o_tip("dbo.a", "P", "CREATE PROC dbo.a AS SELECT \"dbo\".\"f\"()"),
+            o_tip(
+                "dbo.f",
+                "FN",
+                "CREATE FUNCTION dbo.f() RETURNS INT AS BEGIN RETURN 1 END",
+            ),
+        ];
+        assert_eq!(ordonat(&obiecte), ["dbo.f", "dbo.a"]);
+    }
+
+    /// F-D9: peste 999 de obiecte, numerele au patru cifre, deci ordinea
+    /// alfabetica a fisierelor ramane ordinea din script.
+    #[test]
+    fn numerotarea_tine_ordinea_alfabetica_peste_999() {
+        let d = dir("o-mie");
+        let obiecte: Vec<DeDeployat> = (0..1001)
+            .map(|i| DeDeployat {
+                obiect: format!("dbo.p{i}"),
+                tip: "P".into(),
+                cod: format!("CREATE PROCEDURE dbo.p{i} AS SELECT {i}"),
+                setari: None,
+            })
+            .collect();
+        let m = BTreeMap::from([("Client".to_string(), obiecte)]);
+        let r = scrie(&d, "Ref", &m, ModImpartire::PerObiect, 0, "a").unwrap();
+        let mut nume: Vec<String> = r
+            .fisiere
+            .iter()
+            .map(|f| f.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        let in_ordine = nume.clone();
+        nume.sort();
+        assert_eq!(nume, in_ordine);
+        assert!(in_ordine[0].starts_with("0001_"), "{}", in_ordine[0]);
+        std::fs::remove_dir_all(&d).ok();
+    }
+
     #[test]
     fn ciclurile_nu_pierd_obiecte_si_independentele_isi_pastreaza_ordinea() {
         let obiecte = [
@@ -1993,7 +2182,7 @@ mod teste {
             vec![DeDeployat {
                 obiect: "dbo.p".into(),
                 tip: "P".into(),
-                cod: "SELECT 1".into(),
+                cod: "CREATE PROCEDURE dbo.p AS SELECT 1".into(),
                 setari: None,
             }],
         );
@@ -2001,6 +2190,63 @@ mod teste {
         assert_eq!(r.fisiere.len(), 1);
         assert_eq!(r.fisiere[0].parent().unwrap(), d.as_path());
         std::fs::remove_dir_all(&d).ok();
+    }
+
+    #[test]
+    fn textul_final_se_verifica_la_scriere() {
+        let v = |t: &str| verifica_text_final("dbo.p", "P", t).map_err(|e| e.cod());
+        assert_eq!(v(""), Err("GM-MOD-016"));
+        assert_eq!(v("DROP TABLE dbo.Clienti"), Err("GM-MOD-015"));
+        assert_eq!(
+            v("CREATE PROCEDURE dbo.p AS SELECT 1\nGO"),
+            Err("GM-MOD-009")
+        );
+        assert_eq!(v("CREATE PROCEDURE dbo.p AS SELECT 1"), Ok(()));
+    }
+
+    /// B2 si F-D3 din `cercetare/audit-qa-2026-11-22.md`: un cod care nu
+    /// creeaza obiectul din plan (SQL oarecare, alt tip) nu se scrie.
+    #[test]
+    fn codul_care_nu_creeaza_obiectul_din_plan_e_refuzat() {
+        let pas = |tip: &str, cod: &str| DeDeployat {
+            obiect: "dbo.p".into(),
+            tip: tip.into(),
+            cod: cod.into(),
+            setari: None,
+        };
+        for (tip, cod) in [
+            ("P", "DELETE FROM dbo.Facturi"),
+            ("P", "SELECT 1"),
+            ("P", "-- CREATE PROCEDURE dbo.p\nDROP TABLE dbo.Clienti"),
+            ("P", "CREATE VIEW dbo.p AS SELECT 1"),
+            ("V", "CREATE PROCEDURE dbo.p AS SELECT 1"),
+            ("FN", "CREATE PROC dbo.p AS SELECT 1"),
+        ] {
+            let e = verifica_capul(&pas(tip, cod)).unwrap_err();
+            assert_eq!(e.cod(), "GM-MOD-015", "{tip} / {cod}");
+        }
+        for (tip, cod) in [
+            ("P", "/* antet */\n-- x\nCREATE PROCEDURE dbo.p AS SELECT 1"),
+            ("P", "create proc dbo.p as select 1"),
+            ("P", "CREATE OR ALTER PROCEDURE dbo.p AS SELECT 1"),
+            ("V", "ALTER VIEW dbo.p AS SELECT 1"),
+            (
+                "IF",
+                "CREATE FUNCTION dbo.p() RETURNS TABLE AS RETURN SELECT 1",
+            ),
+            ("TR", "CREATE TRIGGER dbo.p ON t AFTER INSERT AS SELECT 1"),
+        ] {
+            assert!(verifica_capul(&pas(tip, cod)).is_ok(), "{tip} / {cod}");
+        }
+        let d = dir("fara-create");
+        let mut m = BTreeMap::new();
+        m.insert(
+            "Client".to_string(),
+            vec![pas("P", "DELETE FROM dbo.Facturi")],
+        );
+        let e = scrie(&d, "Ref", &m, ModImpartire::PerBaza, 0, "a").unwrap_err();
+        assert_eq!(e.cod(), "GM-MOD-015");
+        assert!(!d.exists(), "nimic scris");
     }
 
     fn dd(obiect: &str, tip: &str, cod: &str, qi: bool) -> DeDeployat {
@@ -2078,7 +2324,7 @@ mod teste {
             sql.contains("SET QUOTED_IDENTIFIER OFF;"),
             "setarile tintei, nu ale referintei:\n{sql}"
         );
-        assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"));
+        assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"), "{sql}");
         assert!(sql.contains("DROP FUNCTION IF EXISTS [dbo].[fNou];"));
         assert!(sql.trim_end().ends_with("SET NOEXEC OFF;\r\nGO"));
         std::fs::remove_dir_all(&d).ok();
@@ -2347,6 +2593,79 @@ mod teste {
     /// pe Windows calea intreaga nu poate trece de 260: deploy-ul cadea
     /// **dupa** ce revenirea si cateva fisiere erau deja scrise, iar reluarea
     /// cadea cu `GM-MOD-010`.
+    /// O schema cu punct nu se rescrie in alt obiect, nici la deploy, nici in
+    /// `DROP`-ul din revenire.
+    #[test]
+    fn schema_cu_punct_ramane_intreaga() {
+        let cod = "CREATE PROCEDURE [my.s].[x] AS SELECT 1";
+        let rez = aplica_create_or_alter(cod, "my.s.x");
+        assert!(rez.contains("[my.s].[x]"), "{rez}");
+        assert!(!rez.contains("[my].[s.x]"), "{rez}");
+        let o = DeDeployat {
+            obiect: "my.s.x".into(),
+            tip: "P".into(),
+            cod: cod.into(),
+            setari: None,
+        };
+        assert!(verifica_capul(&o).is_ok());
+        assert!(
+            sterge(&o).contains("DROP PROCEDURE IF EXISTS [my.s].[x]"),
+            "{}",
+            sterge(&o)
+        );
+        let mare = "CREATE PROCEDURE [My.S].[X] AS SELECT 1";
+        assert!(aplica_create_or_alter(mare, "My.S.X").contains("[My.S].[X]"));
+        // un tip necunoscut nu trece
+        let zz = DeDeployat {
+            tip: "ZZ".into(),
+            ..o.clone()
+        };
+        assert_eq!(verifica_capul(&zz).unwrap_err().cod(), "GM-MOD-015");
+        // un nume chiar diferit e rescris ca inainte (F-D4)
+        assert!(
+            aplica_create_or_alter("CREATE PROCEDURE dbo.vechi AS SELECT 1", "dbo.nou")
+                .contains("[dbo].[nou]")
+        );
+    }
+
+    /// N2: un director strain cu nume asemanator nu se atinge.
+    #[test]
+    fn directorul_de_lucru_nu_sterge_nimic_strain() {
+        let baza = dir("strain");
+        std::fs::create_dir_all(&baza).unwrap();
+        for (cerut, strain) in [
+            ("proiect", "proiect.tmp"),
+            ("deploy_2026.11.23", "deploy_2026.11.tmp"),
+        ] {
+            let s = baza.join(strain);
+            std::fs::create_dir_all(&s).unwrap();
+            std::fs::write(s.join("important.sql"), "munca").unwrap();
+            let mut m = BTreeMap::new();
+            m.insert(
+                "Client".to_string(),
+                vec![DeDeployat {
+                    obiect: "dbo.p".into(),
+                    tip: "P".into(),
+                    cod: "CREATE PROCEDURE dbo.p AS SELECT 1".into(),
+                    setari: None,
+                }],
+            );
+            scrie(&baza.join(cerut), "Ref", &m, ModImpartire::PerBaza, 0, "a").unwrap();
+            assert_eq!(
+                std::fs::read_to_string(s.join("important.sql")).unwrap(),
+                "munca"
+            );
+        }
+        let ramase: Vec<String> = std::fs::read_dir(&baza)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains("gmotion-lucru"))
+            .collect();
+        assert!(ramase.is_empty(), "director de lucru ramas: {ramase:?}");
+        std::fs::remove_dir_all(&baza).ok();
+    }
+
     #[test]
     fn numele_lungi_se_plafoneaza_si_raman_distincte() {
         let d = dir("nume-lungi");

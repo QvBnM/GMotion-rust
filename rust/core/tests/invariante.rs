@@ -469,3 +469,187 @@ fn aplicarea_unui_bloc_nu_strica_structura() {
         stricate[..stricate.len().min(5)].join("\n")
     );
 }
+
+/// A1 din `cercetare/audit-qa-2026-11-22.md`: un bloc fara pereche care
+/// seamana cu unul deja imperecheat in Modificata nu se scrie peste el.
+#[test]
+fn aplicarea_nu_scrie_peste_un_bloc_egal() {
+    let cazuri = [
+        // doua instructiuni asemanatoare: a doua lipseste
+        (
+            "CREATE PROC p AS\nSELECT a, b, c FROM T WHERE x = 1\nSELECT a, b, c FROM T WHERE x = 2",
+            "CREATE PROC p AS\nSELECT a, b, c FROM T WHERE x = 1",
+        ),
+        // un IF ... BEGIN ... END adaugat nu ia END-ul procedurii
+        (
+            "CREATE PROC p AS\nBEGIN\nIF @x = 1\nBEGIN\nSELECT 1\nEND\nSELECT 2\nEND",
+            "CREATE PROC p AS\nBEGIN\nSELECT 2\nEND",
+        ),
+        // o instructiune duplicata
+        (
+            "CREATE PROC p AS\nSELECT a FROM t WHERE x = 1\nSELECT a FROM t WHERE x = 1",
+            "CREATE PROC p AS\nSELECT a FROM t WHERE x = 1",
+        ),
+        // doua instructiuni inversate
+        (
+            "CREATE PROC p AS\nSET @y = 2\nUPDATE C SET s = 1 WHERE id = @id2",
+            "CREATE PROC p AS\nUPDATE C SET s = 1 WHERE id = @id2\nSET @y = 2",
+        ),
+    ];
+    for (st, dr) in cazuri {
+        let a = gmotion_core::aliniaza_cu(st, dr, false);
+        let plasari = gmotion_core::plasari_aliniere(&a, dr, false);
+        for g in gmotion_core::grupuri_diferente(&a.diff, &plasari) {
+            if g.iter()
+                .any(|&b| a.diff[b].tip != gmotion_core::TipDiferenta::Sters)
+            {
+                continue;
+            }
+            let rez = gmotion_core::aplica_blocuri(st, dr, false, &g);
+            for linie in dr.lines() {
+                let inainte = dr.lines().filter(|l| *l == linie).count();
+                let dupa = rez.lines().filter(|l| *l == linie).count();
+                assert!(
+                    dupa >= inainte,
+                    "grupul {g:?} a sters {linie:?}\n--- dreapta\n{dr}\n--- rezultat\n{rez}"
+                );
+            }
+            assert_ne!(rez, dr, "grupul {g:?} nu schimba nimic\n{dr}");
+        }
+        assert_eq!(converge(st, dr), Ok(()), "{st:?} / {dr:?}");
+    }
+}
+
+/// Ca omul: aplica prima diferenta, recompara, iar si iar. Trebuie sa ajunga
+/// la Martor (normalizat), fara sa oscileze.
+fn converge(st: &str, dr: &str) -> Result<(), String> {
+    let mut cur = dr.to_string();
+    for _ in 0..60 {
+        let a = gmotion_core::aliniaza_cu(st, &cur, false);
+        let plasari = gmotion_core::plasari_aliniere(&a, &cur, false);
+        let grupuri = gmotion_core::grupuri_diferente(&a.diff, &plasari);
+        let Some(g) = grupuri.first() else {
+            return if gmotion_core::normalizeaza(&cur) == gmotion_core::normalizeaza(st) {
+                Ok(())
+            } else {
+                Err(format!("fara diferente, dar altul decat martorul:\n{cur}"))
+            };
+        };
+        cur = gmotion_core::aplica_blocuri(st, &cur, false, g);
+    }
+    Err(format!("nu converge in 60 de pasi:\n{cur}"))
+}
+
+/// Aplicarea grup cu grup ajunge la Martor pe perechi generate: inserari,
+/// stergeri, modificari si mutari de instructiuni (inainte de reparatia A1,
+/// 31% din perechi nu ajungeau).
+#[test]
+fn aplicarea_grup_cu_grup_ajunge_la_martor() {
+    const INSTR: &[&str] = &[
+        "SELECT a, b FROM Clienti WHERE id = @id",
+        "UPDATE Comenzi SET stare = 'nou' WHERE id = @id",
+        "UPDATE Comenzi SET stare = 'vechi' WHERE id = @id2",
+        "INSERT INTO #tmp (a, b)\nSELECT a, b FROM Facturi",
+        "DELETE FROM #tmp WHERE a = 1",
+        "SET @x = @x + 1",
+        "EXEC dbo.Altceva @p = 1",
+        "EXEC dbo.Altceva @p = 2",
+        "IF @x = 1\nBEGIN\n    SELECT 1\nEND",
+        "PRINT 'gata'",
+        "SELECT CASE\nWHEN a = 1 THEN 'x'\nELSE 'y'\nEND AS m\nFROM t",
+        "-- comentariu\nSET @y = 2",
+        "RETURN 0",
+    ];
+    let mut s: u64 = 12345;
+    let mut n = |k: usize| {
+        s ^= s >> 12;
+        s ^= s << 25;
+        s ^= s >> 27;
+        (s.wrapping_mul(2685821657736338717) % k as u64) as usize
+    };
+    let impacheteaza = |v: &[&str]| {
+        format!(
+            "CREATE PROCEDURE dbo.p @id INT\nAS\nBEGIN\n{}\nEND",
+            v.join("\n")
+        )
+    };
+    let mut esecuri = Vec::new();
+    for _ in 0..600 {
+        let lung = 2 + n(8);
+        let baza: Vec<&str> = (0..lung).map(|_| INSTR[n(INSTR.len())]).collect();
+        let mut alt = baza.clone();
+        for _ in 0..1 + n(3) {
+            match n(3) {
+                0 => {
+                    let p = n(alt.len() + 1);
+                    alt.insert(p, INSTR[n(INSTR.len())]);
+                }
+                1 if alt.len() > 1 => {
+                    let p = n(alt.len());
+                    alt.remove(p);
+                }
+                _ if alt.len() > 1 => {
+                    let p = n(alt.len());
+                    let x = alt.remove(p);
+                    let q = n(alt.len() + 1);
+                    alt.insert(q, x);
+                }
+                _ => {}
+            }
+        }
+        let (st, dr) = (impacheteaza(&baza), impacheteaza(&alt));
+        if let Err(e) = converge(&st, &dr) {
+            esecuri.push(format!("--- martor\n{st}\n--- modificata\n{dr}\n--- {e}"));
+        }
+    }
+    assert!(
+        esecuri.is_empty(),
+        "{} perechi nu ajung la martor, prima:\n{}",
+        esecuri.len(),
+        esecuri.first().cloned().unwrap_or_default()
+    );
+}
+
+/// N1 si N3 din `cercetare/audit-qa-2026-11-23.md`: linii goale in mijlocul
+/// instructiunilor (inainte de WHERE, dupa UNION ALL, in ciclul unui cursor)
+/// nu fac „Aplica" sa piarda sau sa dubleze linii, cu si fara cursorul unit.
+#[test]
+fn liniile_goale_din_instructiuni_nu_strica_aplicarea() {
+    let cazuri = [
+        (
+            "CREATE PROC p AS\nDELETE FROM Comenzi\n\nWHERE id = @id\nSELECT 9",
+            "CREATE PROC p AS\nDELETE FROM Comenzi\nWHERE id = @id2\nSELECT 9",
+        ),
+        (
+            "CREATE PROC p AS\nSELECT a FROM t1\nUNION ALL\n\nSELECT a FROM t2\nSELECT 9",
+            "CREATE PROC p AS\nSELECT a FROM t1\nUNION ALL\nSELECT b FROM t2\nSELECT 9",
+        ),
+        (
+            "CREATE PROC p AS\nSELECT a FROM t1 UNION ALL\n\nSELECT a FROM t2\nSELECT 9",
+            "CREATE PROC p AS\nSELECT a FROM t1 UNION ALL\nSELECT b FROM t2\nSELECT 9",
+        ),
+        (
+            "CREATE PROC p AS\nDECLARE c CURSOR FOR SELECT id FROM t\n\nOPEN c\nFETCH NEXT FROM c INTO @id\nCLOSE c\nDEALLOCATE c\nSELECT 9",
+            "CREATE PROC p AS\nDECLARE c CURSOR FOR SELECT id FROM t2\nOPEN c\nFETCH NEXT FROM c INTO @id\nCLOSE c\nDEALLOCATE c\nSELECT 9",
+        ),
+    ];
+    for uneste in [false, true] {
+        for (st, dr) in cazuri {
+            let mut cur = dr.to_string();
+            for _ in 0..20 {
+                let a = gmotion_core::aliniaza_cu(st, &cur, uneste);
+                let pl = gmotion_core::plasari_aliniere(&a, &cur, uneste);
+                let g = gmotion_core::grupuri_diferente(&a.diff, &pl);
+                let Some(g) = g.first() else { break };
+                cur = gmotion_core::aplica_blocuri(st, &cur, uneste, g);
+            }
+            assert_eq!(
+                gmotion_core::normalizeaza(&cur),
+                gmotion_core::normalizeaza(st),
+                "uneste={uneste}\n--- martor\n{st}\n--- rezultat\n{cur}"
+            );
+            // nicio instructiune nu ramane fara WHERE pe drum
+            assert!(!cur.contains("Comenzi\nSELECT"), "{cur}");
+        }
+    }
+}

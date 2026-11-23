@@ -241,18 +241,18 @@ button,input{font:inherit;color:inherit}
     <span class="traseu"><b>CharismaDev</b> → <b>CharismaProd</b> <span class="prod">PROD</span></span>
     <div class="cifre">
       <div class="cifra"><b style="color:var(--mod)">312</b><span>modificate</span></div>
-      <div class="cifra"><b style="color:var(--add)">18</b><span>doar în sursă</span></div>
-      <div class="cifra"><b style="color:var(--del)">6</b><span>doar în bază</span></div>
+      <div class="cifra"><b style="color:var(--add)">18</b><span>doar in sursa</span></div>
+      <div class="cifra"><b style="color:var(--del)">6</b><span>doar in baza</span></div>
       <div class="cifra"><b>37%</b><span>revizuit</span></div>
     </div>
   </header>
   <div class="harta">
     <h2><b>21.183</b> obiecte, dintr-o privire</h2>
-    <p>Fiecare pătrat e un obiect, grupat pe schemă și tip. Cele colorate diferă. Click pe unul ca să-l deschizi.</p>
+    <p>Fiecare patrat e un obiect, grupat pe schema si tip. Cele colorate difera. Click pe unul ca sa-l deschizi.</p>
     <div class="grupuri" id="h-grupuri"></div>
     <div class="legenda">
-      <span><i style="background:var(--mod)"></i>modificat</span><span><i style="background:var(--add)"></i>doar în sursă</span>
-      <span><i style="background:var(--del)"></i>doar în bază</span><span><i style="background:var(--set)"></i>doar setări SET</span>
+      <span><i style="background:var(--mod)"></i>modificat</span><span><i style="background:var(--add)"></i>doar in sursa</span>
+      <span><i style="background:var(--del)"></i>doar in baza</span><span><i style="background:var(--set)"></i>doar setari SET</span>
       <span><i style="background:var(--ident)"></i>identic</span><span><i style="background:var(--mod);opacity:.35"></i>revizuit</span>
     </div>
   </div>
@@ -269,14 +269,14 @@ button,input{font:inherit;color:inherit}
     <div class="progres"><span id="t-progres"></span><span class="pista"><i id="t-pista"></i></span></div>
   </header>
   <div class="scena">
-    <div class="urmeaza"><h4>Urmează</h4><ol id="t-urm"></ol></div>
+    <div class="urmeaza"><h4>Urmeaza</h4><ol id="t-urm"></ol></div>
     <div class="teanc" id="t-teanc"></div>
     <div class="cos">
       <div class="cos-carte">
         <div class="cos-nr" id="t-nr">0</div>
-        <div class="cos-sub">obiecte pleacă spre CharismaProd</div>
+        <div class="cos-sub">obiecte pleaca spre CharismaProd</div>
         <ul id="t-cos"></ul>
-        <button class="trimite">Pregătește deploy-ul</button>
+        <button class="trimite">Pregateste deploy-ul</button>
       </div>
     </div>
   </div>
@@ -286,9 +286,9 @@ button,input{font:inherit;color:inherit}
 <section class="dir" id="d3" aria-label="Directia 3: Panza">
   <div class="panza">
     <div class="titlu">
-      <div class="tip">Procedură, diferă într-un șir</div>
+      <div class="tip">Procedura, difera intr-un sir</div>
       <h1><span>dbo.</span>GenerateOrderBy<wbr>RecommendedOrder</h1>
-      <p>Un singur caracter s-a schimbat: <b>N → n</b> în mesajul de eroare. Restul celor 67 de linii e identic.</p>
+      <p>Un singur caracter s-a schimbat: <b>N → n</b> in mesajul de eroare. Restul celor 67 de linii e identic.</p>
     </div>
     <div class="diff" id="p-diff"></div>
   </div>
@@ -304,23 +304,23 @@ button,input{font:inherit;color:inherit}
     <button>Obiecte <kbd>Ctrl K</kbd></button>
     <span class="sep"></span>
     <button>Revizuit <kbd>r</kbd></button>
-    <button class="prim">Pune în plan <kbd>p</kbd></button>
+    <button class="prim">Pune in plan <kbd>p</kbd></button>
     <span class="sep opt"></span>
     <button class="opt">Plan · 7</button>
     <button class="opt"><kbd>j</kbd> →</button>
   </div>
   <div class="cmd-fundal" id="p-cmd">
-    <div class="cmd" role="dialog" aria-label="Obiecte și comenzi">
-      <input id="p-q" placeholder="Caută un obiect sau o comandă" autocomplete="off" spellcheck="false">
+    <div class="cmd" role="dialog" aria-label="Obiecte si comenzi">
+      <input id="p-q" placeholder="Cauta un obiect sau o comanda" autocomplete="off" spellcheck="false">
       <ul id="p-lista"></ul>
     </div>
   </div>
 </section>
 
-<nav class="alege" aria-label="Alege direcția">
+<nav class="alege" aria-label="Alege directia">
   <button data-d="1" aria-pressed="true">1  Harta</button>
   <button data-d="2" aria-pressed="false">2  Teancul</button>
-  <button data-d="3" aria-pressed="false">3  Pânza</button>
+  <button data-d="3" aria-pressed="false">3  Panza</button>
 </nav>
 
 <script>
@@ -338,23 +338,23 @@ function sx1(t) {
 }
 
 const OB = [
-  {s:'dbo', n:'GenerateOrderByRecommendedOrder', tip:'procedură', k:'m', fr:'Un singur caracter, într-un șir: <b>N → n</b>.',
+  {s:'dbo', n:'GenerateOrderByRecommendedOrder', tip:'procedura', k:'m', fr:'Un singur caracter, intr-un sir: <b>N → n</b>.',
    cod:[[41,'    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari WHERE IdPartener = @IdPartener)'],[42,'    BEGIN'],
         [43,"        RAISERROR('⟦N⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);","        RAISERROR('⟦n⟧u s-au gasit recomandari pentru partenerul %d', 16, 1, @IdPartener);"],[44,'        RETURN;'],[45,'    END']]},
-  {s:'dbo', n:'fn_PretCuTva', tip:'funcție', k:'m', fr:'Cota de TVA nu mai e scrisă în cod: <b>19 → @CotaTva</b>.',
+  {s:'dbo', n:'fn_PretCuTva', tip:'functie', k:'m', fr:'Cota de TVA nu mai e scrisa in cod: <b>19 → @CotaTva</b>.',
    cod:[[1,'CREATE OR ALTER FUNCTION dbo.fn_PretCuTva'],[2,'(@Pret DECIMAL(18, 4))','(@Pret DECIMAL(18, 4)⟦, @CotaTva DECIMAL(5, 2)⟧)'],[3,'RETURNS DECIMAL(18, 4)'],
         [14,'    RETURN ROUND(@Pret * (1 + ⟦19⟧ / 100.0), 2);','    RETURN ROUND(@Pret * (1 + ⟦@CotaTva⟧ / 100.0), 2);'],[15,'END']]},
-  {s:'dbo', n:'usp_ImportClienti', tip:'procedură', k:'a', fr:'Nu există în <b>CharismaProd</b>. Se creează, 96 de linii.',
+  {s:'dbo', n:'usp_ImportClienti', tip:'procedura', k:'a', fr:'Nu exista in <b>CharismaProd</b>. Se creeaza, 96 de linii.',
    cod:[[1,'','CREATE OR ALTER PROCEDURE dbo.usp_ImportClienti'],[2,'','    @Fisier NVARCHAR(260)'],[3,'','AS'],[4,'','BEGIN'],[5,'','    SET NOCOUNT ON;']]},
-  {s:'dbo', n:'fn_CursVechi', tip:'funcție', k:'d', fr:'Nu mai e în sursă. <b>Se șterge</b>; nimic din bază n-o mai folosește.',
+  {s:'dbo', n:'fn_CursVechi', tip:'functie', k:'d', fr:'Nu mai e in sursa. <b>Se sterge</b>; nimic din baza n-o mai foloseste.',
    cod:[[1,'CREATE FUNCTION dbo.fn_CursVechi','',],[2,'(@Data DATE)',''],[3,'RETURNS DECIMAL(18, 4)',''],[4,'AS','']]},
-  {s:'dbo', n:'usp_InchideLuna', tip:'procedură', k:'m', fr:'Se verifică acum și <b>luna deja închisă</b>.',
+  {s:'dbo', n:'usp_InchideLuna', tip:'procedura', k:'m', fr:'Se verifica acum si <b>luna deja inchisa</b>.',
    cod:[[18,'    IF @Luna IS NULL','    IF @Luna IS NULL'],[19,'','    IF EXISTS (SELECT 1 FROM dbo.Luni WHERE Luna = @Luna AND Inchisa = 1)'],[20,'','        RETURN 2;'],[21,'    UPDATE dbo.Luni SET Inchisa = 1']]},
-  {s:'rpt', n:'usp_TopClienti', tip:'procedură', k:'m', fr:'TOP 10 devine <b>TOP (@Numar)</b>.',
+  {s:'rpt', n:'usp_TopClienti', tip:'procedura', k:'m', fr:'TOP 10 devine <b>TOP (@Numar)</b>.',
    cod:[[3,'    SELECT ⟦TOP 10⟧ c.IdPartener, SUM(c.Total)','    SELECT ⟦TOP (@Numar)⟧ c.IdPartener, SUM(c.Total)'],[4,'    FROM dbo.Comenzi c']]},
 ];
 const COL = {m:'var(--mod)', a:'var(--add)', d:'var(--del)', s:'var(--set)'};
-const NUME_K = {m:'Modificat', a:'Doar în sursă', d:'Doar în bază', s:'Doar setări SET'};
+const NUME_K = {m:'Modificat', a:'Doar in sursa', d:'Doar in baza', s:'Doar setari SET'};
 // unificat: [nr, stanga, dreapta?] ; dreapta lipsa = identic; '' = linie lipsa
 function unificat(cod, cls) {
   let h = '';
@@ -371,7 +371,7 @@ function unificat(cod, cls) {
 (function harta() {
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const GR = [['dbo', 'Proceduri', 190], ['dbo', 'Funcții', 70], ['dbo', 'View-uri', 60], ['rpt', 'Proceduri', 80], ['dbo', 'Triggere', 30], ['imp', 'Proceduri', 50], ['anaf', 'Proceduri', 40], ['dbo', 'Tipuri', 24]];
+  const GR = [['dbo', 'Proceduri', 190], ['dbo', 'Functii', 70], ['dbo', 'View-uri', 60], ['rpt', 'Proceduri', 80], ['dbo', 'Triggere', 30], ['imp', 'Proceduri', 50], ['anaf', 'Proceduri', 40], ['dbo', 'Tipuri', 24]];
   let idx = 0;
   const celule = GR.map(([sch, tip, n]) => {
     const c = Array.from({length:n}, () => {
@@ -385,7 +385,7 @@ function unificat(cod, cls) {
   let sel = null;
   gEl.innerHTML = celule.map((g, gi) => {
     const dif = g.c.filter((x) => x.k !== 'i').length;
-    return `<div class="grup"><h3><span>${g.sch} · ${g.tip}</span><span>${dif} diferă</span></h3><div class="celule">${
+    return `<div class="grup"><h3><span>${g.sch} · ${g.tip}</span><span>${dif} difera</span></h3><div class="celule">${
       g.c.map((x, ci) => `<button class="cel ${x.k === 'i' ? '' : x.k} ${x.rev ? 'rev' : ''}" data-g="${gi}" data-c="${ci}" aria-label="${x.ob ? x.ob.s + '.' + x.ob.n : 'identic'}"></button>`).join('')}</div></div>`;
   }).join('');
   gEl.addEventListener('mousemove', (e) => {
@@ -407,10 +407,10 @@ function unificat(cod, cls) {
         <span class="p-stare" style="color:${COL[k]}"><i style="background:${COL[k]}"></i>${NUME_K[k]}, ${o.tip}</span>
         <div class="p-nume"><span>${o.s}.</span>${o.n}</div>
         <div class="p-fraza">${o.fr}</div>
-        <div class="p-act"><button class="b1">Revizuit<kbd>r</kbd></button><button class="b1 prim">Pune în plan<kbd>p</kbd></button><button class="b1">Deschide<kbd>↵</kbd></button></div>
+        <div class="p-act"><button class="b1">Revizuit<kbd>r</kbd></button><button class="b1 prim">Pune in plan<kbd>p</kbd></button><button class="b1">Deschide<kbd>↵</kbd></button></div>
       </div>
       <div class="cod">${unificat(o.cod)}</div>
-      <div class="plan-bara"><b>7</b><span>obiecte în plan, ordonate după dependențe</span><button>Deploy</button></div>`;
+      <div class="plan-bara"><b>7</b><span>obiecte in plan, ordonate dupa dependente</span><button>Deploy</button></div>`;
   }
   const prim = gEl.querySelector('.cel.m'); prim.classList.add('sel'); sel = prim;
   arata(OB[0], 'm');
@@ -420,7 +420,7 @@ function unificat(cod, cls) {
 (function teanc() {
   let i = 0, rev = 124;
   const cos = [];
-  const ET = {m:['Modificat','#fff1e6','#b34f00'], a:['Doar în sursă','#e3f7ee','#007a4b'], d:['Doar în bază','#ffe7eb','#c01d3c']};
+  const ET = {m:['Modificat','#fff1e6','#b34f00'], a:['Doar in sursa','#e3f7ee','#007a4b'], d:['Doar in baza','#ffe7eb','#c01d3c']};
   const OPS = {m:'ALTER', a:'CREATE', d:'DROP'};
   const carte = (o, cls) => {
     const [et, f, c] = ET[o.k];
@@ -431,8 +431,8 @@ function unificat(cod, cls) {
       <div class="c-cod">${unificat(o.cod)}</div>
       <div class="decizii">
         <button class="dec omite" data-d="st">Omite<small>←</small></button>
-        <button class="dec rev" data-d="sus">Revizuit, fără plan<small>↑</small></button>
-        <button class="dec plan" data-d="dr">Pune în plan<small>→</small></button>
+        <button class="dec rev" data-d="sus">Revizuit, fara plan<small>↑</small></button>
+        <button class="dec plan" data-d="dr">Pune in plan<small>→</small></button>
       </div></article>`;
   };
   function randeaza() {
@@ -469,7 +469,7 @@ function unificat(cod, cls) {
 (function panza() {
   const st = [], dr = [];
   const ctx = ['CREATE OR ALTER PROCEDURE dbo.GenerateOrderByRecommendedOrder', '    @IdPartener INT,', '    @DataComanda DATE = NULL', 'AS', 'BEGIN', '    SET NOCOUNT ON;'];
-  let h = '<div class="col"><h5>CharismaProd, acum</h5>', h2 = '<div class="col"><h5>CharismaDev, după deploy</h5>';
+  let h = '<div class="col"><h5>CharismaProd, acum</h5>', h2 = '<div class="col"><h5>CharismaDev, dupa deploy</h5>';
   const linie = (n, t, ch) => `<div class="cl ${ch ? 'ch' : ''}"><span class="n">${n}</span><span>${sx(t)}</span></div>`;
   ctx.forEach((t, i) => { h += linie(i + 1, t); h2 += linie(i + 1, t); });
   const corp = [[41,'    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari','    IF NOT EXISTS (SELECT 1 FROM dbo.Recomandari'],[42,'        WHERE IdPartener = @IdPartener)'],[43,'    BEGIN'],
@@ -481,8 +481,8 @@ function unificat(cod, cls) {
 
   const CMD = [
     ...OB.map((o) => ({g:'Obiecte', t:`${o.s}.${o.n}`, sub:o.tip, c:{m:'var(--mod)', a:'var(--add)', d:'var(--del)'}[o.k]})),
-    {g:'Comenzi', t:'Arată doar ce diferă în cod', sub:''}, {g:'Comenzi', t:'Deschide planul de deploy', sub:'7 obiecte'},
-    {g:'Comenzi', t:'Recompară', sub:'Ctrl R'}, {g:'Comenzi', t:'Exportă lista în CSV', sub:''},
+    {g:'Comenzi', t:'Arata doar ce difera in cod', sub:''}, {g:'Comenzi', t:'Deschide planul de deploy', sub:'7 obiecte'},
+    {g:'Comenzi', t:'Recompara', sub:'Ctrl R'}, {g:'Comenzi', t:'Exporta lista in CSV', sub:''},
   ];
   let act = 0, vis = [];
   function lista() {
@@ -493,7 +493,7 @@ function unificat(cod, cls) {
     $('#p-lista').innerHTML = vis.map((c, i) => {
       const cap = c.g !== g ? `<div class="gr">${(g = c.g)}</div>` : '';
       return cap + `<li class="${i === act ? 'activ' : ''}"><i style="background:${c.c || 'transparent'}"></i><span class="${c.c ? 'm2' : ''}">${esc(c.t)}</span><small>${c.sub}</small></li>`;
-    }).join('') || '<div class="gr">Nimic găsit. Încearcă alt nume.</div>';
+    }).join('') || '<div class="gr">Nimic gasit. Incearca alt nume.</div>';
   }
   const deschide = () => { $('#p-cmd').classList.add('deschis'); $('#p-q').value = ''; act = 0; lista(); $('#p-q').focus(); };
   const inchide = () => $('#p-cmd').classList.remove('deschis');

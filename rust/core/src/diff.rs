@@ -137,6 +137,12 @@ fn este_cosmetic(s: &str) -> bool {
 /// Diferentele din interiorul unui bloc, pe token-uri.
 /// Returneaza `(segmente_referinta, segmente_tinta)`.
 fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
+    diff_intra_cu(a, b, true)
+}
+
+/// Ca [`diff_intra`]; cu `filtru_cosmetic = false` se aprinde orice bucata
+/// schimbata, si spatiile sau `dbo.`.
+fn diff_intra_cu(a: &str, b: &str, filtru_cosmetic: bool) -> (Vec<Segment>, Vec<Segment>) {
     let ta = tokenizeaza(a);
     let tb = tokenizeaza(b);
     let la = tokeni_in_literal(a);
@@ -150,12 +156,34 @@ fn diff_intra(a: &str, b: &str) -> (Vec<Segment>, Vec<Segment>) {
         let va: String = ta[op.i1..op.i2].concat();
         let vb: String = tb[op.j1..op.j2].concat();
         let mut schimbat = op.tag != Tag::Equal;
+        if !filtru_cosmetic {
+            if !va.is_empty() {
+                sr.push(Segment {
+                    text: va,
+                    schimbat: schimbat.then_some(FelSchimbare::Sters),
+                });
+            }
+            if !vb.is_empty() {
+                sc.push(Segment {
+                    text: vb,
+                    schimbat: schimbat.then_some(FelSchimbare::Adaugat),
+                });
+            }
+            continue;
+        }
         let in_literal = la[op.i1..op.i2].iter().any(|&x| x) || lb[op.j1..op.j2].iter().any(|&x| x);
-        // in string, spatii schimbate pe spatii (tab in loc de spatii,
-        // indentare) sunt cosmetice, ca in `norm`; un spatiu aparut sau
-        // disparut ramane schimbare
+        // in string, reindentarea (spatii care trec de rand, de ambele parti)
+        // e cosmetica, ca in `norm`; pe acelasi rand, tab in loc de spatiu sau
+        // un spatiu aparut ramane schimbare (Mihai, 2026-11-22)
         let doar_spatii = |v: &str| !v.is_empty() && v.chars().all(char::is_whitespace);
-        if schimbat && in_literal && doar_spatii(&va) && doar_spatii(&vb) {
+        let trece_de_rand = |v: &str| v.contains(['\n', '\r']);
+        if schimbat
+            && in_literal
+            && doar_spatii(&va)
+            && doar_spatii(&vb)
+            && trece_de_rand(&va)
+            && trece_de_rand(&vb)
+        {
             schimbat = false;
         }
         if schimbat
@@ -427,7 +455,16 @@ pub fn diff_aliniat_cu_raport(
         let dreapta = r.j.map(|j| sn[j].clone());
         let (seg_stanga, seg_dreapta) = match (r.tip, r.i, r.j) {
             (TipDiferenta::Modificat, Some(i), Some(j)) => {
-                let (ss, ds) = diff_intra(&sv[i], &sn[j]);
+                let (mut ss, mut ds) = diff_intra(&sv[i], &sn[j]);
+                // blocul difera (normalizarea o spune), dar evidentierea a
+                // socotit cosmetic tot ce s-a schimbat (`Sales.dbo.X` /
+                // `Sales.X`, `a,b` / `a, b`): fara nimic aprins, editorul
+                // spunea „fara diferente" la un obiect listat diferit (F-M1).
+                // Atunci se aprinde si ce e cosmetic, ca sa se vada ce difera.
+                let nimic = |v: &[Segment]| v.iter().all(|s| s.schimbat.is_none());
+                if nimic(&ss) && nimic(&ds) {
+                    (ss, ds) = diff_intra_cu(&sv[i], &sn[j], false);
+                }
                 (Some(ss), Some(ds))
             }
             _ => (None, None),
@@ -548,11 +585,16 @@ mod teste {
     }
 
     /// Un spatiu aparut intr-un string se marcheaza; acelasi spatiu in cod nu.
-    /// (Doua spatii in loc de unul, in string, sunt egale, ca in v3.4.)
+    /// Doua spatii in loc de unul, in string, pe acelasi rand, sunt alte date
+    /// (Mihai, 2026-11-22; v3.4 le socotea egale). Reindentarea nu.
     #[test]
     fn spatiile_din_string_se_marcheaza_cele_din_cod_nu() {
         assert_eq!(
             tipuri(&diff_aliniat("PRINT 'a b'", "PRINT 'a  b'")),
+            vec!["modificat"]
+        );
+        assert_eq!(
+            tipuri(&diff_aliniat("PRINT 'a\n  b'", "PRINT 'a\n\tb'")),
             vec!["egal"]
         );
         let r = diff_aliniat(
@@ -561,12 +603,30 @@ mod teste {
         );
         let seg = r[0].seg_dreapta.as_ref().expect("segmente");
         assert!(seg.iter().any(|s| s.schimbat.is_some()), "{seg:?}");
+        // un spatiu in cod nu se aprinde cand mai e altceva de aratat...
+        let r = diff_aliniat(
+            "SELECT a,b FROM t WHERE x = 1",
+            "SELECT a,  b FROM t WHERE x = 2",
+        );
+        let aprinse: Vec<&str> = r[0]
+            .seg_dreapta
+            .iter()
+            .flatten()
+            .filter(|g| g.schimbat.is_some())
+            .map(|g| g.text.as_str())
+            .collect();
+        assert!(
+            !aprinse.is_empty() && aprinse.iter().all(|t| !t.trim().is_empty()),
+            "{aprinse:?}"
+        );
+        // ...dar cand e singura diferenta se aprinde, altfel blocul
+        // „modificat" n-ar arata nimic (F-M1)
         let r = diff_aliniat("SELECT a,b FROM t", "SELECT a,  b FROM t");
         assert!(
-            r.iter().all(|x| x
+            r.iter().any(|x| x
                 .seg_dreapta
                 .as_ref()
-                .is_none_or(|s| s.iter().all(|g| g.schimbat.is_none()))),
+                .is_some_and(|s| s.iter().any(|g| g.schimbat.is_some()))),
             "{r:?}"
         );
     }
@@ -607,8 +667,8 @@ mod teste {
     }
 
     /// Proba pe Windows (2026-11-19): SQL dinamic reindentat intr-un string
-    /// (tab in loc de spatii) nu se evidentiaza; un spatiu aparut in string
-    /// da, fiindca schimba textul.
+    /// (tab in loc de spatii) nu se evidentiaza; un spatiu aparut in string,
+    /// sau un tab in loc de spatiu pe acelasi rand, da (Mihai, 2026-11-22).
     #[test]
     fn spatiile_schimbate_in_string_nu_se_evidentiaza() {
         let marcat = |a: &str, b: &str| -> Vec<String> {
@@ -620,12 +680,41 @@ mod teste {
                 .collect()
         };
         let m = marcat(
-            "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a\t' + @x",
+            "SET @s = ') W\n\t\tJOIN t X ON W.a=X.a ' + @x",
             "SET @s = ') W\n            JOIN t X ON W.a=X.a ' + @y",
         );
         assert_eq!(m, ["@x", "@y"], "doar variabila difera: {m:?}");
         let m = marcat("PRINT 'a b'", "PRINT 'ab'");
         assert!(!m.is_empty(), "spatiul disparut din string se vede");
+        let m = marcat("PRINT 'a\tb'", "PRINT 'a b'");
+        assert!(
+            !m.is_empty(),
+            "tabul in loc de spatiu, pe acelasi rand, se vede"
+        );
+    }
+
+    /// F-M1: un bloc modificat are mereu ceva aprins.
+    #[test]
+    fn un_bloc_modificat_are_mereu_ceva_aprins() {
+        for (a, b) in [
+            (
+                "SELECT a FROM Sales.dbo.Orders",
+                "SELECT a FROM Sales.Orders",
+            ),
+            ("SELECT [a b] FROM t", "SELECT a b FROM t"),
+            ("SELECT * FROM f(nolock)", "SELECT * FROM f()"),
+        ] {
+            let r = diff_aliniat(a, b);
+            assert_eq!(r[0].tip, TipDiferenta::Modificat, "{a}");
+            let aprinse = r[0]
+                .seg_stanga
+                .iter()
+                .chain(r[0].seg_dreapta.iter())
+                .flatten()
+                .filter(|s| s.schimbat.is_some())
+                .count();
+            assert!(aprinse > 0, "{a:?} / {b:?}: nimic aprins");
+        }
     }
 
     #[test]

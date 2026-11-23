@@ -382,20 +382,15 @@ pub fn citeste(c: &Conectare, mut progres: impl FnMut(Pas) -> bool) -> Result<Ci
 }
 
 /// Citeste si compara. Vezi [`citeste`] pentru partea de citire.
-pub fn compara_cu(c: &Conectare, progres: impl FnMut(Pas) -> bool) -> Result<Comparata, String> {
-    compara_cu_anulare(c, progres, || true)
-}
-
-/// Ca [`compara_cu`], dar si compararea propriu-zisa (nu doar citirea) se
-/// opreste cand `continua()` spune `false`, cel mult dupa un obiect (P8).
-/// Oprita, intoarce [`ANULAT`].
-pub fn compara_cu_anulare(
+pub fn compara_cu(
     c: &Conectare,
     progres: impl FnMut(Pas) -> bool,
-    continua: impl Fn() -> bool,
+    continua: impl FnMut() -> bool,
 ) -> Result<Comparata, String> {
     let x = citeste(c, progres)?;
-    let comparare = modul::compara_cu_oprire(&x.referinta, &x.sursa, &x.tinte, |_| {}, &continua)
+    // „Anuleaza" opreste si compararea, nu doar citirea: altfel firul ardea
+    // CPU pana la capat (P8)
+    let comparare = modul::compara_cu_oprire(&x.referinta, &x.sursa, &x.tinte, |_| {}, continua)
         .ok_or_else(|| ANULAT.to_string())?;
     Ok(Comparata {
         randuri: comparare.randuri,
@@ -425,7 +420,7 @@ pub const ANULAT: &str = "comparare anulata";
 
 /// Compararea fara progres si fara anulare.
 pub fn compara(c: &Conectare) -> Result<Comparata, String> {
-    compara_cu(c, |_| true)
+    compara_cu(c, |_| true, || true)
 }
 
 #[cfg(test)]
@@ -562,10 +557,14 @@ mod teste {
         c.baza.comuta_baza("C2");
 
         let pasi = std::cell::RefCell::new(Vec::new());
-        let r = compara_cu(&c, |p| {
-            pasi.borrow_mut().push(p.baza.clone());
-            true
-        })
+        let r = compara_cu(
+            &c,
+            |p| {
+                pasi.borrow_mut().push(p.baza.clone());
+                true
+            },
+            || true,
+        )
         .expect("compararea merge");
         assert_eq!(
             *pasi.borrow(),
@@ -580,18 +579,27 @@ mod teste {
 
         // „Anuleaza" opreste fara sa citeasca restul
         let citite = std::cell::Cell::new(0);
-        let e = compara_cu(&c, |_| {
-            citite.set(citite.get() + 1);
-            citite.get() < 2
-        })
+        let e = compara_cu(
+            &c,
+            |_| {
+                citite.set(citite.get() + 1);
+                citite.get() < 2
+            },
+            || true,
+        )
         .map(|_| ())
         .expect_err("anulata");
         assert_eq!(e, ANULAT);
         assert_eq!(citite.get(), 2, "s-a oprit la a doua intrebare");
+        // P8: si dupa citire, compararea insasi se opreste
+        let e = compara_cu(&c, |_| true, || false)
+            .map(|_| ())
+            .expect_err("anulata in comparare");
+        assert_eq!(e, ANULAT);
 
         // si dupa citire, in mijlocul compararii (P8)
         let intrebari = std::cell::Cell::new(0);
-        let e = compara_cu_anulare(
+        let e = compara_cu(
             &c,
             |_| true,
             || {

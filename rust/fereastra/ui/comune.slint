@@ -43,6 +43,9 @@ export global Texte {
     in-out property <string> ascunde-diferentele;
     in-out property <string> modificata;
     in-out property <string> baza-neatinsa;
+    in-out property <string> baza-atinsa;
+    in-out property <string> verificare-esuata;
+    in-out property <string> compara-din-nou-intai;
     in-out property <string> baze;
     in-out property <string> baza-de-date;
     in-out property <string> cate;
@@ -127,6 +130,9 @@ export global Texte {
     in-out property <string> sus-jos;
     in-out property <string> te-deconectezi;
     in-out property <string> tema;
+    in-out property <string> server-implicit;
+    in-out property <string> server-cluster;
+    in-out property <string> exemplu-server;
     in-out property <string> testeaza-conexiunea;
     in-out property <string> aceeasi-conexiune;
     in-out property <string> aceeasi-conexiune-ca;
@@ -396,22 +402,27 @@ export component Buton inherits Rectangle {
 // Butonul principal: chihlimbar (`accent`), scris cu `pe-accent`.
 export component ButonPrincipal inherits Rectangle {
     in property <string> text;
+    // `false`: cenusiu si fara clic („Deploy (0)" parea apasabil, V15)
+    in property <bool> activ: true;
     callback apasat();
     height: 32px;
     border-radius: 8px;
-    background: Tema.accent;
-    opacity: zona.has-hover ? 0.88 : 1;
+    background: root.activ ? Tema.accent : Tema.strat;
+    opacity: root.activ && zona.has-hover ? 0.88 : 1;
     min-width: eticheta.preferred-width + 28px;
     eticheta := Text {
         text: root.text;
         font-family: Tema.font-ui;
         font-size: 13px;
         font-weight: 600;
-        color: Tema.pe-accent;
+        color: root.activ ? Tema.pe-accent : Tema.text-tert;
         vertical-alignment: center;
         horizontal-alignment: center;
     }
-    zona := TouchArea { clicked => { root.apasat(); } }
+    zona := TouchArea {
+        enabled: root.activ;
+        clicked => { root.apasat(); }
+    }
 }
 
 // Tab cu sublinierea de 2 px (Alaturat / Unificat).
@@ -504,7 +515,7 @@ export component Semn inherits HorizontalLayout {
             background: Tema.accent;
         }
     }
-    Text { text: "motion"; font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.4px; }
+    Text { text: "motion"; /* text-permis: marca */ font-family: Tema.font-ui; font-size: root.marime; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.4px; }
 }
 
 // Butonul dedicat temei: o iconita (luna / soare); la clic arata cele doua
@@ -545,9 +556,9 @@ export component ButonTema inherits Rectangle {
                 HorizontalLayout {
                     padding-left: 8px;
                     height: 26px;
-                    Text { text: "Tema"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                    Text { text: Texte.tema; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
                 }
-                for o in [{ t: "Intunecat", intunecat: true }, { t: "Luminos", intunecat: false }]: Rectangle {
+                for o in [{ t: Texte.intunecat, intunecat: true }, { t: Texte.luminos, intunecat: false }]: Rectangle {
                     height: 32px;
                     border-radius: 7px;
                     background: z.has-hover ? Tema.strat : transparent;

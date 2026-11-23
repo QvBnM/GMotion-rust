@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 673a1943c3dd5c0e -->
+<!-- api-hash: bfd4a8a025ea6aa6 -->
 
 ## Rol
 
@@ -32,11 +32,12 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::comanda(Comanda) -> bool` | executa o comanda; `true` = revizuirea sau textul final s-au schimbat (de salvat) |
 | `Aplicatie::cu_editari`, `editari`, `editari_de_salvat`, `texte_finale`, `texte_curente`, `stare_text_final`, `se_poate_anula`, `diferenta_curenta`, `ghidat` | editarea in editor: textul final (Aplica, Aplica toate, Reset, Ctrl+Z, scris de mana), modul ghidat (`Ghidat`), salvate in sesiune |
 | `Comanda` | tot ce poate cere utilizatorul din oricare ecran; `SalveazaText { id, text }` duce si cheia obiectului si se refuza daca nu e cel deschis (F-A1) |
-| `Aplicatie::previzualizare(k) -> Option<Vec<LiniePrevizualizare>>` | previzualizarea la hover a diferentei `k`: ce ar scrie „Aplica" (aceeasi `gmotion_core::aplica_blocuri`), fara sa schimbe nimic (etapa 21) |
+| `Aplicatie::previzualizare(k) -> Option<Vec<LiniePrevizualizare>>` | previzualizarea la hover a diferentei `k`: ce ar scrie „Aplica" (aceeasi `gmotion_core::aplica_blocuri`), fara sa schimbe nimic (etapa 21); tinuta minte pe model, deci a doua trecere peste aceeasi sageata nu mai realiniaza obiectul (C5) |
+| `Aplicatie::calcule_previzualizare()` | de cate ori s-a calculat o previzualizare: proba ca hover-ul repetat vine din cache |
 | `Aplicatie::id_obiect()` | cheia obiectului deschis, `baza/schema.nume`: pleaca spre fereastra si se intoarce cu textul scris de mana |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul; `model_editor` da un `Ref` la modelul tinut minte pe `(obiect, amprenta textului final, unirea cursorului)`, nu-l reface la fiecare desenare (P1) |
-| `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface |
+| `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface; fereastra il da ca `AntetEditor::generatie` |
 | `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `dependente_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul, „Folosit de" (in Modificata) si „Foloseste" (in Martor; la Extra, in Modificata), si nota (`PuneNota`). Dependentele se calculeaza **o data, la construire**, pe fiecare baza: lista le arata pe fiecare rand (etapa 22) |
 | comanda `Plaseaza { bloc, loc }` | un bloc tras si lasat in editor: pe locul sugerat (`loc` `None`, ca „Aplica" dar doar blocul tras) sau unde l-a lasat omul; cu Ctrl+Z (etapa 23) |
 | comenzile `FiltreazaImpact`, `SelecteazaDependenta(schema.nume)` | filtrul pe impact; clic pe un nume din panou il selecteaza in lista (goleste filtrele daca il ascund; daca nu e in lista, selectia ramane) |
@@ -45,11 +46,15 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `StareColoana` (`in_sesiune`, `din_sesiune`) | latimea, pinul, partea si banda coloanei din editor, in sesiune (etapa 16) |
 | `Aplicatie::{taburi, mesaj_tab, cu_taburi, are_text_final}`, `MesajTab`, `taburi_in_sesiune`, `taburi_din_sesiune`; comenzile `FixeazaSelectia`, `FixeazaPrevizualizarea`, `ActiveazaTab`, `InchideTab`, `InchideTabActiv` | taburile editorului (etapa 16): obiectul din tabul activ e mereu selectia listei; `j` / `k` sar peste fixate |
 | `Aplicatie::arbore()`; comenzile `ComutaNod`, `CautaInArbore` | arborele din coloana editorului (etapa 19); selectia isi deschide singura dosarul; `j` / `k` din editor merg in ordinea lui |
-| `Aplicatie::{lucrari_detalii, pune_detalii, detalii_sosite}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
+| `Aplicatie::{lucrari_detalii, pune_detalii, pune_detalii_multe}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
+| `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea, selectia si „In plan” celei vechi |
+| `Aplicatie::decizii_cazute(plan)`, `StareDeploy::decizii_cazute` | omiterile si textele finale ale obiectelor din plan care nu mai sunt valabile; garda le arata ca schimbari si nu lasa scrierea (N4, N5) |
+| `deploy::Deschis::director`, `deploy::ecran(..., limba)` | directorul de deploy se alege o data, la deschiderea planului: ecranul arata exact unde se scrie; textele ecranului in limba interfetei |
+| `Aplicatie::preia_starea(revizuire, editari)` | starea unita la salvare cu ce a scris cli in sesiune (`Revizuire::uneste`); lista se actualizeaza |
+| `Aplicatie::cu_ecranul(e)` | la recomparare, ramai pe ecranul de dinainte daca mai are ce arata (editorul cu model, deploy-ul cu ceva in plan); altfel lista (C7) |
 | `Aplicatie::probleme_text_final()` | ce nu se inchide in textul final al obiectului curent (gol fara text final); editorul il arata (etapa 26) |
 | `stare::Stare::{verifica_pe_server, text_verificare}`, `CheieVerificare` | „Verifica pe server" din editor (etapa 26): textul final in forma de deploy, la baza modificata, pe alt fir; raspunsul se arata doar pentru obiectul si codul trimise |
 | `stare::Stare` | starea binarului `gmotion-ui`, fara Slint (etapa 24): formularul de conectare (`server_schimbat`, `cere_bazele`, `testeaza`, `cauta_servere`, `alege_instantaneul`, `reia`, `ignora_recenta`...), compararea pe fir (`compara`, `anuleaza`, `verifica_compararea -> Progres`, `primeste_compararea`, `compara_offline`, `porneste_previzualizarea`), celelalte fire (`verifica_lucrarile`), sesiunea (`salveaza`, `deconecteaza`; una necitibila se pune deoparte si se spune, F-A15), mesajele (`conectare.eroare_comparare` langa Compara, F-A12; `mesaj_lista` / `text_bara_lista` pe lista, F-A8; `progres_recomparare` pentru bara listei cat ruleaza Recompara, etapa 25), deploy-ul (`porneste_garda`, `scrie_deploy`, `folder_deploy` ales cu dialogul nativ, `director_deploy_curent`, `director_scris`), exportul (`exporta_csv`), textele (`text_pozitie`, `text_salvat`, `text_refuz_in_plan`); plus `recente`, `porneste_detalii`, `director_deploy`, `director_deploy_in(ales, referinta)`, `deschide_in_explorer`, `cale_csv`, `cale_previzualizare`, `citeste_configurarea`, `salveaza_in_configurare`. In `main.rs` raman doar legaturile Slint si desenul |
-| `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea si selectia celei vechi |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |
@@ -65,7 +70,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `pornire::instantanee_gasite()` | fisierele .json de ales in „Deschide un instantaneu", fara dialog nativ |
 | `pornire::compara_offline(sursa, tinta, limba)` | compararea a doua bucati de cod lipite, fara server |
 | `pornire::citeste(c, progres) -> Citit`, `reciteste(c)` | doar citirea obiectelor, fara comparare: atat ii trebuie garzii de deploy (P4) |
-| `pornire::compara(c) -> Comparata`, `compara_cu(c, progres)`, `compara_cu_anulare(c, progres, continua)`, `Pas`, `ANULAT` | citeste referinta si fiecare baza bifata si compara; `compara_cu` da progresul si se poate anula la citire, `compara_cu_anulare` si in timpul compararii (P8). `Comparata::referinta` e baza **cu care a rulat**, nu ce scrie in formular la final (F-A3) |
+| `pornire::compara(c) -> Comparata`, `compara_cu(c, progres, continua)`, `Pas`, `ANULAT` | citeste referinta si fiecare baza bifata si compara; `compara_cu` da progresul si se poate anula si in timpul citirii (`progres` intoarce `false`), si in timpul compararii (`continua`, P8). `Comparata::referinta` e baza **cu care a rulat**, nu ce scrie in formular la final (F-A3) |
 
 ## Invariante
 

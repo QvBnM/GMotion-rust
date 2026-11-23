@@ -144,6 +144,9 @@ pub enum MesajTab {
     Capat,
     /// Al noualea tab, cu toate cele 8 avand text final editat: refuzat.
     ToateEditate,
+    /// Clic in coloana pe un obiect care exista doar intr-o parte (sau e
+    /// criptat): n-are ce arata in editor, deci ramane obiectul de acum.
+    FaraEditor,
 }
 
 /// Coloana listei din editor (etapa 16): latimea trasa, pinul, partea si
@@ -249,6 +252,9 @@ impl PanouDetalii {
     }
 }
 
+/// Previzualizarile calculate pentru un model, pe indexul diferentei.
+type Previzualizari = std::collections::HashMap<usize, Vec<LiniePrevizualizare>>;
+
 /// Cheia modelului tinut minte in `Aplicatie::model`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct CheieModel {
@@ -276,6 +282,9 @@ pub struct Aplicatie {
     /// Pentru Ctrl+Z: obiectul si textul lui final de dinainte de fiecare
     /// schimbare. Nu se salveaza: anularea tine cat sesiunea de lucru.
     istoric: Vec<(Rand, Option<TextFinal>)>,
+    /// Lungimea istoricului dupa un „Aplica toate" care a pus bifa
+    /// „Revizuit": Ctrl+Z pe el scoate si bifa (auditul 2026-11-23).
+    bifa_de_anulat: Option<usize>,
     /// Diferenta curenta din editor; ramane pe loc dupa „Aplica", cand
     /// diferenta aplicata dispare si urmatoarea ii ia locul.
     diferenta: usize,
@@ -296,6 +305,13 @@ pub struct Aplicatie {
     /// De cate ori s-a construit modelul. Numai asa se poate proba ca
     /// desenarea nu-l reface (P1); altfel testul ar masura timpi.
     refaceri_model: std::cell::Cell<u64>,
+    /// Previzualizarile la hover, pe diferenta, pentru modelul de acum. O
+    /// previzualizare realiniaza tot obiectul (~80% din deschidere), iar
+    /// mouse-ul trece de mai multe ori peste aceeasi sageata (C5 din
+    /// `cercetare/audit-qa-2026-11-22.md`).
+    previzualizari: std::cell::RefCell<Option<(CheieModel, Previzualizari)>>,
+    /// De cate ori s-a calculat o previzualizare (pentru test, ca la model).
+    calcule_previzualizare: std::cell::Cell<u64>,
     /// A cata comparare e asta. Dat de un numarator, la construire: ce s-a
     /// calculat pe o comparare (planul de deploy, garda lui) nu se poate
     /// refolosi dupa o recomparare, si uitarea era bug-ul C2 din auditul QA.
@@ -450,6 +466,7 @@ impl Aplicatie {
             tinte,
             editari: Editari::noi(),
             istoric: Vec::new(),
+            bifa_de_anulat: None,
             diferenta: 0,
             ghidat: None,
             dependente,
@@ -457,6 +474,8 @@ impl Aplicatie {
             uneste_cursorul: false,
             model: std::cell::RefCell::default(),
             refaceri_model: std::cell::Cell::new(0),
+            previzualizari: std::cell::RefCell::default(),
+            calcule_previzualizare: std::cell::Cell::new(0),
             id_comparare: urmatorul_id_comparare(),
             refuzat_in_plan: false,
             arbore: Arbore::default(),
@@ -558,6 +577,38 @@ impl Aplicatie {
 
     /// Textele finale salvate (din sesiune). Cele care nu mai corespund
     /// obiectelor de acum se ignora singure (sunt legate de amprenta).
+    /// Starea unita cu ce e pe disc (vezi `Revizuire::uneste`): revizuirea,
+    /// textele finale si ce arata lista despre fiecare obiect.
+    pub fn preia_starea(&mut self, revizuire: Revizuire, editari: Editari) {
+        self.revizuire = revizuire;
+        self.editari = editari;
+        let stari: Vec<((String, String), bool, bool, Deploy)> = self
+            .randuri
+            .iter()
+            .map(|r| {
+                let (schema, nume) = r.obiect.split_once('.').unwrap_or(("dbo", &r.obiect));
+                let cheie = (r.baza.clone(), format!("{schema}.{nume}"));
+                let deploy = if self.revizuire.e_deployat(r) {
+                    Deploy::Deployat
+                } else if self.revizuire.a_fost_deployat(r) {
+                    Deploy::VersiuneNoua
+                } else {
+                    Deploy::Nu
+                };
+                (
+                    cheie,
+                    self.revizuire.e_revizuit(r),
+                    self.revizuire.e_omis(r),
+                    deploy,
+                )
+            })
+            .collect();
+        for (cheie, rev, omis, dep) in stari {
+            self.lista.pune_stare_cheie(&cheie, rev, omis, dep);
+        }
+        self.model.replace(None);
+    }
+
     pub fn cu_editari(mut self, editari: Editari) -> Self {
         self.editari = editari;
         self
@@ -804,6 +855,11 @@ impl Aplicatie {
         self.lista.detalii_sosite();
     }
 
+    /// Un lot de detalii de pe fir, dintr-o data (F-A6).
+    pub fn pune_detalii_multe(&mut self, lot: Vec<((String, String), Detalii)>) {
+        self.lista.pune_detalii_multe(lot);
+    }
+
     /// Calculeaza detaliile („Difera in", `+N −M`) pentru randurile de pe
     /// ecran, daca lipsesc. Restul listei ramane necalculat.
     pub fn asigura_detalii(&mut self, de_la: usize, pana_la: usize) {
@@ -844,7 +900,18 @@ impl Aplicatie {
             return false;
         }
         let inainte = self.lista.selectat();
+        let obiect_inainte = self.cheia_curenta();
         let rez = self.executa(c);
+        // orice comanda care schimba obiectul curent (clic in coloana, tab, j/k,
+        // lista) goleste istoricul Ctrl+Z si modul ghidat: altfel Ctrl+Z anula
+        // pe obiectul de dinainte, nevazut (N6 din auditul 2026-11-23). Intr-un
+        // singur loc, nu pe fiecare drum: un drum uitat era exact bug-ul.
+        if self.cheia_curenta() != obiect_inainte {
+            self.istoric.clear();
+            self.bifa_de_anulat = None;
+            self.ghidat = None;
+            self.diferenta = 0;
+        }
         // obiectul selectat (j / k, tab, alt ecran) nu sta intr-un dosar inchis
         if let Some(p) = self.lista.selectat().filter(|p| Some(*p) != inainte) {
             self.arbore.deschide_calea(&self.lista, p);
@@ -863,11 +930,22 @@ impl Aplicatie {
         match c {
             Comanda::MutaSelectia(pas) => self.lista.muta_selectia(pas),
             Comanda::Selecteaza(p) => {
+                let inainte = self.lista.selectat();
                 self.lista.selecteaza(p);
                 // in editor, clicul in coloana listei incarca obiectul in
                 // previzualizare (sau ii activeaza tabul, daca e fixat)
                 if self.ecran == Ecran::Editor {
                     if let Some(c) = self.cheia_curenta() {
+                        // un obiect fara model n-are ce arata: selectia ar
+                        // ramane pe el, iar ecranul pe cel vechi, deci bifa si
+                        // „In plan" ar lovi un obiect nevazut (B4)
+                        if self.texte(&c.0, &c.1).is_none() {
+                            if let Some(i) = inainte {
+                                self.lista.selecteaza(i);
+                            }
+                            self.mesaj_tab = Some(MesajTab::FaraEditor);
+                            return false;
+                        }
                         self.taburi.deschide(c);
                         self.dupa_schimbarea_tabului();
                     }
@@ -1026,6 +1104,8 @@ impl Aplicatie {
                 // revizuit (F-A18); o bifa pusa deja ramane
                 if schimbat && !self.obiect().is_some_and(|o| o.revizuit) {
                     self.comuta_revizuit();
+                    // bifa pusa de „Aplica toate" pleaca odata cu el la Ctrl+Z
+                    self.bifa_de_anulat = Some(self.istoric.len());
                 }
                 return schimbat;
             }
@@ -1036,12 +1116,24 @@ impl Aplicatie {
             }
             Comanda::SalveazaText { id, text } => {
                 if self.id_obiect() != Some(id.clone()) {
-                    tracing::warn!(
-                        target: "gmotion::app",
-                        trimis = %id, curent = ?self.id_obiect(),
-                        "text scris de mana pentru alt obiect: refuzat"
-                    );
-                    return false;
+                    // textul unui obiect parasit in timpul editarii: se pune pe
+                    // obiectul **lui** (cheia vine cu textul, deci nu poate
+                    // ajunge pe altul, F-A1), fara istoric Ctrl+Z
+                    let tinta = self
+                        .lista
+                        .obiecte()
+                        .iter()
+                        .find(|o| format!("{}/{}.{}", o.baza, o.schema, o.nume) == id);
+                    let Some((baza, obiect)) = tinta.map(|o| o.cheie()) else {
+                        tracing::warn!(target: "gmotion::app", trimis = %id, "text pentru un obiect necunoscut: refuzat");
+                        return false;
+                    };
+                    let Some(r) = self.rand(&baza, &obiect).cloned() else {
+                        return false;
+                    };
+                    let text = gmotion_core::pregateste_afisare(&text);
+                    self.editari.pune(&r, text, true);
+                    return true;
                 }
                 let text = gmotion_core::pregateste_afisare(&text);
                 return self.schimba_textul(move |e, r, _, _| e.pune(r, text, true));
@@ -1049,6 +1141,12 @@ impl Aplicatie {
             Comanda::Anuleaza => {
                 if let Some((r, inainte)) = self.istoric.pop() {
                     self.editari.restaureaza(&r, inainte);
+                    if self.bifa_de_anulat == Some(self.istoric.len() + 1) {
+                        self.bifa_de_anulat = None;
+                        if self.obiect().is_some_and(|o| o.revizuit) {
+                            self.comuta_revizuit();
+                        }
+                    }
                     return true;
                 }
             }
@@ -1171,10 +1269,33 @@ impl Aplicatie {
     /// `aplica_blocuri` ca [`Comanda::AplicaDiferenta`], deci arata exact ce
     /// s-ar scrie.
     pub fn previzualizare(&self, k: usize) -> Option<Vec<LiniePrevizualizare>> {
+        let cheie = self.cheie_model()?;
+        if let Some((c, m)) = self.previzualizari.borrow().as_ref() {
+            if *c == cheie {
+                if let Some(v) = m.get(&k) {
+                    return Some(v.clone());
+                }
+            }
+        }
         let grup = self.model_editor()?.grupuri.get(k).cloned()?;
         let (sursa, curent) = self.texte_curente()?;
         let rezultat = gmotion_core::aplica_blocuri(&sursa, &curent, self.uneste_cursorul, &grup);
-        Some(previzualizare(&curent, &rezultat, 2, 12))
+        let v = previzualizare(&curent, &rezultat, 2, 12);
+        self.calcule_previzualizare
+            .set(self.calcule_previzualizare.get() + 1);
+        let mut c = self.previzualizari.borrow_mut();
+        if c.as_ref().map(|(x, _)| x) != Some(&cheie) {
+            *c = Some((cheie, Default::default()));
+        }
+        if let Some((_, m)) = c.as_mut() {
+            m.insert(k, v.clone());
+        }
+        Some(v)
+    }
+
+    /// De cate ori s-a calculat o previzualizare de la pornire (C5).
+    pub fn calcule_previzualizare(&self) -> u64 {
+        self.calcule_previzualizare.get()
     }
 
     /// Aplica diferenta `k` (indexul din editor) a obiectului curent: tot
@@ -1272,6 +1393,28 @@ impl Aplicatie {
     /// Planul de deploy din ce s-a pus „in plan", cu amprentele compararii.
     /// `referinta` e numele bazei sursa; `facut_la`, momentul. Bazele tinta
     /// sunt cele comparate: planul le acopera pe toate deodata.
+    /// Deciziile salvate pentru obiectele din `plan` care nu mai sunt
+    /// valabile: omiteri ale unor obiecte schimbate, texte finale facute pe alta
+    /// versiune. Deploy-ul le arata si nu scrie pana nu sunt revizuite (N4, N5
+    /// din auditul 2026-11-23).
+    pub fn decizii_cazute(&self, plan: &modul::Plan) -> Vec<String> {
+        let in_plan = |b: &str, o: &str| plan.pasi.iter().any(|p| p.baza == b && p.obiect == o);
+        let mut v: Vec<String> = Vec::new();
+        for (b, o) in self.revizuire.omise_cazute(&self.randuri) {
+            if in_plan(&b, &o) {
+                v.push(format!("{b}: {o} a fost omis, apoi s-a schimbat"));
+            }
+        }
+        for (b, o) in self.editari.cazute(&self.randuri) {
+            if in_plan(&b, &o) {
+                v.push(format!(
+                    "{b}: textul final al lui {o} e facut pe alta versiune (Reset sau refa-l)"
+                ));
+            }
+        }
+        v
+    }
+
     pub fn plan(&self, referinta: &str, facut_la: &str) -> modul::Plan {
         let alese = self.lista.in_plan();
         let comparare = modul::Comparare {
@@ -1363,6 +1506,23 @@ impl Aplicatie {
     /// Filtrul, ordinea si selectia listei de dinainte (recomparare).
     pub fn cu_vederea(mut self, vechi: &Lista) -> Self {
         self.lista.preia_vederea(vechi);
+        self
+    }
+
+    /// Ecranul de dinainte de o recomparare, daca are inca ce arata: editorul
+    /// doar daca obiectul selectat are model, deploy-ul doar cu ceva in plan.
+    /// Altfel lista. Recompara te muta in lista din orice ecran (C7).
+    pub fn cu_ecranul(mut self, ecran: Ecran) -> Self {
+        self.ecran = match ecran {
+            Ecran::Editor if self.model_editor().is_some() => {
+                if let Some(c) = self.cheia_curenta() {
+                    self.taburi.deschide(c);
+                }
+                Ecran::Editor
+            }
+            Ecran::Deploy if !self.lista.in_plan().is_empty() => Ecran::Deploy,
+            _ => Ecran::Lista,
+        };
         self
     }
 
@@ -2733,6 +2893,184 @@ mod teste {
         );
         criptate.comanda(Comanda::Deschide);
         assert_eq!(criptate.ecran(), Ecran::Lista, "deci ramane in lista");
+    }
+
+    /// C5: a doua trecere a mouse-ului peste aceeasi sageata nu mai
+    /// realiniaza obiectul; dupa o schimbare a textului, da.
+    #[test]
+    fn previzualizarea_se_tine_minte_pana_se_schimba_textul() {
+        let (mut a, _, _) = aplicatie_editare();
+        let n0 = a.calcule_previzualizare();
+        let p1 = a.previzualizare(0).expect("o diferenta");
+        assert_eq!(a.calcule_previzualizare(), n0 + 1);
+        assert_eq!(a.previzualizare(0), Some(p1));
+        assert_eq!(a.calcule_previzualizare(), n0 + 1, "din cache");
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(0))));
+        let _ = a.previzualizare(0);
+        assert_eq!(a.calcule_previzualizare(), n0 + 2, "textul s-a schimbat");
+    }
+
+    /// B4 din `cercetare/audit-qa-2026-11-22.md`, dupa F-A9: in editor,
+    /// clicul in coloana pe un obiect care exista **doar intr-o parte** il
+    /// deschide (tot codul verde), deci selectia si bifa merg pe el — ecranul
+    /// chiar il arata. Garda B4 ramane in `executa` pentru obiectele care
+    /// n-au niciun text (criptate): acolo selectia nu se muta.
+    #[test]
+    fn in_editor_un_obiect_dintr_o_singura_parte_se_deschide() {
+        let mut a = aplicatie();
+        let poz = |a: &Aplicatie, nume: &str| {
+            (0..a.lista().vizibile().len()).find(|&p| a.lista().obiect(p).unwrap().nume == nume)
+        };
+        let p_a = poz(&a, "pA").expect("pA in lista");
+        a.comanda(Comanda::Selecteaza(p_a));
+        a.comanda(Comanda::Deschide);
+        assert_eq!(a.ecran(), Ecran::Editor);
+        let doar = poz(&a, "pDoarSursa").expect("pDoarSursa in lista");
+        a.comanda(Comanda::Selecteaza(doar));
+        assert_eq!(
+            a.obiect().unwrap().nume,
+            "pDoarSursa",
+            "obiectul dintr-o singura parte se deschide (F-A9)"
+        );
+        assert_eq!(a.mesaj_tab(), None, "nu e un refuz");
+        a.comanda(Comanda::ComutaRevizuit);
+        assert!(
+            a.obiect().unwrap().revizuit,
+            "bifa e pe obiectul chiar aratat"
+        );
+    }
+
+    /// Textul tastat pe un obiect parasit se salveaza pe obiectul lui, nu pe
+    /// cel curent (F-A1 ramane: cheia vine cu textul).
+    #[test]
+    fn textul_unui_obiect_parasit_se_salveaza_pe_el() {
+        let mut a = aplicatie();
+        let poz = |a: &Aplicatie, n: &str| {
+            (0..a.lista().vizibile().len())
+                .find(|&p| a.lista().obiect(p).unwrap().nume == n)
+                .unwrap()
+        };
+        let p_a = poz(&a, "pA");
+        a.comanda(Comanda::Selecteaza(p_a));
+        let id_a = a.id_obiect().unwrap();
+        let p_b = poz(&a, "pB");
+        a.comanda(Comanda::Selecteaza(p_b));
+        assert!(a.comanda(Comanda::SalveazaText {
+            id: id_a,
+            text: "CREATE PROC dbo.pA AS\nSELECT 'tastat'".into(),
+        }));
+        let t = a.texte_finale();
+        assert!(
+            t.iter()
+                .any(|((_, o), x)| o == "dbo.pA" && x.contains("tastat")),
+            "{t:?}"
+        );
+        assert!(!t.keys().any(|(_, o)| o == "dbo.pB"));
+        // un id necunoscut e refuzat
+        assert!(!a.comanda(Comanda::SalveazaText {
+            id: "X/dbo.nu".into(),
+            text: "x".into()
+        }));
+    }
+
+    /// Starea unita cu ce a scris cli: lista arata omiterea venita de pe disc.
+    #[test]
+    fn starea_preluata_se_vede_in_lista() {
+        let mut a = aplicatie();
+        let r = a
+            .randuri
+            .iter()
+            .find(|r| r.obiect == "dbo.pB")
+            .unwrap()
+            .clone();
+        let mut rev = a.revizuire().clone();
+        rev.omite(&r);
+        a.preia_starea(rev, Editari::noi());
+        let o = a.lista().obiecte().iter().find(|o| o.nume == "pB").unwrap();
+        assert!(o.omis && !o.revizuit);
+    }
+
+    #[test]
+    fn ctrl_z_dupa_aplica_toate_scoate_si_bifa() {
+        let (mut a, _, _) = aplicatie_editare();
+        assert!(a.comanda(Comanda::AplicaToate));
+        assert!(a.obiect().unwrap().revizuit);
+        a.comanda(Comanda::Anuleaza);
+        assert!(!a.obiect().unwrap().revizuit, "bifa pusa de Aplica toate");
+    }
+
+    /// N6: dupa un clic in coloana editorului pe alt obiect, Ctrl+Z nu mai
+    /// anuleaza nimic pe obiectul de dinainte.
+    #[test]
+    fn ctrl_z_dupa_clic_in_coloana_nu_atinge_obiectul_vechi() {
+        let mut a = aplicatie();
+        let poz = |a: &Aplicatie, n: &str| {
+            (0..a.lista().vizibile().len())
+                .find(|&p| a.lista().obiect(p).unwrap().nume == n)
+                .unwrap()
+        };
+        let p_a = poz(&a, "pA");
+        a.comanda(Comanda::Selecteaza(p_a));
+        a.comanda(Comanda::Deschide);
+        assert!(a.comanda(Comanda::AplicaDiferenta(Some(0))));
+        assert!(a.se_poate_anula());
+        let p_b = poz(&a, "pB");
+        a.comanda(Comanda::Selecteaza(p_b));
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        assert!(!a.se_poate_anula(), "istoricul era al lui pA");
+        let texte_inainte = a.texte_finale();
+        a.comanda(Comanda::Anuleaza);
+        assert_eq!(a.texte_finale(), texte_inainte, "textul lui pA a ramas");
+    }
+
+    /// N5: un text final facut pe alta versiune a obiectului din plan apare in
+    /// deciziile cazute, iar garda deploy-ului nu lasa scrierea.
+    #[test]
+    fn textul_final_cazut_blocheaza_deploy_ul_din_fereastra() {
+        let mut a = aplicatie();
+        let p = (0..a.lista().vizibile().len())
+            .find(|&p| a.lista().obiect(p).unwrap().nume == "pA")
+            .unwrap();
+        a.comanda(Comanda::Selecteaza(p));
+        a.comanda(Comanda::ComutaInPlan);
+        let mut vechi = a
+            .randuri
+            .iter()
+            .find(|r| r.obiect == "dbo.pA")
+            .unwrap()
+            .clone();
+        vechi.hash_curent = Some("versiunea-de-ieri".into());
+        let mut e = Editari::noi();
+        e.pune(&vechi, "CREATE PROC dbo.pA AS\nSELECT 7".into(), true);
+        let a = a.cu_editari(e);
+        let plan = a.plan("Referinta", "acum");
+        let c = a.decizii_cazute(&plan);
+        assert_eq!(c.len(), 1, "{c:?}");
+        let mut st = crate::deploy::StareDeploy::nou(plan);
+        st.decizii_cazute = c;
+        st.aplica_verificarea(a.sursa.clone(), a.tinte.clone(), "acum");
+        assert!(!st.poate_scrie());
+    }
+
+    /// C7: o recomparare pastreaza „In plan" si ecranul (daca mai are ce
+    /// arata).
+    #[test]
+    fn recompararea_pastreaza_planul_si_ecranul() {
+        let mut a = aplicatie();
+        let p = (0..a.lista().vizibile().len())
+            .find(|&p| a.lista().obiect(p).unwrap().nume == "pA")
+            .unwrap();
+        a.comanda(Comanda::Selecteaza(p));
+        a.comanda(Comanda::ComutaInPlan);
+        a.comanda(Comanda::Deschide);
+        assert_eq!(a.ecran(), Ecran::Editor);
+        let noua = aplicatie().cu_vederea(a.lista()).cu_ecranul(a.ecran());
+        assert_eq!(noua.ecran(), Ecran::Editor);
+        assert_eq!(noua.obiect().unwrap().nume, "pA");
+        assert_eq!(noua.lista().in_plan().len(), 1, "planul ramane");
+        // fara selectie cu model, inapoi in lista
+        let goala = aplicatie_criptat().cu_ecranul(Ecran::Editor);
+        assert_eq!(goala.ecran(), Ecran::Lista);
     }
 
     /// O comparare cu un obiect criptat (definitie goala intr-o parte).

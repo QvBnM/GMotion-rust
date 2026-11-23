@@ -38,6 +38,40 @@ impl Amprenta {
     }
 }
 
+/// Unirea in trei cai a unei harti `baza -> obiect -> valoare` (vezi
+/// [`Revizuire::uneste`]): pe fiecare cheie, `ai_mei` daca s-a schimbat fata de
+/// `baza` (inclusiv stergerea), altfel `ai_lor`.
+pub fn uneste_harta<V: PartialEq + Clone>(
+    baza: &BTreeMap<String, BTreeMap<String, V>>,
+    ai_mei: &BTreeMap<String, BTreeMap<String, V>>,
+    ai_lor: &BTreeMap<String, BTreeMap<String, V>>,
+) -> BTreeMap<String, BTreeMap<String, V>> {
+    let ia = |h: &BTreeMap<String, BTreeMap<String, V>>, b: &str, o: &str| {
+        h.get(b).and_then(|x| x.get(o)).cloned()
+    };
+    let mut chei: std::collections::BTreeSet<(String, String)> = std::collections::BTreeSet::new();
+    for h in [baza, ai_mei, ai_lor] {
+        for (b, x) in h {
+            for o in x.keys() {
+                chei.insert((b.clone(), o.clone()));
+            }
+        }
+    }
+    let mut out: BTreeMap<String, BTreeMap<String, V>> = BTreeMap::new();
+    for (b, o) in chei {
+        let mei = ia(ai_mei, &b, &o);
+        let v = if mei != ia(baza, &b, &o) {
+            mei
+        } else {
+            ia(ai_lor, &b, &o)
+        };
+        if let Some(v) = v {
+            out.entry(b).or_default().insert(o, v);
+        }
+    }
+    out
+}
+
 /// Obiectele revizuite, pe baza comparata.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Revizuire {
@@ -64,6 +98,31 @@ pub struct Revizuire {
 impl Revizuire {
     pub fn noua() -> Self {
         Self::default()
+    }
+
+    /// Unirea in trei cai a doua stari salvate din acelasi punct: `baza` e
+    /// starea de la ultima citire, `ai_mei` ce am acum in memorie, `ai_lor` ce
+    /// e acum pe disc (scris intre timp de `gmotion` din linia de comanda). Pe
+    /// fiecare obiect: ce am schimbat eu castiga, restul vine de pe disc. Fara
+    /// asta, fereastra stergea la prima bifa omiterile si marcajele facute din
+    /// cli (auditul 2026-11-23).
+    pub fn uneste(baza: &Self, ai_mei: &Self, ai_lor: &Self) -> Self {
+        Revizuire {
+            baze: uneste_harta(&baza.baze, &ai_mei.baze, &ai_lor.baze),
+            omise: uneste_harta(&baza.omise, &ai_mei.omise, &ai_lor.omise),
+            deployate: uneste_harta(&baza.deployate, &ai_mei.deployate, &ai_lor.deployate),
+            note: uneste_harta(&baza.note, &ai_mei.note, &ai_lor.note),
+        }
+    }
+
+    /// Sterge bifele „revizuit" si „omis". Notele si marcajele de deploy
+    /// raman: nu sunt progres de revizuire, ci istoric (`revizuire
+    /// --goleste`, C10). Intoarce cate bife s-au sters.
+    pub fn goleste_bifele(&mut self) -> usize {
+        let n = self.numar() + self.numar_omise();
+        self.baze.clear();
+        self.omise.clear();
+        n
     }
 
     /// Marcheaza randul ca omis (si scoate bifa „revizuit", daca era).
@@ -207,7 +266,22 @@ impl Revizuire {
     /// bife despre obiecte care nu mai exista.
     pub fn curata(&mut self, randuri: &[Rand], baze_comparate: &[String]) -> usize {
         let mut scoase = 0;
-        let mut curata_harta = |harta: &mut BTreeMap<String, BTreeMap<String, Amprenta>>| {
+        // un index, nu `any` pe toate randurile pentru fiecare bifa: 5 s la
+        // 10.000 de obiecte (P6 din auditul QA)
+        let index: std::collections::HashMap<(&str, &str), Amprenta> = randuri
+            .iter()
+            .map(|r| {
+                (
+                    (r.baza.as_str(), r.obiect.as_str()),
+                    Amprenta::a_randului(r),
+                )
+            })
+            .collect();
+        // bifele „revizuit" cad cand obiectul se schimba; omiterile raman cat
+        // obiectul e in comparare, ca deploy-ul sa poata spune ca au cazut
+        // (`omise_cazute`), in loc sa le stearga tacut la prima salvare (N4)
+        let mut curata_harta = |harta: &mut BTreeMap<String, BTreeMap<String, Amprenta>>,
+                                pe_amprenta: bool| {
             for (baza, obiecte) in harta.iter_mut() {
                 // o baza care nu e in compararea de acum nu se atinge: n-are
                 // randuri, deci totul ar parea „nu mai corespunde" si s-ar
@@ -216,19 +290,17 @@ impl Revizuire {
                     continue;
                 }
                 obiecte.retain(|obiect, amprenta| {
-                    let pastreaza = randuri.iter().any(|r| {
-                        r.baza == *baza
-                            && r.obiect == *obiect
-                            && Amprenta::a_randului(r) == *amprenta
-                    });
+                    let pastreaza = index
+                        .get(&(baza.as_str(), obiect.as_str()))
+                        .is_some_and(|a| !pe_amprenta || a == amprenta);
                     scoase += usize::from(!pastreaza);
                     pastreaza
                 });
             }
             harta.retain(|_, obiecte| !obiecte.is_empty());
         };
-        curata_harta(&mut self.baze);
-        curata_harta(&mut self.omise);
+        curata_harta(&mut self.baze, true);
+        curata_harta(&mut self.omise, false);
         scoase
     }
 
@@ -255,6 +327,36 @@ impl Revizuire {
     /// pe care nu o mai intelegem, da o stare goala: progresul se pierde, dar
     /// aplicatia porneste. (Invers ar insemna sa nu se mai poata deschide o
     /// sesiune veche.)
+    /// Ca [`Self::din_sesiune`], dar o stare care exista si nu se poate citi
+    /// (alta versiune, fisier editat) e eroare, nu stare goala: goala, omisele
+    /// ar fi intrat in deploy si apoi ar fi fost sterse de pe disc (auditul
+    /// 2026-11-23).
+    pub fn din_sesiune_verificat(s: &Sesiune) -> crate::Rezultat<Self> {
+        match s.date.get(CHEIE_SESIUNE) {
+            None => Ok(Self::default()),
+            Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
+                crate::Eroare::Date(format!(
+                    "starea de revizuire din sesiune nu se poate citi: {e}"
+                ))
+            }),
+        }
+    }
+
+    /// Obiectele omise care s-au schimbat de atunci: omiterea nu mai e
+    /// valabila, dar nici nu trebuie sa intre tacut in deploy (N4).
+    pub fn omise_cazute(&self, randuri: &[Rand]) -> Vec<(String, String)> {
+        randuri
+            .iter()
+            .filter(|r| {
+                self.omise
+                    .get(&r.baza)
+                    .and_then(|b| b.get(&r.obiect))
+                    .is_some_and(|a| *a != Amprenta::a_randului(r))
+            })
+            .map(|r| (r.baza.clone(), r.obiect.clone()))
+            .collect()
+    }
+
     pub fn din_sesiune(s: &Sesiune) -> Self {
         s.date
             .get(CHEIE_SESIUNE)
@@ -293,7 +395,60 @@ mod teste {
             hash_curent: Some(h_curent.into()),
             modificat: None,
             creat: None,
+            exacta_curent: None,
         }
+    }
+
+    /// C10: golirea lasa notele si marcajele de deploy.
+    /// N4: omiterea unui obiect schimbat apare in `omise_cazute`.
+    /// Unirea in trei cai: ce am schimbat eu castiga, ce a scris altcineva pe
+    /// disc ramane.
+    #[test]
+    fn unirea_pastreaza_si_ce_am_facut_eu_si_ce_a_facut_cli() {
+        let a = rand("dbo.a", "1", "2");
+        let b = rand("dbo.b", "1", "2");
+        let c = rand("dbo.c", "1", "2");
+        let mut baza = Revizuire::noua();
+        baza.marcheaza(&c);
+        let mut mei = baza.clone();
+        mei.marcheaza(&a); // eu bifez a
+        mei.scoate(&c.baza, &c.obiect); // si scot bifa de pe c
+        let mut lor = baza.clone();
+        lor.omite(&b); // cli omite b
+        let u = Revizuire::uneste(&baza, &mei, &lor);
+        assert!(u.e_revizuit(&a), "a mea");
+        assert!(u.e_omis(&b), "a lui cli");
+        assert!(!u.e_revizuit(&c), "stergerea mea");
+    }
+
+    #[test]
+    fn omiterea_unui_obiect_schimbat_se_vede() {
+        let r = rand("dbo.p", "a", "b");
+        let mut v = Revizuire::noua();
+        v.omite(&r);
+        assert!(v.omise_cazute(std::slice::from_ref(&r)).is_empty());
+        let schimbat = rand("dbo.p", "a", "c");
+        assert!(!v.e_omis(&schimbat));
+        assert_eq!(
+            v.omise_cazute(&[schimbat]),
+            [("Client1".to_string(), "dbo.p".to_string())]
+        );
+    }
+
+    #[test]
+    fn golirea_sterge_doar_bifele() {
+        let r = rand("dbo.p", "a", "b");
+        let mut v = Revizuire::noua();
+        v.marcheaza(&r);
+        v.marcheaza_deployat(&r);
+        v.pune_nota(&r.baza, &r.obiect, "a ramas aici");
+        let mut o = rand("dbo.q", "a", "b");
+        o.obiect = "dbo.q".into();
+        v.omite(&o);
+        assert_eq!(v.goleste_bifele(), 2);
+        assert!(!v.e_revizuit(&r) && !v.e_omis(&o));
+        assert!(v.a_fost_deployat(&r));
+        assert_eq!(v.nota(&r.baza, &r.obiect), Some("a ramas aici"));
     }
 
     #[test]
@@ -425,7 +580,13 @@ mod teste {
         let schimbat = rand_test("a", "b2");
         assert!(!v.e_omis(&schimbat));
         assert!(!v.e_goala());
-        assert_eq!(v.curata(&[schimbat], &["Client1".to_string()]), 1);
+        // omiterea ramane, ca deploy-ul sa spuna ca a cazut (N4)
+        assert_eq!(
+            v.curata(std::slice::from_ref(&schimbat), &["Client1".to_string()]),
+            0
+        );
+        assert_eq!(v.omise_cazute(&[schimbat]).len(), 1);
+        assert_eq!(v.curata(&[], &["Client1".to_string()]), 1);
         assert!(v.e_goala());
     }
 
@@ -496,6 +657,7 @@ mod teste {
             hash_curent: Some(hc.into()),
             modificat: None,
             creat: None,
+            exacta_curent: None,
         }
     }
 }

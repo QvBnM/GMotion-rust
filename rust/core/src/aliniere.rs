@@ -283,6 +283,26 @@ pub fn aliniaza(text_stanga: &str, text_dreapta: &str) -> Aliniere {
     aliniaza_cu(text_stanga, text_dreapta, false)
 }
 
+/// Indicele din `original` al fiecarei linii din `linii_bloc`, de la `start`:
+/// liniile goale din cod care nu sunt in bloc se sar. Pe un bloc contiguu da
+/// `start, start + 1, ...`, ca inainte.
+fn harta_linii(original: &[&str], start: usize, linii_bloc: &[&str]) -> Vec<usize> {
+    let egal = |a: &str, b: &str| a.trim_end_matches('\r') == b.trim_end_matches('\r');
+    let mut cursor = start;
+    let mut out = Vec::with_capacity(linii_bloc.len());
+    for l in linii_bloc {
+        while cursor < original.len()
+            && !egal(original[cursor], l)
+            && original[cursor].trim().is_empty()
+        {
+            cursor += 1;
+        }
+        out.push(cursor);
+        cursor += 1;
+    }
+    out
+}
+
 /// Ca [`aliniaza`], dar cu „uneste ciclul cursorului" pornit: blocurile se
 /// taie altfel, deci si alinierea. Optiunea trebuie sa ajunga **si** la diff,
 /// **si** la inceputurile de blocuri — altfel cele doua n-ar mai vorbi despre
@@ -370,19 +390,24 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                     })
                     .collect(),
             };
+        // linia din cod a fiecarei linii din bloc: un bloc unit (UNION,
+        // cursor) a pierdut liniile goale dintre parti, deci nu mai e
+        // contiguu in cod (N3 din `cercetare/audit-qa-2026-11-23.md`)
+        let harta_st = s_st.map(|s| harta_linii(&original_st, s, &linii_st));
+        let harta_dr = s_dr.map(|s| harta_linii(&original_dr, s, &linii_dr));
         for (k, (is, id, ignorata)) in perechi.iter().copied().enumerate() {
-            let linie = |idx: Option<usize>, linii: &[&str], start: Option<usize>| match (
+            let linie = |idx: Option<usize>, linii: &[&str], harta: &Option<Vec<usize>>| match (
                 idx.and_then(|i| linii.get(i)),
                 idx,
-                start,
+                harta,
             ) {
-                (Some(t), Some(i), Some(s)) => Some(Linie {
-                    nr: s + i + 1,
+                (Some(t), Some(i), Some(h)) => Some(Linie {
+                    nr: h.get(i).copied().unwrap_or(i) + 1,
                     text: (*t).to_string(),
                 }),
                 _ => None,
             };
-            let dreapta = linie(id, &linii_dr, s_dr);
+            let dreapta = linie(id, &linii_dr, &harta_dr);
             // Pe un rand fara linie in dreapta, acolo s-ar insera ce se aduce
             // din stanga: inaintea urmatoarei linii din dreapta a blocului.
             let urmatoarea_dr = perechi[k..]
@@ -392,7 +417,7 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
             randuri.push(RandAliniat {
                 primul_din_bloc: k == 0,
                 ultimul_din_bloc: k + 1 == perechi.len(),
-                stanga: linie(is, &linii_st, s_st),
+                stanga: linie(is, &linii_st, &harta_st),
                 poz_dreapta: dreapta
                     .as_ref()
                     .map_or(inceput_dr + urmatoarea_dr, |l| l.nr - 1),
@@ -404,11 +429,11 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                 ignorata,
             });
         }
-        if let Some(s) = s_st {
-            ultim_st = s + linii_st.len();
+        if let Some(h) = &harta_st {
+            ultim_st = h.last().map_or(ultim_st, |&l| l + 1);
         }
-        if let Some(s) = s_dr {
-            ultim_dr = s + linii_dr.len();
+        if let Some(h) = &harta_dr {
+            ultim_dr = h.last().map_or(ultim_dr, |&l| l + 1);
         }
     }
     completeaza(
@@ -510,11 +535,20 @@ pub fn aplica_blocuri_la(
     loc: Loc,
 ) -> String {
     let a = aliniaza_cu(text_stanga, text_dreapta, uneste_cursor);
-    let original_st: Vec<&str> = text_stanga.lines().collect();
-    let original_dr: Vec<&str> = text_dreapta.lines().collect();
-    let mut ordonate: Vec<usize> = blocuri.to_vec();
+    let original_st = linii_originale(text_stanga);
+    let original_dr = linii_originale(text_dreapta);
+    // un bloc care exista doar in dreapta n-are nimic de adus: tras peste alt
+    // bloc, l-ar sterge (A2 din `cercetare/audit-qa-2026-11-22.md`)
+    let mut ordonate: Vec<usize> = blocuri
+        .iter()
+        .copied()
+        .filter(|&b| a.diff.get(b).is_some_and(|d| d.stanga.is_some()))
+        .collect();
     ordonate.sort_unstable();
     ordonate.dedup();
+    if ordonate.is_empty() {
+        return text_dreapta.to_string();
+    }
     let aduse: Vec<&str> = ordonate
         .iter()
         .flat_map(|&b| a.randuri.iter().filter(move |r| r.bloc == Some(b)))
@@ -536,7 +570,13 @@ pub fn aplica_blocuri_la(
     iesire.extend_from_slice(&original_dr[..s]);
     iesire.extend(aduse);
     iesire.extend_from_slice(&original_dr[e..]);
-    iesire.join("\n")
+    let mut rez = iesire.join("\n");
+    // `\n`-ul final al dreptei ramane: ce nu e aplicat e octet cu octet ce
+    // era (COSMETIC 12 din auditul 2026-11-23)
+    if text_dreapta.ends_with('\n') && !rez.ends_with('\n') {
+        rez.push('\n');
+    }
+    rez
 }
 
 /// Textul din dreapta, cu blocurile pentru care `aplica` spune `true` luate
@@ -557,6 +597,18 @@ pub fn compune(
     compune_plasat(a, text_stanga, text_dreapta, &[], aplica)
 }
 
+/// Liniile unui text, cum le numara `lines()`, dar cu `\r`-ul pastrat: un
+/// `\r\n` dintr-un sir pe mai multe linii e data, si `pregateste_afisare` il
+/// lasa neatins. `lines()` l-ar fi taiat, iar lipirea cu `\n` l-ar fi facut LF
+/// la orice aplicare (A3 din `cercetare/audit-qa-2026-11-22.md`).
+fn linii_originale(t: &str) -> Vec<&str> {
+    let mut v: Vec<&str> = t.split('\n').collect();
+    if t.is_empty() || t.ends_with('\n') {
+        v.pop();
+    }
+    v
+}
+
 /// Ca [`compune`], dar blocurile din stanga fara pereche merg unde spune
 /// `plasari` (vezi [`aplica_blocuri`]).
 pub fn compune_plasat(
@@ -566,8 +618,8 @@ pub fn compune_plasat(
     plasari: &[crate::plasare::Plasare],
     aplica: impl Fn(usize) -> bool,
 ) -> String {
-    let original_st: Vec<&str> = text_stanga.lines().collect();
-    let original_dr: Vec<&str> = text_dreapta.lines().collect();
+    let original_st = linii_originale(text_stanga);
+    let original_dr = linii_originale(text_dreapta);
 
     // intervalul de randuri al fiecarui bloc din diff
     let mut interval: Vec<Option<(usize, usize)>> = vec![None; a.diff.len()];
@@ -620,11 +672,33 @@ pub fn compune_plasat(
     // fiecare bloc aplicat devine „inlocuieste liniile [s, e) din dreapta cu
     // liniile lui din stanga" (s == e: inserare)
     let mut operatii: Vec<(usize, usize, usize)> = Vec::new(); // (s, e, bloc)
+                                                               // un bloc venit doar ca parte a grupului altuia se insereaza cu grupul,
+                                                               // nu unde l-ar pune propria lui plasare: corpul unui `IF` adus in gol
+                                                               // pleca altundeva decat arata ecranul (MEDIU 5 din auditul 2026-11-23)
+    let doar_din_grup: Vec<usize> = aplicate
+        .iter()
+        .copied()
+        .filter(|&b| a.diff[b].tip != TipDiferenta::Egal && !aplica(b))
+        .collect();
+    // membrul unui grup se insereaza la locul primului bloc al grupului, in
+    // ordine, nu la propria lui pozitie din diff (care poate fi dupa un bloc
+    // egal din tinta)
+    let liderul: std::collections::HashMap<usize, usize> = plasari
+        .iter()
+        .filter(|p| !p.inlocuieste)
+        .flat_map(|p| p.randuri.iter().map(move |&m| (m, p.rand)))
+        .filter(|&(m, l)| m != l)
+        .collect();
     for &b in &aplicate {
         let Some(mut loc) = linii_dreapta(b) else {
             continue;
         };
-        if a.diff[b].tip == TipDiferenta::Sters {
+        if let Some(l) = liderul.get(&b).filter(|l| aplicate.contains(l)) {
+            if let Some((s, _)) = linii_dreapta(*l) {
+                loc = (s, s);
+            }
+        }
+        if a.diff[b].tip == TipDiferenta::Sters && !doar_din_grup.contains(&b) {
             if let Some(p) = plasari.iter().find(|p| p.rand == b && p.inlocuieste) {
                 if let Some(l) = al_ordinalului
                     .get(p.bloc_tinta)
@@ -661,7 +735,13 @@ pub fn compune_plasat(
     if urmatoarea_dr < original_dr.len() {
         iesire.extend_from_slice(&original_dr[urmatoarea_dr..]);
     }
-    iesire.join("\n")
+    let mut rez = iesire.join("\n");
+    // `\n`-ul final al dreptei ramane: ce nu e aplicat e octet cu octet ce
+    // era (COSMETIC 12 din auditul 2026-11-23)
+    if text_dreapta.ends_with('\n') && !rez.ends_with('\n') {
+        rez.push('\n');
+    }
+    rez
 }
 
 #[cfg(test)]
@@ -747,6 +827,45 @@ mod teste {
         assert!(rez.ends_with("SELECT 2;\nPRINT 'nou';"), "{rez}");
         // fara blocuri: dreapta neatinsa
         assert_eq!(aplica_blocuri_la(st, dr, false, &[], Loc::Insereaza(1)), dr);
+    }
+
+    #[test]
+    fn fara_nimic_aplicat_ramane_si_randul_final() {
+        let st = "CREATE PROC p AS\nSELECT 1\n";
+        let dr = "CREATE PROC p AS\nSELECT 2\n";
+        assert_eq!(aplica_blocuri(st, dr, false, &[]), dr);
+        assert_eq!(aplica_blocuri_la(st, dr, false, &[], Loc::Insereaza(0)), dr);
+    }
+
+    /// A3 din `cercetare/audit-qa-2026-11-22.md`: un `\r\n` dintr-un sir
+    /// ramane `\r\n` dupa aplicare, si in blocul neatins, si in cel adus.
+    #[test]
+    fn aplicarea_pastreaza_crlf_din_siruri() {
+        let st = crate::pregateste_afisare("CREATE PROC p AS\r\nSELECT 'a\r\nb'\r\nSELECT 1");
+        let dr = crate::pregateste_afisare("CREATE PROC p AS\r\nSELECT 'a\r\nb'\r\nSELECT 2");
+        assert!(st.contains("'a\r\nb'"), "{st:?}");
+        assert_eq!(aplica_blocuri(&st, &dr, false, &[]), dr);
+        let a = aliniaza(&st, &dr);
+        let rez = aplica_blocuri(&st, &dr, false, &a.diferente());
+        assert_eq!(rez, st);
+        let ultim = a.diff.len() - 1;
+        let rez = aplica_blocuri_la(&st, &dr, false, &[ultim], Loc::Insereaza(0));
+        assert!(rez.contains("'a\r\nb'"), "{rez:?}");
+    }
+
+    /// A2 din `cercetare/audit-qa-2026-11-22.md`: un bloc care exista doar in
+    /// dreapta, tras peste alt bloc, nu-l sterge.
+    #[test]
+    fn un_bloc_doar_in_dreapta_tras_peste_altul_nu_sterge_nimic() {
+        let st = "CREATE PROC dbo.p AS\nSELECT 1;\nSELECT 2;\nSELECT 3;";
+        let dr = "CREATE PROC dbo.p AS\nSELECT 1;\nSELECT 2;\nDELETE FROM t;\nSELECT 3;";
+        let a = aliniaza(st, dr);
+        let doar_dreapta = (0..a.diff.len())
+            .find(|&b| a.diff[b].tip == TipDiferenta::Adaugat)
+            .expect("DELETE doar in dreapta");
+        let loc = loc_la_linie(&a, 4);
+        assert!(matches!(loc, Loc::Inlocuieste(_)), "{loc:?}");
+        assert_eq!(aplica_blocuri_la(st, dr, false, &[doar_dreapta], loc), dr);
     }
 
     #[test]

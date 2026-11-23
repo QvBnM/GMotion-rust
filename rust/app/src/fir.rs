@@ -90,14 +90,15 @@ impl Rulare {
         let steag = anulare.clone();
         std::thread::spawn(move || {
             let tx_progres = tx.clone();
-            let rezultat = pornire::compara_cu_anulare(
+            let steag_comparare = steag.clone();
+            let rezultat = pornire::compara_cu(
                 &c,
                 |p| {
                     // un canal inchis (fereastra a plecat) opreste si firul
                     tx_progres.send(Veste::Progres(p)).is_ok() && !steag.load(Ordering::Relaxed)
                 },
                 // si compararea propriu-zisa, nu doar citirea (P8)
-                || !steag.load(Ordering::Relaxed),
+                || !steag_comparare.load(Ordering::Relaxed),
             );
             let _ = tx.send(match rezultat {
                 Ok(r) => Veste::Gata(Box::new(r)),

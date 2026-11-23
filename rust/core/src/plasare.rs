@@ -107,6 +107,18 @@ pub fn cel_mai_apropiat(
     blocuri: &[String],
     indice_preferat: Option<usize>,
 ) -> Option<(usize, f64)> {
+    let tok: Vec<Vec<String>> = blocuri.iter().map(|b| tokeni_potrivire(b)).collect();
+    cel_mai_apropiat_tok(text, &tok, indice_preferat)
+}
+
+/// Ca [`cel_mai_apropiat`], cu tokenii blocurilor deja calculati: `plasari`
+/// ii calculeaza o singura data, nu pentru fiecare bloc cautat (era patratic:
+/// 16 s la 4.000 de instructiuni, M7 din auditul 2026-11-23).
+fn cel_mai_apropiat_tok(
+    text: &str,
+    blocuri: &[Vec<String>],
+    indice_preferat: Option<usize>,
+) -> Option<(usize, f64)> {
     if blocuri.is_empty() {
         return None;
     }
@@ -114,7 +126,7 @@ pub fn cel_mai_apropiat(
     let mut rez: Vec<(usize, f64)> = blocuri
         .iter()
         .enumerate()
-        .map(|(k, b)| (k, scor_potrivire(&ta, &tokeni_potrivire(b))))
+        .map(|(k, b)| (k, scor_potrivire(&ta, b)))
         .collect();
     // sortare stabila: la scor egal ramane ordinea blocurilor
     rez.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -168,7 +180,12 @@ fn grup_plasare(randuri: &[RandDiff], pozitie: usize) -> (Vec<usize>, String) {
     let mut k = pozitie;
     while adancime > 0 && k + 1 < randuri.len() && indici.len() < MAX_BLOCURI_GRUPATE {
         k += 1;
-        // randurile doar-adaugate nu fac parte din secventa din martor
+        // randurile doar-adaugate nu fac parte din secventa din martor, iar
+        // cele egale raman pe loc in tinta: nici unele nu se muta cu grupul
+        // (un `END` egal numarat aici oprea grupul inainte de `END`-urile lui)
+        if randuri[k].tip != TipDiferenta::Sters {
+            continue;
+        }
         let Some(st) = randuri[k].stanga.as_deref() else {
             continue;
         };
@@ -197,6 +214,16 @@ pub fn sugereaza(
     pozitie: usize,
     blocuri_tinta: &[String],
 ) -> Option<Sugestie> {
+    let tok: Vec<Vec<String>> = blocuri_tinta.iter().map(|b| tokeni_potrivire(b)).collect();
+    sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok)
+}
+
+fn sugereaza_tok(
+    randuri: &[RandDiff],
+    pozitie: usize,
+    blocuri_tinta: &[String],
+    tok_tinta: &[Vec<String>],
+) -> Option<Sugestie> {
     let rand = randuri.get(pozitie)?;
     let text_bloc = rand.stanga.clone()?;
     let (indici, text_grup) = grup_plasare(randuri, pozitie);
@@ -212,7 +239,7 @@ pub fn sugereaza(
             scor: 100.0,
         }
     } else {
-        match cel_mai_apropiat(&text_bloc, blocuri_tinta, Some(preferat)) {
+        match cel_mai_apropiat_tok(&text_bloc, tok_tinta, Some(preferat)) {
             Some((indice, scor)) if scor >= PRAG_INLOCUIRE => Tinta::Bloc { indice, scor },
             // scor -1 inseamna „n-a fost ales niciun candidat" (ca in v3.4),
             // nu „candidat cu scor zero"
@@ -235,6 +262,22 @@ pub fn sugereaza(
         text,
         tinta,
     })
+}
+
+/// Peste acest scor, blocul liber din tinta e **acelasi** bloc, mutat si
+/// usor schimbat: se inlocuieste pe locul lui chiar peste o ancora (altfel s-ar
+/// dubla). Sub el, doar in golul lui (MEDIU 6, scorul cazului era 60).
+const PRAG_MUTARE: f64 = 80.0;
+
+/// `indice` e in golul care contine pozitia `preferat`: intre ele sunt doar
+/// blocuri libere (fara pereche), nicio ancora.
+fn in_golul_lui(libere: &[bool], preferat: usize, indice: usize) -> bool {
+    let (de_la, pana_la) = if indice < preferat {
+        (indice, preferat)
+    } else {
+        (preferat, indice + 1)
+    };
+    (de_la..pana_la.min(libere.len())).all(|k| libere[k])
 }
 
 /// Unde ajunge un bloc care difera, dupa ce cele doua straturi s-au impacat.
@@ -260,6 +303,36 @@ pub struct Plasare {
 /// decat arata editorul. [`sugereaza`] raspunde doar pentru blocurile ramase
 /// fara pereche — exact intrebarea pe care diff-ul n-o acopera.
 pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
+    // Blocurile din tinta pe care le poate inlocui un bloc fara pereche: doar
+    // cele care sunt si ele fara pereche (exista doar in tinta). Unul deja
+    // imperecheat (egal sau modificat) e al altui bloc din martor; scris peste
+    // el, codul lui dispare (A1 din `cercetare/audit-qa-2026-11-22.md`). v3.4
+    // avea aceeasi sugestie, dar doar ca indemn, nu ca loc de scriere.
+    let mut libere = vec![false; blocuri_tinta.len()];
+    let mut k = 0usize;
+    for r in randuri {
+        if r.dreapta.is_some() {
+            if let Some(l) = libere.get_mut(k) {
+                *l = r.stanga.is_none();
+            }
+            k += 1;
+        }
+    }
+    // candidati la inlocuire sunt doar blocurile libere (cele imperecheate
+    // sunt refuzate oricum, A1): celelalte primesc tokeni goi, deci scor 0 fara
+    // SequenceMatcher pe ele. Cu un singur bloc liber in tinta, cautarea nu mai
+    // e patratica in marimea obiectului (M7 din auditul 2026-11-23)
+    let tok_tinta: Vec<Vec<String>> = blocuri_tinta
+        .iter()
+        .zip(&libere)
+        .map(|(b, &liber)| {
+            if liber {
+                tokeni_potrivire(b)
+            } else {
+                Vec::new()
+            }
+        })
+        .collect();
     let mut out = Vec::new();
     let mut bloc_tinta_urmator = 0usize;
     for (pozitie, r) in randuri.iter().enumerate() {
@@ -283,11 +356,38 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
                 vec![pozitie],
             ),
             None => {
-                let Some(s) = sugereaza(randuri, pozitie, blocuri_tinta) else {
+                let Some(s) = sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok_tinta) else {
                     continue;
                 };
                 match s.tinta {
-                    Tinta::Bloc { indice, scor } => (true, indice, scor, s.randuri),
+                    // un bloc identic deja in tinta, dar pe alt loc, e o mutare:
+                    // inlocuit pe loc n-ar schimba nimic, deci se insereaza unde
+                    // il cere martorul, iar copia din tinta ramane diferenta ei
+                    // si antetul (pozitia 0): un bloc 0 al tintei deja
+                    // imperecheat nu se inlocuieste (MEDIU 3 din auditul
+                    // 2026-11-23: `SET NOCOUNT ON` inainte de `CREATE` stergea
+                    // antetul)
+                    // si doar in golul lui: intre ancorele (blocurile
+                    // imperecheate) de dinainte si de dupa. Altfel blocul sare
+                    // peste o ancora si ordinea instructiunilor se inverseaza
+                    // (MEDIU 6 din auditul 2026-11-23)
+                    Tinta::Bloc { indice, scor }
+                        if libere.get(indice).copied().unwrap_or(false)
+                            && (scor >= PRAG_MUTARE
+                                || in_golul_lui(
+                                    &libere,
+                                    gol_sugerat(randuri, pozitie, blocuri_tinta.len()),
+                                    indice,
+                                ))
+                            && normalizeaza(&blocuri_tinta[indice]) != normalizeaza(&s.text) =>
+                    {
+                        (true, indice, scor, s.randuri)
+                    }
+                    Tinta::Bloc { scor, .. } => {
+                        let (indici, _) = grup_plasare(randuri, pozitie);
+                        let gol = gol_sugerat(randuri, pozitie, blocuri_tinta.len());
+                        (false, gol, scor, indici)
+                    }
                     Tinta::Gol { indice, scor } => (false, indice, scor, s.randuri),
                 }
             }
@@ -323,14 +423,101 @@ pub fn grupuri_diferente(randuri: &[RandDiff], plasari: &[Plasare]) -> Vec<Vec<u
         if r.tip == TipDiferenta::Egal {
             continue;
         }
-        let lipit = out
-            .last()
-            .and_then(|g| g.last())
-            .is_some_and(|&ultim| ultim + 1 == b && gol(b).is_some() && gol(b) == gol(ultim));
+        // blocurile consecutive care exista doar in tinta se scot impreuna:
+        // un `IF ... BEGIN ... END` adaugat era trei diferente, si oricare
+        // aplicata singura lasa un `END` orfan sau un `BEGIN END` gol
+        // (MEDIU 4 din auditul 2026-11-23)
+        let doar_in_tinta = |x: usize| randuri[x].tip == TipDiferenta::Adaugat;
+        let lipit = out.last().and_then(|g| g.last()).is_some_and(|&ultim| {
+            ultim + 1 == b
+                && ((gol(b).is_some() && gol(b) == gol(ultim))
+                    || (doar_in_tinta(b) && doar_in_tinta(ultim)))
+        });
         match out.last_mut() {
             Some(g) if lipit => g.push(b),
             _ => out.push(vec![b]),
         }
+    }
+    let out = uneste_dupa_plasare(randuri, plasari, out);
+    echilibreaza_grupuri_din_tinta(randuri, out)
+}
+
+/// Un bloc care se insereaza in gol isi aduce tot grupul de plasare (un `IF
+/// ... BEGIN` cu corpul si `END`-urile lui), chiar daca intre ele diff-ul a
+/// pus un bloc egal. Diferenta afisata trebuie sa fie tot grupul: altfel
+/// `END`-urile ramase erau o diferenta aparte, care aplicata singura lasa
+/// structura dezechilibrata (MEDIU 4 din auditul 2026-11-23).
+fn uneste_dupa_plasare(
+    randuri: &[RandDiff],
+    plasari: &[Plasare],
+    grupuri: Vec<Vec<usize>>,
+) -> Vec<Vec<usize>> {
+    let mut grupuri = grupuri;
+    for p in plasari
+        .iter()
+        .filter(|p| !p.inlocuieste && randuri[p.rand].tip == TipDiferenta::Sters)
+    {
+        let Some(i) = grupuri.iter().position(|g| g.contains(&p.rand)) else {
+            continue;
+        };
+        let mut j = i + 1;
+        while j < grupuri.len() {
+            if grupuri[j].iter().all(|b| p.randuri.contains(b)) {
+                let mutat = grupuri.remove(j);
+                grupuri[i].extend(mutat);
+            } else {
+                j += 1;
+            }
+        }
+    }
+    grupuri
+}
+
+/// Un grup doar-in-tinta care deschide un `BEGIN` fara sa-l inchida isi ia si
+/// urmatoarele blocuri doar-in-tinta, pana se echilibreaza, chiar daca intre
+/// ele e un bloc egal: diff-ul imperecheaza des `END`-ul blocului adaugat cu
+/// `END`-ul procedurii, iar `END`-ul ramas apare mai jos. Scos singur, grupul
+/// lasa un `END` in plus (MEDIU 4 din auditul 2026-11-23).
+fn echilibreaza_grupuri_din_tinta(
+    randuri: &[RandDiff],
+    grupuri: Vec<Vec<usize>>,
+) -> Vec<Vec<usize>> {
+    let doar_in_tinta = |g: &[usize]| g.iter().all(|&b| randuri[b].tip == TipDiferenta::Adaugat);
+    let adancime = |b: usize| {
+        crate::segmentare::adancime_begin_end(randuri[b].dreapta.as_deref().unwrap_or(""))
+    };
+    let mut out: Vec<Vec<usize>> = Vec::with_capacity(grupuri.len());
+    let mut luate = vec![false; grupuri.len()];
+    for i in 0..grupuri.len() {
+        if luate[i] {
+            continue;
+        }
+        let mut g = grupuri[i].clone();
+        if doar_in_tinta(&g) {
+            let mut a: i32 = g.iter().map(|&b| adancime(b)).sum();
+            let mut j = i + 1;
+            while a > 0 && j < grupuri.len() && g.len() < MAX_BLOCURI_GRUPATE {
+                if !luate[j] && doar_in_tinta(&grupuri[j]) {
+                    let d: i32 = grupuri[j].iter().map(|&b| adancime(b)).sum();
+                    if d < 0 {
+                        a += d;
+                        g.extend(grupuri[j].iter().copied());
+                        luate[j] = true;
+                    }
+                }
+                j += 1;
+            }
+            if a != 0 {
+                // nu s-a echilibrat: grupul ramane cum era
+                for (k, l) in luate.iter_mut().enumerate().skip(i + 1) {
+                    if grupuri[k].iter().any(|b| g.contains(b)) {
+                        *l = false;
+                    }
+                }
+                g = grupuri[i].clone();
+            }
+        }
+        out.push(g);
     }
     out
 }
@@ -346,6 +533,54 @@ mod teste {
 
     /// Instructiunile consecutive adaugate in acelasi loc sunt o singura
     /// diferenta; un bloc modificat intre ele rupe grupul.
+    #[test]
+    fn auditul_2026_11_23_plasare_si_grupuri() {
+        // MEDIU 3: antetul tintei, deja imperecheat, nu se inlocuieste
+        let st = "SET NOCOUNT ON\nCREATE PROCEDURE dbo.p\nAS\nSELECT 1";
+        let dr = "CREATE PROCEDURE dbo.p\nAS\nSELECT 1";
+        let a = crate::aliniaza(st, dr);
+        let pl = crate::plasari_aliniere(&a, dr, false);
+        for g in grupuri_diferente(&a.diff, &pl) {
+            let rez = crate::aplica_blocuri(st, dr, false, &g);
+            assert!(rez.contains("CREATE PROCEDURE"), "antetul sters:\n{rez}");
+        }
+        // MEDIU 4: un IF ... BEGIN ... END doar in tinta e o singura diferenta
+        let st = "CREATE PROC p AS\nSELECT 9";
+        let dr = "CREATE PROC p AS\nIF @x = 1\nBEGIN\nSELECT 1\nEND\nSELECT 9";
+        let a = crate::aliniaza(st, dr);
+        let pl = crate::plasari_aliniere(&a, dr, false);
+        let g = grupuri_diferente(&a.diff, &pl);
+        assert_eq!(g.len(), 1, "{g:?}");
+        assert_eq!(crate::aplica_blocuri(st, dr, false, &g[0]), st);
+        // MEDIU 4: END-ul blocului adaugat, imperecheat cu al procedurii
+        let st = "CREATE PROCEDURE dbo.p AS\nBEGIN\nWHILE @i < 10\nBEGIN\nSET @i = 1\nEND\nEND";
+        let dr = "CREATE PROCEDURE dbo.p AS\nBEGIN\nWHILE @i < 10\nBEGIN\nSET @i = 1\nEND\nWHILE @i < 10\nBEGIN\nSET @i = 1\nEND\n\nEND";
+        let a = crate::aliniaza(st, dr);
+        let pl = crate::plasari_aliniere(&a, dr, false);
+        let g = grupuri_diferente(&a.diff, &pl);
+        assert_eq!(g.len(), 1, "{g:?}");
+        assert_eq!(
+            crate::normalizare::normalizeaza(&crate::aplica_blocuri(st, dr, false, &g[0])),
+            crate::normalizare::normalizeaza(st)
+        );
+        // MEDIU 6: un bloc diferit nu sare peste o ancora
+        let st = "CREATE PROC p AS\nUPDATE t SET c = 1\nSELECT a FROM t2";
+        let dr = "CREATE PROC p AS\nSELECT a FROM t2\nSET @a = 1";
+        let a = crate::aliniaza(st, dr);
+        let up = (0..a.diff.len())
+            .find(|&b| {
+                a.diff[b]
+                    .stanga
+                    .as_deref()
+                    .is_some_and(|t| t.contains("UPDATE"))
+            })
+            .unwrap();
+        let rez = crate::aplica_blocuri(st, dr, false, &[up]);
+        let i_up = rez.find("UPDATE").unwrap();
+        let i_sel = rez.find("SELECT a").unwrap();
+        assert!(i_up < i_sel, "ordinea martorului:\n{rez}");
+    }
+
     #[test]
     fn instructiunile_consecutive_din_acelasi_gol_sunt_o_diferenta() {
         let martor = "CREATE PROC dbo.p AS\n\

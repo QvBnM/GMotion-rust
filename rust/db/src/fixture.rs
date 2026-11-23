@@ -83,9 +83,13 @@ impl Instantaneu {
 
     pub fn citeste(cale: impl AsRef<Path>) -> Rezultat<Self> {
         let cale = cale.as_ref();
-        let text = std::fs::read_to_string(cale).map_err(|e| Eroare::CitireInstantaneu {
+        let octeti = std::fs::read(cale).map_err(|e| Eroare::CitireInstantaneu {
             cale: cale.display().to_string(),
             detaliu: e.to_string(),
+        })?;
+        let text = text_din_octeti(&octeti).map_err(|detaliu| Eroare::CitireInstantaneu {
+            cale: cale.display().to_string(),
+            detaliu,
         })?;
         let inst: Instantaneu =
             serde_json::from_str(&text).map_err(|e| Eroare::CitireInstantaneu {
@@ -194,6 +198,36 @@ impl SursaObiecte for SursaFixture {
     }
 }
 
+/// Textul unui instantaneu: UTF-8 cu sau fara BOM, sau UTF-16 cu BOM (un
+/// fisier salvat din Notepad sau PowerShell). Inainte, BOM-ul dadea
+/// „expected value at line 1 column 1", iar UTF-16 „not valid UTF-8".
+pub fn text_din_octeti(o: &[u8]) -> Result<String, String> {
+    let utf16 = |o: &[u8], le: bool| -> Result<String, String> {
+        if !o.len().is_multiple_of(2) {
+            return Err("UTF-16 cu un numar impar de octeti".into());
+        }
+        let unitati: Vec<u16> = o
+            .chunks_exact(2)
+            .map(|p| {
+                if le {
+                    u16::from_le_bytes([p[0], p[1]])
+                } else {
+                    u16::from_be_bytes([p[0], p[1]])
+                }
+            })
+            .collect();
+        String::from_utf16(&unitati).map_err(|e| e.to_string())
+    };
+    match o {
+        [0xEF, 0xBB, 0xBF, rest @ ..] => {
+            String::from_utf8(rest.to_vec()).map_err(|e| e.to_string())
+        }
+        [0xFF, 0xFE, rest @ ..] => utf16(rest, true),
+        [0xFE, 0xFF, rest @ ..] => utf16(rest, false),
+        _ => String::from_utf8(o.to_vec()).map_err(|e| e.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod teste {
     use super::*;
@@ -216,6 +250,21 @@ mod teste {
             .insert("Baza1".into(), vec![obiect("pA"), obiect("pB")]);
         i.baze.insert("Baza2".into(), vec![obiect("pA")]);
         i
+    }
+
+    #[test]
+    fn instantaneul_se_citeste_si_cu_bom_si_in_utf16() {
+        let json = "{\"a\": \"ț\"}"; // diacritice-permise: date de test
+        let mut cu_bom = vec![0xEF, 0xBB, 0xBF];
+        cu_bom.extend_from_slice(json.as_bytes());
+        assert_eq!(text_din_octeti(&cu_bom).unwrap(), json);
+        let mut le = vec![0xFF, 0xFE];
+        le.extend(json.encode_utf16().flat_map(u16::to_le_bytes));
+        assert_eq!(text_din_octeti(&le).unwrap(), json);
+        let mut be = vec![0xFE, 0xFF];
+        be.extend(json.encode_utf16().flat_map(u16::to_be_bytes));
+        assert_eq!(text_din_octeti(&be).unwrap(), json);
+        assert!(text_din_octeti(&[0xC3]).is_err());
     }
 
     #[test]

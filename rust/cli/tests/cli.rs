@@ -294,6 +294,37 @@ fn doar_anumite_obiecte() {
     let sql = std::fs::read_to_string(dep.join("Client1.sql")).unwrap();
     assert!(sql.contains("dbo.pStoc"));
     assert!(!sql.contains("dbo.pClienti"), "{sql}");
+
+    // F-C4: majusculele nu conteaza, iar un nume necunoscut e eroare
+    let dep2 = d.join("dep2");
+    let i = inst.to_str().unwrap();
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "-d",
+        dep2.to_str().unwrap(),
+        "--doar",
+        "DBO.PSTOC",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = ruleaza(&[
+        "deploy",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "-d",
+        d.join("dep3").to_str().unwrap(),
+        "--doar",
+        "dbo.pStoc,dbo.NuExista",
+    ]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("dbo.NuExista"), "{}", err(&o));
+    assert!(err(&o).contains("[GM-CLI-005]"), "cod stabil: {}", err(&o));
+    assert!(!d.join("dep3").exists());
     std::fs::remove_dir_all(&d).ok();
 }
 
@@ -589,7 +620,8 @@ fn revizuirea_se_tine_minte_si_cade_cand_obiectul_se_schimba() {
     let o = ruleaza_rev(&["--json"]);
     let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
     assert_eq!(v["revizuite"], 1, "bifa trebuie sa se fi salvat: {v}");
-    assert_eq!(v["obiecte"][0], "dbo.pClienti");
+    assert_eq!(v["obiecte"][0]["obiect"], "dbo.pClienti");
+    assert_eq!(v["obiecte"][0]["baza"], "Client1");
 
     // acelasi obiect, alta definitie in baza comparata: bifa cade
     let schimbat = d.join("schimbat.json");
@@ -1493,4 +1525,765 @@ fn editarea_numara_pe_grupuri_si_lasa_unde_ii_spui() {
         "{t}"
     );
     assert_eq!(linii[27], "", "linia goala ramane dupa grup");
+}
+
+/// B1 din `cercetare/audit-qa-2026-11-22.md`: o sesiune care exista dar nu se
+/// poate citi opreste deploy-ul, planul si exportul. Inainte, deploy-ul iesea
+/// cu 0 si scria si obiectele omise.
+#[test]
+fn sesiunea_care_nu_se_citeste_opreste_deploy_ul() {
+    let d = dir("sesiune-stricata");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let o = ruleaza_in(
+        &[
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--omite",
+            "dbo.pStoc",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let _ = cauta_sesiunea(&date);
+    fn sesiuni(dir: &Path, gasite: &mut Vec<PathBuf>) {
+        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let cale = e.path();
+            if cale.is_dir() {
+                sesiuni(&cale, gasite);
+            } else if cale.extension().is_some_and(|x| x == "dat") {
+                gasite.push(cale);
+            }
+        }
+    }
+    let mut gasite = Vec::new();
+    sesiuni(&date, &mut gasite);
+    let text = std::fs::read(&gasite[0]).unwrap();
+    std::fs::write(&gasite[0], &text[..text.len() / 2]).unwrap();
+
+    let iesire = d.join("out");
+    let iesire_s = iesire.to_str().unwrap();
+    let csv = d.join("e.csv");
+    let plan = d.join("plan.json");
+    for args in [
+        vec![
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire_s,
+        ],
+        vec![
+            "plan",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-o",
+            plan.to_str().unwrap(),
+        ],
+        vec![
+            "export",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-o",
+            csv.to_str().unwrap(),
+        ],
+    ] {
+        let o = ruleaza_in(&args, Some(&date));
+        assert!(
+            !o.status.success(),
+            "{}: trebuia sa cada pe sesiunea stricata\n{}",
+            args[0],
+            err(&o)
+        );
+        assert!(err(&o).contains("GM-PLAT-"), "{}: {}", args[0], err(&o));
+    }
+    assert!(!iesire.exists(), "niciun script scris");
+    assert!(!plan.exists() && !csv.exists());
+}
+
+/// F-D5 din `cercetare/audit-qa-2026-11-22.md`: un text final schimbat dupa
+/// `plan` opreste `deploy --plan`; inainte, mesajul spunea „n-a mai fost
+/// atinsa" si scriptul avea textul nou.
+#[test]
+fn deploy_cu_plan_se_opreste_daca_textul_final_s_a_schimbat() {
+    let d = dir("plan-text-final");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let plan = d.join("plan.json");
+    let text = |nume: &str, corp: &str| {
+        let f = d.join(nume);
+        std::fs::write(&f, format!("CREATE PROCEDURE dbo.pClienti AS\n{corp}")).unwrap();
+        f
+    };
+    let editeaza = |f: &Path| {
+        let o = ruleaza_in(
+            &[
+                "editare",
+                "--sursa",
+                i,
+                "--referinta",
+                "Referinta",
+                "--baza",
+                "Client1",
+                "--obiect",
+                "dbo.pClienti",
+                "--din-fisier",
+                f.to_str().unwrap(),
+            ],
+            Some(&date),
+        );
+        assert!(o.status.success(), "{}", err(&o));
+    };
+    editeaza(&text("unu.sql", "SELECT 1 AS aprobat"));
+    let o = ruleaza_in(
+        &[
+            "plan",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-o",
+            plan.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let deploy = |dest: &str| {
+        let iesire = d.join(dest);
+        let o = ruleaza_in(
+            &[
+                "deploy",
+                "--sursa",
+                i,
+                "--referinta",
+                "Referinta",
+                "--plan",
+                plan.to_str().unwrap(),
+                "-d",
+                iesire.to_str().unwrap(),
+            ],
+            Some(&date),
+        );
+        (o, iesire)
+    };
+    let (o, iesire) = deploy("bun");
+    assert!(o.status.success(), "neschimbat, trece: {}", err(&o));
+    assert!(std::fs::read_to_string(iesire.join("Client1.sql"))
+        .unwrap()
+        .contains("aprobat"));
+
+    editeaza(&text("doi.sql", "SELECT 666 AS scris_dupa_plan"));
+    let (o, iesire) = deploy("rau");
+    assert!(!o.status.success(), "textul s-a schimbat dupa plan");
+    assert!(err(&o).contains("GM-MOD-012"), "{}", err(&o));
+    assert!(
+        err(&o).contains("textul final al lui dbo.pClienti"),
+        "{}",
+        err(&o)
+    );
+    assert!(!iesire.exists());
+}
+
+/// C9 din `cercetare/audit-qa-2026-11-22.md`: `editare` taie blocurile ca
+/// fereastra, dupa `uneste_cursor` din configurare. Cu ciclul cursorului unit,
+/// doua schimbari in el sunt o singura diferenta.
+#[test]
+fn editarea_tine_cont_de_uneste_cursor_din_configurare() {
+    let d = dir("uneste-cursor");
+    let m = "CREATE PROCEDURE dbo.pCur AS\\nDECLARE c CURSOR FOR SELECT id FROM t\\nOPEN c\\nFETCH NEXT FROM c INTO @id\\nWHILE @@FETCH_STATUS = 0\\nBEGIN\\nUPDATE t SET a = 1 WHERE id = @id\\nFETCH NEXT FROM c INTO @id\\nEND\\nCLOSE c\\nDEALLOCATE c";
+    let t = m
+        .replace("FOR SELECT id FROM t", "FOR SELECT id FROM t WHERE x = 1")
+        .replace("SET a = 1", "SET a = 2");
+    let inst = d.join("inst.json");
+    std::fs::write(
+        &inst,
+        format!(
+            r#"{{"versiune":1,"server":"SRV-TEST","creat":"2026-11-17T10:00:00Z","nota":"","baze":{{
+            "Referinta":[{{"schema":"dbo","nume":"pCur","tip":"P","definitie":"{m}"}}],
+            "Client1":[{{"schema":"dbo","nume":"pCur","tip":"P","definitie":"{t}"}}]}}}}"#
+        ),
+    )
+    .unwrap();
+    let date = d.join("date");
+    std::fs::create_dir_all(&date).unwrap();
+    let numara = || {
+        let o = ruleaza_in(
+            &[
+                "--json",
+                "editare",
+                "--sursa",
+                inst.to_str().unwrap(),
+                "--referinta",
+                "Referinta",
+                "--baza",
+                "Client1",
+                "--obiect",
+                "dbo.pCur",
+            ],
+            Some(&date),
+        );
+        assert!(o.status.success(), "{}", err(&o));
+        let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+        v["diferente"].as_array().unwrap().len()
+    };
+    assert_eq!(numara(), 2, "implicit: blocuri separate");
+    std::fs::write(date.join("configurare.json"), r#"{"uneste_cursor": true}"#).unwrap();
+    assert_eq!(numara(), 1, "cu ciclul cursorului unit");
+}
+
+/// C10 din `cercetare/audit-qa-2026-11-22.md`: `revizuire --goleste` sterge
+/// doar bifele; textul final scris de mana ramane si ajunge in deploy. Nu se
+/// combina cu `--marcheaza` (inainte, `--marcheaza` era ignorat tacut).
+#[test]
+fn golirea_pastreaza_textele_finale_si_refuza_alte_actiuni() {
+    let d = dir("goleste");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let manual = d.join("m.sql");
+    std::fs::write(
+        &manual,
+        "CREATE PROCEDURE dbo.pClienti AS\nSELECT 42 AS pastrat",
+    )
+    .unwrap();
+    let rev = |extra: &[&str]| {
+        let mut a = vec!["revizuire", "--sursa", i, "--referinta", "Referinta"];
+        a.extend_from_slice(extra);
+        ruleaza_in(&a, Some(&date))
+    };
+    assert!(rev(&["--marcheaza", "dbo.pClienti"]).status.success());
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+            "--din-fisier",
+            manual.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+
+    let o = rev(&["--goleste", "--marcheaza", "dbo.pStoc"]);
+    assert!(!o.status.success(), "combinatia se refuza");
+    let o = rev(&["--goleste"]);
+    assert!(o.status.success(), "{}", err(&o));
+    let o = rev(&["--json"]);
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).unwrap();
+    assert_eq!(v["revizuite"], 0, "bifa s-a sters");
+
+    let iesire = d.join("out");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let sql = std::fs::read_to_string(iesire.join("Client1.sql")).unwrap();
+    assert!(
+        sql.contains("SELECT 42 AS pastrat"),
+        "textul final a ramas:\n{sql}"
+    );
+}
+
+/// `testeaza` (butonul „Testeaza conexiunea", din cli): pe un instantaneu
+/// spune ca n-are ce testa; fara server, cod nenul si mesaj pe erori.
+#[test]
+fn testeaza_cere_server() {
+    let d = dir("testeaza");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let o = ruleaza(&["testeaza", "--sursa", inst.to_str().unwrap()]);
+    assert!(!o.status.success());
+    assert!(err(&o).contains("[GM-CLI-001]"), "{}", err(&o));
+    assert!(err(&o).contains("--server"), "{}", err(&o));
+    assert!(out(&o).is_empty());
+}
+
+/// O teava inchisa de cititor (`gmotion compara | head -1`) nu e o eroare:
+/// inainte, `println!` dadea panica si comanda iesea cu 134.
+#[test]
+fn teava_inchisa_nu_e_panica() {
+    use std::process::{Command, Stdio};
+    let d = dir("teava");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let mut c = Command::new(env!("CARGO_BIN_EXE_gmotion"))
+        .args([
+            "compara",
+            "--sursa",
+            inst.to_str().unwrap(),
+            "--referinta",
+            "Referinta",
+        ])
+        .env("GMOTION_DIR_DATE", d.join("date"))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(c.stdout.take());
+    let o = c.wait_with_output().unwrap();
+    let erori = String::from_utf8_lossy(&o.stderr);
+    assert!(!erori.contains("panicked"), "{erori}");
+    assert_eq!(o.status.code(), Some(0), "{erori}");
+}
+
+/// Un text final salvat din Notepad (cu BOM) nu duce BOM-ul in mijlocul
+/// scriptului de deploy.
+#[test]
+fn bom_ul_din_textul_final_nu_ajunge_in_script() {
+    let d = dir("bom-text-final");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let date = d.join("date");
+    let i = inst.to_str().unwrap();
+    let f = d.join("t.sql");
+    std::fs::write(&f, "\u{feff}CREATE PROCEDURE dbo.pClienti AS\nSELECT 5").unwrap();
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+            "--din-fisier",
+            f.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let iesire = d.join("out");
+    let o = ruleaza_in(
+        &[
+            "deploy",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "-d",
+            iesire.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let sql = std::fs::read_to_string(iesire.join("Client1.sql")).unwrap();
+    assert!(sql.contains("SELECT 5"));
+    assert_eq!(
+        sql.matches('\u{feff}').count(),
+        1,
+        "doar BOM-ul de la inceputul fisierului"
+    );
+}
+
+/// F-C5: `export` si `instantaneu` pe `--json` spun pe iesirea standard ce
+/// au scris (inainte, nimic).
+#[test]
+fn export_si_instantaneu_scriu_json() {
+    let d = dir("json-fisiere");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let csv = d.join("e.csv");
+    let o = ruleaza(&[
+        "--json",
+        "export",
+        "--sursa",
+        i,
+        "--referinta",
+        "Referinta",
+        "-o",
+        csv.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
+    assert!(v["randuri"].as_u64().unwrap() > 0, "{v}");
+    let copie = d.join("copie.json");
+    let o = ruleaza(&[
+        "--json",
+        "instantaneu",
+        "--sursa",
+        i,
+        "-o",
+        copie.to_str().unwrap(),
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
+    assert_eq!(v["baze"], 2, "{v}");
+}
+
+/// F-C7: `diagnostic` pe o configurare stricata spune totusi restul, apoi
+/// iese cu eroarea; `--cate 0` si `--cate` fara `cate-n` sunt refuzate.
+#[test]
+fn diagnostic_pe_configurare_stricata_si_cate_invalid() {
+    let d = dir("diag-stricat");
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("configurare.json"), "{ stricat").unwrap();
+    let o = ruleaza_in(&["diagnostic"], Some(&d));
+    assert!(!o.status.success());
+    assert!(
+        out(&o).contains("Director de date"),
+        "restul se spune: {}",
+        out(&o)
+    );
+    assert!(err(&o).contains("GM-PLAT"), "{}", err(&o));
+
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    for extra in [
+        vec!["--cate", "0", "--mod-fisiere", "cate-n"],
+        vec!["--cate", "5"],
+    ] {
+        let mut a = vec!["deploy", "--sursa", i, "--referinta", "Referinta", "-d"];
+        let dest = d.join("out");
+        let dest_s = dest.to_str().unwrap().to_string();
+        a.push(&dest_s);
+        a.extend(extra.iter().copied());
+        let o = ruleaza(&a);
+        assert!(!o.status.success(), "{extra:?}");
+        assert!(!dest.exists());
+    }
+}
+
+/// N4, N5 si omiterea dupa plan (auditul 2026-11-23): o decizie salvata care
+/// nu mai e valabila opreste deploy-ul (GM-MOD-018), nu dispare tacut.
+#[test]
+fn deciziile_cazute_opresc_deploy_ul() {
+    let d = dir("decizii-cazute");
+    let date = d.join("date");
+    let inst = |nume: &str, tinta: &str| {
+        let f = d.join(nume);
+        std::fs::write(
+            &f,
+            format!(
+                r#"{{"versiune":1,"server":"SRV","creat":"2026-11-23T10:00:00Z","nota":"","baze":{{
+                "M":[{{"schema":"dbo","nume":"x","tip":"P","definitie":"CREATE PROCEDURE dbo.x AS SELECT 'martor'"}}],
+                "T":[{{"schema":"dbo","nume":"x","tip":"P","definitie":"{tinta}"}}]}}}}"#
+            ),
+        )
+        .unwrap();
+        f.to_str().unwrap().to_string()
+    };
+    let o1 = inst("o1.json", "CREATE PROCEDURE dbo.x AS SELECT 'client'");
+    let o2 = inst(
+        "o2.json",
+        "CREATE PROCEDURE dbo.x AS SELECT 'client' -- hotfix\\nSELECT 'urgent'",
+    );
+    let rul = |a: &[&str]| ruleaza_in(a, Some(&date));
+    let deploy = |sursa: &str, dest: &str, extra: &[&str]| {
+        let iesire = d.join(dest);
+        let mut a = vec!["deploy", "--sursa", sursa, "--referinta", "M", "-d"];
+        let s = iesire.to_str().unwrap().to_string();
+        a.push(&s);
+        a.extend_from_slice(extra);
+        (rul(&a), iesire)
+    };
+
+    // 1. omis, apoi schimbat in Modificata
+    assert!(rul(&[
+        "revizuire",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--omite",
+        "dbo.x"
+    ])
+    .status
+    .success());
+    let (o, iesire) = deploy(&o2, "d1", &[]);
+    assert!(!o.status.success(), "omis apoi schimbat");
+    assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
+    assert!(!iesire.exists());
+    assert!(rul(&[
+        "revizuire",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--scoate",
+        "dbo.x"
+    ])
+    .status
+    .success());
+
+    // 2. text final facut pe versiunea veche
+    let f = d.join("t.sql");
+    std::fs::write(&f, "CREATE PROCEDURE dbo.x AS SELECT 'pastrat'").unwrap();
+    assert!(rul(&[
+        "editare",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--baza",
+        "T",
+        "--obiect",
+        "dbo.x",
+        "--din-fisier",
+        f.to_str().unwrap(),
+    ])
+    .status
+    .success());
+    let (o, _) = deploy(&o2, "d2", &[]);
+    assert!(!o.status.success(), "text final cazut");
+    assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
+    assert!(rul(&[
+        "editare",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--baza",
+        "T",
+        "--obiect",
+        "dbo.x",
+        "--reset"
+    ])
+    .status
+    .success());
+
+    // 3. omis dupa plan
+    let plan = d.join("plan.json");
+    assert!(rul(&[
+        "plan",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "-o",
+        plan.to_str().unwrap()
+    ])
+    .status
+    .success());
+    assert!(rul(&[
+        "revizuire",
+        "--sursa",
+        &o1,
+        "--referinta",
+        "M",
+        "--omite",
+        "dbo.x"
+    ])
+    .status
+    .success());
+    let (o, _) = deploy(&o1, "d3", &["--plan", plan.to_str().unwrap()]);
+    assert!(!o.status.success(), "omis dupa plan");
+    assert!(err(&o).contains("GM-MOD-018"), "{}", err(&o));
+}
+
+/// N8 din auditul 2026-11-23: cu iesirea standard inchisa, `deploy` isi face
+/// totusi treaba (progresul nu e rezultatul comenzii); inainte iesea cu 0 fara
+/// sa scrie nimic. Si tabelul lui `compara` (N7) nu mai da panica.
+#[test]
+fn teava_inchisa_nu_opreste_o_comanda_cu_efect() {
+    use std::process::{Command, Stdio};
+    let d = dir("teava-efect");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let ruleaza_inchis = |args: &[&str]| {
+        let mut c = Command::new(env!("CARGO_BIN_EXE_gmotion"))
+            .args(args)
+            .env("GMOTION_DIR_DATE", d.join("date"))
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        drop(c.stdout.take());
+        c.wait_with_output().unwrap()
+    };
+    let iesire = d.join("out");
+    let o = ruleaza_inchis(&[
+        "deploy",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+        "-d",
+        iesire.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    assert!(iesire.join("Client1.sql").exists(), "deploy-ul s-a scris");
+    let o = ruleaza_inchis(&[
+        "compara",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "Referinta",
+    ]);
+    let erori = String::from_utf8_lossy(&o.stderr);
+    assert!(!erori.contains("panicked"), "{erori}");
+    assert_eq!(o.status.code(), Some(0), "{erori}");
+}
+
+/// `editare --aplica ""` (variabila goala intr-un script) e eroare, nu un
+/// text final egal cu Modificata salvat tacut (auditul 2026-11-23).
+#[test]
+fn aplica_gol_e_eroare() {
+    let d = dir("aplica-gol");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    for gol in ["", ","] {
+        let o = ruleaza_in(
+            &[
+                "editare",
+                "--sursa",
+                inst.to_str().unwrap(),
+                "--referinta",
+                "Referinta",
+                "--baza",
+                "Client1",
+                "--obiect",
+                "dbo.pClienti",
+                "--aplica",
+                gol,
+            ],
+            Some(&d.join("date")),
+        );
+        assert!(!o.status.success(), "{gol:?}");
+        assert!(err(&o).contains("GM-CLI-001"), "{}", err(&o));
+    }
+}
+
+/// Auditul 2026-11-23: argumentele de server cu `--sursa` sunt eroare, nu
+/// ignorate; un text final in UTF-16 (PowerShell) se citeste; `--goleste
+/// --json` spune ce a facut; un instantaneu facut din alt instantaneu tine
+/// serverul declarat, nu calea locala.
+#[test]
+fn mici_din_auditul_cli() {
+    let d = dir("mici-cli");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let date = d.join("date");
+    for extra in [
+        vec!["--port", "5"],
+        vec!["--certificat", "sistem"],
+        vec!["--utilizator", "sa"],
+    ] {
+        let mut a = vec!["baze", "--sursa", i];
+        a.extend(extra.iter().copied());
+        let o = ruleaza(&a);
+        assert!(!o.status.success(), "{extra:?}");
+        assert!(err(&o).contains("GM-CLI-001"), "{}", err(&o));
+    }
+    let f = d.join("t16.sql");
+    let mut octeti = vec![0xFF, 0xFE];
+    octeti.extend(
+        "CREATE PROCEDURE dbo.pClienti AS\nSELECT 16"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes),
+    );
+    std::fs::write(&f, octeti).unwrap();
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+            "--din-fisier",
+            f.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "UTF-16: {}", err(&o));
+    let o = ruleaza_in(
+        &[
+            "--json",
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--goleste",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
+    assert!(v["bife_sterse"].is_number());
+    let copie = d.join("copie.json");
+    assert!(
+        ruleaza(&["instantaneu", "--sursa", i, "-o", copie.to_str().unwrap()])
+            .status
+            .success()
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&copie).unwrap()).unwrap();
+    assert_eq!(
+        v["server"], "SRV-TEST",
+        "serverul declarat, nu calea: {}",
+        v["server"]
+    );
+}
+
+/// O baza comparata fara niciun obiect (drepturi lipsa, sau baza noua) se
+/// semnaleaza pe erori, fara sa strice iesirea JSON (auditul 2026-11-23).
+#[test]
+fn baza_goala_se_semnaleaza() {
+    let d = dir("baza-goala");
+    let inst = d.join("inst.json");
+    std::fs::write(
+        &inst,
+        r#"{"versiune":1,"server":"S","creat":"x","nota":"","baze":{
+        "M":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROCEDURE dbo.p AS SELECT 1"}],
+        "G":[]}}"#,
+    )
+    .unwrap();
+    let o = ruleaza(&[
+        "--json",
+        "compara",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "M",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(
+        err(&o).contains("nu are niciun obiect vizibil"),
+        "{}",
+        err(&o)
+    );
+    serde_json::from_str::<serde_json::Value>(&out(&o)).expect("stdout ramane JSON");
 }

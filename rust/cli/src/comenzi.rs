@@ -25,9 +25,14 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
     let dir = gmotion_platforma::cai::director_date()
         .map(|c| c.display().to_string())
         .unwrap_or_else(|e| format!("(indisponibil: {e})"));
+    // o configurare stricata nu ascunde restul: `diagnostic` e comanda de
+    // rulat cand ceva nu merge, deci spune tot si abia apoi iese cu eroarea
+    // (F-C7)
     let cfg = gmotion_platforma::cai::cale_configurare()
         .and_then(Configurare::citeste)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string());
+    let eroare_configurare = cfg.as_ref().err().cloned();
+    let cfg = cfg.ok();
 
     #[derive(serde::Serialize)]
     struct D<'a> {
@@ -38,7 +43,9 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
         protejare_criptata: bool,
         auth_integrata_disponibila: bool,
         tipuri_obiecte: Vec<&'a str>,
-        configurare_activa: Configurare,
+        configurare_activa: Option<Configurare>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        eroare_configurare: Option<String>,
     }
     let d = D {
         versiune: env!("CARGO_PKG_VERSION"),
@@ -49,15 +56,16 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
         auth_integrata_disponibila: gmotion_db::sqlserver::auth_integrata_disponibila(),
         tipuri_obiecte: gmotion_core::TIPURI_OBIECTE.to_vec(),
         configurare_activa: cfg,
+        eroare_configurare: eroare_configurare.clone(),
     };
 
-    match format {
+    let afisat = match format {
         Format::Json => afisare::scrie_json(&d).map_err(|e| e.to_string()),
         Format::Text => {
-            println!("GMotion {} pe {}", d.versiune, d.sistem);
-            println!("Director de date   : {}", d.director_date);
-            println!("Configurare        : {}", d.configurare);
-            println!(
+            scrie!("GMotion {} pe {}", d.versiune, d.sistem);
+            scrie!("Director de date   : {}", d.director_date);
+            scrie!("Configurare        : {}", d.configurare);
+            scrie!(
                 "Sesiuni criptate   : {}",
                 if d.protejare_criptata {
                     "da (DPAPI)"
@@ -65,7 +73,7 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
                     "NU - doar in dezvoltare, pe Windows se foloseste DPAPI"
                 }
             );
-            println!(
+            scrie!(
                 "Auth integrata     : {}",
                 if d.auth_integrata_disponibila {
                     "disponibila"
@@ -73,13 +81,18 @@ pub fn diagnostic(format: Format) -> Result<(), String> {
                     "indisponibila pe acest sistem"
                 }
             );
-            println!("Tipuri comparate   : {}", d.tipuri_obiecte.join(", "));
-            println!(
-                "Timeout conectare  : {} s",
-                d.configurare_activa.timeout_conectare_s
-            );
+            scrie!("Tipuri comparate   : {}", d.tipuri_obiecte.join(", "));
+            match &d.configurare_activa {
+                Some(c) => scrie!("Timeout conectare  : {} s", c.timeout_conectare_s),
+                None => scrie!("Configurare activa : NU SE CITESTE (vezi eroarea)"),
+            }
             Ok(())
         }
+    };
+    afisat?;
+    match eroare_configurare {
+        Some(e) => Err(e),
+        None => Ok(()),
     }
 }
 
@@ -98,7 +111,7 @@ pub fn servere(format: Format) -> Result<(), String> {
         Format::Json => afisare::scrie_json(&gasite).map_err(|e| e.to_string()),
         Format::Text => {
             if gasite.is_empty() {
-                println!(
+                scrie!(
                     "Nicio instanta gasita.\n\n\
                      Nu inseamna neaparat ca nu exista. Cauze obisnuite:\n\
                      - serviciul SQL Browser e oprit pe server\n\
@@ -126,10 +139,10 @@ pub fn servere(format: Format) -> Result<(), String> {
                     ]
                 })
                 .collect();
-            print!(
-                "{}",
-                afisare::tabel(&["SERVER", "IP", "PORT", "VERSIUNE", "ETICHETE"], &randuri)
-            );
+            afisare::bucata(&afisare::tabel(
+                &["SERVER", "IP", "PORT", "VERSIUNE", "ETICHETE"],
+                &randuri,
+            ));
             Ok(())
         }
     }
@@ -142,10 +155,33 @@ pub fn baze(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
         Format::Json => afisare::scrie_json(&b).map_err(|e| e.to_string()),
         Format::Text => {
             if b.is_empty() {
-                println!("Nicio baza disponibila.");
+                scrie!("Nicio baza disponibila.");
             }
             for x in &b {
-                println!("{x}");
+                scrie!("{x}");
+            }
+            Ok(())
+        }
+    }
+}
+
+/// „Testeaza conexiunea" din fereastra, din linia de comanda: editia,
+/// versiunea, de cand merge serverul si cate baze are. Fara ea, un esec al
+/// butonului nu se putea depana (F-B3).
+pub fn testeaza(args: &ArgumenteSursa, format: Format) -> Result<(), String> {
+    let mut s = args.deschide_server()?;
+    let info = s.verifica("master").map_err(|e| e.to_string())?;
+    match format {
+        Format::Json => afisare::scrie_json(&info).map_err(|e| e.to_string()),
+        Format::Text => {
+            scrie!("Conexiune: ok");
+            scrie!("Editie   : {}", info.editie);
+            scrie!("Versiune : {}", info.sistem);
+            if let Some(sec) = info.pornit_de_secunde {
+                scrie!("Pornit de: {} ore", sec / 3600);
+            }
+            if let Some(n) = info.nr_baze {
+                scrie!("Baze     : {n}");
             }
             Ok(())
         }
@@ -168,12 +204,18 @@ pub fn instantaneu(
         }
     };
     if lista_baze.is_empty() {
-        return Err("nicio baza de citit".into());
+        return Err("[GM-CLI-006] nicio baza de citit".into());
     }
 
     // Numele serverului, nu descrierea pentru jurnal (care vorbeste si despre
-    // autentificare). Din alt instantaneu: descrierea lui, fara acreditari.
-    let eticheta = args.eticheta_server().unwrap_or_else(|| s.descriere());
+    // autentificare). Din alt instantaneu: serverul declarat in el, nu calea
+    // locala, care schimba cheia sesiunii (auditul 2026-11-23).
+    let eticheta = args.eticheta_server().unwrap_or_else(|| {
+        // identitatea unui instantaneu e „instantaneu <server>": in fisierul
+        // nou intra doar serverul, ca reluarea sa aiba aceeasi cheie
+        let id = s.identitate();
+        id.strip_prefix("instantaneu ").unwrap_or(&id).to_string()
+    });
     let citite = s
         .obiecte_multe(&lista_baze, &mut |i, n, baza| {
             if !baza.is_empty() {
@@ -198,6 +240,16 @@ pub fn instantaneu(
         inst.baze.len(),
         iesire.display()
     ));
+    // pe `--json`, iesirea standard spune ce s-a scris (invarianta 3 din
+    // `CRATE.md`); inainte ramanea goala (F-C5)
+    if format == Format::Json {
+        afisare::scrie_json(&serde_json::json!({
+            "cale": iesire.display().to_string(),
+            "baze": inst.baze.len(),
+            "obiecte": total,
+        }))
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -220,7 +272,7 @@ fn ruleaza_comparare(
     let disponibile = s.baze().map_err(|e| e.to_string())?;
     if !disponibile.iter().any(|b| b == referinta) {
         return Err(format!(
-            "baza martor {referinta:?} nu exista in sursa data. Disponibile: {}",
+            "[GM-CLI-005] baza martor {referinta:?} nu exista in sursa data. Disponibile: {}",
             disponibile.join(", ")
         ));
     }
@@ -263,7 +315,7 @@ fn ruleaza_comparare(
         .into_iter();
     let ref_obiecte = match citite.next() {
         Some((_, obiecte)) => modul::pregateste(&obiecte),
-        None => return Err("martorul nu a putut fi citit".into()),
+        None => return Err("[GM-CLI-008] martorul nu a putut fi citit".into()),
     };
     let altele: Vec<(String, modul::Baza)> = citite
         .map(|(baza, obiecte)| (baza, modul::pregateste(&obiecte)))
@@ -274,6 +326,23 @@ fn ruleaza_comparare(
             format.progres(&p.mesaj);
         }
     });
+    // o baza fara niciun obiect, cand martorul are: o baza noua, sau un
+    // utilizator care nu vede modulele (fara drept pe ele, SQL Server le
+    // ascunde de tot). Atunci totul apare „lipsa" si deploy-ul le-ar scrie pe
+    // toate peste cele personalizate: se spune, pe erori (auditul 2026-11-23)
+    if !ref_obiecte.is_empty() {
+        for (baza, ob) in &altele {
+            if ob.is_empty() {
+                eprintln!(
+                    "Atentie: baza {} nu are niciun obiect vizibil, desi martorul are {}. \
+                     E o baza noua, sau utilizatorul nu vede modulele ei (verifica drepturile, \
+                     VIEW DEFINITION): altfel deploy-ul ar rescrie tot.",
+                    afisare::fara_control(baza),
+                    ref_obiecte.len()
+                );
+            }
+        }
+    }
     Ok(Rulare {
         comparare,
         referinta: ref_obiecte,
@@ -299,7 +368,7 @@ pub fn compara(
         Format::Json => afisare::scrie_json(&afisare::comparare_json(&r.comparare, &detalii))
             .map_err(|e| e.to_string()),
         Format::Text => {
-            print!("{}", afisare::comparare_text(&r.comparare, &detalii));
+            afisare::bucata(&afisare::comparare_text(&r.comparare, &detalii));
             Ok(())
         }
     }
@@ -381,15 +450,29 @@ pub fn revizuire(
     } = schimbari;
     let sesiuni =
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
+    // doar bifele: textele finale, notele, bazele si marcajele de deploy
+    // raman. Inainte se stergea toata sesiunea, si textele finale scrise de
+    // mana cu ea (C10 din `cercetare/audit-qa-2026-11-22.md`)
     if goleste {
-        let sters = sesiuni
-            .sterge(&args.identitate()?, referinta)
-            .map_err(|e| e.to_string())?;
-        format.progres(if sters {
-            "Progresul salvat a fost sters."
-        } else {
-            "Nu exista progres salvat pentru martorul asta."
-        });
+        let Some(mut sesiune) = sesiuni
+            .incarca(&args.identitate()?, referinta)
+            .map_err(|e| e.to_string())?
+        else {
+            format.progres("Nu exista progres salvat pentru martorul asta.");
+            return Ok(());
+        };
+        let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
+        let n = revizuire.goleste_bifele();
+        revizuire.in_sesiune(&mut sesiune);
+        sesiune.salvata = acum();
+        sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
+        format.progres(&format!(
+            "{n} bife sterse (revizuit / omis). Textele finale, notele si marcajele de deploy raman."
+        ));
+        if format == Format::Json {
+            afisare::scrie_json(&serde_json::json!({ "bife_sterse": n }))
+                .map_err(|e| e.to_string())?;
+        }
         return Ok(());
     }
 
@@ -405,12 +488,7 @@ pub fn revizuire(
             // pe toate bazele comparate, ca `--omite` si `--scoate`: cu
             // `.find` se bifa doar prima, tacut (F-C1 din auditul QA)
             let mut gasit = false;
-            for rand in r
-                .comparare
-                .randuri
-                .iter()
-                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
-            {
+            for rand in potrivite(&r.comparare.randuri, &obiect) {
                 revizuire.marcheaza(rand);
                 gasit = true;
             }
@@ -423,12 +501,7 @@ pub fn revizuire(
     if let Some(l) = omite {
         for obiect in lista(l) {
             let mut gasit = false;
-            for rand in r
-                .comparare
-                .randuri
-                .iter()
-                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
-            {
+            for rand in potrivite(&r.comparare.randuri, &obiect) {
                 revizuire.omite(rand);
                 gasit = true;
             }
@@ -444,12 +517,7 @@ pub fn revizuire(
             // bifat separat pe fiecare baza comparata (deci fara `any`, care
             // s-ar opri la prima)
             let mut gasit = false;
-            for x in r
-                .comparare
-                .randuri
-                .iter()
-                .filter(|x| x.obiect.eq_ignore_ascii_case(&obiect))
-            {
+            for x in potrivite(&r.comparare.randuri, &obiect) {
                 gasit |= revizuire.scoate(&x.baza, &x.obiect);
                 gasit |= revizuire.scoate_omis(&x.baza, &x.obiect);
             }
@@ -461,12 +529,7 @@ pub fn revizuire(
     }
     if let Some((obiect, text)) = nota {
         let mut gasit = false;
-        for x in r
-            .comparare
-            .randuri
-            .iter()
-            .filter(|x| x.obiect.eq_ignore_ascii_case(obiect))
-        {
+        for x in potrivite(&r.comparare.randuri, obiect) {
             schimbat |= revizuire.pune_nota(&x.baza, &x.obiect, text);
             gasit = true;
         }
@@ -476,7 +539,7 @@ pub fn revizuire(
     }
     if !necunoscute.is_empty() {
         return Err(format!(
-            "obiecte care nu sunt in comparare (sau nu erau bifate): {}",
+            "[GM-CLI-005] obiecte care nu sunt in comparare (sau nu erau bifate): {}",
             necunoscute.join(", ")
         ));
     }
@@ -494,19 +557,23 @@ pub fn revizuire(
         Format::Json => {
             // numai bifele inca valabile: una cazuta nu mai spune nimic
             // despre ce e acum pe server
-            let obiecte: Vec<&str> = r
+            // cu baza: acelasi obiect revizuit pe trei baze iesea de trei ori,
+            // fara sa se stie pe care (F-C5)
+            let pe_baza =
+                |x: &modul::Rand| serde_json::json!({ "baza": x.baza, "obiect": x.obiect });
+            let obiecte: Vec<serde_json::Value> = r
                 .comparare
                 .randuri
                 .iter()
                 .filter(|x| revizuire.e_revizuit(x))
-                .map(|x| x.obiect.as_str())
+                .map(pe_baza)
                 .collect();
-            let omise: Vec<&str> = r
+            let omise: Vec<serde_json::Value> = r
                 .comparare
                 .randuri
                 .iter()
                 .filter(|x| revizuire.e_omis(x))
-                .map(|x| x.obiect.as_str())
+                .map(pe_baza)
                 .collect();
             let note: Vec<serde_json::Value> = revizuire
                 .note()
@@ -525,21 +592,21 @@ pub fn revizuire(
             .map_err(|e| e.to_string())
         }
         Format::Text => {
-            println!("Revizuite: {valabile_acum} din {total} obiecte care difera.");
+            scrie!("Revizuite: {valabile_acum} din {total} obiecte care difera.");
             if cazute > 0 {
-                println!(
+                scrie!(
                     "{cazute} bife au cazut: obiectele s-au schimbat de cand au fost revizuite."
                 );
             }
             if valabile_acum > 0 {
-                println!();
+                scrie!();
                 for x in r
                     .comparare
                     .randuri
                     .iter()
                     .filter(|x| revizuire.e_revizuit(x))
                 {
-                    println!("  {}  {}", x.baza, x.obiect);
+                    scrie!("  {}  {}", x.baza, x.obiect);
                 }
             }
             let omise: Vec<&modul::Rand> = r
@@ -549,16 +616,16 @@ pub fn revizuire(
                 .filter(|x| revizuire.e_omis(x))
                 .collect();
             if !omise.is_empty() {
-                println!("\nOmise (nu intra in deploy): {}", omise.len());
+                scrie!("\nOmise (nu intra in deploy): {}", omise.len());
                 for x in omise {
-                    println!("  {}  {}", x.baza, x.obiect);
+                    scrie!("  {}  {}", x.baza, x.obiect);
                 }
             }
             let note = revizuire.note();
             if !note.is_empty() {
-                println!("\nNote: {}", note.len());
+                scrie!("\nNote: {}", note.len());
                 for (b, o, t) in note {
-                    println!(
+                    scrie!(
                         "  {}  {}  {}",
                         b,
                         o,
@@ -630,7 +697,9 @@ pub fn impact(
         .collect();
     if let Some(o) = obiect {
         if randuri.is_empty() {
-            return Err(format!("obiectul {o:?} nu difera in nicio baza comparata"));
+            return Err(format!(
+                "[GM-CLI-005] obiectul {o:?} nu difera in nicio baza comparata"
+            ));
         }
     }
     randuri.sort_by(|a, b| {
@@ -663,7 +732,7 @@ pub fn impact(
         }
         Format::Text => {
             for (x, i, cine) in &randuri {
-                println!(
+                scrie!(
                     "{:<8} {}  {}  {}",
                     i.nivel.eticheta(),
                     afisare::fara_control(&x.baza),
@@ -672,25 +741,59 @@ pub fn impact(
                 );
                 if obiect.is_some() {
                     for c in cine {
-                        println!("           folosit de {}", afisare::fara_control(c));
+                        scrie!("           folosit de {}", afisare::fara_control(c));
                     }
                     for c in foloseste(x) {
-                        println!("           foloseste  {}", afisare::fara_control(&c));
+                        scrie!("           foloseste  {}", afisare::fara_control(&c));
                     }
                 }
             }
             if randuri.is_empty() {
-                println!("Niciun obiect nu difera.");
+                scrie!("Niciun obiect nu difera.");
             }
             Ok(())
         }
     }
 }
 
+/// Acelasi nume de obiect, fara sa conteze majusculele, si dincolo de ASCII
+/// (`pȘtergere` / `pștergere`): colatia SQL Server nu le deosebeste. diacritice-permise
+/// Randurile obiectului cerut: cele cu numele **exact**, daca exista; altfel
+/// cele care difera doar prin majuscule. `dbo.P1` nu mai bifeaza si obiectul
+/// distinct `dbo.p1` cand amandoua exista (auditul 2026-11-23).
+fn potrivite<'a>(randuri: &'a [modul::Rand], obiect: &str) -> Vec<&'a modul::Rand> {
+    let exacte: Vec<&modul::Rand> = randuri.iter().filter(|x| x.obiect == obiect).collect();
+    if !exacte.is_empty() {
+        return exacte;
+    }
+    randuri
+        .iter()
+        .filter(|x| acelasi_nume(&x.obiect, obiect))
+        .collect()
+}
+
+fn acelasi_nume(a: &str, b: &str) -> bool {
+    a.eq_ignore_ascii_case(b) || a.to_lowercase() == b.to_lowercase()
+}
+
+/// „Uneste ciclul cursorului", din configurare, ca in fereastra: altfel
+/// blocurile se taie altfel, iar `--aplica N` aplica alta diferenta decat a
+/// N-a din editor (C9 din `cercetare/audit-qa-2026-11-22.md`).
+fn uneste_cursor() -> Result<bool, String> {
+    gmotion_platforma::cai::cale_configurare()
+        .and_then(Configurare::citeste)
+        .map(|c| c.uneste_cursor)
+        .map_err(|e| e.to_string())
+}
+
 /// Alinierea si diferentele asa cum le numara editorul: pe grupuri.
-fn grupuri_editare(sursa: &str, curent: &str) -> (gmotion_core::Aliniere, Vec<Vec<usize>>) {
-    let a = gmotion_core::aliniaza(sursa, curent);
-    let plasari = gmotion_core::plasari_aliniere(&a, curent, false);
+fn grupuri_editare(
+    sursa: &str,
+    curent: &str,
+    uneste: bool,
+) -> (gmotion_core::Aliniere, Vec<Vec<usize>>) {
+    let a = gmotion_core::aliniaza_cu(sursa, curent, uneste);
+    let plasari = gmotion_core::plasari_aliniere(&a, curent, uneste);
     let grupuri = gmotion_core::grupuri_diferente(&a.diff, &plasari);
     (a, grupuri)
 }
@@ -731,14 +834,30 @@ pub fn editare(
         .comparare
         .randuri
         .iter()
-        .find(|x| x.baza == baza && x.obiect.eq_ignore_ascii_case(obiect))
-        .ok_or_else(|| format!("{obiect} nu difera intre {referinta} si {baza}"))?
+        .find(|x| x.baza == baza && x.obiect == obiect)
+        .or_else(|| {
+            r.comparare
+                .randuri
+                .iter()
+                .find(|x| x.baza == baza && acelasi_nume(&x.obiect, obiect))
+        })
+        .ok_or_else(|| {
+            // „nu difera" doar daca exista; altfel numele e gresit
+            let exista = r.referinta.keys().any(|n| acelasi_nume(n, obiect));
+            if exista {
+                format!("[GM-CLI-005] {obiect} nu difera intre {referinta} si {baza}")
+            } else {
+                format!("[GM-CLI-005] {obiect} nu exista in martorul {referinta}")
+            }
+        })?
         .clone();
     let text_sursa = r
         .referinta
         .get(&rand.obiect)
         .map(|o| o.afisare.clone())
-        .ok_or_else(|| format!("{obiect} nu exista in {referinta}: nu e nimic de adus"))?;
+        .ok_or_else(|| {
+            format!("[GM-CLI-005] {obiect} nu exista in {referinta}: nu e nimic de adus")
+        })?;
     let text_baza = r
         .altele
         .iter()
@@ -751,12 +870,13 @@ pub fn editare(
         gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
     let mut sesiune = sesiune_sau_noua(&sesiuni, args, referinta)?;
     let mut editari = modul::Editari::din_sesiune(&sesiune);
+    let uneste = uneste_cursor()?;
 
     let schimbat = match actiune {
         ActiuneEditare::Arata => false,
         ActiuneEditare::Aplica(numere, la) => {
             let curent = editari.curent(&rand, &text_baza).to_string();
-            let (a, grupuri) = grupuri_editare(&text_sursa, &curent);
+            let (a, grupuri) = grupuri_editare(&text_sursa, &curent, uneste);
             let mut blocuri = Vec::new();
             for n in numere {
                 let g = n
@@ -764,7 +884,7 @@ pub fn editare(
                     .and_then(|i| grupuri.get(i))
                     .ok_or_else(|| {
                         format!(
-                            "nu exista diferenta {n}: obiectul are {} diferente ramase",
+                            "[GM-CLI-005] nu exista diferenta {n}: obiectul are {} diferente ramase",
                             grupuri.len()
                         )
                     })?;
@@ -772,18 +892,25 @@ pub fn editare(
             }
             match la {
                 None => {
-                    editari.aplica_blocuri(&rand, &text_sursa, &text_baza, false, &blocuri);
+                    editari.aplica_blocuri(&rand, &text_sursa, &text_baza, uneste, &blocuri);
                 }
                 Some(linie) => {
                     let total = curent.lines().count();
                     if linie == 0 || linie > total + 1 {
                         return Err(format!(
-                            "--la {linie}: textul curent are {total} linii (1..={})",
+                            "[GM-CLI-001] --la {linie}: textul curent are {total} linii (1..={})",
                             total + 1
                         ));
                     }
                     let loc = gmotion_core::loc_la_linie(&a, linie - 1);
-                    editari.aplica_blocuri_la(&rand, &text_sursa, &text_baza, false, &blocuri, loc);
+                    editari.aplica_blocuri_la(
+                        &rand,
+                        &text_sursa,
+                        &text_baza,
+                        uneste,
+                        &blocuri,
+                        loc,
+                    );
                 }
             }
             true
@@ -794,9 +921,17 @@ pub fn editare(
         }
         ActiuneEditare::Reset => editari.reset(&rand),
         ActiuneEditare::DinFisier(cale) => {
-            let text = std::fs::read_to_string(&cale)
-                .map_err(|e| format!("nu pot citi {}: {e}", cale.display()))?;
+            // UTF-8 cu sau fara BOM, sau UTF-16 (PowerShell 5.1 scrie UTF-16 cu
+            // `>`): acelasi decodor ca la instantaneu
+            let text = std::fs::read(&cale)
+                .map_err(|e| e.to_string())
+                .and_then(|o| gmotion_db::text_din_octeti(&o))
+                .map_err(|e| format!("[GM-CLI-003] nu pot citi {}: {e}", cale.display()))?;
             let text = gmotion_core::pregateste_afisare(&text);
+            // un text care n-ar trece de deploy se refuza acum, nu abia la
+            // deploy (B2, F-C6 din auditul 2026-11-22)
+            modul::verifica_text_final(&rand.obiect, &rand.tip, &text)
+                .map_err(|e| e.to_string())?;
             editari.pune(&rand, text, true);
             true
         }
@@ -812,7 +947,7 @@ pub fn editare(
     let curent = editari.curent(&rand, &text_baza).to_string();
     // numerotate ca in editor: instructiunile consecutive care merg in acelasi
     // gol sunt o singura diferenta (`core::grupuri_diferente`)
-    let (a, grupuri) = grupuri_editare(&text_sursa, &curent);
+    let (a, grupuri) = grupuri_editare(&text_sursa, &curent, uneste);
     let diferente: Vec<usize> = grupuri.iter().map(|g| g[0]).collect();
     let manual = editari.text_final(&rand).is_some_and(|t| t.manual);
     let editat = editari.text_final(&rand).is_some();
@@ -865,10 +1000,10 @@ pub fn editare(
         .map_err(|e| e.to_string());
     }
     if arata_final {
-        println!("{curent}");
+        scrie!("{curent}");
         return Ok(());
     }
-    println!(
+    scrie!(
         "{} in {baza}: {}{}",
         rand.obiect,
         if editat {
@@ -893,19 +1028,23 @@ pub fn editare(
         }
     }
     if diferente.is_empty() {
-        println!("Nicio diferenta ramasa fata de {referinta}.");
+        scrie!("Nicio diferenta ramasa fata de {referinta}.");
     }
     for (i, &b) in diferente.iter().enumerate() {
         let d = &a.diff[b];
+        // caracterele de control din definitii (ESC, de exemplu) nu ajung
+        // brute in terminal, ca la `diferente` (auditul 2026-11-22)
         let prima = |t: &Option<String>| {
-            t.as_deref()
-                .and_then(|t| t.lines().next())
-                .unwrap_or("—")
-                .chars()
-                .take(70)
-                .collect::<String>()
+            afisare::fara_control(
+                &t.as_deref()
+                    .and_then(|t| t.lines().next())
+                    .unwrap_or("—")
+                    .chars()
+                    .take(70)
+                    .collect::<String>(),
+            )
         };
-        println!(
+        scrie!(
             "  {:>3}. {:<9} martor:     {}\n       {:<9} modificata: {}",
             i + 1,
             d.tip.eticheta(),
@@ -926,13 +1065,13 @@ pub fn export(
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
     if r.comparare.randuri.is_empty() {
-        return Err("nimic de exportat: bazele sunt identice cu martorul".into());
+        return Err("[GM-CLI-006] nimic de exportat: bazele sunt identice cu martorul".into());
     }
     let cale =
         iesire.unwrap_or_else(|| PathBuf::from(format!("gmotion_export_{}.csv", acum_compact())));
     // starea de revizuire vine din sesiune: altfel „Rezolvat" si „Omis" ies
     // mereu NU, iar exportul minte despre munca facuta (F-C2 din auditul QA)
-    let (revizuire, _) = salvate(args, referinta);
+    let (revizuire, _) = salvate(args, referinta)?;
     let n = modul::scrie_csv(&cale, &r.comparare.randuri, |i| {
         r.comparare
             .randuri
@@ -944,25 +1083,62 @@ pub fn export(
     })
     .map_err(|e| e.to_string())?;
     format.progres(&format!("Scris {} ({n} randuri).", cale.display()));
+    if format == Format::Json {
+        afisare::scrie_json(&serde_json::json!({
+            "cale": cale.display().to_string(),
+            "randuri": n,
+        }))
+        .map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
 /// Planul din compararea de acum: randurile alese (toate, sau `--doar`).
-fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> modul::Plan {
-    let filtru = doar.map(lista);
+fn plan_din(args: &ArgumenteSursa, r: &Rulare, doar: Option<&str>) -> Result<modul::Plan, String> {
+    // `--doar` cu un nume care nu e in comparare (gresit, sau identic) era
+    // ignorat tacut, iar majusculele conteaza in mod gresit: colatia SQL
+    // Server nu le deosebeste (F-C4)
+    let filtru = match doar.map(lista) {
+        Some(nume) => {
+            let necunoscute: Vec<&String> = nume
+                .iter()
+                .filter(|n| {
+                    !r.comparare
+                        .randuri
+                        .iter()
+                        .any(|x| x.obiect.eq_ignore_ascii_case(n))
+                })
+                .collect();
+            if !necunoscute.is_empty() {
+                return Err(format!(
+                    "[GM-CLI-005] --doar: {} nu sunt in comparare (nu exista, sau sunt identice cu martorul)",
+                    necunoscute
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            Some(nume)
+        }
+        None => None,
+    };
     // ce s-a omis (in fereastra sau cu `revizuire --omite`) nu intra in deploy,
     // ca in v3.4; cu `--doar` se poate cere totusi explicit
-    let omise = salvate(args, &r.comparare.referinta).0;
-    modul::Plan::din_comparare(
+    let (omise, editari) = salvate(args, &r.comparare.referinta)?;
+    // amprenta textelor finale intra in plan: `deploy --plan` le verifica
+    let texte = editari.pentru_deploy(&r.comparare.randuri);
+    Ok(modul::Plan::din_comparare(
         &r.comparare,
         &r.referinta,
         &r.altele,
         |rand| match &filtru {
-            Some(f) => f.iter().any(|x| x == &rand.obiect),
+            Some(f) => f.iter().any(|x| x.eq_ignore_ascii_case(&rand.obiect)),
             None => !omise.e_omis(rand),
         },
         &acum(),
     )
+    .cu_texte_finale(&texte))
 }
 
 /// Dupa un deploy scris: obiectele din plan se tin minte ca deployate, cu
@@ -985,11 +1161,13 @@ fn marcheaza_deployatele(
     };
     let mut revizuire = modul::Revizuire::din_sesiune(&sesiune);
     let mut marcate = 0;
+    // index o data, nu `find` pe toate randurile pentru fiecare pas (P6)
+    let index: std::collections::HashMap<(&str, &str), &modul::Rand> = randuri
+        .iter()
+        .map(|r| ((r.baza.as_str(), r.obiect.as_str()), r))
+        .collect();
     for pas in &plan.pasi {
-        if let Some(rand) = randuri
-            .iter()
-            .find(|r| r.baza == pas.baza && r.obiect == pas.obiect)
-        {
+        if let Some(rand) = index.get(&(pas.baza.as_str(), pas.obiect.as_str())) {
             revizuire.marcheaza_deployat(rand);
             marcate += 1;
         }
@@ -1004,23 +1182,70 @@ fn marcheaza_deployatele(
     }
 }
 
-/// Revizuirea (cu omisele) si textele finale salvate pentru referinta. Lipsa
-/// sesiunii sau o sesiune de neinteles dau stari goale: deploy-ul merge si
-/// fara ele, cu codul din referinta.
-fn salvate(args: &ArgumenteSursa, referinta: &str) -> (modul::Revizuire, modul::Editari) {
-    gmotion_platforma::Sesiuni::pentru_modul(modul::NUME)
-        .ok()
-        .and_then(|s| {
-            let id = args.identitate().ok()?;
-            s.incarca(&id, referinta).ok().flatten()
-        })
-        .map(|s| {
-            (
-                modul::Revizuire::din_sesiune(&s),
-                modul::Editari::din_sesiune(&s),
-            )
-        })
-        .unwrap_or_default()
+/// Revizuirea (cu omisele) si textele finale salvate pentru referinta.
+///
+/// Lipsa sesiunii da stari goale: deploy-ul merge si fara ea, cu codul din
+/// referinta. O sesiune care **exista** dar nu se poate citi opreste comanda:
+/// altfel obiectele omise ar ajunge in deploy si textele finale s-ar pierde,
+/// fara niciun semn (B1 din `cercetare/audit-qa-2026-11-22.md`).
+fn salvate(
+    args: &ArgumenteSursa,
+    referinta: &str,
+) -> Result<(modul::Revizuire, modul::Editari), String> {
+    let sesiuni =
+        gmotion_platforma::Sesiuni::pentru_modul(modul::NUME).map_err(|e| e.to_string())?;
+    let id = args.identitate()?;
+    match sesiuni.incarca(&id, referinta).map_err(|e| e.to_string())? {
+        None => Ok(Default::default()),
+        // o parte a sesiunii care nu se citeste e eroare, nu stare goala:
+        // goala, omisele intrau in deploy si apoi se stergeau de pe disc
+        Some(s) => Ok((
+            modul::Revizuire::din_sesiune_verificat(&s).map_err(|e| e.to_string())?,
+            modul::Editari::din_sesiune_verificat(&s).map_err(|e| e.to_string())?,
+        )),
+    }
+}
+
+/// Deciziile salvate care nu mai sunt valabile pentru obiectele din plan:
+/// omiteri ale unor obiecte schimbate de atunci, texte finale facute pe alta
+/// versiune, sau (cu un plan vechi) obiecte omise dupa plan. Fiecare ar fi
+/// schimbat tacut ce pleaca in baza (N4, N5 din auditul 2026-11-23).
+fn decizii_cazute(
+    plan: &modul::Plan,
+    randuri: &[modul::Rand],
+    revizuire: &modul::Revizuire,
+    editari: &modul::Editari,
+    plan_vechi: bool,
+) -> Result<(), String> {
+    let in_plan = |b: &str, o: &str| plan.pasi.iter().any(|p| p.baza == b && p.obiect == o);
+    let mut lista: Vec<String> = Vec::new();
+    for (b, o) in revizuire.omise_cazute(randuri) {
+        if in_plan(&b, &o) {
+            lista.push(format!("{o} pe {b} (omis, apoi schimbat)"));
+        }
+    }
+    for (b, o) in editari.cazute(randuri) {
+        if in_plan(&b, &o) {
+            lista.push(format!("{o} pe {b} (text final facut pe alta versiune)"));
+        }
+    }
+    // un plan facut acum (fara `--plan`) a sarit deja omisele, iar `--doar`
+    // le poate cere explicit; doar unul vechi poate contine o omitere ulterioara
+    for p in plan.pasi.iter().filter(|_| plan_vechi) {
+        if randuri
+            .iter()
+            .any(|r| r.baza == p.baza && r.obiect == p.obiect && revizuire.e_omis(r))
+        {
+            lista.push(format!("{} pe {} (omis dupa plan)", p.obiect, p.baza));
+        }
+    }
+    if lista.is_empty() {
+        return Ok(());
+    }
+    Err(modul::Eroare::DecizieCazuta {
+        lista: lista.join("; "),
+    }
+    .to_string())
 }
 
 /// Scrie planul de deploy, cu amprentele de acum, ca sa fie verificat de
@@ -1034,13 +1259,17 @@ pub fn plan(
     format: Format,
 ) -> Result<(), String> {
     let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-    let p = plan_din(args, &r, doar);
+    let p = plan_din(args, &r, doar)?;
     if p.pasi.is_empty() {
         return Err(modul::Eroare::NimicDeDeployat.to_string());
     }
+    // un plan scris peste decizii cazute le-ar ascunde de deploy-ul de mai tarziu
+    let (revizuire, editari) = salvate(args, referinta)?;
+    decizii_cazute(&p, &r.comparare.randuri, &revizuire, &editari, false)?;
     let cale = iesire.unwrap_or_else(|| PathBuf::from(format!("plan_{}.json", acum_compact())));
     let text = serde_json::to_string_pretty(&p).map_err(|e| e.to_string())?;
-    std::fs::write(&cale, text).map_err(|e| format!("nu pot scrie {}: {e}", cale.display()))?;
+    std::fs::write(&cale, text)
+        .map_err(|e| format!("[GM-CLI-007] nu pot scrie {}: {e}", cale.display()))?;
     format.progres(&format!(
         "Scris {} ({} pasi{}).\n\
          Deploy-ul, cu verificarea ca baza n-a mai fost atinsa:\n  \
@@ -1077,12 +1306,12 @@ pub fn deploy(
     let (plan, r) = match cale_plan {
         Some(c) => {
             let text = std::fs::read_to_string(c)
-                .map_err(|e| format!("nu pot citi planul {}: {e}", c.display()))?;
+                .map_err(|e| format!("[GM-CLI-003] nu pot citi planul {}: {e}", c.display()))?;
             let plan: modul::Plan = serde_json::from_str(&text)
-                .map_err(|e| format!("planul {} nu e valid: {e}", c.display()))?;
+                .map_err(|e| format!("[GM-CLI-004] planul {} nu e valid: {e}", c.display()))?;
             if plan.referinta != referinta {
                 return Err(format!(
-                    "planul e facut cu martorul {:?}, nu {referinta:?}",
+                    "[GM-CLI-004] planul e facut cu martorul {:?}, nu {referinta:?}",
                     plan.referinta
                 ));
             }
@@ -1104,15 +1333,37 @@ pub fn deploy(
         }
         None => {
             let r = ruleaza_comparare(args, referinta, baze_cerute, format)?;
-            (plan_din(args, &r, doar), r)
+            (plan_din(args, &r, doar)?, r)
         }
     };
 
     // textele finale facute in editor (sau cu `gmotion editare`), daca sunt
     // inca valabile pentru obiectele de acum
-    let texte_finale = salvate(args, referinta)
-        .1
-        .pentru_deploy(&r.comparare.randuri);
+    let (revizuire, editari) = salvate(args, referinta)?;
+    decizii_cazute(
+        &plan,
+        &r.comparare.randuri,
+        &revizuire,
+        &editari,
+        cale_plan.is_some(),
+    )?;
+    let texte_finale = editari.pentru_deploy(&r.comparare.randuri);
+    // cu `--plan`, textele finale trebuie sa fie cele de la plan: un text
+    // schimbat dupa plan ar pleca in baza fara sa-l fi vazut cine a aprobat
+    // planul (F-D5)
+    if cale_plan.is_some() {
+        let s = plan.verifica_texte(&texte_finale);
+        if !s.is_empty() {
+            return Err(modul::Eroare::BazaAtinsa {
+                schimbari: s
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            }
+            .to_string());
+        }
+    }
     let cu_text_final = plan
         .pasi
         .iter()
@@ -1203,14 +1454,20 @@ pub fn diferente(
     let mut s = args.deschide()?;
     let ref_ob = s.obiecte(referinta).map_err(|e| e.to_string())?;
     let cur_ob = s.obiecte(baza).map_err(|e| e.to_string())?;
-    let gaseste = |v: &[gmotion_db::Obiect]| v.iter().find(|o| o.id() == obiect).cloned();
+    // exact, apoi fara majuscule, ca la `editare` (auditul 2026-11-23)
+    let gaseste = |v: &[gmotion_db::Obiect]| {
+        v.iter()
+            .find(|o| o.id() == obiect)
+            .or_else(|| v.iter().find(|o| acelasi_nume(&o.id(), obiect)))
+            .cloned()
+    };
 
     // un obiect dintr-o singura parte se arata si el, cu cealalta parte
     // goala: tot codul adaugat sau sters, ca in editor (F-A9)
     let (r, c) = (gaseste(&ref_ob), gaseste(&cur_ob));
     if r.is_none() && c.is_none() {
         return Err(format!(
-            "obiectul {obiect:?} nu exista in niciuna din baze ({referinta}, {baza})"
+            "[GM-CLI-005] obiectul {obiect:?} nu exista in niciuna din baze ({referinta}, {baza})"
         ));
     }
     let afisare = |o: Option<gmotion_db::Obiect>| {
@@ -1248,15 +1505,15 @@ pub fn diferente(
             let culori = std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none();
             let aliniere = gmotion_core::aliniaza(&text_ref, &text_tinta);
             let (linii, locuri) = text_diferente(&aliniere, culori);
-            println!(
+            scrie!(
                 "{}",
                 afisare::fara_control(&format!("{obiect}: {referinta} -> {baza}"))
             );
-            println!("{rezumat}");
+            scrie!("{rezumat}");
             if !locuri.is_empty() {
                 let lista: Vec<&str> = locuri.iter().take(20).map(String::as_str).collect();
                 let rest = locuri.len().saturating_sub(20);
-                println!(
+                scrie!(
                     "Diferente la liniile (martor/modificata): {}{}",
                     lista.join(", "),
                     if rest > 0 {
@@ -1267,8 +1524,8 @@ pub fn diferente(
                 );
             }
             if !plasari.is_empty() {
-                println!();
-                println!("Plasarea blocurilor din martor, adica ce face Aplica:");
+                scrie!();
+                scrie!("Plasarea blocurilor din martor, adica ce face Aplica:");
                 for p in &plasari {
                     let unde = if p.inlocuieste {
                         format!(
@@ -1290,12 +1547,12 @@ pub fn diferente(
                     } else {
                         String::new()
                     };
-                    println!("  linia {:>5} -> {unde}{impreuna}", p.linie_martor);
+                    scrie!("  linia {:>5} -> {unde}{impreuna}", p.linie_martor);
                 }
             }
-            println!();
+            scrie!();
             for linie in linii {
-                println!("{linie}");
+                scrie!("{linie}");
             }
             Ok(())
         }
@@ -1454,6 +1711,43 @@ fn text_diferente(a: &gmotion_core::Aliniere, culori: bool) -> (Vec<String>, Vec
 #[cfg(test)]
 mod teste {
     use super::*;
+
+    #[test]
+    fn potrivirea_exacta_bate_potrivirea_fara_majuscule() {
+        let rand = |o: &str| modul::Rand {
+            id: 0,
+            obiect: o.into(),
+            baza: "B".into(),
+            scor: None,
+            rezumat: String::new(),
+            tip: "P".into(),
+            categorie: modul::Categorie::Diferit,
+            hash_referinta: None,
+            hash_curent: None,
+            modificat: None,
+            creat: None,
+            exacta_curent: None,
+        };
+        let r = [rand("dbo.p1"), rand("dbo.P1")];
+        let p: Vec<&str> = potrivite(&r, "dbo.P1")
+            .iter()
+            .map(|x| x.obiect.as_str())
+            .collect();
+        assert_eq!(p, ["dbo.P1"], "doar cel exact");
+        assert_eq!(potrivite(&r, "DBO.P2").len(), 0);
+        assert_eq!(
+            potrivite(&r[..1], "DBO.P1").len(),
+            1,
+            "fara exact, fara majuscule"
+        );
+    }
+
+    #[test]
+    fn numele_se_potrivesc_fara_majuscule_si_dincolo_de_ascii() {
+        assert!(acelasi_nume("dbo.pA", "DBO.PA"));
+        assert!(acelasi_nume("dbo.p\u{218}tergere", "dbo.p\u{219}tergere"));
+        assert!(!acelasi_nume("dbo.pA", "dbo.pB"));
+    }
 
     #[test]
     fn randul_modificat_arata_ambele_versiuni_si_ce_s_a_schimbat() {

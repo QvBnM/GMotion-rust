@@ -205,3 +205,45 @@ fn doua_servere_cu_aceeasi_referinta_au_sesiuni_separate() {
     std::env::remove_var("GMOTION_DIR_DATE");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// F-A15: o sesiune ilizibila se pune deoparte, nu se suprascrie; dupa asta
+/// `incarca` vede „nicio sesiune", iar listarea n-o ia drept sesiune.
+#[test]
+fn sesiunea_ilizibila_se_pune_deoparte() {
+    let (_lacat, dir) = pregateste("deoparte");
+    let s = Sesiuni::pentru_modul("diff-obiecte").unwrap();
+    assert_eq!(s.pune_deoparte("SRV01", "Ref").unwrap(), None);
+    let cale = s.salveaza(&sesiune("Ref", "munca")).unwrap();
+    let continut = std::fs::read(&cale).unwrap();
+    std::fs::write(&cale, &continut[..continut.len() / 2]).unwrap();
+    assert!(s.incarca("SRV01", "Ref").is_err());
+
+    let pusa = s.pune_deoparte("SRV01", "Ref").unwrap().expect("exista");
+    assert!(!cale.exists());
+    assert_eq!(
+        std::fs::read(&pusa).unwrap(),
+        &continut[..continut.len() / 2]
+    );
+    assert_eq!(s.incarca("SRV01", "Ref").unwrap(), None);
+    assert!(s.lista().unwrap().is_empty());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Acelasi server scris altfel (`SRV`, `srv`, `SRV,1433`) e aceeasi sesiune;
+/// una scrisa inainte de normalizare se muta singura pe cheia noua.
+#[test]
+fn serverul_scris_altfel_e_aceeasi_sesiune() {
+    let (_lacat, dir) = pregateste("server-normalizat");
+    let s = Sesiuni::pentru_modul("diff-obiecte").unwrap();
+    s.salveaza(&sesiune("Ref", "munca")).unwrap(); // server "SRV01"
+    for forma in ["SRV01", "srv01", "SRV01,1433", "SRV01:1433", " srv01 "] {
+        let g = s.incarca(forma, "Ref").unwrap();
+        assert!(g.is_some(), "{forma:?}");
+    }
+    assert!(
+        s.incarca("SRV01,1500", "Ref").unwrap().is_none(),
+        "alt port, alt server"
+    );
+    assert_eq!(gmotion_platforma::server_normalizat("SRV,1433"), "srv");
+    std::fs::remove_dir_all(&dir).ok();
+}

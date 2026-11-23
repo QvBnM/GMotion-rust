@@ -593,7 +593,7 @@ export struct NodUi {
 }
 
 export component FereastraLista inherits Window {
-    title: "gmotion";
+    title: "gmotion"; // text-permis: marca
     preferred-width: 1440px;
     // sub atat, randul filtrelor nu mai incape nici singur
     min-width: 760px;
@@ -755,6 +755,24 @@ export component FereastraLista inherits Window {
     changed width => {
         root.latime-fereastra = self.width;
         if (root.arata-harta) { root.harta-redimensionata(); }
+        root.potriveste-coloanele();
+    }
+
+    // Pe un ecran ingust, coloanele lasate la latimea implicita se strang, ca
+    // numele obiectului sa nu mai fie „dbo.TESTSIMILITUDINE_Ca..." pe fiecare
+    // rand (auditul 2026-11-23, 1024x768). O latime trasa de mana nu se atinge.
+    function potriveste-coloanele() {
+        if (self.width < 1200px) {
+            if (Coloane.scor == 118px) { Coloane.scor = 76px; }
+            if (Coloane.difera == 124px) { Coloane.difera = 96px; }
+            if (Coloane.deploy == 130px) { Coloane.deploy = 100px; }
+            if (Coloane.tip == 84px) { Coloane.tip = 72px; }
+        } else {
+            if (Coloane.scor == 76px) { Coloane.scor = 118px; }
+            if (Coloane.difera == 96px) { Coloane.difera = 124px; }
+            if (Coloane.deploy == 100px) { Coloane.deploy = 130px; }
+            if (Coloane.tip == 72px) { Coloane.tip = 84px; }
+        }
     }
     changed height => {
         if (root.arata-harta) { root.harta-redimensionata(); }
@@ -764,7 +782,21 @@ export component FereastraLista inherits Window {
         if (root.randuri.length == 0) { return; }
         root.selectat = Math.max(0, Math.min(root.randuri.length - 1, root.selectat + pas));
         root.alege-randul(root.selectat);
-        tabel.content-y = -Math.max(0, root.selectat - 6) * 34px;
+        root.arata-selectia();
+    }
+
+    // Derularea urmeaza selectia doar cand selectia iese din vedere: inainte
+    // randul ales sarea mereu pe pozitia 7, iar o selectie venita din Rust
+    // (clic pe harta, recomparare) nu se vedea deloc (V12).
+    // derularea tabelului, doar pentru teste
+    out property <length> derulare-tabel: tabel.content-y;
+    public function arata-selectia() {
+        if (root.selectat < 0) { return; }
+        if (root.selectat * 34px < -tabel.content-y) {
+            tabel.content-y = -Math.max(0, root.selectat - 2) * 34px;
+        } else if ((root.selectat + 1) * 34px > -tabel.content-y + tabel.visible-height) {
+            tabel.content-y = -Math.max(0px, (root.selectat + 3) * 34px - tabel.visible-height);
+        }
     }
 
     taste := FocusScope {
@@ -780,6 +812,17 @@ export component FereastraLista inherits Window {
             }
             if (e.text == Key.Escape && root.arata-harta) { root.arata-harta = false; return accept; }
             if (root.arata-harta) { return reject; }
+            // un dialog deschis (deconectarea, ajutorul) e modal si la
+            // tastatura: Enter, Ctrl+I, Ctrl+R lucrau pe sub el (auditul
+            // 2026-11-23). Doar Esc (si F1 pe ajutor) il inchide.
+            if (root.intreaba-deconectarea) {
+                if (e.text == Key.Escape) { root.renunta-la-deconectare(); }
+                return accept;
+            }
+            if (root.arata-ajutorul) {
+                if (e.text == Key.Escape || e.text == Key.F1) { root.arata-ajutorul = false; }
+                return accept;
+            }
             if (e.text == Key.DownArrow || (e.modifiers.control && (e.text == "j" || e.text == "J"))) { root.muta-selectia(1); return accept; }
             if (e.text == Key.UpArrow || (e.modifiers.control && (e.text == "k" || e.text == "K"))) { root.muta-selectia(-1); return accept; }
             if (e.text == Key.Return) { root.deschide-obiectul(); return accept; }
@@ -1071,6 +1114,7 @@ export component FereastraLista inherits Window {
                         alignment: center;
                         ButonPrincipal {
                             text: Texte.deploy-paranteza + root.numar-deploy + ")";
+                            activ: root.numar-deploy != "0";
                             apasat => { root.deschide-deploy(); }
                         }
                     }
@@ -1448,13 +1492,23 @@ export component FereastraLista inherits Window {
                     padding-left: 24px;
                     padding-right: 24px;
                     spacing: 18px;
-                    for k in [{ t: "ctrl j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "ctrl r", e: Texte.revizuit-mic }, { t: "ctrl i", e: Texte.in-plan-mic }, { t: "ctrl o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "ctrl h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
-                        spacing: 6px;
-                        Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
-                        Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                    // scurtaturile se taie cand nu incap (1024 px), in loc sa
+                    // impinga serverele afara din ecran (auditul 2026-11-22)
+                    Rectangle {
+                        clip: true;
+                        horizontal-stretch: 1;
+                        min-width: 0px;
+                        HorizontalLayout {
+                            spacing: 18px;
+                            alignment: start;
+                            for k in [{ t: "ctrl j k", e: Texte.obiect-mic }, { t: Texte.tasta-clic, e: Texte.detalii-mic }, { t: Texte.tasta-dublu-clic, e: Texte.deschide-mic }, { t: "ctrl r", e: Texte.revizuit-mic }, { t: "ctrl i", e: Texte.in-plan-mic }, { t: "ctrl o", e: Texte.omite-mic }, { t: "esc", e: Texte.inchide-detaliile-mic }, { t: "ctrl h", e: Texte.harta-mic }, { t: "ctrl f", e: Texte.cauta-mic }]: HorizontalLayout {
+                                spacing: 6px;
+                                Text { text: k.t; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text; vertical-alignment: center; }
+                                Text { text: k.e; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                            }
+                        }
                     }
-                    Rectangle { horizontal-stretch: 1; }
-                    Text { text: root.servere; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                    Text { text: root.servere; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; min-width: 0px; max-width: 420px; }
                 }
             }
         }
@@ -1660,6 +1714,7 @@ export component FereastraLista inherits Window {
 
     init => {
         root.latime-fereastra = self.width;
+        root.potriveste-coloanele();
         taste.focus();
     }
 }

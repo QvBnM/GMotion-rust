@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: ee9231dbe51c5a5a -->
+<!-- api-hash: 102409d2b116a032 -->
 
 ## Rol
 
@@ -28,11 +28,12 @@ Doua lucruri trebuie sa ramana adevarate:
 | `diagnostic` | ce vede GMotion: versiune, cai, configurare, ce e disponibil. Prima comanda cand ceva nu merge |
 | `servere` | descoperire prin SQL Browser (UDP 1434) |
 | `baze` | bazele disponibile |
+| `testeaza` | testul de conexiune, ca butonul din fereastra: editia, versiunea, de cand merge, cate baze; doar pe server |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
 | `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
-| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge) |
+| `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge); `--goleste` sterge doar bifele (textele finale, notele si marcajele de deploy raman) |
 | `impact` | impactul estimat al deploy-ului fiecarui obiect care difera; cu `--obiect`, si cine il foloseste |
-| `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--din-fisier` (scris de mana); aceeasi sesiune ca fereastra |
+| `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--la N` (lasa diferenta pe linia N, ca tragerea), `--din-fisier` (scris de mana; un text care n-ar trece de deploy se refuza pe loc), `--arata-final` (textul final pe iesirea standard); aceeasi sesiune si acelasi `uneste_cursor` (din configurare) ca fereastra |
 | `diferente` | diff-ul unui singur obiect, linie cu linie |
 | `plan` | ce intra in deploy, cu amprentele de acum, intr-un `.json` |
 | `deploy` | scripturile, cu codul din referinta (sau textul final din editor, daca e valabil; fara cele omise), si revenirea in `revenire/`. Cu `--plan`, intai verifica ca baza n-a mai fost atinsa (`GM-MOD-012`) |
@@ -56,13 +57,19 @@ autoritati de certificare.
    merg la erori. In mod text, progresul merge la iesirea standard.
 4. **Cerintele modulului se verifica inainte de a citi ceva** — altfel s-ar citi
    degeaba, posibil minute.
-5. **Marcajul de timp se da catre modul, nu se citeste din ceas acolo**, ca
+5. **O sesiune care exista dar nu se poate citi opreste `deploy`, `plan` si
+   `export`.** Fara ea, omisele ar ajunge in deploy si textele finale s-ar
+   pierde fara semn (B1, audit 2026-11-22). Lipsa sesiunii nu e eroare.
+6. **Autentificarea se rezolva o singura data pe rulare** (`ArgumenteAuth::
+   rezolva`): sursa se deschide de mai multe ori, iar `--parola-stdin` se
+   poate citi o singura data (B3).
+7. **Marcajul de timp se da catre modul, nu se citeste din ceas acolo**, ca
    generatorul de deploy sa ramana testabil.
-6. **Un instantaneu retine doar numele serverului** (`SRV\INST` sau
+8. **Un instantaneu retine doar numele serverului** (`SRV\INST` sau
    `SRV,PORT`, din `ArgumenteSursa::eticheta_server`), nu descrierea pentru
    jurnal. Instantaneele ajung in repo ca fixture; o data a ajuns acolo
    lungimea parolei pe calea asta.
-7. **Cheia sesiunii e perechea (sursa, referinta)**, iar identitatea sursei
+9. **Cheia sesiunii e perechea (sursa, referinta)**, iar identitatea sursei
    vine din sursa deschisa (`ArgumenteSursa::identitate` ->
    `SursaObiecte::identitate`), nu ghicita din argumente: pentru un
    instantaneu e serverul declarat in fisier, nu calea lui (F-B4).
@@ -71,17 +78,22 @@ autoritati de certificare.
 
 | Simptom | Cauza | Unde caut |
 |---|---|---|
-| „da ori --server, ori --sursa" | nu s-a dat niciuna | `src/sursa.rs` |
-| „lipseste parola pentru utilizatorul X" | `GMOTION_PAROLA` nu e setata | `src/acreditari.rs` |
+| `GM-CLI-001` | argumente lipsa sau care nu merg impreuna („da ori --server, ori --sursa", `--la` fara o singura diferenta) | `src/main.rs`, `src/sursa.rs` |
+| `GM-CLI-002` | parola: lipsa (`GMOTION_PAROLA` nesetata), goala, fisier sau intrare standard ilizibile | `src/acreditari.rs` |
+| `GM-CLI-003` | un fisier de intrare (text final, plan) nu se citeste | `src/comenzi.rs` |
+| `GM-CLI-004` | planul nu e JSON valid sau e facut cu alt martor | `src/comenzi.rs`, `deploy` |
+| `GM-CLI-005` | un nume (baza, obiect, `--doar`) nu e in comparare; mesajul listeaza ce exista | `src/comenzi.rs` |
+| `GM-CLI-006` | nimic de facut (nicio baza, nimic de exportat) | `src/comenzi.rs` |
+| `GM-CLI-007` | un fisier de iesire nu se scrie | `src/comenzi.rs` |
+| `GM-CLI-008` | martorul nu s-a putut citi | `src/comenzi.rs` |
 | `GM-DB-007` | instantaneul nu se citeste | `gmotion-db`, `src/fixture.rs` |
-| „baza de referinta nu exista in sursa" | nume gresit; mesajul listeaza ce exista | `src/comenzi.rs` |
 | `--json` da iesire neparsabila | ceva scrie la iesirea standard in afara de JSON | `src/afisare.rs`, `platforma/src/jurnal.rs` |
 | `GM-MOD-002` | tot ce e marcat exista doar in baza comparata | `gmotion-modul-diff-obiecte` |
 
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-cli       # 39 teste
+cd rust && cargo test -p gmotion-cli       # 61 teste
 ```
 
 `tests/cli.rs` ruleaza **binarul adevarat**, nu functii interne, si acopera

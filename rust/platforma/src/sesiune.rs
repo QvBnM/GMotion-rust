@@ -122,6 +122,23 @@ fn nume_lizibil(nume: &str) -> String {
 /// `incarca` intorcea sesiunea celuilalt server (F-B4). Partea lizibila
 /// ramane numele bazei; discriminantul e hash-ul perechii exacte.
 pub fn slug_sesiune(server: &str, referinta: &str) -> String {
+    let server = server_normalizat(server);
+    let h = gmotion_core::calc_hash(&format!("{server}\0{referinta}"));
+    format!("{}-{}", nume_lizibil(referinta), &h[..12])
+}
+
+/// Acelasi server, oricum ar fi scris: `SRV`, `srv`, `SRV,1433` si
+/// `SRV:1433` (portul implicit) sunt unul singur. Altfel omiterile si
+/// textele finale facute sub o forma nu se vedeau sub alta, iar deploy-ul le
+/// ignora tacut (auditul 2026-11-23).
+pub fn server_normalizat(server: &str) -> String {
+    let s = server.trim().to_lowercase().replace(',', ":");
+    s.strip_suffix(":1433").unwrap_or(&s).to_string()
+}
+
+/// Cheia de dinainte de normalizarea serverului: se citeste o data, ca sa
+/// mute sesiunea pe cheia noua.
+fn slug_sesiune_exact(server: &str, referinta: &str) -> String {
     let h = gmotion_core::calc_hash(&format!("{server}\0{referinta}"));
     format!("{}-{}", nume_lizibil(referinta), &h[..12])
 }
@@ -245,6 +262,16 @@ impl Sesiuni {
     /// referinta) se muta pe numele nou la prima citire.
     pub fn incarca(&self, server: &str, referinta: &str) -> Rezultat<Option<Sesiune>> {
         let mut cale = self.cale(server, referinta);
+        if !cale.exists() {
+            // sesiune scrisa cu forma exacta a serverului (inainte de
+            // normalizare): se muta pe cheia noua
+            let exacta = self
+                .director
+                .join(format!("{}.dat", slug_sesiune_exact(server, referinta)));
+            if exacta != cale && exacta.exists() {
+                let _ = std::fs::rename(&exacta, &cale);
+            }
+        }
         if !cale.exists() && self.migreaza(referinta) {
             cale = self.cale(server, referinta);
         }
@@ -283,7 +310,7 @@ impl Sesiuni {
                 ),
             });
         }
-        if s.server != server {
+        if server_normalizat(&s.server) != server_normalizat(server) {
             return Err(Eroare::CitireSesiune {
                 cale: cale.display().to_string(),
                 detaliu: format!(
@@ -295,29 +322,38 @@ impl Sesiuni {
         Ok(Some(s))
     }
 
-    /// O sesiune care nu se poate citi se muta deoparte, langa ea, cu
-    /// sufixul `.corupt`, ca salvarea urmatoare sa nu o suprascrie tacut si
-    /// sa se poata trimite la depanare (F-A15). Intoarce noua cale; `None`
-    /// daca nu exista fisier. O copie `.corupt` mai veche se inlocuieste.
+    /// Muta deoparte o sesiune care nu se mai poate citi (`<nume>.dat` ->
+    /// `<nume>.corupt-<marcaj>.dat.bak`), ca urmatoarea salvare sa nu scrie
+    /// peste ea. Intoarce calea noua, sau `None` daca nu exista sesiune.
+    ///
+    /// Fereastra suprascria tacut o sesiune ilizibila la prima bifa, deci
+    /// munca de pe toate bazele se pierdea fara urma (F-A15).
     pub fn pune_deoparte(&self, server: &str, referinta: &str) -> Rezultat<Option<PathBuf>> {
         let cale = self.cale(server, referinta);
-        let mut nume = cale.clone().into_os_string();
-        nume.push(".corupt");
-        let deoparte = PathBuf::from(nume);
-        match std::fs::rename(&cale, &deoparte) {
-            Ok(()) => {
-                tracing::warn!(
-                    target: "gmotion::platforma",
-                    cale = %deoparte.display(), "sesiunea necitibila a fost pusa deoparte"
-                );
-                Ok(Some(deoparte))
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(Eroare::ScriereSesiune {
-                cale: cale.display().to_string(),
-                detaliu: e.to_string(),
-            }),
+        if !cale.exists() {
+            return Ok(None);
         }
+        let marcaj: String = crate::timp::acum()
+            .chars()
+            .filter(char::is_ascii_digit)
+            .collect();
+        let nume = cale
+            .file_stem()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let noua = self
+            .director
+            .join(format!("{nume}.corupt-{marcaj}.dat.bak"));
+        std::fs::rename(&cale, &noua).map_err(|e| Eroare::ScriereSesiune {
+            cale: cale.display().to_string(),
+            detaliu: e.to_string(),
+        })?;
+        tracing::warn!(
+            target: "gmotion::platforma",
+            cale = %noua.display(),
+            "sesiune ilizibila pusa deoparte"
+        );
+        Ok(Some(noua))
     }
 
     pub fn sterge(&self, server: &str, referinta: &str) -> Rezultat<bool> {
@@ -405,7 +441,12 @@ mod teste {
         assert!(s.incarca("SRV", "Ref").is_err());
         let deoparte = s.pune_deoparte("SRV", "Ref").unwrap().expect("mutata");
         assert_eq!(std::fs::read(&deoparte).unwrap(), b"stricat");
-        assert!(deoparte.to_string_lossy().ends_with(".dat.corupt"));
+        // marcaj de timp in nume: a doua sesiune ilizibila n-o acopera pe prima
+        let nume = deoparte.to_string_lossy().into_owned();
+        assert!(
+            nume.contains(".corupt-") && nume.ends_with(".dat.bak"),
+            "{nume}"
+        );
         assert!(s.incarca("SRV", "Ref").unwrap().is_none(), "locul e liber");
         // si nu apare in lista sesiunilor
         assert!(s.lista().unwrap().is_empty());

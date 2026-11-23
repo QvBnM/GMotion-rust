@@ -917,6 +917,10 @@ impl Stare {
                 " · niciun alt obiect nefixat in directia asta",
                 " · no other unpinned object in this direction",
             )),
+            Some(crate::rutare::MesajTab::FaraEditor) => pozitie.push_str(limba.alege(
+                " · obiectul ales exista doar intr-o parte sau e criptat: nu se deschide in editor",
+                " · the chosen object exists on one side only or is encrypted: it does not open in the editor",
+            )),
             Some(crate::rutare::MesajTab::ToateEditate) => pozitie.push_str(limba.alege(
                 " · 8 taburi fixate, toate editate: inchide unul intai",
                 " · 8 pinned tabs, all edited: close one first",
@@ -1504,9 +1508,16 @@ mod teste {
             bara.contains("nu s-a putut citi") && bara.contains(".corupt"),
             "{bara}"
         );
-        let mut deoparte = fisier.into_os_string();
-        deoparte.push(".corupt");
-        assert_eq!(std::fs::read(&deoparte).unwrap(), b"stricat");
+        // numele are un marcaj de timp: o a doua sesiune ilizibila nu o
+        // inlocuieste pe prima (`<nume>.corupt-<marcaj>.dat.bak`)
+        let puse_deoparte: Vec<std::path::PathBuf> = std::fs::read_dir(d.join("sesiuni"))
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.to_string_lossy().contains(".corupt-"))
+            .collect();
+        assert_eq!(puse_deoparte.len(), 1, "{puse_deoparte:?}");
+        assert_eq!(std::fs::read(&puse_deoparte[0]).unwrap(), b"stricat");
+        assert!(!fisier.exists(), "sesiunea ilizibila a fost mutata");
         std::fs::remove_dir_all(&d).ok();
     }
 

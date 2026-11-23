@@ -39,7 +39,9 @@ pub use comparare::{
     compara, compara_cu_oprire, diferente_ascunse, pregateste, setari_diferite, Baza, Categorie,
     Comparare, Numaratoare, Progres, Rand,
 };
-pub use deploy::{aplica_create_or_alter, DeDeployat, ModImpartire, PasRevenire, Raport};
+pub use deploy::{
+    aplica_create_or_alter, verifica_text_final, DeDeployat, ModImpartire, PasRevenire, Raport,
+};
 pub use diferente::{
     detalii_obiect, diferente_obiect, plasari_obiect, Bucata, Detalii, Diferenta, Fel, Marcaj,
     Plasare,

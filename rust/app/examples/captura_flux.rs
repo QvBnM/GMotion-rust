@@ -203,6 +203,7 @@ fn main() {
             ),
             revizuit: o.revizuit,
             in_plan: false,
+            generatie: None,
         },
         &model,
     );

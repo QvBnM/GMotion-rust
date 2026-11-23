@@ -50,6 +50,9 @@ pub struct StareDeploy {
     /// Obiectele recitite la verificare (referinta, si fiecare baza tinta):
     /// din ele se scrie, nu din cele de la comparare.
     recitite: Option<(Baza, Vec<(String, Baza)>)>,
+    /// Decizii salvate care nu mai sunt valabile (N4, N5): garda le arata ca
+    /// schimbari si nu lasa scrierea.
+    pub decizii_cazute: Vec<String>,
 }
 
 impl StareDeploy {
@@ -60,6 +63,7 @@ impl StareDeploy {
             impartire: ModImpartire::default(),
             rezultat: None,
             recitite: None,
+            decizii_cazute: Vec::new(),
         }
     }
 
@@ -103,13 +107,19 @@ impl StareDeploy {
 
     /// Garda, pe obiectele recitite acum. Le tine minte: din ele se scrie.
     pub fn aplica_verificarea(&mut self, referinta: Baza, tinte: Vec<(String, Baza)>, la: &str) {
-        let schimbari = self.plan.verifica(&referinta, &tinte);
+        let mut schimbari: Vec<String> = self
+            .plan
+            .verifica(&referinta, &tinte)
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+        schimbari.extend(self.decizii_cazute.iter().cloned());
         self.rezultat = None;
         if schimbari.is_empty() {
             self.garda = Garda::Ok { la: la.to_string() };
             self.recitite = Some((referinta, tinte));
         } else {
-            self.garda = Garda::Schimbata(schimbari.iter().map(ToString::to_string).collect());
+            self.garda = Garda::Schimbata(schimbari);
             self.recitite = None;
         }
     }
@@ -174,11 +184,17 @@ impl StareDeploy {
     }
 
     /// Modul de impartire s-a schimbat: un rezultat vechi nu mai e al lui.
+    ///
+    /// Dupa o scriere, o a doua cere **o noua verificare**: intre timp baza
+    /// poate sa se fi schimbat, iar garda de atunci ar fi autorizat-o fara sa
+    /// recitesca nimic (F-A10 din auditul QA).
     pub fn alege_impartirea(&mut self, m: ModImpartire) {
         if m != self.impartire {
             self.impartire = m;
             if matches!(self.rezultat, Some(Ok(_))) {
                 self.rezultat = None;
+                self.garda = Garda::Neverificata;
+                self.recitite = None;
             }
         }
     }
@@ -213,6 +229,11 @@ impl Cheie {
 pub struct Deschis {
     pub cheie: Cheie,
     pub stare: StareDeploy,
+    /// Directorul in care se va scrie, ales o data la deschidere: ecranul
+    /// il arata, scrierea il foloseste. Inainte fiecare desenare calcula
+    /// altul (marcaj pe secunda), deci ecranul arata alt director decat cel
+    /// scris (auditul 2026-11-23).
+    pub director: std::path::PathBuf,
 }
 
 /// Se asigura ca planul deschis e al starii de acum; altfel il reface de la
@@ -220,14 +241,24 @@ pub struct Deschis {
 ///
 /// `referinta` e numele bazei sursa, `acum` momentul compararii pe care se
 /// sprijina planul.
-pub fn asigura_planul(deschis: &mut Option<Deschis>, app: &Aplicatie, referinta: &str, acum: &str) {
+pub fn asigura_planul(
+    deschis: &mut Option<Deschis>,
+    app: &Aplicatie,
+    referinta: &str,
+    acum: &str,
+    director: impl FnOnce() -> std::path::PathBuf,
+) {
     let cheie = Cheie::a_aplicatiei(app);
     if deschis.as_ref().is_some_and(|d| d.cheie == cheie) {
         return;
     }
+    let plan = app.plan(referinta, acum);
+    let mut stare = StareDeploy::nou(plan);
+    stare.decizii_cazute = app.decizii_cazute(&stare.plan);
     *deschis = Some(Deschis {
         cheie,
-        stare: StareDeploy::nou(app.plan(referinta, acum)),
+        stare,
+        director: director(),
     });
 }
 
@@ -257,6 +288,7 @@ pub fn ecran(
     sursa: &Baza,
     director: &str,
     cate: usize,
+    limba: gmotion_core::Limba,
 ) -> gmotion_fereastra::model_deploy::EcranDeploy {
     use gmotion_fereastra::model_deploy::{EcranDeploy, GardaDeploy, PasDeploy, RezultatDeploy};
     let pasi = st.pasi_in_ordine(sursa);
@@ -271,7 +303,8 @@ pub fn ecran(
         tinta: match baze.as_slice() {
             [] => String::new(),
             [una] => una.clone(),
-            multe => format!("{} baze", multe.len()),
+            // in limba interfetei, nu mereu in romana (auditul 2026-11-23)
+            multe => format!("{} {}", multe.len(), limba.alege("baze", "databases")),
         },
         baze: baze.clone(),
         pasi: pasi
@@ -462,6 +495,11 @@ mod teste {
         st.scrie(&d, "2026-11-18 14:05", &Default::default());
         assert!(!st.poate_scrie());
         st.alege_impartirea(ModImpartire::Unul);
+        assert!(
+            !st.poate_scrie(),
+            "alta scriere, dar dupa o noua verificare (F-A10)"
+        );
+        st.aplica_verificarea(s.clone(), vec![("Prod".to_string(), t.clone())], "14:09");
         assert!(st.poate_scrie(), "alt mod de impartire = alta scriere");
         std::fs::remove_dir_all(&d).ok();
     }
@@ -474,7 +512,7 @@ mod teste {
             &t,
             &["dbo.pRaport", "dbo.vwStoc", "dbo.pVechi"],
         ));
-        let e = ecran(&st, &s, "C:\\deploy", 10);
+        let e = ecran(&st, &s, "C:\\deploy", 10, gmotion_core::Limba::Romana);
         assert_eq!(e.pasi.len(), 3);
         assert_eq!(
             e.pasi.iter().filter(|p| p.creeaza).count(),
@@ -484,7 +522,7 @@ mod teste {
         assert!(!e.poate_scrie);
         assert_eq!(e.impartire, 0);
         st.aplica_verificarea(s.clone(), vec![("Prod".to_string(), t.clone())], "14:05");
-        let e = ecran(&st, &s, "C:\\deploy", 10);
+        let e = ecran(&st, &s, "C:\\deploy", 10, gmotion_core::Limba::Romana);
         assert!(e.poate_scrie);
         for i in 0..4 {
             assert_eq!(pozitia_impartirii(impartire_din(i, 10)), i);

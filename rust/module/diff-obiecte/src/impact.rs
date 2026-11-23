@@ -174,6 +174,7 @@ mod teste {
             hash_curent: None,
             modificat: None,
             creat: None,
+            exacta_curent: None,
         }
     }
 

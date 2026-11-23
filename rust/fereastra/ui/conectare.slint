@@ -425,7 +425,7 @@ component PanouParte inherits Card {
                         text: p.server;
                         mono: true;
                         cauta: true;
-                        gol: "SRV\\INSTANTA, srv.domeniu.local,1433";
+                        gol: Texte.exemplu-server;
                         schimbat(t) => { root.server-schimbat(t); }
                         la-cautare => { root.cauta-servere(); }
                     }
@@ -448,8 +448,8 @@ component PanouParte inherits Card {
                                 padding-right: 8px;
                                 spacing: 6px;
                                 Text { text: s.nume; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-                                if s.implicita: EticServer { text: "IMPLICITA"; }
-                                if s.cluster: EticServer { text: "CLUSTER"; culoare: Tema.mod-text; }
+                                if s.implicita: EticServer { text: Texte.server-implicit; }
+                                if s.cluster: EticServer { text: Texte.server-cluster; culoare: Tema.mod-text; }
                             }
                             zs := TouchArea { clicked => { root.server-ales(s.nume); } }
                         }
@@ -575,7 +575,7 @@ component RandRecenta inherits Rectangle {
 }
 
 export component FereastraConectare inherits Window {
-    title: "gmotion";
+    title: "gmotion"; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
     background: Tema.fundal;

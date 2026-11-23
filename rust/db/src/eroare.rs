@@ -57,6 +57,16 @@ pub enum Eroare {
 
     #[error("[GM-DB-013] pe {baza}, serverul nu a confirmat modul fara efecte ({mod_}); codul nu s-a trimis")]
     VerificareNeconfirmata { baza: String, mod_: String },
+
+    // GM-DB-014, nu 012: cele doua branch-uri au folosit 012 in paralel pentru
+    // lucruri diferite, iar un cod nu se refoloseste (CLAUDE.md §6). Vezi
+    // `JURNAL.md`, 2026-11-23.
+    #[error("[GM-DB-014] pe baza {baza}, {numar} obiecte n-au definitie si nu sunt criptate ({exemple}): utilizatorul n-are dreptul VIEW DEFINITION. Fara el codul nu se poate compara; cere dreptul (GRANT VIEW DEFINITION) sau foloseste alt utilizator")]
+    FaraDreptDefinitie {
+        baza: String,
+        numar: usize,
+        exemple: String,
+    },
 }
 
 impl Eroare {
@@ -76,6 +86,7 @@ impl Eroare {
             Eroare::BazaInvalida(_) => "GM-DB-011",
             Eroare::VerificareFaraServer { .. } => "GM-DB-012",
             Eroare::VerificareNeconfirmata { .. } => "GM-DB-013",
+            Eroare::FaraDreptDefinitie { .. } => "GM-DB-014",
         }
     }
 
@@ -217,7 +228,18 @@ mod teste {
             },
             Eroare::NumeInvalid("n".into()),
             Eroare::BazaInvalida("b".into()),
+            Eroare::FaraDreptDefinitie {
+                baza: "b".into(),
+                numar: 1,
+                exemple: "dbo.p".into(),
+            },
         ];
+        // fiecare varianta e in lista: un cod nou uitat aici nu era verificat
+        assert_eq!(
+            toate.len(),
+            12,
+            "o varianta noua de Eroare trebuie adaugata aici"
+        );
         let mut coduri: Vec<&str> = toate.iter().map(|e| e.cod()).collect();
         coduri.sort_unstable();
         let n = coduri.len();

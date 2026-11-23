@@ -70,6 +70,11 @@ pub struct Rand {
     /// Data crearii, din aceeasi parte ca `modificat` (etapa 27).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub creat: Option<String>,
+    /// Amprenta **exacta** a versiunii din baza comparata (cu comentarii si
+    /// spatii): un text final facut peste alta versiune nu mai e valabil,
+    /// chiar daca diferenta e doar un comentariu (F-D5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exacta_curent: Option<String>,
 }
 
 /// Cat de departe a ajuns compararea. Platforma o publica prin metoda comuna
@@ -218,6 +223,7 @@ pub fn compara(
 ) -> Comparare {
     match compara_cu_oprire(referinta, ref_obiecte, altele, progres, || true) {
         Some(c) => c,
+        // `continua` intoarce mereu `true`, deci nu se poate opri
         None => unreachable!("fara oprire, compararea ajunge la capat"),
     }
 }
@@ -233,7 +239,7 @@ pub fn compara_cu_oprire(
     ref_obiecte: &Baza,
     altele: &[(String, Baza)],
     mut progres: impl FnMut(Progres),
-    continua: impl Fn() -> bool,
+    mut continua: impl FnMut() -> bool,
 ) -> Option<Comparare> {
     let mut randuri = Vec::new();
     let mut n = Numaratoare {
@@ -291,6 +297,7 @@ pub fn compara_cu_oprire(
                     hash_curent: None,
                     modificat: r.modificat.clone(),
                     creat: r.creat.clone(),
+                    exacta_curent: None,
                 });
                 id += 1;
                 continue;
@@ -309,6 +316,7 @@ pub fn compara_cu_oprire(
                     hash_curent: Some(c.hash.clone()),
                     modificat: c.modificat.clone(),
                     creat: c.creat.clone(),
+                    exacta_curent: Some(crate::plan::amprenta_exacta(c)),
                 });
                 id += 1;
                 continue;
@@ -337,24 +345,39 @@ pub fn compara_cu_oprire(
                     hash_curent: Some(c.hash.clone()),
                     modificat: c.modificat.clone(),
                     creat: c.creat.clone(),
+                    exacta_curent: Some(crate::plan::amprenta_exacta(c)),
                 });
                 id += 1;
                 continue;
             }
             let scor = scor_afisat(scor_similaritate(&r.afisare, &c.afisare));
             n.diferite += 1;
+            // procedura in martor, view in modificata: `CREATE OR ALTER` nu
+            // poate trece de la un tip la altul, deci randul trebuie sa spuna
+            // asta, nu doar un procent (F-D3)
+            let rezumat = if r.tip.trim() != c.tip.trim() {
+                format!(
+                    "tip schimbat: {} in martor, {} in modificata; {}",
+                    r.tip.trim(),
+                    c.tip.trim(),
+                    rezumat_rapid(&r.afisare, &c.afisare)
+                )
+            } else {
+                rezumat_rapid(&r.afisare, &c.afisare)
+            };
             randuri.push(Rand {
                 id,
                 obiect: nume.clone(),
                 baza: baza.clone(),
                 scor: Some(scor),
-                rezumat: rezumat_rapid(&r.afisare, &c.afisare),
+                rezumat,
                 tip: r.tip.clone(),
                 categorie: Categorie::Diferit,
                 hash_referinta: Some(r.hash.clone()),
                 hash_curent: Some(c.hash.clone()),
                 modificat: c.modificat.clone(),
                 creat: None,
+                exacta_curent: Some(crate::plan::amprenta_exacta(c)),
             });
             id += 1;
         }
@@ -384,6 +407,7 @@ pub fn compara_cu_oprire(
                 hash_curent: Some(o.hash.clone()),
                 modificat: o.modificat.clone(),
                 creat: o.creat.clone(),
+                exacta_curent: Some(crate::plan::amprenta_exacta(o)),
             });
             id += 1;
         }
@@ -595,6 +619,35 @@ mod teste {
             intreaga.randuri.len(),
             compara("R", &r, &altele, fara_progres()).randuri.len()
         );
+    }
+
+    /// P8: compararea se opreste cand i se cere, fara sa termine.
+    #[test]
+    fn compararea_se_opreste_la_cerere() {
+        let obiecte: Vec<Obiect> = (0..500)
+            .map(|i| {
+                ob(
+                    &format!("p{i}"),
+                    &format!("CREATE PROC dbo.p{i} AS SELECT {i}"),
+                )
+            })
+            .collect();
+        let r = pregateste(&obiecte);
+        let a = vec![("T".to_string(), pregateste(&obiecte[..10]))];
+        let mut intrebari = 0;
+        let rez = compara_cu_oprire(
+            "R",
+            &r,
+            &a,
+            |_| {},
+            || {
+                intrebari += 1;
+                intrebari < 3
+            },
+        );
+        assert!(rez.is_none());
+        assert_eq!(intrebari, 3, "s-a oprit la a treia intrebare, nu la capat");
+        assert!(compara_cu_oprire("R", &r, &a, |_| {}, || true).is_some());
     }
 
     #[test]

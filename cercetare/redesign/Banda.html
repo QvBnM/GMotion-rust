@@ -229,14 +229,14 @@ button,input{font:inherit;color:inherit}
       <input id="q" spellcheck="false" autocomplete="off" aria-label="Filtru">
       <span class="tasta">Ctrl K</span>
     </label>
-    <button class="btn" id="recompara">Recompară</button>
+    <button class="btn" id="recompara">Recompara</button>
     <button class="btn btn-plan" id="btn-plan" aria-controls="plan">Planul</button>
   </header>
 
-  <section class="coada" aria-label="Coada de diferențe">
+  <section class="coada" aria-label="Coada de diferente">
     <div class="fatete" id="fatete"></div>
     <div class="rezultat" id="rezultat"></div>
-    <ul class="lista" id="lista" role="listbox" aria-label="Obiecte care diferă"></ul>
+    <ul class="lista" id="lista" role="listbox" aria-label="Obiecte care difera"></ul>
   </section>
 
   <main class="obiect" id="obiect"></main>
@@ -245,18 +245,18 @@ button,input{font:inherit;color:inherit}
 
   <footer class="jos">
     <span class="grup"><span class="tasta">j</span><span class="tasta">k</span> obiect</span>
-    <span class="grup"><span class="tasta">n</span> următorul nerevizuit</span>
-    <span class="grup opt"><span class="tasta">F7</span> diferență</span>
+    <span class="grup"><span class="tasta">n</span> urmatorul nerevizuit</span>
+    <span class="grup opt"><span class="tasta">F7</span> diferenta</span>
     <span class="grup"><span class="tasta">r</span> revizuit</span>
-    <span class="grup"><span class="tasta">p</span> în plan</span>
+    <span class="grup"><span class="tasta">p</span> in plan</span>
     <span class="grup opt"><span class="tasta">/</span> filtru</span>
     <span class="progres"><span id="progres-text"></span><span class="bara"><i id="progres-bara"></i></span></span>
   </footer>
 </div>
 
 <div class="paleta-fundal" id="paleta-fundal">
-  <div class="paleta" role="dialog" aria-label="Comenzi și obiecte">
-    <input id="paleta-q" placeholder="Comandă sau obiect" spellcheck="false" autocomplete="off">
+  <div class="paleta" role="dialog" aria-label="Comenzi si obiecte">
+    <input id="paleta-q" placeholder="Comanda sau obiect" spellcheck="false" autocomplete="off">
     <ul id="paleta-lista"></ul>
   </div>
 </div>
@@ -268,40 +268,40 @@ button,input{font:inherit;color:inherit}
 // ord: rangul in ordinea dependentelor (mic = ruleaza intai)
 const OBIECTE = [
   {id:1, lit:'M', schema:'dbo', nume:'GenerateOrderByRecommendedOrder', tip:'proc', plus:1, minus:1, difera:['sir'], len:67, ord:30,
-   fraza:'Un singur caracter, într-un șir: <strong>N → n</strong>.', blocuri:[[43,1,'m']]},
+   fraza:'Un singur caracter, intr-un sir: <strong>N → n</strong>.', blocuri:[[43,1,'m']]},
   {id:2, lit:'M', schema:'dbo', nume:'usp_RaportVanzariLunar', tip:'proc', plus:48, minus:31, difera:['cod','sir'], len:412, ord:34,
-   fraza:'Rescrisă în trei locuri: filtrul pe perioadă, gruparea pe agent și <strong>textul raportului</strong>.', blocuri:[[58,12,'m'],[140,30,'m'],[301,6,'a']]},
+   fraza:'Rescrisa in trei locuri: filtrul pe perioada, gruparea pe agent si <strong>textul raportului</strong>.', blocuri:[[58,12,'m'],[140,30,'m'],[301,6,'a']]},
   {id:3, lit:'S', schema:'dbo', nume:'usp_ImportClienti', tip:'proc', plus:96, minus:0, difera:['cod'], len:96, ord:20,
-   fraza:'Nu există în <strong>CharismaProd</strong>. Se creează.', blocuri:[[1,96,'a']]},
+   fraza:'Nu exista in <strong>CharismaProd</strong>. Se creeaza.', blocuri:[[1,96,'a']]},
   {id:4, lit:'B', schema:'dbo', nume:'fn_CursVechi', tip:'fn', plus:0, minus:22, difera:['cod'], len:22, ord:90,
-   fraza:'Nu mai e în sursă. Din plan, <strong>se șterge</strong>; nimic din bază n-o mai folosește.', blocuri:[[1,22,'d']]},
+   fraza:'Nu mai e in sursa. Din plan, <strong>se sterge</strong>; nimic din baza n-o mai foloseste.', blocuri:[[1,22,'d']]},
   {id:5, lit:'M', schema:'dbo', nume:'usp_CalculeazaStoc', tip:'proc', plus:14, minus:6, difera:['cod','comentariu'], len:188, ord:31,
-   fraza:'Un JOIN nou pe <strong>dbo.Rezervari</strong> și un comentariu actualizat.', blocuri:[[22,2,'m'],[96,12,'a']]},
-  {id:6, lit:'M', schema:'dbo', nume:'usp_InchideLuna', tip:'proc', plus:7, minus:2, difera:['cod'], len:140, ord:36, nota:'rămâne cu QUOTED_IDENTIFIER OFF',
-   fraza:'Se verifică acum și <strong>luna deja închisă</strong>.', blocuri:[[18,5,'a'],[71,2,'m']]},
+   fraza:'Un JOIN nou pe <strong>dbo.Rezervari</strong> si un comentariu actualizat.', blocuri:[[22,2,'m'],[96,12,'a']]},
+  {id:6, lit:'M', schema:'dbo', nume:'usp_InchideLuna', tip:'proc', plus:7, minus:2, difera:['cod'], len:140, ord:36, nota:'ramane cu QUOTED_IDENTIFIER OFF',
+   fraza:'Se verifica acum si <strong>luna deja inchisa</strong>.', blocuri:[[18,5,'a'],[71,2,'m']]},
   {id:7, lit:'M', schema:'dbo', nume:'fn_PretCuTva', tip:'fn', plus:3, minus:3, difera:['cod'], len:31, ord:10,
-   fraza:'Cota de TVA nu mai e scrisă în cod: <strong>19 → @CotaTva</strong>.', blocuri:[[2,1,'m'],[14,2,'m']]},
+   fraza:'Cota de TVA nu mai e scrisa in cod: <strong>19 → @CotaTva</strong>.', blocuri:[[2,1,'m'],[14,2,'m']]},
   {id:8, lit:'M', schema:'dbo', nume:'vw_FacturiNeincasate', tip:'view', plus:2, minus:1, difera:['cod'], len:44, ord:12,
    fraza:'Exclude facturile <strong>stornate</strong>.', blocuri:[[29,2,'m']]},
   {id:9, lit:'M', schema:'rpt', nume:'usp_SoldParteneri', tip:'proc', plus:1, minus:1, difera:['comentariu'], len:77, ord:33,
-   fraza:'Diferă doar un comentariu. Codul care rulează e identic.', blocuri:[[5,1,'m']]},
+   fraza:'Difera doar un comentariu. Codul care ruleaza e identic.', blocuri:[[5,1,'m']]},
   {id:10, lit:'M', schema:'dbo', nume:'trg_Comenzi_Audit', tip:'trg', plus:0, minus:0, difera:['set'], len:38, ord:40,
-   fraza:'Textul e identic. Diferă setarea <strong>QUOTED_IDENTIFIER</strong>: ON în sursă, OFF în bază.', blocuri:[]},
-  {id:11, lit:'M', schema:'dbo', nume:'usp_Facturare', tip:'proc', plus:22, minus:19, difera:['cod'], len:530, ord:35, nota:'rămâne cu QUOTED_IDENTIFIER OFF', atinsa:true,
-   fraza:'Calculul discountului pe linie, mutat în <strong>dbo.fn_PretCuTva</strong>.', blocuri:[[88,9,'m'],[204,14,'m'],[470,4,'d']]},
+   fraza:'Textul e identic. Difera setarea <strong>QUOTED_IDENTIFIER</strong>: ON in sursa, OFF in baza.', blocuri:[]},
+  {id:11, lit:'M', schema:'dbo', nume:'usp_Facturare', tip:'proc', plus:22, minus:19, difera:['cod'], len:530, ord:35, nota:'ramane cu QUOTED_IDENTIFIER OFF', atinsa:true,
+   fraza:'Calculul discountului pe linie, mutat in <strong>dbo.fn_PretCuTva</strong>.', blocuri:[[88,9,'m'],[204,14,'m'],[470,4,'d']]},
   {id:12, lit:'M', schema:'dbo', nume:'usp_ExportAnaf', tip:'proc', plus:5, minus:5, difera:['cod','sir'], len:260, ord:37,
-   fraza:'Schimbă <strong>versiunea schemei XML</strong> și un nume de câmp.', blocuri:[[12,1,'m'],[150,4,'m']]},
+   fraza:'Schimba <strong>versiunea schemei XML</strong> si un nume de camp.', blocuri:[[12,1,'m'],[150,4,'m']]},
   {id:13, lit:'S', schema:'dbo', nume:'vw_StocPeGestiuni', tip:'view', plus:40, minus:0, difera:['cod'], len:40, ord:11,
-   fraza:'Nu există în <strong>CharismaProd</strong>. Se creează; o folosește usp_CalculeazaStoc.', blocuri:[[1,40,'a']]},
+   fraza:'Nu exista in <strong>CharismaProd</strong>. Se creeaza; o foloseste usp_CalculeazaStoc.', blocuri:[[1,40,'a']]},
   {id:14, lit:'M', schema:'dbo', nume:'fn_ZileLucratoare', tip:'fn', plus:4, minus:2, difera:['cod'], len:52, ord:9,
-   fraza:'Ține cont de <strong>sărbătorile legale</strong> din tabelă, nu din listă fixă.', blocuri:[[20,6,'m']]},
+   fraza:'Tine cont de <strong>sarbatorile legale</strong> din tabela, nu din lista fixa.', blocuri:[[20,6,'m']]},
   {id:15, lit:'M', schema:'rpt', nume:'usp_TopClienti', tip:'proc', plus:9, minus:9, difera:['cod'], len:120, ord:38,
    fraza:'TOP 10 devine <strong>TOP (@Numar)</strong>.', blocuri:[[3,2,'m'],[40,7,'m']]},
   {id:16, lit:'S', schema:'dbo', nume:'usp_ArhiveazaComenzi', tip:'proc', plus:61, minus:0, difera:['cod'], len:61, ord:39,
-   fraza:'Nu există în <strong>CharismaProd</strong>. Se creează.', blocuri:[[1,61,'a']]},
+   fraza:'Nu exista in <strong>CharismaProd</strong>. Se creeaza.', blocuri:[[1,61,'a']]},
 ];
-const TIP = {proc:'procedură', fn:'funcție', view:'view', trg:'trigger'};
-const DIFERA = {cod:'cod', sir:'șiruri', comentariu:'comentariu', set:'QUOTED_IDENTIFIER'};
+const TIP = {proc:'procedura', fn:'functie', view:'view', trg:'trigger'};
+const DIFERA = {cod:'cod', sir:'siruri', comentariu:'comentariu', set:'QUOTED_IDENTIFIER'};
 const OP = {M:'ALTER', S:'CREATE', B:'DROP'};
 const LITCOL = {M:'var(--mod-text)', S:'var(--add-text)', B:'var(--del-text)'};
 const TINTA = 'CharismaProd';
@@ -374,10 +374,10 @@ function randeazaFatete() {
   const termeni = S.q.split(/\s+/);
   const f = [
     ['stare:M', `<b style="color:var(--mod-text)">M</b> modificate <span class="nr">${nr((o)=>o.lit==='M')}</span>`],
-    ['stare:S', `<b style="color:var(--add-text)">S</b> doar în sursă <span class="nr">${nr((o)=>o.lit==='S')}</span>`],
-    ['stare:B', `<b style="color:var(--del-text)">B</b> doar în bază <span class="nr">${nr((o)=>o.lit==='B')}</span>`],
+    ['stare:S', `<b style="color:var(--add-text)">S</b> doar in sursa <span class="nr">${nr((o)=>o.lit==='S')}</span>`],
+    ['stare:B', `<b style="color:var(--del-text)">B</b> doar in baza <span class="nr">${nr((o)=>o.lit==='B')}</span>`],
     ['nerevizuit', `nerevizuite <span class="nr">${nr((o)=>!S.revizuite.has(o.id))}</span>`],
-    ['difera:cod', `diferă în cod <span class="nr">${nr((o)=>o.difera.includes('cod'))}</span>`],
+    ['difera:cod', `difera in cod <span class="nr">${nr((o)=>o.difera.includes('cod'))}</span>`],
   ];
   $('#fatete').innerHTML = f.map(([t, h]) =>
     `<button class="fateta" data-t="${t}" aria-pressed="${termeni.includes(t)}">${h}</button>`).join('');
@@ -387,19 +387,19 @@ function randeazaLista() {
   const ul = $('#lista');
   $('#rezultat').textContent = S.q.trim()
     ? `${S.vizibile.length} din ${OBIECTE.length} se potrivesc cu filtrul`
-    : `${OBIECTE.length} obiecte diferă; 20.843 identice nu se arată`;
+    : `${OBIECTE.length} obiecte difera; 20.843 identice nu se arata`;
   if (!S.vizibile.length) {
-    ul.innerHTML = `<li class="gol">Nimic nu se potrivește cu <code>${esc(S.q)}</code>. Șterge un termen sau apasă <span class="tasta">Esc</span>.</li>`;
+    ul.innerHTML = `<li class="gol">Nimic nu se potriveste cu <code>${esc(S.q)}</code>. Sterge un termen sau apasa <span class="tasta">Esc</span>.</li>`;
     return;
   }
   if (!S.vizibile.some((o) => o.id === S.sel)) S.sel = S.vizibile[0].id;
   ul.innerHTML = S.vizibile.map((o) => {
     const cls = ['rand', S.sel === o.id && 'selectat', S.revizuite.has(o.id) && 'revizuit', S.plan.has(o.id) && 'inplan'].filter(Boolean).join(' ');
-    const linii = [o.plus && `+${o.plus}`, o.minus && `−${o.minus}`].filter(Boolean).join(' ') || 'aceleași linii';
+    const linii = [o.plus && `+${o.plus}`, o.minus && `−${o.minus}`].filter(Boolean).join(' ') || 'aceleasi linii';
     return `<li class="${cls}" role="option" aria-selected="${S.sel === o.id}" data-id="${o.id}" id="r${o.id}">
       <span class="lit" style="color:${LITCOL[o.lit]}">${o.lit}</span>
       <span class="nume"><span class="schema">${o.schema}.</span>${o.nume}</span>
-      <span class="meta">${TIP[o.tip]}, ${linii}, în ${o.difera.map((d)=>DIFERA[d]).join(', ')}</span>
+      <span class="meta">${TIP[o.tip]}, ${linii}, in ${o.difera.map((d)=>DIFERA[d]).join(', ')}</span>
       <span class="semn">${semnatura(o)}</span></li>`;
   }).join('');
   $('#r' + S.sel)?.scrollIntoView({block:'nearest'});
@@ -505,7 +505,7 @@ function randeazaObiect() {
     i++;
   }
   const harta = o.blocuri.map(([la, n, k]) => `<i style="top:${(la - 1) / o.len * 100}%;height:${n / o.len * 100}%;background:var(--${{m:'mod',a:'add',d:'del'}[k]}-bara)"></i>`).join('');
-  const nav = nBlocuri ? `diferența <span class="mono">${S.bloc + 1}/${nBlocuri}</span>` : 'nicio linie diferită';
+  const nav = nBlocuri ? `diferenta <span class="mono">${S.bloc + 1}/${nBlocuri}</span>` : 'nicio linie diferita';
   el.innerHTML = `
     <div class="ob-antet">
       <div class="ob-titlu">
@@ -513,12 +513,12 @@ function randeazaObiect() {
         <div class="ob-fraza">${o.fraza}</div>
       </div>
       <div class="ob-act">
-        <button class="comuta" id="b-rev" aria-pressed="${rev}">${rev ? 'Revizuit' : 'Marchează revizuit'} <span class="tasta">r</span></button>
-        <button class="comuta" id="b-plan" aria-pressed="${inPlan}">${inPlan ? 'În plan' : 'Pune în plan'} <span class="tasta">p</span></button>
+        <button class="comuta" id="b-rev" aria-pressed="${rev}">${rev ? 'Revizuit' : 'Marcheaza revizuit'} <span class="tasta">r</span></button>
+        <button class="comuta" id="b-plan" aria-pressed="${inPlan}">${inPlan ? 'In plan' : 'Pune in plan'} <span class="tasta">p</span></button>
       </div>
     </div>
     <div class="ob-bara">
-      <span class="parti"><span>${o.lit === 'S' ? 'CharismaProd: lipsește' : 'CharismaProd, acum'}</span><span>${o.lit === 'B' ? 'CharismaDev: lipsește' : 'CharismaDev, după deploy'}</span></span>
+      <span class="parti"><span>${o.lit === 'S' ? 'CharismaProd: lipseste' : 'CharismaProd, acum'}</span><span>${o.lit === 'B' ? 'CharismaDev: lipseste' : 'CharismaDev, dupa deploy'}</span></span>
       <span>${nav}</span>
     </div>
     <div class="ob-corp"><div class="diff" id="diff">${html}</div><div class="harta" id="harta" aria-hidden="true">${harta}<span class="fereastra" id="harta-f"></span></div></div>`;
@@ -545,9 +545,9 @@ const reducere = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 function pasiPlan() { return [...S.plan].map(ob).sort((a, b) => a.ord - b.ord); }
 function rezumat(p) {
   const c = (l) => p.filter((o) => o.lit === l).length;
-  const parti = [[c('M'), 'modificat', 'modificate'], [c('S'), 'nou', 'noi'], [c('B'), 'șters', 'șterse']]
+  const parti = [[c('M'), 'modificat', 'modificate'], [c('S'), 'nou', 'noi'], [c('B'), 'sters', 'sterse']]
     .filter(([n]) => n).map(([n, s, pl]) => `${n} ${n === 1 ? s : pl}`);
-  return `${p.length} ${p.length === 1 ? 'obiect' : 'obiecte'}: ${parti.join(', ')}. În ordinea în care se folosesc unul pe altul.`;
+  return `${p.length} ${p.length === 1 ? 'obiect' : 'obiecte'}: ${parti.join(', ')}. In ordinea in care se folosesc unul pe altul.`;
 }
 function randeazaPlan(nouId) {
   const p = pasiPlan(), el = $('#plan');
@@ -555,40 +555,40 @@ function randeazaPlan(nouId) {
   const g = S.garda;
   let corp;
   if (!p.length) {
-    corp = `<div class="plan-gol">Planul e gol. Pe obiectul deschis apasă <span class="tasta">p</span> și intră aici, la locul lui în ordinea dependențelor.</div>`;
+    corp = `<div class="plan-gol">Planul e gol. Pe obiectul deschis apasa <span class="tasta">p</span> si intra aici, la locul lui in ordinea dependentelor.</div>`;
   } else if (S.tab === 'script') {
     corp = `<pre class="script">${p.map((o, i) => `<span class="c">-- ${i + 1}. ${OP[o.lit]} ${o.schema}.${o.nume}</span>\n` +
       (o.lit === 'B' ? `DROP ${ANTET[o.tip]} ${o.schema}.${o.nume};` : `CREATE OR ALTER ${ANTET[o.tip]} ${o.schema}.${o.nume}\n  …`) + '\nGO\n').join('\n')}</pre>`;
   } else {
     corp = `<ol class="pasi">${p.map((o, i) => {
       const r = S.rulare, cls = ['pas', o.id === nouId && 'nou', r && i < r.pas && 'rulat', r && i === r.pas && !r.gata && 'ruleaza'].filter(Boolean).join(' ');
-      const nota = o.lit === 'B' ? `<span class="nota del">nu mai e în sursă</span>` : o.nota ? `<span class="nota">${o.nota}</span>` : '';
+      const nota = o.lit === 'B' ? `<span class="nota del">nu mai e in sursa</span>` : o.nota ? `<span class="nota">${o.nota}</span>` : '';
       return `<li class="${cls}" data-id="${o.id}"><span class="nr">${r && i < r.pas ? '✓' : i + 1}</span><span class="op ${OP[o.lit]}">${OP[o.lit]}</span>
         <span class="obj"><span class="schema">${o.schema}.</span>${o.nume}</span>
         <button class="scoate" data-scoate="${o.id}" title="Scoate din plan" aria-label="Scoate ${o.nume} din plan">×</button>${nota}</li>`;
     }).join('')}</ol>`;
   }
 
-  // gărzile: chiar sunt o secventa, fiecare o deschide pe urmatoarea
+  // garzile: chiar sunt o secventa, fiecare o deschide pe urmatoarea
   let garzi = '';
   if (p.length && !S.rulare?.gata) {
     const atins = p.find((o) => o.atinsa);
     const g1 = g.atinsa === 'verifica' ? ['asteapta', '…', 'Se recitesc obiectele din plan.', `${p.length} obiecte, din CharismaProd.`, '']
-      : atins && !g.recomparat ? ['atentie', '!', `${atins.schema}.${atins.nume} s-a schimbat în bază.`, 'Modificat la 14:52 de altcineva, după compararea ta.', `<button class="btn-c" data-act="recompara-unu">Recompară-l</button>`]
-      : ['ok', '✓', 'Baza n-a mai fost atinsă.', `Recitită acum; cele ${p.length} obiecte sunt exact cum le-ai comparat.`, ''];
-    const g2 = g.versiune ? ['ok', '✓', 'Versiunea actuală e salvată.', g.versiune, '']
-      : ['asteapta', '○', 'Salvează întâi versiunea actuală.', 'Ca să poți reveni dacă deploy-ul strică ceva.', `<button class="btn-c" data-act="salveaza">Salvează revenirea <span class="tasta" style="background:none;color:inherit;border-color:var(--cerneala-linie)">v</span></button>`];
+      : atins && !g.recomparat ? ['atentie', '!', `${atins.schema}.${atins.nume} s-a schimbat in baza.`, 'Modificat la 14:52 de altcineva, dupa compararea ta.', `<button class="btn-c" data-act="recompara-unu">Recompara-l</button>`]
+      : ['ok', '✓', 'Baza n-a mai fost atinsa.', `Recitita acum; cele ${p.length} obiecte sunt exact cum le-ai comparat.`, ''];
+    const g2 = g.versiune ? ['ok', '✓', 'Versiunea actuala e salvata.', g.versiune, '']
+      : ['asteapta', '○', 'Salveaza intai versiunea actuala.', 'Ca sa poti reveni daca deploy-ul strica ceva.', `<button class="btn-c" data-act="salveaza">Salveaza revenirea <span class="tasta" style="background:none;color:inherit;border-color:var(--cerneala-linie)">v</span></button>`];
     const okConf = g.confirmare === TINTA;
-    const g3 = areDrop ? [okConf ? 'ok' : 'asteapta', okConf ? '✓' : '○', 'E producție și se șterge un obiect.', `Scrie <span class="mono" style="color:#fff">${TINTA}</span> ca să pornești.`,
+    const g3 = areDrop ? [okConf ? 'ok' : 'asteapta', okConf ? '✓' : '○', 'E productie si se sterge un obiect.', `Scrie <span class="mono" style="color:#fff">${TINTA}</span> ca sa pornesti.`,
       `<input class="confirma" id="confirma" value="${esc(g.confirmare)}" spellcheck="false" autocomplete="off" aria-label="Numele bazei, pentru confirmare">`] : null;
     const gata = g1[0] === 'ok' && g2[0] === 'ok' && (!g3 || okConf);
     garzi = `<div class="garzi">${[g1, g2, g3].filter(Boolean).map(([c, ic, t, d, a]) =>
       `<div class="garda ${c}"><span class="ic">${ic}</span><span>${t}</span><span class="det">${d}</span>${a ? `<span class="act">${a}</span>` : ''}</div>`).join('')}
       <button class="ruleaza-btn" id="ruleaza" ${gata && !S.rulare ? '' : 'disabled'}>
-        <span>${S.rulare ? `Rulează pasul ${S.rulare.pas + 1} din ${p.length}…` : gata ? `Rulează ${p.length} pași pe ${TINTA}` : 'Rulează, după verificări'}</span>
+        <span>${S.rulare ? `Ruleaza pasul ${S.rulare.pas + 1} din ${p.length}…` : gata ? `Ruleaza ${p.length} pasi pe ${TINTA}` : 'Ruleaza, dupa verificari'}</span>
         ${gata && !S.rulare ? '<span class="tasta">Ctrl ↵</span>' : ''}</button></div>`;
   } else if (S.rulare?.gata) {
-    garzi = `<div class="garzi"><div class="garda ok"><span class="ic">✓</span><span>Rulat pe ${TINTA}.</span><span class="det">${p.length} obiecte în 2,1 s. Revenirea e în ${g.versiune.replace('Salvată: ', '')}.</span>
+    garzi = `<div class="garzi"><div class="garda ok"><span class="ic">✓</span><span>Rulat pe ${TINTA}.</span><span class="det">${p.length} obiecte in 2,1 s. Revenirea e in ${g.versiune.replace('Salvata: ', '')}.</span>
       <span class="act"><button class="btn-c" data-act="plan-nou">Plan nou</button></span></div></div>`;
   }
 
@@ -657,7 +657,7 @@ function blocUrmator(d) {
 }
 function salveazaVersiunea() {
   if (!pasiPlan().length) return;
-  S.garda.versiune = 'Salvată: revenire-CharismaProd-1453.sql';
+  S.garda.versiune = 'Salvata: revenire-CharismaProd-1453.sql';
   randeazaPlan();
 }
 function ruleaza() {
@@ -676,7 +676,7 @@ function ruleaza() {
 }
 function randeazaProgres() {
   const n = S.revizuite.size;
-  $('#progres-text').textContent = `revizuite ${n} din ${OBIECTE.length}, ${S.plan.size} în plan`;
+  $('#progres-text').textContent = `revizuite ${n} din ${OBIECTE.length}, ${S.plan.size} in plan`;
   $('#btn-plan').textContent = `Planul (${S.plan.size})`;
   $('#progres-bara').style.width = (n / OBIECTE.length * 100) + '%';
 }
@@ -684,10 +684,10 @@ function randeaza() { randeazaFatete(); randeazaLista(); randeazaObiect(); rande
 
 /* ================= paleta ================= */
 const COMENZI = [
-  ['Pune obiectul în plan', 'p', comutaPlan], ['Marchează revizuit', 'r', comutaRevizuit],
-  ['Următorul nerevizuit', 'n', urmatorulNerevizuit], ['Salvează versiunea actuală', 'v', salveazaVersiunea],
-  ['Arată doar ce diferă în cod', '', () => comutaTermen('difera:cod')], ['Arată doar nerevizuitele', '', () => comutaTermen('nerevizuit')],
-  ['Arată scriptul planului', '', () => { S.tab = 'script'; randeazaPlan(); }], ['Recompară', 'Ctrl R', () => recompara()],
+  ['Pune obiectul in plan', 'p', comutaPlan], ['Marcheaza revizuit', 'r', comutaRevizuit],
+  ['Urmatorul nerevizuit', 'n', urmatorulNerevizuit], ['Salveaza versiunea actuala', 'v', salveazaVersiunea],
+  ['Arata doar ce difera in cod', '', () => comutaTermen('difera:cod')], ['Arata doar nerevizuitele', '', () => comutaTermen('nerevizuit')],
+  ['Arata scriptul planului', '', () => { S.tab = 'script'; randeazaPlan(); }], ['Recompara', 'Ctrl R', () => recompara()],
 ];
 let paletaActiv = 0, paletaElem = [];
 function potrivire(text, q) {
@@ -698,13 +698,13 @@ function potrivire(text, q) {
 function randeazaPaleta() {
   const q = $('#paleta-q').value.trim();
   paletaElem = [
-    ...COMENZI.map(([t, k, f]) => ({t, k, f, fel:'comandă'})),
+    ...COMENZI.map(([t, k, f]) => ({t, k, f, fel:'comanda'})),
     ...OBIECTE.map((o) => ({t:`${o.schema}.${o.nume}`, k:'', f:() => { S.q = ''; $('#q').value = ''; S.sel = o.id; S.bloc = 0; randeaza(); }, fel:TIP[o.tip]})),
   ].map((e) => ({...e, m:potrivire(e.t, q)})).filter((e) => e.m.ok).slice(0, 12);
   paletaActiv = Math.min(paletaActiv, Math.max(0, paletaElem.length - 1));
   $('#paleta-lista').innerHTML = paletaElem.length ? paletaElem.map((e, i) =>
     `<li class="${i === paletaActiv ? 'activ' : ''}" data-i="${i}"><span>${e.m.h}</span><span>${e.k ? `<span class="tasta">${e.k}</span>` : `<span class="fel">${e.fel}</span>`}</span></li>`).join('')
-    : `<li><span class="fel">Nicio comandă și niciun obiect cu „${esc(q)}".</span></li>`;
+    : `<li><span class="fel">Nicio comanda si niciun obiect cu „${esc(q)}".</span></li>`;
 }
 function deschidePaleta() { $('#paleta-fundal').classList.add('deschis'); $('#paleta-q').value = ''; paletaActiv = 0; randeazaPaleta(); $('#paleta-q').focus(); }
 function inchidePaleta() { $('#paleta-fundal').classList.remove('deschis'); }

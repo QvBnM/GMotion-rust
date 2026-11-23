@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: e9f0780aeb0d7197 -->
+<!-- api-hash: 8691b012d6a63478 -->
 
 ## Rol
 
@@ -24,7 +24,7 @@ biblioteca** — fara nicio interfata.
 
 | Zona | Ce ofera |
 |---|---|
-| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `compara_cu_oprire(..., continua) -> Option<Comparare>` (se opreste cel mult dupa un obiect, P8), `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand` (cu `modificat` si `creat`: din baza comparata, la `Lipsa` din martor; ultima coloana si in CSV, etapa 25), `Categorie`, `Numaratoare`, `Progres` |
+| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `compara_cu_oprire(..., continua) -> Option<Comparare>` (se opreste cel mult dupa un obiect, P8), `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand` (cu `modificat` si `creat`: din baza comparata, la `Lipsa` din martor, etapa 25; si `exacta_curent`, amprenta exacta a versiunii din baza, F-D5), `Categorie`, `Numaratoare`, `Progres` |
 | `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `plasari_obiect(ref, cur) -> Vec<Plasare>`, `Fel`, `Bucata`, `Marcaj` |
 
 `plasari_obiect` spune unde ajunge fiecare bloc din martor daca apesi
@@ -34,12 +34,12 @@ a imperecheat deja blocurile (randul e `modificat`), aia e plasarea — perechea
 aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
 decat arata editorul. `gmotion_core::plasare` (portul din v3.4) raspunde doar
 pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
-| `deploy` | `aplica_create_or_alter`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` (cu `avertismente`), `avertismente(revenire) -> Vec<Avertisment>` (view-uri cu `SCHEMABINDING` si triggere existente in tinta: ce pierde `CREATE OR ALTER`, F-D8) |
+| `deploy` | `aplica_create_or_alter`, `verifica_text_final(obiect, tip, text)`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` (cu `avertismente`), `avertismente(revenire) -> Vec<Avertisment>` (view-uri cu `SCHEMABINDING` si triggere existente in tinta: ce pierde `CREATE OR ALTER`, F-D8) |
 | `deploy::avertismente_structura(pe_baza)`, `Avertisment::StructuraStricata` | codul care se deployeaza si nu se inchide (`core::structura`): avertisment in raport, deci in `cli` si in fereastra (etapa 26) |
-| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
+| `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `cu_texte_finale`, `verifica_texte`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
-| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `din_sesiune` / `in_sesiune` |
+| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `goleste_bifele` (revizuit si omis; notele si deployatele raman), `uneste(baza, ai_mei, ai_lor)` (unire in trei cai pe obiect, si `Editari::uneste`; `uneste_harta`), `omise_cazute(randuri)` (omiteri ale unor obiecte schimbate; raman in sesiune pana sunt revizuite); `din_sesiune` / `din_sesiune_verificat` (eroare daca exista si nu se citeste) / `in_sesiune` |
 | `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_blocuri_la` (tragerea pe alt loc), `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`, `curata(randuri, baze_comparate)`; legat de amprenta, salvat in sesiune; `TextFinal`. Un text final **egal cu textul bazei** e decizia „pastreaza tinta" si se pastreaza: doar `reset` o sterge (F-A5) |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |
@@ -84,8 +84,13 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
    obiect fara cod / criptat (`GM-MOD-011`), acelasi obiect de doua ori in
    planul unei baze (`GM-MOD-013`), cod care creeaza alt obiect decat cel din
    plan (`GM-MOD-014`), procedura numerotata `dbo.p;1`, pe care
-   `CREATE OR ALTER` n-o accepta (`GM-MOD-008`). Numele bazei intra in `USE [..]`
-   cu `]` dublat.
+   `CREATE OR ALTER` n-o accepta (`GM-MOD-008`), cod care nu incepe cu
+   `CREATE <tipul din plan>` (`GM-MOD-015`: SQL oarecare sau alt tip), text
+   final gol (`GM-MOD-016`), decizie salvata cazuta (`GM-MOD-018`: omis apoi schimbat, text final pe alta versiune, omis dupa plan; `Editari::cazute`), obiect cu alt tip in tinta (`GM-MOD-017`:
+   procedura in martor, view in modificata; `Pas::tip_tinta`, iar randul
+   din lista incepe cu „tip schimbat"). Numele bazei intra in `USE [..]` cu `]` dublat.
+   Aceleasi reguli le da `verifica_text_final`, ca un text sa fie refuzat cand
+   se scrie, nu abia la deploy.
 6c. **Fiecare obiect isi reface setarile de creare** (`SET ANSI_NULLS` /
    `SET QUOTED_IDENTIFIER`, intr-un batch inaintea codului), exact cum erau in
    referinta; necunoscute (instantaneu vechi) -> `ON`/`ON`, ca SSMS.
@@ -126,6 +131,11 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
    verifica si tinta, si referinta; aparut / disparut / modificat opresc la
    fel (`GM-MOD-012`), cu fiecare obiect pe nume. Garda primeste obiecte
    **recitite** — cu cele de la comparare ar compara un lucru cu el insusi.
+   Planul tine si amprenta textelor finale (`Pas::text_final`); un text
+   schimbat, aparut sau sters dupa plan opreste la fel (`verifica_texte`).
+   Un text final e valabil doar pe versiunea **exacta** a bazei peste care
+   s-a facut (`TextFinal::exacta`): un comentariu nou in baza il invalideaza
+   (F-D5).
 8c. **Revenirea se scrie inainte de deploy, in `<director>/revenire/`**, din
    definitiile actuale ale tintei (cod si setari ale tintei): ce exista se
    reface, ce deploy-ul creeaza se sterge (`DROP ... IF EXISTS`). Intai
@@ -181,7 +191,7 @@ din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-modul-diff-obiecte      # 87 teste
+cd rust && cargo test -p gmotion-modul-diff-obiecte      # 134 teste
 ```
 
 `tests/flux_complet.rs` ruleaza tot lantul pe un instantaneu: citire prin

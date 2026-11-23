@@ -456,8 +456,26 @@ fn deploy_redeschis_dupa_o_editare_scrie_textul_de_acum() {
     app.comanda(Comanda::ComutaInPlan);
     app.comanda(Comanda::DeschideDeploy);
     let mut deschis = None;
-    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "2026-11-18 14:00");
+    gmotion_app::deploy::asigura_planul(
+        &mut deschis,
+        &app,
+        "CharismaDev",
+        "2026-11-18 14:00",
+        || std::path::PathBuf::from("deploy_test"),
+    );
     assert_eq!(deschis.as_ref().unwrap().stare.plan.pasi.len(), 1);
+    // directorul se alege o data: o redesenare cu aceeasi cheie nu-l schimba
+    gmotion_app::deploy::asigura_planul(
+        &mut deschis,
+        &app,
+        "CharismaDev",
+        "2026-11-18 14:00",
+        || std::path::PathBuf::from("alt_director"),
+    );
+    assert_eq!(
+        deschis.as_ref().unwrap().director,
+        std::path::PathBuf::from("deploy_test")
+    );
 
     // 2. inapoi in editor, textul schimbat de mana
     app.comanda(Comanda::InapoiLaLista);
@@ -470,7 +488,13 @@ fn deploy_redeschis_dupa_o_editare_scrie_textul_de_acum() {
 
     // 3. deploy din nou: aceeasi multime „in plan", deci aici se refolosea
     app.comanda(Comanda::DeschideDeploy);
-    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "2026-11-18 14:10");
+    gmotion_app::deploy::asigura_planul(
+        &mut deschis,
+        &app,
+        "CharismaDev",
+        "2026-11-18 14:10",
+        || std::path::PathBuf::from("deploy_test"),
+    );
     let st = &mut deschis.as_mut().unwrap().stare;
     assert!(
         matches!(st.garda, Garda::Neverificata),
@@ -518,7 +542,9 @@ fn recompararea_pierde_planul_si_garda_de_dinainte() {
     app.comanda(Comanda::ComutaInPlan);
     app.comanda(Comanda::DeschideDeploy);
     let mut deschis = None;
-    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "14:00");
+    gmotion_app::deploy::asigura_planul(&mut deschis, &app, "CharismaDev", "14:00", || {
+        std::path::PathBuf::from("deploy_test")
+    });
     let recitit = pornire::compara(&c).expect("recitirea merge");
     let st = &mut deschis.as_mut().unwrap().stare;
     st.aplica_verificarea(recitit.sursa, recitit.tinte, "14:05");
@@ -533,7 +559,9 @@ fn recompararea_pierde_planul_si_garda_de_dinainte() {
     app2.comanda(Comanda::Selecteaza(p));
     app2.comanda(Comanda::ComutaInPlan);
     app2.comanda(Comanda::DeschideDeploy);
-    gmotion_app::deploy::asigura_planul(&mut deschis, &app2, "CharismaDev", "14:10");
+    gmotion_app::deploy::asigura_planul(&mut deschis, &app2, "CharismaDev", "14:10", || {
+        std::path::PathBuf::from("deploy_test")
+    });
     assert!(
         matches!(deschis.as_ref().unwrap().stare.garda, Garda::Neverificata),
         "garda de dinainte de recomparare nu mai e valabila: {:?}",

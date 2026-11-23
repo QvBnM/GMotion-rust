@@ -60,11 +60,11 @@ explicatia sunt in `referinta/README.md`.
 | `mostenire/` — GMotion v3.4 in Python | inghetat, referinta de paritate |
 | `referinta/` — harness de conformitate + bench | **gata** |
 | `unelte/` — poarta de verificare | **gata** |
-| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 50 teste** |
-| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (48 teste) |
-| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (40 teste) |
-| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 59 teste** |
-| `rust/cli` — binarul headless | **gata, 31 teste** |
+| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 136 teste** |
+| `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (52 teste) |
+| `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (54 teste) |
+| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 134 teste** |
+| `rust/cli` — binarul headless | **gata, 61 teste** |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
 | `rust/app` — binarul cu interfata | de scris |
 | `rust/module/upgrade` — modulul 2 | de scris |
