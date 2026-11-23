@@ -1334,8 +1334,7 @@ fn ruleaza() -> Result<(), String> {
                     .get(usize::try_from(i).unwrap_or(0))
                     .cloned()
                 {
-                    st.conectare.sursa.baza = r.sursa;
-                    st.conectare.baza.baza = r.baza;
+                    st.conectare.reia(&r);
                 }
                 drop(st);
                 d();

@@ -1063,7 +1063,21 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
 
     ui.set_tigla_hasura(tigla_hasura(mod_curent(ui)));
     if ui.get_obiect_id() != antet.id {
-        // alt obiect: editarea de mana nu se duce cu el
+        // alt obiect: editarea de mana nu se duce cu el (F-A1), dar nici nu se
+        // pierde: ce s-a tastat se salveaza pe obiectul **lui**, dupa
+        // desenare (desenarea tine starea aplicatiei imprumutata). Inainte un
+        // clic in coloana arunca textul fara intrebare (auditul 2026-11-23)
+        let tastat = ui.get_text_in_lucru();
+        if ui.get_editeaza_mod() && !tastat.is_empty() && tastat != ui.get_text_final() {
+            let vechi = ui.get_obiect_id();
+            let slab = ui.as_weak();
+            slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                if let Some(ui) = slab.upgrade() {
+                    ui.invoke_salveaza_textul(vechi, tastat);
+                }
+            });
+        }
+        ui.set_text_in_lucru("".into());
         ui.set_editeaza_mod(false);
         ui.set_obiect_id(antet.id.into());
     }
@@ -3842,6 +3856,24 @@ mod teste {
             "editarea de mana trebuie sa se inchida la alt obiect"
         );
         assert_eq!(ui.get_obiect_id(), "Prod/dbo.pB");
+
+        // ce s-a tastat nu se pierde: pleaca la salvare, cu cheia obiectului
+        // de dinainte (auditul 2026-11-23)
+        let salvate = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let s2 = salvate.clone();
+        ui.on_salveaza_textul(move |id, t| s2.borrow_mut().push((id.to_string(), t.to_string())));
+        ui.set_editeaza_mod(true);
+        ui.set_text_in_lucru("CREATE PROC dbo.pB AS SELECT 'tastat'".into());
+        incarca_editor(&ui, &antet("Prod/dbo.pA", "pA"), &model);
+        slint::platform::update_timers_and_animations();
+        assert_eq!(
+            *salvate.borrow(),
+            [(
+                "Prod/dbo.pB".to_string(),
+                "CREATE PROC dbo.pB AS SELECT 'tastat'".to_string()
+            )]
+        );
+        assert!(ui.get_text_in_lucru().is_empty());
 
         // Esc, cat se scrie de mana, renunta la editare si **nu** pleaca din
         // ecran: inainte urca la `inapoi-lista`, cu textul nesalvat

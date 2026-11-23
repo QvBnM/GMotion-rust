@@ -264,6 +264,8 @@ export component EditorDiferente inherits Window {
     callback reset();
     callback anuleaza();
     callback salveaza-textul(string, string);   // (obiect-id, text)
+    // textul editat de mana inca nesalvat ("" = nimic tastat)
+    in-out property <string> text-in-lucru;
     callback ghidat-porneste();
     callback ghidat-opreste();
     callback ghidat-alege(bool);
@@ -1193,6 +1195,9 @@ export component EditorDiferente inherits Window {
                                     x: 16px;
                                     y: 12px;
                                     text: root.text-final;
+                                    // ce s-a scris, ca Rust sa-l poata salva pe
+                                    // obiectul lui daca omul trece pe altul
+                                    edited => { root.text-in-lucru = self.text; }
                                     single-line: false;
                                     wrap: no-wrap;
                                     font-family: Tema.font-mono;

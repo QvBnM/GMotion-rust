@@ -346,6 +346,23 @@ impl Conectare {
     /// modificata ramane doar daca exista in lista si nu e chiar a martorului.
     /// Se cheama inainte de fiecare desenare, deci ce schimba martorul ajunge
     /// si in modificata. Fara bifa nu face nimic.
+    /// „Continua" pe o comparare recenta: serverul, martorul si modificata ei.
+    /// Inainte se puneau doar numele bazelor: serverul de acum ramanea, iar cu
+    /// „Aceeasi conexiune" modificata se golea la urmatoarea desenare, fiindca
+    /// bazele nu erau inca citite (auditul 2026-11-23).
+    pub fn reia(&mut self, r: &Recenta) {
+        if self.instantaneu.is_none() && !r.server.is_empty() && r.server != self.sursa.server {
+            self.sursa.server.clone_from(&r.server);
+            // bazele citite erau ale altui server
+            self.sursa.baze.clear();
+            self.baza.baze.clear();
+        }
+        self.sursa.baza.clone_from(&r.sursa);
+        self.baza.alese.clear();
+        self.baza.baza.clone_from(&r.baza);
+        self.sincronizeaza();
+    }
+
     pub fn sincronizeaza(&mut self) {
         if !self.aceeasi_conexiune || self.instantaneu.is_some() {
             return;
@@ -359,7 +376,10 @@ impl Conectare {
         b.stare.clone_from(&s.stare);
         b.servere_gasite.clear();
         b.alese.clear();
-        let ramane = b.baze.iter().any(|x| x == &b.baza) && !b.baza.eq_ignore_ascii_case(&s.baza);
+        // bazele inca necitite (lista goala) nu sunt un motiv sa golesti
+        // alegerea: abia citirea spune daca baza exista
+        let ramane = (b.baze.is_empty() || b.baze.iter().any(|x| x == &b.baza))
+            && !b.baza.eq_ignore_ascii_case(&s.baza);
         if !ramane {
             b.baza.clear();
         }
@@ -504,6 +524,30 @@ mod teste {
         c.sursa.auth_windows = false;
         c.sursa.acreditari = Acreditari::noi("deploy_ro", "secret");
         c
+    }
+
+    #[test]
+    fn continua_pe_o_recenta_pune_serverul_si_ambele_baze() {
+        let mut c = Conectare {
+            aceeasi_conexiune: true,
+            ..Default::default()
+        };
+        c.sursa.server = "SRV-ACUM".into();
+        c.sursa.baze = vec!["A".into(), "B".into()];
+        let r = Recenta {
+            sursa: "Martor".into(),
+            server: "SRV-VECHI".into(),
+            baza: "Client".into(),
+            cand: String::new(),
+            progres: String::new(),
+        };
+        c.reia(&r);
+        assert_eq!(c.sursa.server, "SRV-VECHI");
+        assert_eq!(c.sursa.baza, "Martor");
+        assert_eq!(c.baza.baza, "Client");
+        c.sincronizeaza();
+        assert_eq!(c.baza.baza, "Client", "nu se goleste inainte de citire");
+        assert_eq!(c.baza.server, "SRV-VECHI");
     }
 
     #[test]

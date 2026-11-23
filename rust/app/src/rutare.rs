@@ -1043,12 +1043,24 @@ impl Aplicatie {
             }
             Comanda::SalveazaText { id, text } => {
                 if self.id_obiect() != Some(id.clone()) {
-                    tracing::warn!(
-                        target: "gmotion::app",
-                        trimis = %id, curent = ?self.id_obiect(),
-                        "text scris de mana pentru alt obiect: refuzat"
-                    );
-                    return false;
+                    // textul unui obiect parasit in timpul editarii: se pune pe
+                    // obiectul **lui** (cheia vine cu textul, deci nu poate
+                    // ajunge pe altul, F-A1), fara istoric Ctrl+Z
+                    let tinta = self
+                        .lista
+                        .obiecte()
+                        .iter()
+                        .find(|o| format!("{}/{}.{}", o.baza, o.schema, o.nume) == id);
+                    let Some((baza, obiect)) = tinta.map(|o| o.cheie()) else {
+                        tracing::warn!(target: "gmotion::app", trimis = %id, "text pentru un obiect necunoscut: refuzat");
+                        return false;
+                    };
+                    let Some(r) = self.rand(&baza, &obiect).cloned() else {
+                        return false;
+                    };
+                    let text = gmotion_core::pregateste_afisare(&text);
+                    self.editari.pune(&r, text, true);
+                    return true;
                 }
                 let text = gmotion_core::pregateste_afisare(&text);
                 return self.schimba_textul(move |e, r, _, _| e.pune(r, text, true));
@@ -2783,6 +2795,39 @@ mod teste {
         assert_eq!(a.mesaj_tab(), Some(MesajTab::FaraEditor));
         a.comanda(Comanda::ComutaRevizuit);
         assert!(a.obiect().unwrap().revizuit, "bifa e pe pA");
+    }
+
+    /// Textul tastat pe un obiect parasit se salveaza pe obiectul lui, nu pe
+    /// cel curent (F-A1 ramane: cheia vine cu textul).
+    #[test]
+    fn textul_unui_obiect_parasit_se_salveaza_pe_el() {
+        let mut a = aplicatie();
+        let poz = |a: &Aplicatie, n: &str| {
+            (0..a.lista().vizibile().len())
+                .find(|&p| a.lista().obiect(p).unwrap().nume == n)
+                .unwrap()
+        };
+        let p_a = poz(&a, "pA");
+        a.comanda(Comanda::Selecteaza(p_a));
+        let id_a = a.id_obiect().unwrap();
+        let p_b = poz(&a, "pB");
+        a.comanda(Comanda::Selecteaza(p_b));
+        assert!(a.comanda(Comanda::SalveazaText {
+            id: id_a,
+            text: "CREATE PROC dbo.pA AS\nSELECT 'tastat'".into(),
+        }));
+        let t = a.texte_finale();
+        assert!(
+            t.iter()
+                .any(|((_, o), x)| o == "dbo.pA" && x.contains("tastat")),
+            "{t:?}"
+        );
+        assert!(!t.keys().any(|(_, o)| o == "dbo.pB"));
+        // un id necunoscut e refuzat
+        assert!(!a.comanda(Comanda::SalveazaText {
+            id: "X/dbo.nu".into(),
+            text: "x".into()
+        }));
     }
 
     #[test]
