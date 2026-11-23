@@ -185,7 +185,7 @@ din v3.4, cu lista si editorul pe motoare diferite. Aici ambele cheama
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-modul-diff-obiecte      # 129 teste
+cd rust && cargo test -p gmotion-modul-diff-obiecte      # 134 teste
 ```
 
 `tests/flux_complet.rs` ruleaza tot lantul pe un instantaneu: citire prin

@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-23 · branch `claude/dreamy-ritchie-jdnfct`
-**Poarta:** verde (656 teste; `core` pe wasm32, tot codul si pe windows-msvc — tintele sunt instalate acum si in container; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Poarta:** verde (683 teste; `core` pe wasm32, tot codul si pe windows-msvc — tintele sunt instalate acum si in container; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -18,11 +18,11 @@ interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
 |---|---|
-| `rust/core` | gata, 129 teste, fuzz pe invariante, lexer T-SQL |
+| `rust/core` | gata, 136 teste, fuzz pe invariante, lexer T-SQL |
 | `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 52 teste |
-| `rust/platforma` | gata, DPAPI verificat pe Windows, 52 teste |
-| `rust/module/diff-obiecte` | gata, 129 teste; planul de deploy cu garda si revenirea (etapa 12) |
-| `rust/cli` | gata, 55 teste, din care 33 pe binarul adevarat; `plan`, `deploy --plan` |
+| `rust/platforma` | gata, DPAPI verificat pe Windows, 54 teste |
+| `rust/module/diff-obiecte` | gata, 134 teste; planul de deploy cu garda si revenirea (etapa 12) |
+| `rust/cli` | gata, 61 teste, din care 38 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
 | `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **la paritate cu v3.4**, in afara randurilor ramase in `cercetare/lipsuri-portare.md` |
 
@@ -47,10 +47,10 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**2026-11-23, audit independent dupa remediere:
-`cercetare/audit-qa-2026-11-23.md` — nota 6/10.** Primul lucru: N1 (o linie
-goala in mijlocul unei instructiuni taie blocul; „Aplica" da `DELETE` fara
-`WHERE`), N3, N2, apoi ordinea de la finalul auditului.
+**2026-11-23, audit independent: `cercetare/audit-qa-2026-11-23.md` (nota
+6/10 la pornire), remediat in aceeasi zi** — vezi „Verdicte" la final.
+**Urmatorul pas:** un audit nou, independent, pe codul de acum, ca sa existe
+o nota masurata; apoi probele pe SQL Server de mai jos si deciziile lui Mihai.
 
 **2026-11-22/23, audit nou: `cercetare/audit-qa-2026-11-22.md` (nota 6/10
 la pornire).** Mihai: varianta 2 la C2, apoi „rezolva toate problemele".
