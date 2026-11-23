@@ -153,7 +153,30 @@ pub fn linii_go(text: &str) -> Vec<usize> {
     let mut rez = Vec::new();
     let mut poz = 0usize;
     for (nr, linie) in text.split('\n').enumerate() {
-        let l = linie.trim_end_matches('\r').trim();
+        // si CR singur, NEL, U+2028 / U+2029 pot fi capat de linie pentru un
+        // editor sau pentru SSMS: un `GO` despartit asa trecea de garda
+        // (auditul 2026-11-23). Se cauta pe fiecare bucata, cu linia ei `\n`.
+        let mut poz_bucata = poz;
+        let mut gasit = false;
+        for bucata in linie.split(['\r', '\u{85}', '\u{2028}', '\u{2029}']) {
+            if !gasit && e_linie_go(bucata) && !in_comentariu_bloc(poz_bucata) {
+                gasit = true;
+            }
+            poz_bucata += bucata.len() + 1;
+        }
+        if gasit {
+            rez.push(nr + 1);
+        }
+        poz += linie.len() + 1;
+    }
+    rez
+}
+
+/// O linie (fara capete de linie) care e separator de batch: `GO`, `GO 5`,
+/// eventual urmat de comentariu.
+fn e_linie_go(linie: &str) -> bool {
+    {
+        let l = linie.trim();
         // `GO -- gata` si `GO /* gata */` sunt tot separatoare de batch
         // pentru sqlcmd si SSMS (C7 din auditul QA): se taie de la primul
         // inceput de comentariu si se cantareste ce ramane. O linie cu cod
@@ -171,12 +194,8 @@ pub fn linii_go(text: &str) -> Vec<usize> {
                 None => true,
                 Some(c) => c.chars().all(|ch| ch.is_ascii_digit()) && cuv.next().is_none(),
             };
-        if e_go && !in_comentariu_bloc(poz) {
-            rez.push(nr + 1);
-        }
-        poz += linie.len() + 1;
+        e_go
     }
-    rez
 }
 
 #[cfg(test)]
@@ -188,6 +207,24 @@ mod teste {
             .into_iter()
             .map(|s| (s.fel, &t[s.start..s.sfarsit]))
             .collect()
+    }
+
+    #[test]
+    fn go_despartit_cu_cr_sau_separator_unicode_e_tot_go() {
+        for t in [
+            "SELECT 1\rGO\rDROP TABLE t",
+            "SELECT 1\u{85}GO\u{85}DROP TABLE t",
+            "SELECT 1\u{2028}GO\u{2028}DROP TABLE t",
+        ] {
+            assert_eq!(linii_go(t), [1], "{t:?}");
+        }
+        // si intr-un sir: sqlcmd taie batch-ul oriunde (vezi GM-MOD-009)
+        assert_eq!(linii_go("SELECT 'a\rGO\rb'"), [1]);
+        assert!(
+            linii_go("/* \rGO\r */ SELECT 1").is_empty(),
+            "in comentariu bloc nu"
+        );
+        assert_eq!(linii_go("SELECT 1\r\nGO\r\nSELECT 2"), [2]);
     }
 
     #[test]

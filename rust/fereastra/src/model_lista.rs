@@ -494,6 +494,26 @@ impl Lista {
 
     /// Starea de revizuire a obiectului vizibil: revizuit, omis, sau niciuna.
     /// Cele doua se exclud; un obiect omis iese si din plan.
+    /// Starea de revizuire si de deploy a unui obiect, dupa cheie (dupa o
+    /// unire cu ce a scris cli in sesiune).
+    pub fn pune_stare_cheie(
+        &mut self,
+        cheie: &(String, String),
+        revizuit: bool,
+        omis: bool,
+        deploy: Deploy,
+    ) {
+        for o in self.obiecte.iter_mut().filter(|o| &o.cheie() == cheie) {
+            o.revizuit = revizuit && !omis;
+            o.omis = omis;
+            o.deploy = deploy;
+            if omis {
+                o.in_plan = false;
+            }
+        }
+        self.recalculeaza();
+    }
+
     pub fn pune_revizuirea(&mut self, pozitie: usize, revizuit: bool, omis: bool) {
         if let Some(&i) = self.vizibile.get(pozitie) {
             let o = &mut self.obiecte[i];

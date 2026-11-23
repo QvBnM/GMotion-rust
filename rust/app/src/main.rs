@@ -73,6 +73,9 @@ struct Stare {
     /// Ce se spune in bara listei la urmatoarea desenare: o sesiune pusa
     /// deoparte (F-A15), o recomparare esuata (C7).
     mesaj_lista: Option<String>,
+    /// Revizuirea si textele finale de la ultima citire / salvare: baza
+    /// unirii in trei cai cu ce a scris intre timp cli in sesiune.
+    salvate_ultima: (modul::Revizuire, modul::Editari),
 }
 
 impl Stare {
@@ -342,6 +345,7 @@ fn ruleaza() -> Result<(), String> {
         detalii: None,
         salvat_la: String::new(),
         mesaj_lista: None,
+        salvate_ultima: Default::default(),
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
@@ -793,8 +797,23 @@ fn ruleaza() -> Result<(), String> {
             let mut sesiune = citita.unwrap_or_else(|| {
                 gmotion_platforma::Sesiune::noua(server, auth, referinta.clone(), String::new())
             });
+            // unire in trei cai cu ce e acum pe disc: ce a scris `gmotion`
+            // din linia de comanda cat fereastra era deschisa nu se pierde
+            // (auditul 2026-11-23)
+            let (baza_rev, baza_ed) = s.salvate_ultima.clone();
+            let revizuire = modul::Revizuire::uneste(
+                &baza_rev,
+                &revizuire,
+                &modul::Revizuire::din_sesiune(&sesiune),
+            );
+            let editari =
+                modul::Editari::uneste(&baza_ed, &editari, &modul::Editari::din_sesiune(&sesiune));
             revizuire.in_sesiune(&mut sesiune);
             editari.in_sesiune(&mut sesiune);
+            if let Some(a) = s.app.as_mut() {
+                a.preia_starea(revizuire.clone(), editari.clone());
+            }
+            s.salvate_ultima = (revizuire, editari);
             if let Some(a) = s.app.as_ref() {
                 gmotion_app::rutare::taburi_in_sesiune(a.taburi(), &mut sesiune);
             }
@@ -1265,6 +1284,8 @@ fn ruleaza() -> Result<(), String> {
                         let mut st = s.borrow_mut();
                         st.server = r.server;
                         st.referinta = r.referinta.clone();
+                        // fara stare citita: unirea ia de pe disc tot ce nu e al ei
+                        st.salvate_ultima = Default::default();
                         let mut app =
                             Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
                         // „Uneste ciclul cursor" porneste cum spune configurarea (F-B5)
@@ -1453,6 +1474,7 @@ fn ruleaza() -> Result<(), String> {
                 st.salvat_la = String::new();
                 st.garda = None;
                 st.mesaj_lista = None;
+                st.salvate_ultima = Default::default();
                 let recente_noi = recente(&st.sesiuni);
                 st.conectare.recente = recente_noi;
                 drop(st);
@@ -2346,6 +2368,7 @@ fn ruleaza() -> Result<(), String> {
                                 };
                                 st.server = r.server;
                                 st.referinta = referinta;
+                                st.salvate_ultima = (revizuire.clone(), editari.clone());
                                 let mut app =
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
                                         .cu_editari(editari)

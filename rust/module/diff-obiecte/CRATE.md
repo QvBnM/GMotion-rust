@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: f25ff20f922be2e7 -->
+<!-- api-hash: 54cc44dc57f2eb4e -->
 
 ## Rol
 
@@ -38,7 +38,7 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 | `plan` | `Plan` (`din_comparare`, `verifica`, `verifica_sau_opreste`, `cu_texte_finale`, `verifica_texte`, `de_deployat`, `de_deployat_cu` — cu textele finale, `revenire`), `Pas`, `Schimbare`, `Parte`, `FelSchimbare`, `amprenta_exacta` |
 | `export` | `scrie_csv(cale, randuri, stare)`, `Stare` |
 | `impact` | `dependente(baza) -> Dependente` (`folosit_de` si `foloseste`, in ambele sensuri, o singura lexare a bazei; etapa 22), `folosit_de(baza)` — cine foloseste fiecare obiect (prin lexer, aceeasi legare ca ordinea de deploy); `estimeaza(rand, folosit_de) -> Impact` (`Nivel` Scazut / Mediu / Ridicat, cu `motive`) |
-| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `goleste_bifele` (revizuit si omis; notele si deployatele raman), `omise_cazute(randuri)` (omiteri ale unor obiecte schimbate; raman in sesiune pana sunt revizuite); `din_sesiune` / `din_sesiune_verificat` (eroare daca exista si nu se citeste) / `in_sesiune` |
+| `revizuire` | `Revizuire` — ce s-a revizuit, **omis** (`omite`, `e_omis`) sau **deployat** (`marcheaza_deployat`, `e_deployat`, `a_fost_deployat` = versiune noua), legat de amprenta continutului; **note** pe nume (`pune_nota`, `nota`, `note`); `goleste_bifele` (revizuit si omis; notele si deployatele raman), `uneste(baza, ai_mei, ai_lor)` (unire in trei cai pe obiect, si `Editari::uneste`; `uneste_harta`), `omise_cazute(randuri)` (omiteri ale unor obiecte schimbate; raman in sesiune pana sunt revizuite); `din_sesiune` / `din_sesiune_verificat` (eroare daca exista si nu se citeste) / `in_sesiune` |
 | `editare` | `Editari` — textul final per obiect: `aplica_blocuri`, `aplica_blocuri_la` (tragerea pe alt loc), `aplica_toate`, `reset`, `restaureaza` (Ctrl+Z), `pune` (scris de mana), `pentru_deploy`, `curata(randuri, baze_comparate)`; legat de amprenta, salvat in sesiune; `TextFinal`. Un text final **egal cu textul bazei** e decizia „pastreaza tinta" si se pastreaza: doar `reset` o sterge (F-A5) |
 | `modul` | `ModulDiffObiecte` — declaratia catre `Registru` |
 | radacina | `NUME` = `"diff-obiecte"` |

@@ -379,7 +379,7 @@ pub fn aplica_create_or_alter(cod: &str, obiect: &str) -> String {
     // numele intai: rescris de la coada, pozitiile capului raman valabile
     let mut rez = cod.to_string();
     if let Some((s, f)) = span_nume(cod, tip_sfarsit) {
-        if parti_nume(&cod[s..f]) != parti_nume(obiect) {
+        if !acelasi_nume(&parti_nume(&cod[s..f]), obiect) {
             rez = format!("{}{}{}", &cod[..s], nume_calificat(obiect), &cod[f..]);
         }
     }
@@ -454,10 +454,11 @@ fn verifica_capul(o: &DeDeployat) -> Rezultat<()> {
             t.to_ascii_uppercase()
         }
     });
+    // un tip pe care nu-l deployam (`plan.json` scris de mana cu `"tip":
+    // "ZZ"`) nu trece: revenirea n-ar sti sa-l stearga (auditul 2026-11-23)
     let bun = match (asteptat, &tip_gasit) {
-        (_, None) => false,
         (Some(a), Some(t)) => a == t,
-        (None, Some(_)) => true,
+        _ => false,
     };
     if bun {
         return Ok(());
@@ -541,7 +542,7 @@ fn verifica_inainte(referinta: &str, pe_baza: &BTreeMap<String, Vec<DeDeployat>>
             // care nu l-a vazut nimeni. Un cod fara `CREATE <tip>` nu se
             // verifica: acolo nu se poate sti ce creeaza.
             if let Some(gasit) = numele_creat(&o.cod) {
-                if parti_nume(&gasit) != parti_nume(&o.obiect) {
+                if gasit != o.obiect && parti_nume(&gasit) != parti_nume(&o.obiect) {
                     return Err(Eroare::NumeDinDefinitie {
                         obiect: o.obiect.clone(),
                         gasit,
@@ -1062,6 +1063,37 @@ fn scrie_totul(
 
 /// `[schema].[nume]` din `schema.nume`. Se taie la primul punct: o schema cu
 /// punct in nume ar iesi gresit, dar `Baza` nu pastreaza partile separat.
+/// Numele din definitie (pe parti, din paranteze) e `obiect` (`schema.nume`)?
+/// O schema cu punct (`[my.s].[x]`, deci `my.s.x`) nu se mai desparte gresit
+/// la primul punct: era rescrisa in `[my].[s.x]`, alt obiect (auditul
+/// 2026-11-23).
+fn acelasi_nume(parti_def: &[String], obiect: &str) -> bool {
+    if parti_def == parti_nume(obiect).as_slice() {
+        return true;
+    }
+    match parti_def {
+        [.., schema, nume] => format!("{schema}.{nume}") == obiect.to_lowercase(),
+        _ => false,
+    }
+}
+
+/// Numele calificat pentru `DROP`: din definitie, cand ea numeste chiar
+/// obiectul (pastreaza o schema cu punct intreaga), altfel din `schema.nume`.
+fn nume_calificat_din_cod(cod: &str, obiect: &str) -> String {
+    // un singur punct: `schema.nume` e neambiguu, ca inainte
+    if obiect.matches('.').count() <= 1 {
+        return nume_calificat(obiect);
+    }
+    // altfel numele exact cum e scris in definitie, daca o numeste chiar pe ea
+    capul(cod)
+        .and_then(|(_, t)| span_nume(cod, t))
+        .filter(|&(s, f)| acelasi_nume(&parti_nume(&cod[s..f]), obiect))
+        .map_or_else(
+            || nume_calificat(obiect),
+            |(s, f)| cod[s..f].trim().to_string(),
+        )
+}
+
 fn nume_calificat(obiect: &str) -> String {
     match obiect.split_once('.') {
         Some((schema, nume)) => format!("{}.{}", paranteze(schema), paranteze(nume)),
@@ -1088,7 +1120,7 @@ fn sterge(o: &DeDeployat) -> String {
     crlf(&format!(
         "-- ═══ {} ═══ (creat de deploy)\nDROP {fel} IF EXISTS {};\nGO\n\n",
         o.obiect,
-        nume_calificat(&o.obiect)
+        nume_calificat_din_cod(&o.cod, &o.obiect)
     ))
 }
 
@@ -2176,7 +2208,7 @@ mod teste {
             sql.contains("SET QUOTED_IDENTIFIER OFF;"),
             "setarile tintei, nu ale referintei:\n{sql}"
         );
-        assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"));
+        assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"), "{sql}");
         assert!(sql.contains("DROP FUNCTION IF EXISTS [dbo].[fNou];"));
         assert!(sql.trim_end().ends_with("SET NOEXEC OFF;\r\nGO"));
         std::fs::remove_dir_all(&d).ok();
@@ -2274,6 +2306,41 @@ mod teste {
     /// pe Windows calea intreaga nu poate trece de 260: deploy-ul cadea
     /// **dupa** ce revenirea si cateva fisiere erau deja scrise, iar reluarea
     /// cadea cu `GM-MOD-010`.
+    /// O schema cu punct nu se rescrie in alt obiect, nici la deploy, nici in
+    /// `DROP`-ul din revenire.
+    #[test]
+    fn schema_cu_punct_ramane_intreaga() {
+        let cod = "CREATE PROCEDURE [my.s].[x] AS SELECT 1";
+        let rez = aplica_create_or_alter(cod, "my.s.x");
+        assert!(rez.contains("[my.s].[x]"), "{rez}");
+        assert!(!rez.contains("[my].[s.x]"), "{rez}");
+        let o = DeDeployat {
+            obiect: "my.s.x".into(),
+            tip: "P".into(),
+            cod: cod.into(),
+            setari: None,
+        };
+        assert!(verifica_capul(&o).is_ok());
+        assert!(
+            sterge(&o).contains("DROP PROCEDURE IF EXISTS [my.s].[x]"),
+            "{}",
+            sterge(&o)
+        );
+        let mare = "CREATE PROCEDURE [My.S].[X] AS SELECT 1";
+        assert!(aplica_create_or_alter(mare, "My.S.X").contains("[My.S].[X]"));
+        // un tip necunoscut nu trece
+        let zz = DeDeployat {
+            tip: "ZZ".into(),
+            ..o.clone()
+        };
+        assert_eq!(verifica_capul(&zz).unwrap_err().cod(), "GM-MOD-015");
+        // un nume chiar diferit e rescris ca inainte (F-D4)
+        assert!(
+            aplica_create_or_alter("CREATE PROCEDURE dbo.vechi AS SELECT 1", "dbo.nou")
+                .contains("[dbo].[nou]")
+        );
+    }
+
     /// N2: un director strain cu nume asemanator nu se atinge.
     #[test]
     fn directorul_de_lucru_nu_sterge_nimic_strain() {

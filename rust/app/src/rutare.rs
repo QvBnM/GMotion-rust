@@ -568,6 +568,38 @@ impl Aplicatie {
 
     /// Textele finale salvate (din sesiune). Cele care nu mai corespund
     /// obiectelor de acum se ignora singure (sunt legate de amprenta).
+    /// Starea unita cu ce e pe disc (vezi `Revizuire::uneste`): revizuirea,
+    /// textele finale si ce arata lista despre fiecare obiect.
+    pub fn preia_starea(&mut self, revizuire: Revizuire, editari: Editari) {
+        self.revizuire = revizuire;
+        self.editari = editari;
+        let stari: Vec<((String, String), bool, bool, Deploy)> = self
+            .randuri
+            .iter()
+            .map(|r| {
+                let (schema, nume) = r.obiect.split_once('.').unwrap_or(("dbo", &r.obiect));
+                let cheie = (r.baza.clone(), format!("{schema}.{nume}"));
+                let deploy = if self.revizuire.e_deployat(r) {
+                    Deploy::Deployat
+                } else if self.revizuire.a_fost_deployat(r) {
+                    Deploy::VersiuneNoua
+                } else {
+                    Deploy::Nu
+                };
+                (
+                    cheie,
+                    self.revizuire.e_revizuit(r),
+                    self.revizuire.e_omis(r),
+                    deploy,
+                )
+            })
+            .collect();
+        for (cheie, rev, omis, dep) in stari {
+            self.lista.pune_stare_cheie(&cheie, rev, omis, dep);
+        }
+        self.model.replace(None);
+    }
+
     pub fn cu_editari(mut self, editari: Editari) -> Self {
         self.editari = editari;
         self
@@ -2828,6 +2860,23 @@ mod teste {
             id: "X/dbo.nu".into(),
             text: "x".into()
         }));
+    }
+
+    /// Starea unita cu ce a scris cli: lista arata omiterea venita de pe disc.
+    #[test]
+    fn starea_preluata_se_vede_in_lista() {
+        let mut a = aplicatie();
+        let r = a
+            .randuri
+            .iter()
+            .find(|r| r.obiect == "dbo.pB")
+            .unwrap()
+            .clone();
+        let mut rev = a.revizuire().clone();
+        rev.omite(&r);
+        a.preia_starea(rev, Editari::noi());
+        let o = a.lista().obiecte().iter().find(|o| o.nume == "pB").unwrap();
+        assert!(o.omis && !o.revizuit);
     }
 
     #[test]

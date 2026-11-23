@@ -38,6 +38,40 @@ impl Amprenta {
     }
 }
 
+/// Unirea in trei cai a unei harti `baza -> obiect -> valoare` (vezi
+/// [`Revizuire::uneste`]): pe fiecare cheie, `ai_mei` daca s-a schimbat fata de
+/// `baza` (inclusiv stergerea), altfel `ai_lor`.
+pub fn uneste_harta<V: PartialEq + Clone>(
+    baza: &BTreeMap<String, BTreeMap<String, V>>,
+    ai_mei: &BTreeMap<String, BTreeMap<String, V>>,
+    ai_lor: &BTreeMap<String, BTreeMap<String, V>>,
+) -> BTreeMap<String, BTreeMap<String, V>> {
+    let ia = |h: &BTreeMap<String, BTreeMap<String, V>>, b: &str, o: &str| {
+        h.get(b).and_then(|x| x.get(o)).cloned()
+    };
+    let mut chei: std::collections::BTreeSet<(String, String)> = std::collections::BTreeSet::new();
+    for h in [baza, ai_mei, ai_lor] {
+        for (b, x) in h {
+            for o in x.keys() {
+                chei.insert((b.clone(), o.clone()));
+            }
+        }
+    }
+    let mut out: BTreeMap<String, BTreeMap<String, V>> = BTreeMap::new();
+    for (b, o) in chei {
+        let mei = ia(ai_mei, &b, &o);
+        let v = if mei != ia(baza, &b, &o) {
+            mei
+        } else {
+            ia(ai_lor, &b, &o)
+        };
+        if let Some(v) = v {
+            out.entry(b).or_default().insert(o, v);
+        }
+    }
+    out
+}
+
 /// Obiectele revizuite, pe baza comparata.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Revizuire {
@@ -64,6 +98,21 @@ pub struct Revizuire {
 impl Revizuire {
     pub fn noua() -> Self {
         Self::default()
+    }
+
+    /// Unirea in trei cai a doua stari salvate din acelasi punct: `baza` e
+    /// starea de la ultima citire, `ai_mei` ce am acum in memorie, `ai_lor` ce
+    /// e acum pe disc (scris intre timp de `gmotion` din linia de comanda). Pe
+    /// fiecare obiect: ce am schimbat eu castiga, restul vine de pe disc. Fara
+    /// asta, fereastra stergea la prima bifa omiterile si marcajele facute din
+    /// cli (auditul 2026-11-23).
+    pub fn uneste(baza: &Self, ai_mei: &Self, ai_lor: &Self) -> Self {
+        Revizuire {
+            baze: uneste_harta(&baza.baze, &ai_mei.baze, &ai_lor.baze),
+            omise: uneste_harta(&baza.omise, &ai_mei.omise, &ai_lor.omise),
+            deployate: uneste_harta(&baza.deployate, &ai_mei.deployate, &ai_lor.deployate),
+            note: uneste_harta(&baza.note, &ai_mei.note, &ai_lor.note),
+        }
     }
 
     /// Sterge bifele „revizuit" si „omis". Notele si marcajele de deploy
@@ -350,6 +399,26 @@ mod teste {
 
     /// C10: golirea lasa notele si marcajele de deploy.
     /// N4: omiterea unui obiect schimbat apare in `omise_cazute`.
+    /// Unirea in trei cai: ce am schimbat eu castiga, ce a scris altcineva pe
+    /// disc ramane.
+    #[test]
+    fn unirea_pastreaza_si_ce_am_facut_eu_si_ce_a_facut_cli() {
+        let a = rand("dbo.a", "1", "2");
+        let b = rand("dbo.b", "1", "2");
+        let c = rand("dbo.c", "1", "2");
+        let mut baza = Revizuire::noua();
+        baza.marcheaza(&c);
+        let mut mei = baza.clone();
+        mei.marcheaza(&a); // eu bifez a
+        mei.scoate(&c.baza, &c.obiect); // si scot bifa de pe c
+        let mut lor = baza.clone();
+        lor.omite(&b); // cli omite b
+        let u = Revizuire::uneste(&baza, &mei, &lor);
+        assert!(u.e_revizuit(&a), "a mea");
+        assert!(u.e_omis(&b), "a lui cli");
+        assert!(!u.e_revizuit(&c), "stergerea mea");
+    }
+
     #[test]
     fn omiterea_unui_obiect_schimbat_se_vede() {
         let r = rand("dbo.p", "a", "b");

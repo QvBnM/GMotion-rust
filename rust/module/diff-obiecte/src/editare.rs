@@ -52,6 +52,14 @@ impl Editari {
         Self::default()
     }
 
+    /// Unirea in trei cai, ca [`crate::Revizuire::uneste`]: textele scrise
+    /// din cli cat fereastra era deschisa nu se mai pierd la salvare.
+    pub fn uneste(baza: &Self, ai_mei: &Self, ai_lor: &Self) -> Self {
+        Editari {
+            baze: crate::revizuire::uneste_harta(&baza.baze, &ai_mei.baze, &ai_lor.baze),
+        }
+    }
+
     /// Textul final, **numai daca** obiectul e acelasi ca la editare.
     pub fn text_final(&self, r: &Rand) -> Option<&TextFinal> {
         self.baze
