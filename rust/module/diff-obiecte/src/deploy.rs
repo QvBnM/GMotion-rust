@@ -922,9 +922,20 @@ fn in_director_temporar(
         cale: cale.display().to_string(),
         detaliu: e.to_string(),
     };
-    let lucru = director.with_extension("tmp");
-    std::fs::remove_dir_all(&lucru).ok();
-    std::fs::create_dir_all(&lucru).map_err(|e| eroare(&lucru, e))?;
+    // numele directorului de lucru se **adauga** la cel cerut si e unic pe
+    // proces; `create_dir` (nu `_all`) refuza unul existent. Inainte era
+    // `with_extension("tmp")`, sters recursiv fara intrebare: `-d proiect`
+    // stergea `proiect.tmp`, iar `-d deploy_2026.11.23` stergea
+    // `deploy_2026.11.tmp` (N2 din auditul 2026-11-23)
+    static CONTOR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = CONTOR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut nume = director.file_name().unwrap_or_default().to_os_string();
+    nume.push(format!(".gmotion-lucru-{}-{n}", std::process::id()));
+    let lucru = director.with_file_name(nume);
+    if let Some(p) = lucru.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(p).map_err(|e| eroare(p, e))?;
+    }
+    std::fs::create_dir(&lucru).map_err(|e| eroare(&lucru, e))?;
     let raport = match f(&lucru) {
         Ok(r) => r,
         Err(e) => {
@@ -2263,6 +2274,44 @@ mod teste {
     /// pe Windows calea intreaga nu poate trece de 260: deploy-ul cadea
     /// **dupa** ce revenirea si cateva fisiere erau deja scrise, iar reluarea
     /// cadea cu `GM-MOD-010`.
+    /// N2: un director strain cu nume asemanator nu se atinge.
+    #[test]
+    fn directorul_de_lucru_nu_sterge_nimic_strain() {
+        let baza = dir("strain");
+        std::fs::create_dir_all(&baza).unwrap();
+        for (cerut, strain) in [
+            ("proiect", "proiect.tmp"),
+            ("deploy_2026.11.23", "deploy_2026.11.tmp"),
+        ] {
+            let s = baza.join(strain);
+            std::fs::create_dir_all(&s).unwrap();
+            std::fs::write(s.join("important.sql"), "munca").unwrap();
+            let mut m = BTreeMap::new();
+            m.insert(
+                "Client".to_string(),
+                vec![DeDeployat {
+                    obiect: "dbo.p".into(),
+                    tip: "P".into(),
+                    cod: "CREATE PROCEDURE dbo.p AS SELECT 1".into(),
+                    setari: None,
+                }],
+            );
+            scrie(&baza.join(cerut), "Ref", &m, ModImpartire::PerBaza, 0, "a").unwrap();
+            assert_eq!(
+                std::fs::read_to_string(s.join("important.sql")).unwrap(),
+                "munca"
+            );
+        }
+        let ramase: Vec<String> = std::fs::read_dir(&baza)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.contains("gmotion-lucru"))
+            .collect();
+        assert!(ramase.is_empty(), "director de lucru ramas: {ramase:?}");
+        std::fs::remove_dir_all(&baza).ok();
+    }
+
     #[test]
     fn numele_lungi_se_plafoneaza_si_raman_distincte() {
         let d = dir("nume-lungi");
