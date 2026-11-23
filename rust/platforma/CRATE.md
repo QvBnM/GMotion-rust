@@ -101,7 +101,7 @@ publica drept `<nume>/<metoda>`.
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-platforma        # 32 teste
+cd rust && cargo test -p gmotion-platforma        # 52 teste
 ```
 
 Acopera: slug-uri care nu pot iesi din director, coliziunea de sesiuni intre

@@ -1669,3 +1669,28 @@ inainte.
 
 **Alternative.** Restrangerea candidatilor chiar in `sugereaza`: ar fi rupt
 paritatea cu sugestiile v3.4 fara castig, fiindca doar `plasari` scrie.
+
+---
+
+## 2026-11-23 — Ce s-a schimbat in comportament la remedierea auditului 2026-11-22
+
+Deciziile luate pe drum, fiecare cu testul ei (detaliile in
+`cercetare/audit-qa-2026-11-22.md`, „Verdicte"):
+
+- **`revizuire --goleste` sterge doar bifele** (revizuit, omis). Textele
+  finale, notele si marcajele de deploy raman; nu se combina cu alte actiuni.
+  Inainte stergea toata sesiunea, si textele scrise de mana cu ea.
+- **O a doua scriere de deploy cere o noua verificare** a bazei (F-A10).
+  Rastoarna testul `alta_impartire_permite_o_noua_scriere`, care cerea
+  refolosirea garzii: intre doua scrieri baza se poate schimba.
+- **Codul de deploy trebuie sa creeze obiectul din plan** (`GM-MOD-015`);
+  tip schimbat intre martor si modificata e `GM-MOD-017`, obiect de deployat
+  de mana. Un text final gol e `GM-MOD-016`.
+- **Sesiune ilizibila**: cli se opreste (`deploy`, `plan`, `export`),
+  fereastra o pune deoparte (`.corupt-<marcaj>.dat.bak`) si incepe alta.
+- **Erorile proprii ale cli au coduri** `GM-CLI-001..008`.
+- **Machetele HTML fara diacritice**, ca regula sa fie „nicaieri" si pentru
+  ele; poarta se uita acum si la `.html`, la fisierele noi si la orice litera
+  cu semn, nu la o lista fixa.
+- **Evidentierea**: un bloc modificat aprinde mereu ceva; cand tot ce difera
+  e cosmetic (`a,b` / `a, b`), aprinde si cosmeticul (F-M1).

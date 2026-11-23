@@ -128,7 +128,7 @@ Yes`, sau SQL Browser oprit. Se verifica intai asta, apoi
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-db        # 29 teste, fara baza de date
+cd rust && cargo test -p gmotion-db        # 52 teste, fara baza de date
 ```
 
 Toate testele ruleaza fara SQL Server si fara retea. Acopera: parsarea SSRP

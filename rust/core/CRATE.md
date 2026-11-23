@@ -214,7 +214,7 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-core          # 37 teste, ~1.5 s
+cd rust && cargo test -p gmotion-core          # 129 teste, ~15 s (invariantele)
 ```
 
 Trei straturi:

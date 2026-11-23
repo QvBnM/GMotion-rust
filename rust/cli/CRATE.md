@@ -93,7 +93,7 @@ autoritati de certificare.
 ## Testare
 
 ```
-cd rust && cargo test -p gmotion-cli       # 39 teste
+cd rust && cargo test -p gmotion-cli       # 55 teste
 ```
 
 `tests/cli.rs` ruleaza **binarul adevarat**, nu functii interne, si acopera

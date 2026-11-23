@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-22 · branch `claude/dreamy-ritchie-jdnfct`
-**Poarta:** verde (614 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-23 · branch `claude/dreamy-ritchie-jdnfct`
+**Poarta:** verde (656 teste; `core` pe wasm32, tot codul si pe windows-msvc — tintele sunt instalate acum si in container; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 ---
 
@@ -18,11 +18,11 @@ interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
 |---|---|
-| `rust/core` | gata, 50 teste, fuzz pe invariante, lexer T-SQL |
-| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 48 teste |
-| `rust/platforma` | gata, DPAPI verificat pe Windows, 40 teste |
-| `rust/module/diff-obiecte` | gata, 87 teste; planul de deploy cu garda si revenirea (etapa 12) |
-| `rust/cli` | gata, 39 teste, din care 17 pe binarul adevarat; `plan`, `deploy --plan` |
+| `rust/core` | gata, 129 teste, fuzz pe invariante, lexer T-SQL |
+| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 52 teste |
+| `rust/platforma` | gata, DPAPI verificat pe Windows, 52 teste |
+| `rust/module/diff-obiecte` | gata, 129 teste; planul de deploy cu garda si revenirea (etapa 12) |
+| `rust/cli` | gata, 55 teste, din care 33 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
 | `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **la paritate cu v3.4**, in afara randurilor ramase in `cercetare/lipsuri-portare.md` |
 
@@ -47,12 +47,17 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**2026-11-22, audit nou: `cercetare/audit-qa-2026-11-22.md` (nota 6/10).**
-Mihai a cerut: varianta 2 la C2, apoi „rezolva toate problemele". Facute:
-A1-A3, B1-B4, C1-C12 (vezi „Verdicte" la finalul auditului). **Urmatorul
-pas:** sectiunea D a auditului (texte direct in `.slint`, titlul din deploy
-dupa garda, mesaje ramase, PageUp/PageDown, `try_borrow` la hover, cli:
-teava rupta, BOM, coduri de eroare), apoi itemii vechi inca deschisi.
+**2026-11-22/23, audit nou: `cercetare/audit-qa-2026-11-22.md` (nota 6/10
+la pornire).** Mihai: varianta 2 la C2, apoi „rezolva toate problemele".
+Facute: toate criticele si marile (A1-A3, B1-B4), toate mediile (C1-C12) si
+aproape tot din D si din itemii vechi — vezi „Verdicte" si „Ramase, cu
+motiv" la finalul auditului. **Urmatorul pas:** raspunsurile lui Mihai la
+deciziile de mai jos, apoi „da"-ul pe capturile etapei 23.
+
+**Decizii de la Mihai** (blocheaza doar punctele lor): PageUp/PageDown in
+editor (obiect sau derulare); `a=1` / `a = 1` sa fie identice (divergenta
+noua fata de v3.4); schimbarile de aspect din V5/V11/V14/V17 si F-A9
+(obiect dintr-o singura parte in editor), care cer macheta.
 
 **De probat de Mihai pe SQL Server real** (C11, F-B2, F-B3, F-B6, scrise
 fara server): cu un utilizator fara `VIEW DEFINITION` pe o baza si fara
