@@ -76,6 +76,9 @@ struct Stare {
     /// Revizuirea si textele finale de la ultima citire / salvare: baza
     /// unirii in trei cai cu ce a scris intre timp cli in sesiune.
     salvate_ultima: (modul::Revizuire, modul::Editari),
+    /// Compararea de acum e una lipita (offline): nu se poate reface din
+    /// formularul de conectare.
+    offline: bool,
 }
 
 impl Stare {
@@ -354,6 +357,7 @@ fn ruleaza() -> Result<(), String> {
         salvat_la: String::new(),
         mesaj_lista: None,
         salvate_ultima: Default::default(),
+        offline: false,
     }));
 
     let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
@@ -1315,9 +1319,11 @@ fn ruleaza() -> Result<(), String> {
                         app.comanda(Comanda::ComutaUnireaCursorului(uneste_implicit));
                         st.detalii = Some(porneste_detalii(&app));
                         st.app = Some(app);
-                        // numele bazelor din antet: offline nu vine de pe server
-                        st.conectare.sursa.baza = st.referinta.clone();
-                        st.conectare.baza.baza = st.conectare.limba.alege("Lipit", "Pasted").into();
+                        // formularul de conectare ramane cum era: antetul ia
+                        // bazele din aplicatie, iar „Recompara" nu porneste o
+                        // comparare pe server cu numele lipite (auditul
+                        // 2026-11-23)
+                        st.offline = true;
                         drop(st);
                         if let Some(ui) = c_ui.upgrade() {
                             ui.set_offline(false);
@@ -1498,6 +1504,7 @@ fn ruleaza() -> Result<(), String> {
                 st.garda = None;
                 st.mesaj_lista = None;
                 st.salvate_ultima = Default::default();
+                st.offline = false;
                 let recente_noi = recente(&st.sesiuni, st.conectare.limba);
                 st.conectare.recente = recente_noi;
                 drop(st);
@@ -1519,6 +1526,20 @@ fn ruleaza() -> Result<(), String> {
                 // un al doilea clic cat ruleaza ar porni inca un fir, iar
                 // primul ar arde CPU pana la capat (C7)
                 if s.borrow().rulare.is_some() {
+                    return;
+                }
+                if s.borrow().offline {
+                    let mut st = s.borrow_mut();
+                    let l = st.conectare.limba;
+                    st.mesaj_lista = Some(
+                        l.alege(
+                            "O comparare lipita nu se reface: lipeste din nou textele.",
+                            "A pasted comparison cannot be rerun: paste the texts again.",
+                        )
+                        .to_string(),
+                    );
+                    drop(st);
+                    d();
                     return;
                 }
                 let c = s.borrow().conectare.clone();
@@ -2402,6 +2423,7 @@ fn ruleaza() -> Result<(), String> {
                                 st.server = r.server;
                                 st.referinta = referinta;
                                 st.salvate_ultima = (revizuire.clone(), editari.clone());
+                                st.offline = false;
                                 let mut app =
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
                                         .cu_editari(editari)
