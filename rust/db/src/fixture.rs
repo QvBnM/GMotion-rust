@@ -201,7 +201,7 @@ impl SursaObiecte for SursaFixture {
 /// Textul unui instantaneu: UTF-8 cu sau fara BOM, sau UTF-16 cu BOM (un
 /// fisier salvat din Notepad sau PowerShell). Inainte, BOM-ul dadea
 /// „expected value at line 1 column 1", iar UTF-16 „not valid UTF-8".
-fn text_din_octeti(o: &[u8]) -> Result<String, String> {
+pub fn text_din_octeti(o: &[u8]) -> Result<String, String> {
     let utf16 = |o: &[u8], le: bool| -> Result<String, String> {
         if !o.len().is_multiple_of(2) {
             return Err("UTF-16 cu un numar impar de octeti".into());

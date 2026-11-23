@@ -2016,3 +2016,80 @@ fn aplica_gol_e_eroare() {
         assert!(err(&o).contains("GM-CLI-001"), "{}", err(&o));
     }
 }
+
+/// Auditul 2026-11-23: argumentele de server cu `--sursa` sunt eroare, nu
+/// ignorate; un text final in UTF-16 (PowerShell) se citeste; `--goleste
+/// --json` spune ce a facut; un instantaneu facut din alt instantaneu tine
+/// serverul declarat, nu calea locala.
+#[test]
+fn mici_din_auditul_cli() {
+    let d = dir("mici-cli");
+    let inst = d.join("inst.json");
+    scrie_instantaneu(&inst);
+    let i = inst.to_str().unwrap();
+    let date = d.join("date");
+    for extra in [
+        vec!["--port", "5"],
+        vec!["--certificat", "sistem"],
+        vec!["--utilizator", "sa"],
+    ] {
+        let mut a = vec!["baze", "--sursa", i];
+        a.extend(extra.iter().copied());
+        let o = ruleaza(&a);
+        assert!(!o.status.success(), "{extra:?}");
+        assert!(err(&o).contains("GM-CLI-001"), "{}", err(&o));
+    }
+    let f = d.join("t16.sql");
+    let mut octeti = vec![0xFF, 0xFE];
+    octeti.extend(
+        "CREATE PROCEDURE dbo.pClienti AS\nSELECT 16"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes),
+    );
+    std::fs::write(&f, octeti).unwrap();
+    let o = ruleaza_in(
+        &[
+            "editare",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--baza",
+            "Client1",
+            "--obiect",
+            "dbo.pClienti",
+            "--din-fisier",
+            f.to_str().unwrap(),
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "UTF-16: {}", err(&o));
+    let o = ruleaza_in(
+        &[
+            "--json",
+            "revizuire",
+            "--sursa",
+            i,
+            "--referinta",
+            "Referinta",
+            "--goleste",
+        ],
+        Some(&date),
+    );
+    assert!(o.status.success(), "{}", err(&o));
+    let v: serde_json::Value = serde_json::from_str(&out(&o)).expect("JSON");
+    assert!(v["bife_sterse"].is_number());
+    let copie = d.join("copie.json");
+    assert!(
+        ruleaza(&["instantaneu", "--sursa", i, "-o", copie.to_str().unwrap()])
+            .status
+            .success()
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&copie).unwrap()).unwrap();
+    assert_eq!(
+        v["server"], "SRV-TEST",
+        "serverul declarat, nu calea: {}",
+        v["server"]
+    );
+}

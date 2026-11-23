@@ -208,8 +208,14 @@ pub fn instantaneu(
     }
 
     // Numele serverului, nu descrierea pentru jurnal (care vorbeste si despre
-    // autentificare). Din alt instantaneu: descrierea lui, fara acreditari.
-    let eticheta = args.eticheta_server().unwrap_or_else(|| s.descriere());
+    // autentificare). Din alt instantaneu: serverul declarat in el, nu calea
+    // locala, care schimba cheia sesiunii (auditul 2026-11-23).
+    let eticheta = args.eticheta_server().unwrap_or_else(|| {
+        // identitatea unui instantaneu e „instantaneu <server>": in fisierul
+        // nou intra doar serverul, ca reluarea sa aiba aceeasi cheie
+        let id = s.identitate();
+        id.strip_prefix("instantaneu ").unwrap_or(&id).to_string()
+    });
     let citite = s
         .obiecte_multe(&lista_baze, &mut |i, n, baza| {
             if !baza.is_empty() {
@@ -446,6 +452,10 @@ pub fn revizuire(
         format.progres(&format!(
             "{n} bife sterse (revizuit / omis). Textele finale, notele si marcajele de deploy raman."
         ));
+        if format == Format::Json {
+            afisare::scrie_json(&serde_json::json!({ "bife_sterse": n }))
+                .map_err(|e| e.to_string())?;
+        }
         return Ok(());
     }
 
@@ -893,10 +903,13 @@ pub fn editare(
         }
         ActiuneEditare::Reset => editari.reset(&rand),
         ActiuneEditare::DinFisier(cale) => {
-            let text = std::fs::read_to_string(&cale)
+            // UTF-8 cu sau fara BOM, sau UTF-16 (PowerShell 5.1 scrie UTF-16 cu
+            // `>`): acelasi decodor ca la instantaneu
+            let text = std::fs::read(&cale)
+                .map_err(|e| e.to_string())
+                .and_then(|o| gmotion_db::text_din_octeti(&o))
                 .map_err(|e| format!("[GM-CLI-003] nu pot citi {}: {e}", cale.display()))?;
-            // un BOM (Notepad, PowerShell) ar ajunge in mijlocul scriptului
-            let text = gmotion_core::pregateste_afisare(text.trim_start_matches('\u{feff}'));
+            let text = gmotion_core::pregateste_afisare(&text);
             // un text care n-ar trece de deploy se refuza acum, nu abia la
             // deploy (B2, F-C6 din auditul 2026-11-22)
             modul::verifica_text_final(&rand.obiect, &rand.tip, &text)

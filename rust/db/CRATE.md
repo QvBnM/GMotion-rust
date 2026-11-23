@@ -1,6 +1,6 @@
 # gmotion-db
 
-<!-- api-hash: 370cf48d6e645cb2 -->
+<!-- api-hash: 5b4a1d67f1b88ca9 -->
 
 ## Rol
 
@@ -49,7 +49,8 @@ se testeaza fara SQL Server.
 | `SursaSqlServer::nou(tinta, auth)` | baza reala. Nu se conecteaza la construire, doar valideaza |
 | `SursaSqlServer::cu_timeout_conectare(durata)` | cat se asteapta conexiunea (implicit 30 s); din `timeout_conectare_s` (F-B5) |
 | `SursaSqlServer::verifica(baza)` | test de conexiune, intoarce `InfoServer` |
-| `SursaFixture::din_fisier(cale)` / `din_instantaneu(i)` | instantaneu |
+| `SursaFixture::din_fisier(cale)` / `din_instantaneu(i)` | instantaneu (UTF-8 cu sau fara BOM, UTF-16 cu BOM) |
+| `text_din_octeti(octeti)` | acelasi decodor, pentru alte fisiere date de om (textul final din `gmotion editare --din-fisier`) |
 | `Instantaneu::nou/scrie/citeste` | formatul de instantaneu, versiune `1` |
 
 ### Descoperire si validare

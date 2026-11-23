@@ -68,6 +68,24 @@ impl ArgumenteSursa {
     pub fn deschide(&self) -> Result<Box<dyn SursaObiecte>, String> {
         match (&self.sursa, &self.server) {
             (Some(cale), _) => {
+                // argumentele de server n-au sens pe un instantaneu: erau
+                // acceptate si ignorate tacut (auditul 2026-11-23)
+                let in_plus: Vec<&str> = [
+                    (self.port.is_some(), "--port"),
+                    (self.certificat != "nevalidat", "--certificat"),
+                    (self.auth.utilizator.is_some(), "--utilizator"),
+                    (self.auth.parola_fisier.is_some(), "--parola-fisier"),
+                    (self.auth.parola_stdin, "--parola-stdin"),
+                ]
+                .into_iter()
+                .filter_map(|(da, nume)| da.then_some(nume))
+                .collect();
+                if !in_plus.is_empty() {
+                    return Err(format!(
+                        "[GM-CLI-001] {} merg doar cu --server, nu cu --sursa (instantaneu)",
+                        in_plus.join(", ")
+                    ));
+                }
                 let s = SursaFixture::din_fisier(cale).map_err(|e| e.to_string())?;
                 tracing::info!(target: "gmotion::cli", sursa = %s.descriere(), "citesc din instantaneu");
                 Ok(Box::new(s))

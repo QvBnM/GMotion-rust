@@ -27,7 +27,7 @@ pub mod sursa;
 
 pub use descoperire::{cauta_instante, parseaza_raspuns};
 pub use eroare::{valideaza_baza, valideaza_nume, Eroare, Rezultat};
-pub use fixture::{Instantaneu, SursaFixture, VERSIUNE_INSTANTANEU};
+pub use fixture::{text_din_octeti, Instantaneu, SursaFixture, VERSIUNE_INSTANTANEU};
 pub use model::{Autentificare, Certificat, InfoServer, Instanta, Obiect, Setari, Tinta};
 pub use sqlserver::SursaSqlServer;
 pub use sursa::SursaObiecte;
