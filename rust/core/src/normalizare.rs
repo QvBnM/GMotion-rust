@@ -57,7 +57,9 @@ static RE_DBO_PARANTEZAT: Lazy<Regex> =
 /// 2026-11-22, aceeasi familie ca hinturile din F-M3).
 static RE_DBO: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(^|[^.\w\]@#$])dbo\.").unwrap());
 static RE_IDENTIFICATOR_SIMPLU: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\[[\p{L}_@#][\p{L}\p{N}_@#$]*\]$").unwrap());
+    // nu `[@x]`: fara paranteze ar deveni variabila `@x`, alt lucru decat
+    // coloana numita asa (auditul 2026-11-23). `[#t]` e tot tabela `#t`.
+    Lazy::new(|| Regex::new(r"^\[[\p{L}_#][\p{L}\p{N}_@#$]*\]$").unwrap());
 static RE_COLLATE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\bCOLLATE\s+database_default\b").unwrap());
 static RE_PARANTEZE_DREPTE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[([^\[\]]+)\]").unwrap());
@@ -365,6 +367,22 @@ mod teste {
         ] {
             assert_eq!(round_py(x, n), asteptat, "round({x}, {n})");
         }
+    }
+
+    #[test]
+    fn coloana_cu_arond_nu_e_variabila() {
+        assert_ne!(
+            normalizeaza("SELECT [@x] FROM t"),
+            normalizeaza("SELECT @x FROM t")
+        );
+        assert_eq!(
+            normalizeaza("SELECT * FROM [#t]"),
+            normalizeaza("SELECT * FROM #t")
+        );
+        assert_eq!(
+            normalizeaza("SELECT [a] FROM t"),
+            normalizeaza("SELECT a FROM t")
+        );
     }
 
     #[test]

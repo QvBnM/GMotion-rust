@@ -570,7 +570,13 @@ pub fn aplica_blocuri_la(
     iesire.extend_from_slice(&original_dr[..s]);
     iesire.extend(aduse);
     iesire.extend_from_slice(&original_dr[e..]);
-    iesire.join("\n")
+    let mut rez = iesire.join("\n");
+    // `\n`-ul final al dreptei ramane: ce nu e aplicat e octet cu octet ce
+    // era (COSMETIC 12 din auditul 2026-11-23)
+    if text_dreapta.ends_with('\n') && !rez.ends_with('\n') {
+        rez.push('\n');
+    }
+    rez
 }
 
 /// Textul din dreapta, cu blocurile pentru care `aplica` spune `true` luate
@@ -729,7 +735,13 @@ pub fn compune_plasat(
     if urmatoarea_dr < original_dr.len() {
         iesire.extend_from_slice(&original_dr[urmatoarea_dr..]);
     }
-    iesire.join("\n")
+    let mut rez = iesire.join("\n");
+    // `\n`-ul final al dreptei ramane: ce nu e aplicat e octet cu octet ce
+    // era (COSMETIC 12 din auditul 2026-11-23)
+    if text_dreapta.ends_with('\n') && !rez.ends_with('\n') {
+        rez.push('\n');
+    }
+    rez
 }
 
 #[cfg(test)]
@@ -815,6 +827,14 @@ mod teste {
         assert!(rez.ends_with("SELECT 2;\nPRINT 'nou';"), "{rez}");
         // fara blocuri: dreapta neatinsa
         assert_eq!(aplica_blocuri_la(st, dr, false, &[], Loc::Insereaza(1)), dr);
+    }
+
+    #[test]
+    fn fara_nimic_aplicat_ramane_si_randul_final() {
+        let st = "CREATE PROC p AS\nSELECT 1\n";
+        let dr = "CREATE PROC p AS\nSELECT 2\n";
+        assert_eq!(aplica_blocuri(st, dr, false, &[]), dr);
+        assert_eq!(aplica_blocuri_la(st, dr, false, &[], Loc::Insereaza(0)), dr);
     }
 
     /// A3 din `cercetare/audit-qa-2026-11-22.md`: un `\r\n` dintr-un sir
