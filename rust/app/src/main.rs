@@ -526,9 +526,11 @@ fn ruleaza() -> Result<(), String> {
             // o redesenare cheama uneori alta din interiorul ei: un `changed`
             // din `.slint` (latimea de wrap) se declanseaza cand Rust citeste
             // proprietatea. Cu `borrow_mut`, aplicatia cadea („RefCell already
-            // borrowed", proba pe Windows 2026-11-19); acum a doua asteapta.
+            // borrowed", proba pe Windows 2026-11-19); acum a doua se renunta:
+            // cea in curs deseneaza oricum starea de acum. Singurul drum
+            // cunoscut (wrap-ul) e amanat cu un Timer, deci nu se pierde nimic.
             let Ok(mut s) = stare.try_borrow_mut() else {
-                tracing::debug!(target: "gmotion::app", "redesenare ceruta din alta redesenare; amanata");
+                tracing::debug!(target: "gmotion::app", "redesenare ceruta din alta redesenare; sarita");
                 return;
             };
             let (Some(c_ui), Some(l_ui), Some(e_ui), Some(d_ui)) = (

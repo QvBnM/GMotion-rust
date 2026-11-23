@@ -215,7 +215,14 @@ mod teste {
             },
             Eroare::NumeInvalid("n".into()),
             Eroare::BazaInvalida("b".into()),
+            Eroare::FaraDreptDefinitie {
+                baza: "b".into(),
+                numar: 1,
+                exemple: "dbo.p".into(),
+            },
         ];
+        // fiecare varianta e in lista: un cod nou uitat aici nu era verificat
+        assert_eq!(toate.len(), 12, "o varianta noua de Eroare trebuie adaugata aici");
         let mut coduri: Vec<&str> = toate.iter().map(|e| e.cod()).collect();
         coduri.sort_unstable();
         let n = coduri.len();

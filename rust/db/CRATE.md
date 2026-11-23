@@ -118,7 +118,7 @@ Codurile sunt stabile si apar si in jurnal si pe ecran. Registrul e in
 | `GM-DB-007` | instantaneul nu se citeste: fisier lipsa sau JSON rupt | `src/fixture.rs` |
 | `GM-DB-008` | instantaneul nu se scrie: drepturi, disc plin | `src/fixture.rs` |
 | `GM-DB-009` | instantaneu de alta versiune | `src/fixture.rs` |
-| `GM-DB-010` | nume de server sau baza invalid | `src/eroare.rs` |
+| `GM-DB-010` | nume de server invalid (si port gresit in nume, `SRV,abc`) | `src/eroare.rs`, `interpreteaza_server` |
 | `GM-DB-012` | obiecte fara definitie care nu sunt criptate: utilizatorul n-are `VIEW DEFINITION` (inainte apareau „criptate”) | `src/sqlserver.rs`, `verifica_definitiile` |
 
 **Un server care exista si nu apare in lista** nu e, de obicei, un bug de cod:

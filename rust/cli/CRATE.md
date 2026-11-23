@@ -65,11 +65,11 @@ autoritati de certificare.
    poate citi o singura data (B3).
 7. **Marcajul de timp se da catre modul, nu se citeste din ceas acolo**, ca
    generatorul de deploy sa ramana testabil.
-6. **Un instantaneu retine doar numele serverului** (`SRV\INST` sau
+8. **Un instantaneu retine doar numele serverului** (`SRV\INST` sau
    `SRV,PORT`, din `ArgumenteSursa::eticheta_server`), nu descrierea pentru
    jurnal. Instantaneele ajung in repo ca fixture; o data a ajuns acolo
    lungimea parolei pe calea asta.
-7. **Cheia sesiunii e perechea (sursa, referinta)**, iar identitatea sursei
+9. **Cheia sesiunii e perechea (sursa, referinta)**, iar identitatea sursei
    vine din sursa deschisa (`ArgumenteSursa::identitate` ->
    `SursaObiecte::identitate`), nu ghicita din argumente: pentru un
    instantaneu e serverul declarat in fisier, nu calea lui (F-B4).
