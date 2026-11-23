@@ -55,7 +55,7 @@ const INTEROGARE_INFO: &str = "SELECT \
      CAST(SERVERPROPERTY('Edition') AS NVARCHAR(200)), \
      CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(200)), \
      DATEDIFF(SECOND, (SELECT create_date FROM sys.databases WHERE name = 'tempdb'), GETDATE()), \
-     (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4)";
+     (SELECT COUNT(*) FROM sys.databases WHERE database_id > 4 AND state = 0 AND HAS_DBACCESS(name) = 1)";
 
 /// Cat asteptam deschiderea conexiunii: TCP, TLS si login, impreuna.
 /// Versiunea Python folosea 30 s. Pana la audit acoperea doar TCP-ul; un
@@ -593,10 +593,10 @@ struct Adresa {
 /// Fara asta, `SRV01\SQLEXPRESS` ajungea intreg la DNS („No such host is
 /// known") — regresie fata de Python, gasita la prima rulare pe o baza reala.
 fn interpreteaza_server(server: &str, port: Option<u16>) -> Rezultat<Adresa> {
-    let gresit = |detaliu: String| Eroare::Conectare {
-        server: server.to_string(),
-        detaliu,
-    };
+    // un nume de server scris gresit e eroare de nume (GM-DB-010), nu de
+    // conexiune: aceea e socotita reincercabila, iar o reincercare n-are ce
+    // repara aici (auditul 2026-11-23)
+    let gresit = |detaliu: String| Eroare::NumeInvalid(format!("{server}: {detaliu}"));
     let (rest, port_din_nume) = match server.rsplit_once(',') {
         Some((r, p)) => {
             let p: u16 = p
@@ -815,7 +815,8 @@ mod teste {
     fn nume_de_server_rupte_dau_eroare_explicata() {
         for (nume, port) in [("srv,abc", None), (r"srv\", None), ("srv,1500", Some(1433))] {
             let e = interpreteaza_server(nume, port).unwrap_err();
-            assert_eq!(e.cod(), "GM-DB-001", "{nume:?}");
+            // nume gresit, nu conexiune: o reincercare n-ar repara nimic
+            assert_eq!(e.cod(), "GM-DB-010", "{nume:?}");
         }
     }
 

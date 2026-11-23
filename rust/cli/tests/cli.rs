@@ -2093,3 +2093,33 @@ fn mici_din_auditul_cli() {
         v["server"]
     );
 }
+
+/// O baza comparata fara niciun obiect (drepturi lipsa, sau baza noua) se
+/// semnaleaza pe erori, fara sa strice iesirea JSON (auditul 2026-11-23).
+#[test]
+fn baza_goala_se_semnaleaza() {
+    let d = dir("baza-goala");
+    let inst = d.join("inst.json");
+    std::fs::write(
+        &inst,
+        r#"{"versiune":1,"server":"S","creat":"x","nota":"","baze":{
+        "M":[{"schema":"dbo","nume":"p","tip":"P","definitie":"CREATE PROCEDURE dbo.p AS SELECT 1"}],
+        "G":[]}}"#,
+    )
+    .unwrap();
+    let o = ruleaza(&[
+        "--json",
+        "compara",
+        "--sursa",
+        inst.to_str().unwrap(),
+        "--referinta",
+        "M",
+    ]);
+    assert!(o.status.success(), "{}", err(&o));
+    assert!(
+        err(&o).contains("nu are niciun obiect vizibil"),
+        "{}",
+        err(&o)
+    );
+    serde_json::from_str::<serde_json::Value>(&out(&o)).expect("stdout ramane JSON");
+}

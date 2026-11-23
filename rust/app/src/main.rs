@@ -2424,6 +2424,27 @@ fn ruleaza() -> Result<(), String> {
                                 st.referinta = referinta;
                                 st.salvate_ultima = (revizuire.clone(), editari.clone());
                                 st.offline = false;
+                                // o baza fara niciun obiect vizibil (drepturi
+                                // lipsa sau baza noua) se spune in lista
+                                if !r.sursa.is_empty() {
+                                    let goale: Vec<&str> = r
+                                        .tinte
+                                        .iter()
+                                        .filter(|(_, b)| b.is_empty())
+                                        .map(|(n, _)| n.as_str())
+                                        .collect();
+                                    if !goale.is_empty() {
+                                        let l = st.conectare.limba;
+                                        st.mesaj_lista = Some(format!(
+                                            "{}: {}",
+                                            l.alege(
+                                                "Atentie, fara niciun obiect vizibil (baza noua sau drepturi lipsa)",
+                                                "Warning, no visible objects (new database or missing permissions)"
+                                            ),
+                                            goale.join(", ")
+                                        ));
+                                    }
+                                }
                                 let mut app =
                                     Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
                                         .cu_editari(editari)

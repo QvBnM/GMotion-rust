@@ -326,6 +326,23 @@ fn ruleaza_comparare(
             format.progres(&p.mesaj);
         }
     });
+    // o baza fara niciun obiect, cand martorul are: o baza noua, sau un
+    // utilizator care nu vede modulele (fara drept pe ele, SQL Server le
+    // ascunde de tot). Atunci totul apare „lipsa" si deploy-ul le-ar scrie pe
+    // toate peste cele personalizate: se spune, pe erori (auditul 2026-11-23)
+    if !ref_obiecte.is_empty() {
+        for (baza, ob) in &altele {
+            if ob.is_empty() {
+                eprintln!(
+                    "Atentie: baza {} nu are niciun obiect vizibil, desi martorul are {}. \
+                     E o baza noua, sau utilizatorul nu vede modulele ei (verifica drepturile, \
+                     VIEW DEFINITION): altfel deploy-ul ar rescrie tot.",
+                    afisare::fara_control(baza),
+                    ref_obiecte.len()
+                );
+            }
+        }
+    }
     Ok(Rulare {
         comparare,
         referinta: ref_obiecte,
