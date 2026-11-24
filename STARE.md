@@ -6,8 +6,12 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-23 · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** se reruleaza dupa unirea cu `claude/dreamy-ritchie-jdnfct` (se completeaza la incheiere)
+**Actualizat:** 2026-11-24 · branch `claude/clever-cerf-hjk2qh`
+**Poarta:** verde (768 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+
+> **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
+> aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
+> el. Daca `unelte/ultima-versiune` arata altceva, el e invechit.
 
 ---
 
@@ -18,11 +22,11 @@ interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
 |---|---|
-| `rust/core` | gata, 136 teste, fuzz pe invariante, lexer T-SQL |
-| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 52 teste |
-| `rust/platforma` | gata, DPAPI verificat pe Windows, 54 teste |
-| `rust/module/diff-obiecte` | gata, 134 teste; planul de deploy cu garda si revenirea (etapa 12) |
-| `rust/cli` | gata, 61 teste, din care 38 pe binarul adevarat; `plan`, `deploy --plan` |
+| `rust/core` | gata, 150 teste, fuzz pe invariante, lexer T-SQL |
+| `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 57 teste |
+| `rust/platforma` | gata, DPAPI verificat pe Windows, 55 teste |
+| `rust/module/diff-obiecte` | gata, 146 teste; planul de deploy cu garda si revenirea (etapa 12) |
+| `rust/cli` | gata, 65 teste, din care 42 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
 | `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **la paritate cu v3.4**, in afara randurilor ramase in `cercetare/lipsuri-portare.md` |
 
@@ -46,6 +50,42 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-24, de la tine (Mihai), ca sa se poata incheia etapa 29:**
+
+1. **Capturile noi**, pereche cu macheta: `cercetare/capturi/lista-*.png`,
+   `editor-*.png` (refacute azi) si cele la 1024x768. Intrebarea concreta:
+   la 1024, lista ascunde pe rand coloanele secundare („Ultima modificare",
+   „Impact", „Folosit de"...) ca sa incapa numele obiectului. E bine asa, sau
+   preferi sa ramana toate coloanele si lista sa se deruleze pe orizontala?
+2. **Proba de SQL pentru F-D7** (mai jos, neschimbata). Pana la ea,
+   scripturile impartite in mai multe fisiere spun in antet ca oprirea dupa
+   un obiect cazut tine doar pana la capatul fisierului, si cer `sqlcmd -b`.
+3. **Proba noua, D-17 din audit**: „Verifica pe server" promite ca nu are
+   efecte, dar un text final care contine `SET NOEXEC OFF;` ar putea anula
+   garda. Pe o baza de test:
+
+```sql
+SET NOEXEC ON;
+GO
+CREATE TABLE dbo.gmotion_proba_noexec (x INT);
+SET NOEXEC OFF;
+CREATE TABLE dbo.gmotion_proba_noexec2 (x INT);
+GO
+SET NOEXEC OFF;
+SELECT name FROM sys.tables WHERE name LIKE 'gmotion_proba_noexec%';
+```
+
+Daca apare `gmotion_proba_noexec2`, `verifica_cod` trebuie sa refuze textele
+care contin `NOEXEC` / `PARSEONLY` inainte de a le trimite.
+
+**Ramase, cu motiv** (din auditul 2026-11-23, dupa remediere): configurarea
+si stergerea jurnalului de sesiune se pot face doar din fereastra, nu si din
+`cli` (CLAUDE.md §3 le-ar vrea in amandoua — e o decizie, nu o scapare);
+paleta de comenzi Ctrl+K si banda de mediu DEV/TEST/PROD din
+`cercetare/design-aprobat.md` nu exista inca; bula hartii acopera patratele
+de langa ea.
+
 
 **2026-11-22, etapele 27-28, de probat de Mihai pe un server:** compararea
 cu tabele (interogarea pe `sys.tables` / `sys.columns` e noua): tabelele apar
@@ -242,6 +282,37 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Latimea tabelului nu se citeste din layout.** O proprietate care citeste
+  latimea propriului parinte face bucla de legaturi in Slint („Recursion
+  detected" la rulare, nu la compilare). Coloanele listei se decid din
+  `root.latime-fereastra` minus panoul, pe fereastra. Si `latime-fereastra`
+  **nu** se leaga de `root.width`, din acelasi motiv: se actualizeaza din
+  `changed width`.
+- **Coloanele listei dispar pe rand cand nu incape numele.** Regula e in
+  `Coloane` din `lista.slint`, iar testul
+  `numele_obiectului_are_loc_la_toate_rezolutiile` o pazeste. Daca adaugi o
+  coloana, pune-o in cascada; nu cobori pragul din test.
+- **Poarta nu mai regenereaza fixture-urile de referinta, le compara.** Daca
+  pasul „harness" cade cu „regenerarea ar schimba ...", intai presupui ca
+  portul Rust e gresit (regula 2). Regenerarea intentionata trece prin
+  `unelte/regenereaza-fixture.sh`, cu motivul in `JURNAL.md`.
+- **Poarta cere exact o etapa ACTIVA**, deci si zero o face rosie. Intre
+  etape se deschide una noua din `etape/SABLON.md`.
+- **Amprenta unei bife poarta si forma exacta a obiectului.** `Amprenta` are
+  acum `exacta`, comparata doar cand o au amandoua partile: sesiunile de
+  dinainte de 2026-11-24 n-au, si raman valabile. Nu compara amprente cu
+  `==`; foloseste `se_potriveste`.
+- **Un text final egal cu afisarea tintei nu intra in script.** E decizia
+  „pastreaza tinta": obiectul se pastreaza in sesiune, dar deploy-ul n-are ce
+  scrie pe el (`de_deployat_cu_tinte`). Un test care numara pasi dupa ce a pus
+  texte finale egale cu tinta va numara mai putin.
+- **Etichetele blocurilor din editor sunt date, nu text.** `Rand::eticheta` e
+  un `Eticheta`; textul se face la desenare, cu `text_eticheta(..., limba)`.
+  La fel motivele impactului (`impact::Motiv`, scrise de `app`).
+- **Oprirea deploy-ului intre obiecte nu trece de marginea fisierului.**
+  Scripturile impartite o spun in antet si cer `sqlcmd -b`. Pana la proba lui
+  Mihai, nu promite altceva in interfata.
 
 - **`BEGIN` si `END` au blocuri proprii (din 2026-11-21).** Un test sau o
   asteptare care lipeste `BEGIN` de antet sau `END` de ultima instructiune e

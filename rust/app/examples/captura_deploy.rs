@@ -3,7 +3,7 @@
 //! reciteste, iar optional scrierea intr-un director temporar.
 //!
 //!   cargo run --release -p gmotion-app --example captura_deploy -- \
-//!       instantaneu.json SURSA BAZA iesire.png [--tema intunecat|luminos] [--scris] [--atinsa]
+//!       instantaneu.json SURSA BAZA iesire.png [--tema intunecat|luminos] [--limba ro|en] [--scris] [--atinsa]
 use std::rc::Rc;
 
 use gmotion_app::deploy::{ecran, StareDeploy};
@@ -96,7 +96,26 @@ fn main() {
         .and_then(|n| Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
-    gmotion_fereastra::aplica_limba(&ui, Default::default());
+    // `--limba ro|en`: pana la auditul 2026-11-23 numai `captura_lista` o
+    // accepta, deci interfata in engleza nu se putea vedea pe 3 din 4 ecrane
+    // (C-S9). Butonul de limba are nevoie si de lista limbilor, altfel se
+    // deseneaza gol.
+    let limba = a
+        .iter()
+        .position(|x| x == "--limba")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_core::Limba::din_nume(n))
+        .unwrap_or_default();
+    gmotion_fereastra::aplica_limba(&ui, limba);
+    {
+        use gmotion_core::Limba;
+        let etichete: Vec<slint::SharedString> = Limba::toate()
+            .iter()
+            .map(|x| slint::SharedString::from(x.eticheta()))
+            .collect();
+        ui.set_limbi(slint::ModelRc::new(slint::VecModel::from(etichete)));
+        ui.set_limba_aleasa(Limba::toate().iter().position(|x| *x == limba).unwrap_or(0) as i32);
+    }
     let e = ecran(
         &st,
         app.sursa(),

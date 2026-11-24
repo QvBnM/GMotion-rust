@@ -2,7 +2,7 @@
 //! capturile v3.4 (`referinta/captura_v34/`).
 //!
 //!   cargo run -p gmotion-fereastra --example captura -- \
-//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--trage N] [--previzualizeaza N] [--editeaza]
+//!       instantaneu.json SURSA BAZA schema.obiect iesire.png [--unificat] [--fara-pliere] [--wrap] [--font-mono NUME] [--tema intunecat|luminos] [--limba ro|en] [--trage N] [--previzualizeaza N] [--editeaza]
 use std::rc::Rc;
 
 use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, EditorDiferente};
@@ -100,7 +100,26 @@ fn main() {
         .and_then(|n| gmotion_fereastra::Mod::din_nume(n))
         .unwrap_or_default();
     aplica_tema(&ui, tema);
-    gmotion_fereastra::aplica_limba(&ui, Default::default());
+    // `--limba ro|en`: pana la auditul 2026-11-23 numai `captura_lista` o
+    // accepta, deci interfata in engleza nu se putea vedea pe 3 din 4 ecrane
+    // (C-S9). Butonul de limba are nevoie si de lista limbilor, altfel se
+    // deseneaza gol.
+    let limba = a
+        .iter()
+        .position(|x| x == "--limba")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_core::Limba::din_nume(n))
+        .unwrap_or_default();
+    gmotion_fereastra::aplica_limba(&ui, limba);
+    {
+        use gmotion_core::Limba;
+        let etichete: Vec<slint::SharedString> = Limba::toate()
+            .iter()
+            .map(|x| slint::SharedString::from(x.eticheta()))
+            .collect();
+        ui.set_limbi(slint::ModelRc::new(slint::VecModel::from(etichete)));
+        ui.set_limba_aleasa(Limba::toate().iter().position(|x| *x == limba).unwrap_or(0) as i32);
+    }
     // fara lista, coloana din stanga ar iesi goala in captura
     ui.set_latime_lista(0.0);
     // proba ca fonturile incorporate chiar se folosesc: cu un nume inexistent

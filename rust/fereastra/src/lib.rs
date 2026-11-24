@@ -73,7 +73,7 @@ pub fn text_despre(
          \u{2022} {}: SIL Open Font License 1.1.\n\
          \u{2022} tiberius ({}): MIT / Apache-2.0.\n\
          \u{2022} {}\n\n\
-         {}: {}\n{}: {}",
+         {}:\n{}\n{}:\n{}",
         l.alege(
             "Compara obiectele SQL Server (proceduri, functii, view-uri, triggere) dintre un Martor si o baza Modificata si pregateste deploy-ul, cu revenire.",
             "Compares SQL Server objects (procedures, functions, views, triggers) between a Witness and a Modified database and prepares the deploy, with rollback.",

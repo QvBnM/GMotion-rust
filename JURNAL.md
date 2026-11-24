@@ -1897,3 +1897,90 @@ inainte: sunt despre ce ai citit, nu despre ce pleaca in baza.
 **Alternative.** Avertisment si deploy totusi: tocmai „tacut" era problema,
 iar un avertisment intr-un script se pierde. Pastrarea vechii decizii pe
 obiectul nou: ar fi aplicat o decizie luata pe alt cod.
+
+---
+
+## 2026-11-24 — `GM-DB-012` ramane la `VerificareFaraServer`; `FaraDreptDefinitie` trece pe `GM-DB-014`
+
+**Context.** Cele doua branch-uri de lucru au mers in paralel de la `4af36b1`
+si au folosit amandoua `GM-DB-012`, pentru erori diferite: `clever-cerf`
+pentru „verificarea pe server cere o conexiune" (etapa 26), `dreamy-ritchie`
+pentru „utilizatorul n-are `VIEW DEFINITION`". La unire, un cod ar fi insemnat
+doua lucruri.
+
+**Alternative.** (a) `VerificareFaraServer` se muta pe un cod nou;
+(b) `FaraDreptDefinitie` se muta; (c) amandoua se renumeroteaza.
+
+**Motiv.** (b). Regula din `CLAUDE.md` §6 spune ca un cod nu se refoloseste si
+nu se renumeroteaza, deci intrebarea e care dintre ele „detine" deja 012. Pe
+branch-ul care continua (`clever-cerf`) codul era deja scris in teste, in
+`stare.rs` si in `cli`, si fusese raportat lui Mihai ca atare. Cel de pe
+dreamy n-a ajuns inca la el. (c) ar fi rupt si mai multe referinte.
+
+**Consecinte.** `GM-DB-013` ramane `VerificareNeconfirmata`; `GM-DB-014` e
+`FaraDreptDefinitie`. `GM-DB-012` nu se mai foloseste pentru altceva.
+
+---
+
+## 2026-11-24 — Un obiect dintr-o singura parte **se deschide** in editor (F-A9 bate B4)
+
+**Context.** Tot la unire: `dreamy-ritchie` avea garda B4 („clicul in coloana
+pe un obiect fara model nu muta selectia"), iar `clever-cerf` implementase
+F-A9 („un obiect doar in Martor se deschide cu Enter, tot codul verde").
+Testul lui B4 cadea pe codul lui F-A9.
+
+**Alternative.** (a) B4 castiga: obiectele dintr-o singura parte nu se
+deschid; (b) F-A9 castiga, cu garda B4 pastrata pentru obiectele fara niciun
+text.
+
+**Motiv.** (b). Grija lui B4 era ca „bifa si «In plan» ar lovi un obiect pe
+care ecranul nu-l arata". Cu F-A9 ecranul **il arata**, deci grija dispare.
+Garda ramane insa pentru obiectele criptate, care chiar n-au text.
+
+**Consecinte.** Invarianta 4 din `rust/app/CRATE.md` spunea contrariul
+codului si a fost corectata. Testul se numeste acum
+`in_editor_un_obiect_dintr_o_singura_parte_se_deschide`.
+
+---
+
+## 2026-11-24 — Poarta verifica fixture-ul de referinta, nu il mai regenereaza
+
+**Context.** Pasul „harness de referinta" rula `referinta/genereaza.py` si
+`genereaza.mjs`, care **scriu** `rezultate_python.json` si `rezultate_js.json`.
+Adica poarta isi rescria singura asteptarea pe care regula 2 o declara
+intangibila: o schimbare in motorul de referinta dadea rosu o singura data,
+iar a doua rulare era verde pe fixture-ul nou.
+
+**Alternative.** (a) generatoarele primesc un `--verifica`; (b) poarta pune
+fixture-ul la loc si compara; (c) pasul se scoate din poarta.
+
+**Motiv.** (b). Nu atinge `referinta/`, care e zona sensibila, si pastreaza si
+rostul initial al pasului (harness-ul chiar ruleaza). (a) ar fi cerut
+schimbari in doua generatoare, (c) ar fi pierdut verificarea.
+
+**Consecinte.** Cand regenerarea e intentionata, se trece prin
+`unelte/regenereaza-fixture.sh`, ca pas propriu, cu motivul aici — adica exact
+ce cerea regula 2. Mesajul portii spune asta.
+
+---
+
+## 2026-11-24 — Oprirea intre obiecte nu trece de marginea fisierului: se spune, nu se inventeaza
+
+**Context.** `SET NOEXEC ON` pus de garda dupa un obiect cazut e stins de
+`SET NOEXEC OFF` de la capatul fiecarui fisier. In `PerObiect` si `CateN`,
+deci, un obiect cazut la mijloc lasa restul fisierelor sa ruleze — fix ce
+trebuia sa previna F-D7.
+
+**Alternative.** (a) un marcaj persistent intre fisiere (tabela sau
+`SESSION_CONTEXT`) scris de fiecare fisier; (b) se spune in antetul
+scripturilor impartite si se cere `sqlcmd -b`.
+
+**Motiv.** (b), deocamdata. (a) cere decizii pe care nu le pot proba fara un
+SQL Server: unde se tine marcajul, ce se intampla daca ramane de la o rulare
+oprita, si daca `@@ERROR` supravietuieste lui `GO` (proba e in `STARE.md` si
+tot nerulata). Un mecanism de oprire care n-a fost vazut oprind e mai rau
+decat unul absent si declarat.
+
+**Consecinte.** Scripturile impartite au in antet un `-- ATENTIE` care spune
+limita si cere rulare cu oprire la eroare. Dupa proba lui Mihai se poate trece
+la (a).

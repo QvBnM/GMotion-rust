@@ -4,7 +4,7 @@
 //!
 //!   cargo run --release -p gmotion-app --example captura_detalii -- \
 //!       instantaneu.json SURSA BAZA inchis.png deschis.png lat.png \
-//!       [schema.obiect] [--tema intunecat|luminos]
+//!       [schema.obiect] [--tema intunecat|luminos] [--limba ro|en]
 use std::rc::Rc;
 
 use gmotion_app::rutare::{Aplicatie, Comanda};
@@ -49,7 +49,7 @@ fn main() {
     let a: Vec<String> = std::env::args().collect();
     if a.len() < 7 {
         eprintln!(
-            "folosire: captura_detalii instantaneu.json SURSA BAZA inchis.png deschis.png lat.png [schema.obiect] [--tema intunecat|luminos]"
+            "folosire: captura_detalii instantaneu.json SURSA BAZA inchis.png deschis.png lat.png [schema.obiect] [--tema intunecat|luminos] [--limba ro|en]"
         );
         std::process::exit(2);
     }
@@ -88,7 +88,26 @@ fn main() {
     slint::platform::set_platform(Box::new(Platforma(fereastra.clone()))).expect("platforma");
     let ui = FereastraLista::new().expect("fereastra listei");
     aplica_tema(&ui, tema);
-    gmotion_fereastra::aplica_limba(&ui, Default::default());
+    // `--limba ro|en`: pana la auditul 2026-11-23 numai `captura_lista` o
+    // accepta, deci interfata in engleza nu se putea vedea pe 3 din 4 ecrane
+    // (C-S9). Butonul de limba are nevoie si de lista limbilor, altfel se
+    // deseneaza gol.
+    let limba = a
+        .iter()
+        .position(|x| x == "--limba")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|n| gmotion_core::Limba::din_nume(n))
+        .unwrap_or_default();
+    gmotion_fereastra::aplica_limba(&ui, limba);
+    {
+        use gmotion_core::Limba;
+        let etichete: Vec<slint::SharedString> = Limba::toate()
+            .iter()
+            .map(|x| slint::SharedString::from(x.eticheta()))
+            .collect();
+        ui.set_limbi(slint::ModelRc::new(slint::VecModel::from(etichete)));
+        ui.set_limba_aleasa(Limba::toate().iter().position(|x| *x == limba).unwrap_or(0) as i32);
+    }
     let incarca = |ui: &FereastraLista, app: &Aplicatie| {
         incarca_lista(
             ui,

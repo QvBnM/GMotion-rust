@@ -509,7 +509,9 @@ pub static EN: Texte = Texte {
     verificare_esuata: "The check could not run",
     compara_din_nou_intai: "Compare again, then review",
     baze: "Databases",
-    cate: "How many ",
+    // „How many 10 objects per file" nu e engleza; „Groups of 10 objects
+    // per file" e (auditul 2026-11-23)
+    cate: "Groups of ",
     cauta_obiect: "Search object",
     obiecte_titlu: "Objects",
     fixeaza_tab: "Keep in a tab (double-click the tab)",

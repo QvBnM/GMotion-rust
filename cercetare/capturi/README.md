@@ -34,7 +34,19 @@ cargo run --release -q -p gmotion-app --example captura_lista -- \
     $INST $REF $BAZA $OUT/lista-1366x768-intunecat.png --latime 1366 --inaltime 768
 cargo run --release -q -p gmotion-fereastra --example captura -- \
     $INST $REF $BAZA $OBIECT $OUT/editor-1024x768-intunecat.png --latime 1024 --inaltime 768
+cargo run --release -q -p gmotion-app --example captura_lista -- \
+    $INST $REF $BAZA $OUT/lista-1024x768-intunecat.png $OBIECT --latime 1024 --inaltime 768
 ```
+
+`lista-1024x768-intunecat.png` e proba pentru C-1 din auditul 2026-11-23:
+numele obiectelor trebuie sa se citeasca intregi. Coloanele secundare
+(„Ultima modificare", „Impact", „Folosit de"...) dispar pe rand cand nu
+incape numele — regula e in `Coloane` din `lista.slint`, iar testul
+`numele_obiectului_are_loc_la_toate_rezolutiile` o pazeste.
+
+**Toate exemplele primesc si `--limba ro|en`** (auditul 2026-11-23: pana
+atunci numai `captura_lista` o accepta, deci interfata in engleza nu se
+putea vedea pe 3 din 4 ecrane).
 
 `editor-1024x768-intunecat.png` arata insulele de jos pe **doua randuri**:
 asezate pe unul singur, jumatate din butoane ieseau din ecran (V3).
