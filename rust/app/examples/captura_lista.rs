@@ -151,7 +151,7 @@ fn main() {
         },
         lista,
     );
-    gmotion_fereastra::incarca_detalii(&ui, &app.panou_detalii().pentru_fereastra());
+    gmotion_fereastra::incarca_detalii(&ui, &app.panou_detalii().pentru_fereastra(limba));
     if let Some((sursa, tinta, setari)) = app.texte_obiect() {
         incarca_previzualizare(&ui, sursa, tinta, &setari);
     }

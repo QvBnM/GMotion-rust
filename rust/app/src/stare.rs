@@ -214,7 +214,8 @@ impl Stare {
         self.salvat_la = String::new();
         self.mesaj_lista = String::new();
         self.conectare.eroare_comparare = None;
-        self.conectare.recente = recente(&self.sesiuni);
+        let l = self.conectare.limba;
+        self.conectare.recente = recente(&self.sesiuni, l);
         tracing::info!(target: "gmotion::app", "deconectat");
     }
 
@@ -371,8 +372,9 @@ impl Stare {
     /// slotul (P4). `true` daca s-a schimbat ceva de desenat.
     pub fn verifica_lucrarile(&mut self) -> bool {
         let mut s_a_schimbat = false;
+        let limba = self.conectare.limba;
         if let Some((sursa, l)) = self.baze_cerute.as_mut() {
-            let (sursa, gata) = (*sursa, l.verifica());
+            let (sursa, gata) = (*sursa, l.verifica(limba));
             if let Some(r) = gata {
                 self.baze_cerute = None;
                 s_a_schimbat = true;
@@ -388,7 +390,7 @@ impl Stare {
             }
         }
         if let Some((sursa, l)) = self.testare.as_mut() {
-            let (sursa, gata) = (*sursa, l.verifica());
+            let (sursa, gata) = (*sursa, l.verifica(limba));
             if let Some(r) = gata {
                 self.testare = None;
                 s_a_schimbat = true;
@@ -401,7 +403,7 @@ impl Stare {
         }
         let limba = self.conectare.limba;
         if let Some((sursa, l)) = self.cautare_servere.as_mut() {
-            let (sursa, gata) = (*sursa, l.verifica());
+            let (sursa, gata) = (*sursa, l.verifica(limba));
             if let Some(r) = gata {
                 self.cautare_servere = None;
                 s_a_schimbat = true;
@@ -438,7 +440,7 @@ impl Stare {
             }
         }
         if let Some((_, l)) = self.verificare.as_mut() {
-            if let Some(r) = l.verifica() {
+            if let Some(r) = l.verifica(limba) {
                 if let Some((cheie, _)) = self.verificare.take() {
                     tracing::info!(target: "gmotion::app", reusita = r.is_ok(), "verificarea pe server s-a terminat");
                     self.rezultat_verificare = Some((cheie, r));
@@ -447,7 +449,7 @@ impl Stare {
             }
         }
         if let Some(l) = self.garda.as_mut() {
-            if let Some(r) = l.verifica() {
+            if let Some(r) = l.verifica(limba) {
                 self.garda = None;
                 s_a_schimbat = true;
                 let acum = gmotion_platforma::timp::acum();
@@ -700,7 +702,8 @@ impl Stare {
             }
             Err(e) => tracing::warn!(target: "gmotion::app", eroare = %e, "nu pot sterge sesiunea"),
         }
-        self.conectare.recente = recente(&self.sesiuni);
+        let l = self.conectare.limba;
+        self.conectare.recente = recente(&self.sesiuni, l);
     }
 
     /// Compararea a doua texte lipite (offline). `Err` cu mesajul pentru om.
@@ -734,7 +737,11 @@ impl Stare {
             _ => match app.exporta_csv(&cale) {
                 Ok(n) => {
                     tracing::info!(target: "gmotion::app", cale = %cale.display(), randuri = n, "CSV scris");
-                    format!("{n} randuri in {}", cale.display())
+                    format!(
+                        "{n} {} {}",
+                        self.conectare.limba.alege("randuri in", "rows in"),
+                        cale.display()
+                    )
                 }
                 Err(e) => e,
             },
@@ -999,7 +1006,7 @@ pub fn porneste_detalii(app: &Aplicatie) -> std::sync::mpsc::Receiver<DetaliiCal
 }
 
 /// Compararile salvate, cele mai noi intai.
-pub fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
+pub fn recente(sesiuni: &gmotion_platforma::Sesiuni, limba: gmotion_core::Limba) -> Vec<Recenta> {
     let mut s = sesiuni.lista().unwrap_or_default();
     s.sort_by(|a, b| b.salvata.cmp(&a.salvata));
     s.into_iter()
@@ -1011,7 +1018,7 @@ pub fn recente(sesiuni: &gmotion_platforma::Sesiuni) -> Vec<Recenta> {
                 progres: if revizuite == 0 {
                     String::new()
                 } else {
-                    format!("{revizuite} revizuite")
+                    format!("{revizuite} {}", limba.alege("revizuite", "reviewed"))
                 },
                 cand: s.salvata.clone(),
                 sursa: s.referinta.clone(),
@@ -1224,7 +1231,7 @@ mod teste {
         let r = comparata(&alta);
         alta.primeste_compararea(r);
         assert_eq!(alta.app.as_ref().unwrap().revizuire().numar(), 1);
-        assert_eq!(recente(&alta.sesiuni).len(), 1);
+        assert_eq!(recente(&alta.sesiuni, gmotion_core::Limba::Romana).len(), 1);
         std::fs::remove_dir_all(&d).ok();
     }
 

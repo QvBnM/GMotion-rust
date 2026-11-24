@@ -125,7 +125,7 @@ fn ruleaza() -> Result<(), String> {
 
     let previzualizare = std::env::args().any(|a| a == "--previzualizare");
     let mut conectare = Conectare::noua();
-    conectare.recente = stare::recente(&sesiuni);
+    conectare.recente = stare::recente(&sesiuni, conectare.limba);
     conectare.instantaneu = argument("--sursa");
     if previzualizare && conectare.instantaneu.is_none() {
         match stare::cale_previzualizare() {
@@ -391,7 +391,8 @@ fn ruleaza() -> Result<(), String> {
                 Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
                 None => goleste_previzualizarea(&l_ui),
             }
-            gmotion_fereastra::incarca_detalii(&l_ui, &app.panou_detalii().pentru_fereastra());
+            let mut panou = app.panou_detalii();
+            gmotion_fereastra::incarca_detalii(&l_ui, &panou.pentru_fereastra(limba));
             if app.ecran() == Ecran::Editor {
                 let pozitie = s.text_pozitie(limba);
                 let salvat = s.text_salvat(limba);

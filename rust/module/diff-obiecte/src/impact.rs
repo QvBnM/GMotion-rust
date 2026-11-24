@@ -33,13 +33,16 @@ impl Nivel {
 }
 
 /// Nivelul si de ce.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Impact {
     pub nivel: Nivel,
     /// Cate obiecte din baza comparata il folosesc.
     pub folosit_de: usize,
     /// Motivele, pe scurt, in ordinea in care conteaza.
-    pub motive: Vec<String>,
+    /// De ce atat. Date, nu text: ecranul si `cli` le scriu in limba lor
+    /// (pana la auditul 2026-11-23 erau siruri romanesti, si asa ramaneau si
+    /// cu interfata in engleza).
+    pub motive: Vec<Motiv>,
 }
 
 /// Legaturile dintre obiectele unei baze, in ambele sensuri.
@@ -92,6 +95,74 @@ pub fn folosit_de(baza: &Baza) -> BTreeMap<String, Vec<String>> {
 /// scriere in tabel, fara sa-l cheme cineva). 0 = Scazut, 1-2 = Mediu,
 /// 3+ = Ridicat. Un obiect nou nu inlocuieste nimic, deci schimbarea nu
 /// conteaza; unul care nu se deployeaza (doar in baza, criptat) e Scazut.
+/// Un motiv al impactului estimat.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Motiv {
+    ExtraFaraDeploy,
+    CriptatFaraDeploy,
+    FolositDe(usize),
+    Nefolosit,
+    ObiectNou,
+    SchimbareMare(f64),
+    SchimbareMedie(f64),
+    SchimbareMica,
+    Trigger,
+}
+
+impl Motiv {
+    pub fn text(&self, l: gmotion_core::Limba) -> String {
+        match self {
+            Motiv::ExtraFaraDeploy => l
+                .alege("Extra: nu se deployeaza", "Extra: not deployed")
+                .to_string(),
+            Motiv::CriptatFaraDeploy => l
+                .alege("criptat: nu se deployeaza", "encrypted: not deployed")
+                .to_string(),
+            Motiv::FolositDe(1) => l
+                .alege("folosit de 1 obiect", "used by 1 object")
+                .to_string(),
+            Motiv::FolositDe(n) => {
+                format!(
+                    "{} {n} {}",
+                    l.alege("folosit de", "used by"),
+                    l.alege("obiecte", "objects")
+                )
+            }
+            Motiv::Nefolosit => l
+                .alege("nefolosit de alte obiecte", "not used by other objects")
+                .to_string(),
+            Motiv::ObiectNou => l.alege("obiect nou", "new object").to_string(),
+            Motiv::SchimbareMare(s) => format!(
+                "{} ({s:.0}% {})",
+                l.alege("schimbare mare", "large change"),
+                l.alege("similar", "similar")
+            ),
+            Motiv::SchimbareMedie(s) => format!(
+                "{} ({s:.0}% {})",
+                l.alege("schimbare medie", "medium change"),
+                l.alege("similar", "similar")
+            ),
+            Motiv::SchimbareMica => l.alege("schimbare mica", "small change").to_string(),
+            Motiv::Trigger => l
+                .alege(
+                    "trigger: ruleaza la fiecare scriere",
+                    "trigger: runs on every write",
+                )
+                .to_string(),
+        }
+    }
+}
+
+/// Motivele, lipite cu separatorul dat, in limba ceruta.
+pub fn text_motive(motive: &[Motiv], sep: &str, l: gmotion_core::Limba) -> String {
+    motive
+        .iter()
+        .map(|m| m.text(l))
+        .collect::<Vec<_>>()
+        .join(sep)
+}
+
 pub fn estimeaza(r: &Rand, folosit_de: usize) -> Impact {
     let mut motive = Vec::new();
     match r.categorie {
@@ -99,14 +170,14 @@ pub fn estimeaza(r: &Rand, folosit_de: usize) -> Impact {
             return Impact {
                 nivel: Nivel::Scazut,
                 folosit_de,
-                motive: vec!["Extra: nu se deployeaza".into()],
+                motive: vec![Motiv::ExtraFaraDeploy],
             }
         }
         Categorie::Criptat => {
             return Impact {
                 nivel: Nivel::Scazut,
                 folosit_de,
-                motive: vec!["criptat: nu se deployeaza".into()],
+                motive: vec![Motiv::CriptatFaraDeploy],
             }
         }
         _ => {}
@@ -117,32 +188,32 @@ pub fn estimeaza(r: &Rand, folosit_de: usize) -> Impact {
         0 => {}
         1 => {
             puncte += 1;
-            motive.push("folosit de 1 obiect".into());
+            motive.push(Motiv::FolositDe(1));
         }
         n => {
             puncte += if n >= 5 { 2 } else { 1 };
-            motive.push(format!("folosit de {n} obiecte"));
+            motive.push(Motiv::FolositDe(n));
         }
     }
     match (r.categorie, r.scor) {
-        (Categorie::Lipsa, _) => motive.push("obiect nou".into()),
+        (Categorie::Lipsa, _) => motive.push(Motiv::ObiectNou),
         (_, Some(s)) if s < 70.0 => {
             puncte += 2;
-            motive.push(format!("schimbare mare ({s:.0}% similar)"));
+            motive.push(Motiv::SchimbareMare(s));
         }
         (_, Some(s)) if s < 95.0 => {
             puncte += 1;
-            motive.push(format!("schimbare medie ({s:.0}% similar)"));
+            motive.push(Motiv::SchimbareMedie(s));
         }
-        (_, Some(_)) => motive.push("schimbare mica".into()),
+        (_, Some(_)) => motive.push(Motiv::SchimbareMica),
         (_, None) => {}
     }
     if r.tip.trim() == "TR" {
         puncte += 1;
-        motive.push("trigger: ruleaza la fiecare scriere".into());
+        motive.push(Motiv::Trigger);
     }
     if folosit_de == 0 && r.categorie != Categorie::Lipsa {
-        motive.push("nefolosit de alte obiecte".into());
+        motive.push(Motiv::Nefolosit);
     }
     let nivel = match puncte {
         0 => Nivel::Scazut,
@@ -235,14 +306,14 @@ mod teste {
         let trigger = rand("dbo.t", "TR ", Categorie::Diferit, Some(91.0));
         let i = estimeaza(&trigger, 0);
         assert_eq!(i.nivel, Nivel::Mediu);
-        assert!(i.motive.iter().any(|m| m.starts_with("trigger")));
+        assert!(i.motive.contains(&Motiv::Trigger));
     }
 
     #[test]
     fn obiectele_noi_si_cele_care_nu_se_deployeaza() {
         let nou = rand("dbo.n", "P", Categorie::Lipsa, None);
         assert_eq!(estimeaza(&nou, 0).nivel, Nivel::Scazut);
-        assert_eq!(estimeaza(&nou, 0).motive, vec!["obiect nou"]);
+        assert_eq!(estimeaza(&nou, 0).motive, vec![Motiv::ObiectNou]);
         let extra = rand("dbo.x", "P", Categorie::Extra, None);
         assert_eq!(estimeaza(&extra, 9).nivel, Nivel::Scazut);
         let criptat = rand("dbo.x", "P", Categorie::Criptat, None);
@@ -254,9 +325,14 @@ mod teste {
         let r = rand("dbo.p", "P", Categorie::Diferit, Some(57.4));
         let i = estimeaza(&r, 6);
         assert_eq!(i.folosit_de, 6);
-        assert_eq!(
-            i.motive,
-            vec!["folosit de 6 obiecte", "schimbare mare (57% similar)"]
-        );
+        assert_eq!(i.motive.len(), 2, "{:?}", i.motive);
+        assert_eq!(i.motive[0], Motiv::FolositDe(6));
+        assert!(matches!(i.motive[1], Motiv::SchimbareMare(_)));
+        // textul se face in limba ceruta, nu se tine in date
+        let ro = text_motive(&i.motive, " · ", gmotion_core::Limba::Romana);
+        let en = text_motive(&i.motive, " · ", gmotion_core::Limba::Engleza);
+        assert!(ro.contains("folosit de 6 obiecte"), "{ro}");
+        assert!(en.contains("used by 6 objects"), "{en}");
+        assert!(!en.contains("schimbare"), "{en}");
     }
 }

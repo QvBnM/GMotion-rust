@@ -54,13 +54,18 @@ impl<T: Send + 'static> Lucru<T> {
     }
 
     /// `Some` cand s-a terminat; atunci `Lucru` se arunca.
-    pub fn verifica(&mut self) -> Option<Result<T, String>> {
+    pub fn verifica(&mut self, l: gmotion_core::Limba) -> Option<Result<T, String>> {
         match self.vesti.try_recv() {
             Ok(r) => Some(r),
             Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => {
-                Some(Err("lucrul s-a oprit pe neasteptate".to_string()))
-            }
+            // firul a murit fara sa trimita nimic: mesajul ajunge pe ecran,
+            // deci trece prin limba ferestrei (auditul 2026-11-23)
+            Err(TryRecvError::Disconnected) => Some(Err(l
+                .alege(
+                    "lucrul s-a oprit pe neasteptate",
+                    "the task stopped unexpectedly",
+                )
+                .to_string())),
         }
     }
 
@@ -256,10 +261,13 @@ mod teste {
             std::thread::sleep(std::time::Duration::from_millis(40));
             Ok::<_, String>(21 * 2)
         });
-        assert!(l.verifica().is_none(), "nu blocheaza la pornire");
+        assert!(
+            l.verifica(gmotion_core::Limba::Romana).is_none(),
+            "nu blocheaza la pornire"
+        );
         let mut rezultat = None;
         for _ in 0..200 {
-            if let Some(r) = l.verifica() {
+            if let Some(r) = l.verifica(gmotion_core::Limba::Romana) {
                 rezultat = Some(r);
                 break;
             }
@@ -271,7 +279,7 @@ mod teste {
         let mut l = Lucru::porneste(|| Err::<(), String>("serverul nu raspunde".into()));
         let mut rezultat = None;
         for _ in 0..200 {
-            if let Some(r) = l.verifica() {
+            if let Some(r) = l.verifica(gmotion_core::Limba::Romana) {
                 rezultat = Some(r);
                 break;
             }

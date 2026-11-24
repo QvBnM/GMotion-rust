@@ -46,7 +46,7 @@ pub struct StareDeploy {
     pub garda: Garda,
     pub impartire: ModImpartire,
     /// Rezultatul scrierii: raportul, sau de ce n-a mers.
-    pub rezultat: Option<Result<Raport, String>>,
+    pub rezultat: Option<Result<Raport, EroareScriere>>,
     /// Obiectele recitite la verificare (referinta, si fiecare baza tinta):
     /// din ele se scrie, nu din cele de la comparare.
     recitite: Option<(Baza, Vec<(String, Baza)>)>,
@@ -157,7 +157,7 @@ impl StareDeploy {
     ) {
         let Some((referinta, altele)) = self.recitite.as_ref().filter(|_| self.poate_scrie())
         else {
-            self.rezultat = Some(Err("verifica intai ca baza n-a mai fost atinsa".to_string()));
+            self.rezultat = Some(Err(EroareScriere::FaraGarda));
             return;
         };
         let altele = altele.clone();
@@ -180,7 +180,7 @@ impl StareDeploy {
         if let Err(e) = &r {
             tracing::warn!(target: "gmotion::app", eroare = %e, "deploy-ul nu s-a scris");
         }
-        self.rezultat = Some(r);
+        self.rezultat = Some(r.map_err(EroareScriere::Modul));
     }
 
     /// Modul de impartire s-a schimbat: un rezultat vechi nu mai e al lui.
@@ -282,6 +282,31 @@ pub fn pozitia_impartirii(m: ModImpartire) -> i32 {
     }
 }
 
+/// De ce n-a iesit scrierea. Nu un `String`: textul se face la desenare, in
+/// limba ferestrei — „verifica intai ca baza n-a mai fost atinsa" ajungea pe
+/// un ecran in engleza asa cum era (auditul 2026-11-23).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EroareScriere {
+    /// Nu s-a cerut inca verificarea bazei, sau planul e gol.
+    FaraGarda,
+    /// Eroare venita din modul, cu codul ei `GM-MOD-*`.
+    Modul(String),
+}
+
+impl EroareScriere {
+    pub fn text(&self, l: gmotion_core::Limba) -> String {
+        match self {
+            EroareScriere::FaraGarda => l
+                .alege(
+                    "verifica intai ca baza n-a mai fost atinsa",
+                    "check first that the database has not been touched",
+                )
+                .to_string(),
+            EroareScriere::Modul(m) => m.clone(),
+        }
+    }
+}
+
 /// Ce se deseneaza pe ecranul de deploy, din starea lui.
 pub fn ecran(
     st: &StareDeploy,
@@ -359,7 +384,7 @@ pub fn ecran(
                     stricate,
                 }
             }
-            Some(Err(e)) => RezultatDeploy::Eroare(e.clone()),
+            Some(Err(e)) => RezultatDeploy::Eroare(e.text(limba)),
         },
     }
 }

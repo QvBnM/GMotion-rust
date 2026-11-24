@@ -103,7 +103,11 @@ fn main() {
         if let Some((s, t, setari)) = app.texte_obiect() {
             incarca_previzualizare(ui, s, t, &setari);
         }
-        incarca_detalii(ui, &app.panou_detalii().pentru_fereastra());
+        incarca_detalii(
+            ui,
+            &app.panou_detalii()
+                .pentru_fereastra(gmotion_fereastra::limba_curenta(ui)),
+        );
     };
 
     incarca(&ui, &app);

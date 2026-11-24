@@ -221,14 +221,16 @@ pub struct Ghidat {
 type DependenteBaza = std::rc::Rc<modul::Dependente>;
 
 /// Ce arata panoul de detalii al listei (vezi `gmotion_fereastra::PanouDetalii`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PanouDetalii {
     pub deschis: bool,
     pub baza: String,
     pub obiect: String,
     /// 0 scazut, 1 mediu, 2 ridicat.
     pub impact: Option<i32>,
-    pub motive: String,
+    pub motive: Vec<modul::impact::Motiv>,
+    /// Motivele scrise, in limba ceruta la `pentru_fereastra`.
+    motive_text: String,
     pub nota: String,
     /// Cine foloseste obiectul, in Modificata (`schema.nume`).
     pub folosit_de: Vec<String>,
@@ -238,13 +240,19 @@ pub struct PanouDetalii {
 
 impl PanouDetalii {
     /// Forma pe care o primeste fereastra.
-    pub fn pentru_fereastra(&self) -> gmotion_fereastra::PanouDetalii<'_> {
+    pub fn pentru_fereastra(
+        &mut self,
+        limba: gmotion_core::Limba,
+    ) -> gmotion_fereastra::PanouDetalii<'_> {
+        // motivele se scriu acum, in limba ferestrei: `fereastra` nu depinde
+        // de modul, deci textul se face aici (auditul 2026-11-23)
+        self.motive_text = modul::impact::text_motive(&self.motive, " · ", limba);
         gmotion_fereastra::PanouDetalii {
             deschis: self.deschis,
             baza: &self.baza,
             obiect: &self.obiect,
             impact: self.impact,
-            motive: &self.motive,
+            motive: &self.motive_text,
             nota: &self.nota,
             folosit_de: &self.folosit_de,
             foloseste: &self.foloseste,
@@ -558,8 +566,9 @@ impl Aplicatie {
             }),
             motive: impact
                 .as_ref()
-                .map(|(i, _)| i.motive.join(" · "))
+                .map(|(i, _)| i.motive.clone())
                 .unwrap_or_default(),
+            motive_text: String::new(),
             // din dependente, nu din impact: si un obiect identic (fara
             // impact, nu se deployeaza) poate fi folosit de altele
             folosit_de: dependente.0,

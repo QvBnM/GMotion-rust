@@ -619,7 +619,8 @@ fn randuri_ui_cu_tinte(
                 // repeta pe fiecare bucata (sesizat de Mihai, 2026-11-20).
                 // `diferenta: -1`: randul nu e al blocului (nu se numara in
                 // linia din canal si nu se aprinde la tragere)
-                if !rand.eticheta.is_empty() {
+                let text_et = model_editor::text_eticheta(&rand.eticheta, limba);
+                if !text_et.is_empty() {
                     randuri.push(RandUi {
                         fel: 2,
                         pliere: SharedString::new(),
@@ -637,7 +638,7 @@ fn randuri_ui_cu_tinte(
                         continuare: false,
                         st_lipsa: false,
                         dr_lipsa: false,
-                        eticheta: SharedString::from(rand.eticheta.as_str()),
+                        eticheta: SharedString::from(text_et.as_str()),
                         fantoma: false,
                         delta_tinta: 0,
                         tinta_gol: false,
@@ -664,7 +665,18 @@ fn randuri_ui_cu_tinte(
                     st_nr: nr(rand.stanga.nr),
                     st: bucati_ui(&rand.stanga.bucati),
                     dr_nr: nr(rand.dreapta.nr),
-                    dr: bucati_ui(&rand.dreapta.bucati),
+                    // randul-fantoma: textul „aici vin blocurile ..." se
+                    // face acum, in limba ferestrei, nu la construirea
+                    // modelului (care nu stie limba)
+                    dr: if rand.fantoma {
+                        bucati_ui(&[model_editor::Bucata {
+                            text: model_editor::text_eticheta(&rand.eticheta_fantoma, limba),
+                            sintaxa: model_editor::Sintaxa::Comentariu,
+                            schimbat: false,
+                        }])
+                    } else {
+                        bucati_ui(&rand.dreapta.bucati)
+                    },
                     stare: cod_stare(rand.stare),
                     diferenta: k.map_or(-1, |k| k as i32),
                     dr_marcaj: match rand.marcaj {
@@ -1736,6 +1748,9 @@ pub struct PanouDetalii<'a> {
     /// 0 scazut, 1 mediu, 2 ridicat; `None` = nu se stie. Eticheta vine din
     /// `Texte`, in limba aleasa.
     pub impact: Option<i32>,
+    /// Motivele impactului, deja in limba ferestrei. `app` le traduce, cu
+    /// `impact::text_motive`: pana la auditul 2026-11-23 erau compuse in
+    /// romana si ramaneau asa si pe interfata in engleza.
     pub motive: &'a str,
     pub nota: &'a str,
     /// Cine foloseste obiectul si ce foloseste el (`schema.nume`).
@@ -2767,6 +2782,45 @@ mod teste {
     }
 
     /// Clicul pe rand, dublu clicul, X-ul, Esc, `o` si nota ajung la
+    /// C-1 din auditul 2026-11-23: coloana „Obiect" e continutul listei, si
+    /// disparea. Latimile fixe insumau 968 px, iar numele lua ce ramanea: la
+    /// 1024x768 ii ramaneau ~56 px (patru randuri scriau identic `dbo.u…`),
+    /// iar cu panoul de detalii deschis ajungea la 0 px, fara nici cap de
+    /// coloana. Testul se uita la latimea chiar calculata, la rezolutiile
+    /// cerute de `STARE.md`, cu panoul inchis si deschis.
+    ///
+    /// Daca pica dupa ce ai adaugat o coloana: nu creste pragul, ci pune-o in
+    /// cascada de ascundere din `lista.slint`.
+    #[test]
+    fn numele_obiectului_are_loc_la_toate_rezolutiile() {
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w.clone())));
+        let ui = FereastraLista::new().expect("fereastra de test");
+        ui.show().expect("fereastra se arata");
+        for (latime, inaltime) in [(1024u32, 768u32), (1366, 768), (1440, 900)] {
+            ui.window()
+                .set_size(slint::PhysicalSize::new(latime, inaltime));
+            for deschise in [false, true] {
+                ui.set_detalii_deschise(deschise);
+                // o desenare, ca aranjarea sa se faca: fara ea latimile sunt 0
+                w.request_redraw();
+                let mut buf = vec![
+                    slint::platform::software_renderer::PremultipliedRgbaColor::default();
+                    (latime * inaltime) as usize
+                ];
+                w.draw_if_needed(|rd| {
+                    rd.render(&mut buf, latime as usize);
+                });
+                let nume = ui.get_latime_nume();
+                assert!(
+                    nume >= 190.0,
+                    "{latime}x{inaltime}, panou {}: coloana „Obiect\" are {nume} px",
+                    if deschise { "deschis" } else { "inchis" }
+                );
+            }
+        }
+    }
+
     /// actiunile lor, prin mouse si tastatura adevarate (nu prin `invoke_`):
     /// un `TouchArea` acoperit de alt element ar trece de un test cu
     /// `invoke_`, nu si de asta.
@@ -3395,7 +3449,7 @@ mod teste {
         let etichete = model
             .randuri
             .iter()
-            .filter(|r| !r.eticheta.is_empty())
+            .filter(|r| r.eticheta != model_editor::Eticheta::Niciuna)
             .count();
         assert_eq!(intreg, model.randuri.len() + etichete);
 

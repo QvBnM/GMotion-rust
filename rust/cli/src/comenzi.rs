@@ -718,7 +718,10 @@ pub fn impact(
                         "obiect": x.obiect,
                         "nivel": i.nivel,
                         "folosit_de": i.folosit_de,
-                        "motive": i.motive,
+                        // texte, nu variante: forma iesirii `--json` nu se schimba
+                        "motive": i.motive.iter()
+                            .map(|m| m.text(gmotion_core::Limba::Romana))
+                            .collect::<Vec<_>>(),
                     });
                     if obiect.is_some() {
                         v["cine_il_foloseste"] = serde_json::json!(cine);
@@ -737,7 +740,7 @@ pub fn impact(
                     i.nivel.eticheta(),
                     afisare::fara_control(&x.baza),
                     afisare::fara_control(&x.obiect),
-                    i.motive.join(", ")
+                    modul::impact::text_motive(&i.motive, ", ", gmotion_core::Limba::Romana)
                 );
                 if obiect.is_some() {
                     for c in cine {

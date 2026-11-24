@@ -76,7 +76,133 @@ pub enum Marcaj {
     ScrisDeTine,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Ce spune pastila unui bloc, **fara text**: textul se face la desenare, in
+/// limba ferestrei. Pana la auditul 2026-11-23 etichetele se compuneau aici,
+/// direct in romana, si ramaneau romanesti cu interfata in engleza — desi
+/// `eticheta_pliere`, alaturi, primea deja `Limba`.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub enum Eticheta {
+    #[default]
+    Niciuna,
+    /// Mai multe blocuri consecutive doar in Martor, care merg in acelasi loc.
+    Grup {
+        de_la: usize,
+        pana_la: usize,
+        impreuna: bool,
+    },
+    Bloc {
+        nr: usize,
+        fel: FelBloc,
+        unde: UndeBloc,
+    },
+    /// Locul unde ar veni blocurile din Martor fara corespondent.
+    Fantoma { numere: Vec<usize> },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum FelBloc {
+    Modificat,
+    DoarMartor,
+    DoarModificata,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum UndeBloc {
+    Nimic,
+    Inlocuieste(usize),
+    SimilarInsereaza { tinta: usize, scor: f64 },
+    FaraCorespondent,
+}
+
+/// Textul pastilei, in limba ferestrei.
+pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
+    match e {
+        Eticheta::Niciuna => String::new(),
+        Eticheta::Grup {
+            de_la,
+            pana_la,
+            impreuna,
+        } => {
+            let unde = if *impreuna {
+                l.alege("se insereaza impreuna", "inserted together")
+            } else {
+                l.alege("fara corespondent", "no counterpart")
+            };
+            format!(
+                "{} {de_la}-{pana_la} · {} → {unde}",
+                l.alege("blocurile", "blocks"),
+                l.alege("DOAR IN MARTOR", "WITNESS ONLY")
+            )
+        }
+        Eticheta::Bloc { nr, fel, unde } => {
+            let nume = format!(
+                "{} {nr} · {}",
+                l.alege("bloc", "block"),
+                match fel {
+                    FelBloc::Modificat => l.alege("MODIFICAT", "MODIFIED"),
+                    FelBloc::DoarMartor => l.alege("DOAR IN MARTOR", "WITNESS ONLY"),
+                    FelBloc::DoarModificata => l.alege("DOAR IN MODIFICATA", "MODIFIED ONLY"),
+                }
+            );
+            match unde {
+                UndeBloc::Nimic => nume,
+                UndeBloc::Inlocuieste(t) => format!(
+                    "{nume} → {} {t} {}",
+                    l.alege("inlocuieste blocul", "replaces block"),
+                    l.alege("din Modificata", "in Modified")
+                ),
+                UndeBloc::SimilarInsereaza { tinta, scor } => format!(
+                    "{nume} · {scor:.0}% {} {tinta} → {}",
+                    l.alege("similar cu blocul", "similar to block"),
+                    l.alege("se insereaza, nu inlocuieste", "inserted, not replaced")
+                ),
+                UndeBloc::FaraCorespondent => format!(
+                    "{nume} → {}",
+                    l.alege(
+                        "fara corespondent: se insereaza",
+                        "no counterpart: inserted"
+                    )
+                ),
+            }
+        }
+        Eticheta::Fantoma { numere } => {
+            let unul = numere.len() == 1;
+            let consecutive = numere.len() > 1 && numere.windows(2).all(|w| w[1] == w[0] + 1);
+            let care = if unul {
+                numere[0].to_string()
+            } else if consecutive {
+                format!("{}-{}", numere[0], numere[numere.len() - 1])
+            } else {
+                numere
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            if unul {
+                format!(
+                    "{} {care} {}",
+                    l.alege("aici vine blocul", "block"),
+                    l.alege(
+                        "din Martor, daca il aplici",
+                        "from Witness goes here, if you apply it"
+                    )
+                )
+            } else {
+                format!(
+                    "{} {care} {}",
+                    l.alege("aici vin blocurile", "blocks"),
+                    l.alege(
+                        "din Martor, daca le aplici",
+                        "from Witness go here, if you apply them"
+                    )
+                )
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Rand {
     pub stanga: Parte,
     pub dreapta: Parte,
@@ -92,7 +218,10 @@ pub struct Rand {
     /// Pastila de pe primul rand al unui bloc care difera: ce e blocul si
     /// unde ajunge daca il aplici („DOAR IN MARTOR · 46% similar cu blocul
     /// 4"). Goala pe celelalte randuri.
-    pub eticheta: String,
+    pub eticheta: Eticheta,
+    /// Pe randul-fantoma: ce blocuri din Martor ar veni aici. Textul se face
+    /// la desenare, in limba ferestrei.
+    pub eticheta_fantoma: Eticheta,
     /// Primul rand al locului unde ar veni blocurile din martor fara
     /// corespondent: partea din dreapta poarta textul „aici vin blocurile
     /// ...", in dreptul lor (nu pe un rand separat, mai jos; sesizat de
@@ -109,7 +238,7 @@ pub struct Rand {
     pub loc: Option<gmotion_core::Loc>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ModelEditor {
     pub randuri: Vec<Rand>,
     /// Indexul randului de inceput al fiecarei diferente, in ordine: pentru
@@ -496,7 +625,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
                 ),
             }
         } else {
-            String::new()
+            Eticheta::Niciuna
         };
         let loc = match r.bloc {
             Some(b) if a.diff[b].dreapta.is_some() => gmotion_core::Loc::Inlocuieste(b),
@@ -510,6 +639,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
             bloc: r.bloc,
             marcaj: Marcaj::Niciunul,
             eticheta,
+            eticheta_fantoma: Eticheta::Niciuna,
             fantoma: false,
             inserare: None,
             loc: Some(loc),
@@ -524,16 +654,13 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
             continue;
         };
         rand_fantomei.push((*ord, primul));
-        let text = text_fantoma(care, &nr_martor);
         let r = &mut randuri[primul];
         r.fantoma = true;
+        r.eticheta_fantoma = eticheta_fantoma(care, &nr_martor);
+        // textul se pune la desenare (`randuri_ui`), in limba ferestrei
         r.dreapta = Parte {
             nr: None,
-            bucati: vec![Bucata {
-                text,
-                sintaxa: Sintaxa::Comentariu,
-                schimbat: false,
-            }],
+            bucati: Vec::new(),
         };
         for r in randuri
             .iter_mut()
@@ -570,25 +697,13 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
     }
 }
 
-/// Textul locului unde ar veni blocurile din martor care n-au corespondent.
-fn text_fantoma(care: &[usize], nr_martor: &[usize]) -> String {
-    let numere: Vec<usize> = care
-        .iter()
-        .map(|&b| nr_martor.get(b).copied().unwrap_or(0))
-        .collect();
-    match numere.as_slice() {
-        [n] => format!("aici vine blocul {n} din Martor, daca il aplici"),
-        [a, .., z] if numere.windows(2).all(|w| w[1] == w[0] + 1) => {
-            format!("aici vin blocurile {a}-{z} din Martor, daca le aplici")
-        }
-        _ => format!(
-            "aici vin blocurile {} din Martor, daca le aplici",
-            numere
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
+/// Locul unde ar veni blocurile din martor care n-au corespondent.
+fn eticheta_fantoma(care: &[usize], nr_martor: &[usize]) -> Eticheta {
+    Eticheta::Fantoma {
+        numere: care
+            .iter()
+            .map(|&b| nr_martor.get(b).copied().unwrap_or(0))
+            .collect(),
     }
 }
 
@@ -598,19 +713,14 @@ fn eticheta_grup(
     grup: &[usize],
     plasari: &[gmotion_core::plasare::Plasare],
     nr_martor: &[usize],
-) -> String {
+) -> Eticheta {
     let nr = |b: usize| nr_martor.get(b).copied().unwrap_or(0);
     let (prim, ultim) = (grup[0], grup[grup.len() - 1]);
-    let unde = if plasari.iter().any(|p| p.rand == prim) {
-        "se insereaza impreuna"
-    } else {
-        "fara corespondent"
-    };
-    format!(
-        "blocurile {}-{} · DOAR IN MARTOR → {unde}",
-        nr(prim),
-        nr(ultim)
-    )
+    Eticheta::Grup {
+        de_la: nr(prim),
+        pana_la: nr(ultim),
+        impreuna: plasari.iter().any(|p| p.rand == prim),
+    }
 }
 
 /// Pastila de pe primul rand al unui bloc: ce e si unde ajunge.
@@ -621,44 +731,44 @@ fn eticheta_bloc(
     nr_martor: &[usize],
     nr_modificata: &[usize],
     bloc_al_ordinalului: &[usize],
-) -> String {
+) -> Eticheta {
     let Some(b) = bloc else {
-        return String::new();
+        return Eticheta::Niciuna;
     };
-    let nume = match stare {
-        Stare::Modificat => format!(
-            "bloc {} · MODIFICAT",
-            nr_martor.get(b).copied().unwrap_or(0)
-        ),
-        Stare::Sters => format!(
-            "bloc {} · DOAR IN MARTOR",
-            nr_martor.get(b).copied().unwrap_or(0)
-        ),
+    let (nr, fel) = match stare {
+        Stare::Modificat => (nr_martor.get(b).copied().unwrap_or(0), FelBloc::Modificat),
+        Stare::Sters => (nr_martor.get(b).copied().unwrap_or(0), FelBloc::DoarMartor),
         Stare::Adaugat => {
-            return format!(
-                "bloc {} · DOAR IN MODIFICATA",
-                nr_modificata.get(b).copied().unwrap_or(0)
-            )
+            return Eticheta::Bloc {
+                nr: nr_modificata.get(b).copied().unwrap_or(0),
+                fel: FelBloc::DoarModificata,
+                unde: UndeBloc::Nimic,
+            }
         }
-        Stare::Egal => return String::new(),
+        Stare::Egal => return Eticheta::Niciuna,
     };
     let Some(p) = plasari.iter().find(|p| p.rand == b) else {
-        return nume;
+        return Eticheta::Bloc {
+            nr,
+            fel,
+            unde: UndeBloc::Nimic,
+        };
     };
     let tinta = bloc_al_ordinalului
         .get(p.bloc_tinta)
         .and_then(|&t| nr_modificata.get(t).copied())
         .unwrap_or(0);
-    if p.inlocuieste {
-        format!("{nume} → inlocuieste blocul {tinta} din Modificata")
+    let unde = if p.inlocuieste {
+        UndeBloc::Inlocuieste(tinta)
     } else if p.scor >= 40.0 && tinta > 0 {
-        format!(
-            "{nume} · {:.0}% similar cu blocul {tinta} → se insereaza, nu inlocuieste",
-            p.scor
-        )
+        UndeBloc::SimilarInsereaza {
+            tinta,
+            scor: p.scor,
+        }
     } else {
-        format!("{nume} → fara corespondent: se insereaza")
-    }
+        UndeBloc::FaraCorespondent
+    };
+    Eticheta::Bloc { nr, fel, unde }
 }
 
 /// Marcheaza liniile din dreapta care nu mai sunt cum erau in baza: modelul e
@@ -1177,11 +1287,11 @@ mod teste_plasare {
     #[test]
     fn eticheta_spune_unde_ajunge_blocul() {
         let m = model();
-        let etichete: Vec<&str> = m
+        let etichete: Vec<String> = m
             .randuri
             .iter()
-            .filter(|r| !r.eticheta.is_empty())
-            .map(|r| r.eticheta.as_str())
+            .filter(|r| r.eticheta != Eticheta::Niciuna)
+            .map(|r| text_eticheta(&r.eticheta, Limba::Romana))
             .collect();
         assert!(
             etichete
@@ -1199,7 +1309,42 @@ mod teste_plasare {
         assert!(m
             .randuri
             .iter()
-            .all(|r| r.eticheta.is_empty() || r.inceput_bloc));
+            .all(|r| r.eticheta == Eticheta::Niciuna || r.inceput_bloc));
+    }
+
+    /// C-M2 din auditul 2026-11-23: pastilele blocurilor erau compuse in
+    /// romana, direct in `model_editor`, si ramaneau romanesti cu interfata
+    /// in engleza. Acum textul se face la desenare, din date.
+    #[test]
+    fn etichetele_blocurilor_sunt_in_ambele_limbi() {
+        let m = model();
+        let etichete = |l: Limba| -> Vec<String> {
+            m.randuri
+                .iter()
+                .filter(|r| r.eticheta != Eticheta::Niciuna)
+                .map(|r| text_eticheta(&r.eticheta, l))
+                .collect()
+        };
+        let ro = etichete(Limba::Romana);
+        let en = etichete(Limba::Engleza);
+        assert_eq!(ro.len(), en.len());
+        assert!(!ro.is_empty(), "cazul cere cel putin o eticheta");
+        assert!(ro.iter().any(|e| e.contains("bloc ")), "{ro:?}");
+        assert!(en.iter().any(|e| e.contains("block ")), "{en:?}");
+        // niciun cuvant romanesc nu ramane in varianta engleza
+        for e in &en {
+            for cuvant in [
+                "bloc ",
+                "blocurile",
+                "DOAR IN",
+                "inlocuieste",
+                "se insereaza",
+                "fara corespondent",
+                "similar cu",
+            ] {
+                assert!(!e.contains(cuvant), "{cuvant:?} a ramas in {e:?}");
+            }
+        }
     }
 
     /// Locul unde ar veni blocul fara corespondent e in dreptul lui, in
@@ -1210,8 +1355,16 @@ mod teste_plasare {
         let m = model();
         let fantome: Vec<&Rand> = m.randuri.iter().filter(|r| r.fantoma).collect();
         assert_eq!(fantome.len(), 1, "{:?}", fantome);
-        let text = fantome[0].dreapta.text();
+        // textul se face la desenare, in limba ferestrei: modelul tine doar
+        // ce blocuri ar veni aici (auditul 2026-11-23)
+        let text = text_eticheta(&fantome[0].eticheta_fantoma, Limba::Romana);
         assert!(text.contains("din Martor"), "{text:?}");
+        let en = text_eticheta(&fantome[0].eticheta_fantoma, Limba::Engleza);
+        assert!(en.contains("from Witness"), "{en:?}");
+        assert!(
+            fantome[0].dreapta.bucati.is_empty(),
+            "textul nu sta in model"
+        );
         // in dreptul blocului: linia lui din Martor la stanga, textul la dreapta
         assert!(fantome[0].stanga.nr.is_some() && fantome[0].dreapta.nr.is_none());
         assert!(fantome[0].inserare.is_some());
