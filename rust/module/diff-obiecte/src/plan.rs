@@ -323,6 +323,24 @@ impl Plan {
         referinta: &Baza,
         texte_finale: &BTreeMap<(String, String), String>,
     ) -> Rezultat<BTreeMap<String, Vec<DeDeployat>>> {
+        self.de_deployat_cu_tinte(referinta, &[], texte_finale)
+    }
+
+    /// Ca [`Plan::de_deployat_cu`], dar cu bazele tinta la indemana: un text
+    /// final egal cu **afisarea tintei** inseamna „pastreaza ce e in baza"
+    /// (modul ghidat, „din tinta" la tot), deci obiectul nu intra in script.
+    ///
+    /// Fara asta, un deploy care dupa decizia omului „nu schimba nimic"
+    /// rescria totusi obiectul, cu alte capete de linie si fara spatiile de
+    /// la capat — iar la urmatoarea comparare garda il oprea pe un obiect pe
+    /// care nu-l atinsese nimeni (A-4 din auditul 2026-11-23). Simetric cu
+    /// filtrul de pe referinta, de mai jos.
+    pub fn de_deployat_cu_tinte(
+        &self,
+        referinta: &Baza,
+        altele: &[(String, Baza)],
+        texte_finale: &BTreeMap<(String, String), String>,
+    ) -> Rezultat<BTreeMap<String, Vec<DeDeployat>>> {
         let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
         for p in &self.pasi {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
@@ -345,6 +363,17 @@ impl Plan {
                 return Err(Eroare::TextFinalGol {
                     obiect: p.obiect.clone(),
                 });
+            }
+            // „pastreaza tinta" la tot: nimic de scris pe obiectul asta
+            if let Some(t) = texte_finale.get(&(p.baza.clone(), p.obiect.clone())) {
+                let la_fel_cu_tinta = altele
+                    .iter()
+                    .find(|(b, _)| *b == p.baza)
+                    .and_then(|(_, baza)| baza.get(&p.obiect))
+                    .is_some_and(|o| t.as_str() == gmotion_core::pregateste_afisare(&o.definitie));
+                if la_fel_cu_tinta {
+                    continue;
+                }
             }
             pe_baza.entry(p.baza.clone()).or_default().push(DeDeployat {
                 obiect: p.obiect.clone(),
@@ -413,6 +442,73 @@ fn fel_schimbare(atunci: Option<&String>, acum: Option<&String>) -> Option<FelSc
         (Some(_), Some(_)) => Some(FelSchimbare::Modificat),
         (None, Some(_)) => Some(FelSchimbare::Aparut),
         (Some(_), None) => Some(FelSchimbare::Disparut),
+    }
+}
+
+#[cfg(test)]
+mod teste_a4 {
+    use super::*;
+
+    /// A-4 din auditul 2026-11-23: „pastreaza tinta" la tot inseamna ca
+    /// textul final e chiar afisarea tintei. Obiectul nu mai intra in script:
+    /// altfel un deploy care „nu schimba nimic" rescria obiectul cu alte
+    /// capete de linie si fara spatiile de la capat, iar la urmatoarea
+    /// comparare garda il oprea degeaba.
+    #[test]
+    fn textul_final_egal_cu_tinta_nu_intra_in_script() {
+        let ob = |nume: &str, def: &str| gmotion_db::Obiect {
+            schema: "dbo".into(),
+            nume: nume.into(),
+            tip: "P".into(),
+            definitie: def.into(),
+            setari: None,
+            modificat: None,
+            creat: None,
+        };
+        let referinta = crate::comparare::pregateste(&[ob("pA", "CREATE PROC dbo.pA AS SELECT 1")]);
+        // tinta are acelasi cod, dar cu CRLF si un spatiu la capat de linie
+        let tinta = crate::comparare::pregateste(&[ob(
+            "pA",
+            "CREATE PROC dbo.pA AS\r\nSELECT 2   \r\n\r\n",
+        )]);
+        let altele = vec![("C1".to_string(), tinta.clone())];
+        let plan = Plan {
+            referinta: "Ref".into(),
+            facut_la: "2026-11-24 10:00".into(),
+            pasi: vec![Pas {
+                baza: "C1".into(),
+                obiect: "dbo.pA".into(),
+                tip: "P".into(),
+                referinta: amprenta_exacta(referinta.get("dbo.pA").expect("in martor")),
+                tinta: Some(amprenta_exacta(tinta.get("dbo.pA").expect("in tinta"))),
+                tip_tinta: None,
+                text_final: None,
+            }],
+            sarite: 0,
+        };
+        let def_tinta = &tinta.get("dbo.pA").expect("obiectul e in tinta").definitie;
+        let mut texte = BTreeMap::new();
+        texte.insert(
+            ("C1".to_string(), "dbo.pA".to_string()),
+            gmotion_core::pregateste_afisare(def_tinta),
+        );
+        let pe_baza = plan
+            .de_deployat_cu_tinte(&referinta, &altele, &texte)
+            .expect("plan valid");
+        assert!(
+            pe_baza.get("C1").is_none_or(Vec::is_empty),
+            "nimic de scris: {pe_baza:?}"
+        );
+        // iar un text final care chiar difera intra, ca pana acum
+        let mut alt = BTreeMap::new();
+        alt.insert(
+            ("C1".to_string(), "dbo.pA".to_string()),
+            "CREATE PROC dbo.pA AS SELECT 3".to_string(),
+        );
+        let pe_baza = plan
+            .de_deployat_cu_tinte(&referinta, &altele, &alt)
+            .expect("plan valid");
+        assert_eq!(pe_baza.get("C1").map(Vec::len), Some(1));
     }
 }
 

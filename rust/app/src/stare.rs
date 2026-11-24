@@ -66,6 +66,11 @@ pub struct Stare {
     /// anulata. Pe ecranul listei, o eroare pusa pe formularul de conectare
     /// nu se vedea deloc (F-A8).
     pub mesaj_lista: String,
+    /// Revizuirea si textele finale de la ultima citire / salvare: baza
+    /// unirii in trei cai cu ce a scris intre timp `gmotion` din linia de
+    /// comanda. Fara ea, prima autosalvare a ferestrei stergea marcajele
+    /// facute din `cli` (A-5 din auditul 2026-11-23).
+    salvate_ultima: (modul::Revizuire, modul::Editari),
     /// Folderul ales cu dialogul nativ pentru deploy (etapa 25); `None` =
     /// directorul de date. Deploy-ul merge intr-un subfolder nou al lui, cu
     /// referinta si momentul in nume, ca un folder plin sa nu fie refuzat.
@@ -115,6 +120,7 @@ impl Stare {
             salvat_la: String::new(),
             uneste_implicit: false,
             mesaj_lista: String::new(),
+            salvate_ultima: Default::default(),
             folder_deploy: None,
             verificare: None,
             rezultat_verificare: None,
@@ -179,8 +185,22 @@ impl Stare {
             .unwrap_or_else(|| {
                 gmotion_platforma::Sesiune::noua(server, auth, referinta.clone(), String::new())
             });
+        // unire in trei cai cu ce e acum pe disc: ce a scris `gmotion` din
+        // linia de comanda cat fereastra era deschisa nu se pierde (A-5)
+        let (baza_rev, baza_ed) = self.salvate_ultima.clone();
+        let revizuire = modul::Revizuire::uneste(
+            &baza_rev,
+            &revizuire,
+            &modul::Revizuire::din_sesiune(&sesiune),
+        );
+        let editari =
+            modul::Editari::uneste(&baza_ed, &editari, &modul::Editari::din_sesiune(&sesiune));
         revizuire.in_sesiune(&mut sesiune);
         editari.in_sesiune(&mut sesiune);
+        if let Some(a) = self.app.as_mut() {
+            a.preia_starea(revizuire.clone(), editari.clone());
+        }
+        self.salvate_ultima = (revizuire, editari);
         if let Some(a) = self.app.as_ref() {
             crate::rutare::taburi_in_sesiune(a.taburi(), &mut sesiune);
         }
@@ -190,11 +210,16 @@ impl Stare {
         // se adauga, nu se inlocuiesc: sesiunea tine munca facuta pe
         // toate bazele comparate vreodata cu referinta asta (C3)
         sesiune.adauga_baze(&baze);
+        // „Compararile salvate" sorteaza si afiseaza dupa campul asta, iar
+        // fereastra nu-l scria niciodata: o comparare facuta numai de aici
+        // aparea cu data goala, ultima in lista (A-6 din auditul 2026-11-23)
+        let acum = gmotion_platforma::timp::acum();
+        sesiune.salvata = acum.clone();
         match self.sesiuni.salveaza(&sesiune) {
             Ok(_) => {
-                // ora, nu data: „ultima data la 14:52"
-                let acum = gmotion_platforma::timp::acum();
-                self.salvat_la = acum.split(' ').nth(1).unwrap_or(&acum).to_string();
+                // ora, nu data: „ultima data la 14:52". Ceasul din
+                // `platforma::timp` e UTC, si se spune (A-16)
+                self.salvat_la = format!("{} UTC", acum.split(' ').nth(1).unwrap_or(&acum));
             }
             Err(e) => {
                 tracing::warn!(target: "gmotion::app", eroare = %e, "progresul nu s-a salvat");
@@ -214,6 +239,9 @@ impl Stare {
         self.salvat_la = String::new();
         self.mesaj_lista = String::new();
         self.conectare.eroare_comparare = None;
+        // baza unirii in trei cai e a sesiunii de dinainte: pastrata, ar face
+        // urmatoarea salvare sa creada ca a sters ea ce nu mai e acolo
+        self.salvate_ultima = Default::default();
         let l = self.conectare.limba;
         self.conectare.recente = recente(&self.sesiuni, l);
         tracing::info!(target: "gmotion::app", "deconectat");
@@ -1525,6 +1553,55 @@ mod teste {
         assert_eq!(puse_deoparte.len(), 1, "{puse_deoparte:?}");
         assert_eq!(std::fs::read(&puse_deoparte[0]).unwrap(), b"stricat");
         assert!(!fisier.exists(), "sesiunea ilizibila a fost mutata");
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// A-5 din auditul 2026-11-23: fereastra inlocuia in sesiune tot ce
+    /// scrisese `gmotion` din linia de comanda intre timp. Acum se uneste in
+    /// trei cai: ce a schimbat fereastra castiga, restul vine de pe disc.
+    ///
+    /// A-6: `salvata` nu era scrisa niciodata de fereastra, deci „Compararile
+    /// salvate" arata data goala si sorta gresit.
+    #[test]
+    fn salvarea_nu_calca_peste_ce_a_scris_cli_si_pune_data() {
+        let (mut s, d) = stare("unire-cli");
+        let r = comparata(&s);
+        s.primeste_compararea(r);
+        s.salveaza(None);
+
+        // `gmotion` marcheaza intre timp un obiect ca deployat, in sesiune
+        let (server, referinta) = (s.server.clone(), s.referinta.clone());
+        let mut sesiune = s
+            .sesiuni
+            .incarca(&server, &referinta)
+            .expect("sesiunea se citeste")
+            .expect("exista");
+        let mut din_cli = modul::Revizuire::din_sesiune(&sesiune);
+        let rand = s
+            .app
+            .as_ref()
+            .expect("aplicatie")
+            .randuri_vizibile()
+            .first()
+            .cloned()
+            .expect("cel putin un rand");
+        din_cli.marcheaza_deployat(&rand);
+        din_cli.in_sesiune(&mut sesiune);
+        s.sesiuni.salveaza(&sesiune).expect("scrisa");
+
+        // fereastra autosalveaza: marcajul din cli trebuie sa supravietuiasca
+        s.salveaza(None);
+        let dupa = s
+            .sesiuni
+            .incarca(&server, &referinta)
+            .expect("se citeste")
+            .expect("exista");
+        assert!(
+            modul::Revizuire::din_sesiune(&dupa).a_fost_deployat(&rand),
+            "marcajul scris de cli s-a pierdut la autosalvare"
+        );
+        assert!(!dupa.salvata.is_empty(), "campul `salvata` nu a fost scris");
+        assert!(s.salvat_la.ends_with(" UTC"), "{}", s.salvat_la);
         std::fs::remove_dir_all(&d).ok();
     }
 

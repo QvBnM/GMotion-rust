@@ -163,7 +163,7 @@ impl StareDeploy {
         let altele = altele.clone();
         let r = self
             .plan
-            .de_deployat_cu(referinta, texte_finale)
+            .de_deployat_cu_tinte(referinta, &altele, texte_finale)
             .and_then(|pe_baza| {
                 let revenire = self.plan.revenire(referinta, &altele);
                 modul::deploy::scrie_cu_revenire(

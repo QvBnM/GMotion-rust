@@ -1378,7 +1378,7 @@ pub fn deploy(
         ));
     }
     let pe_baza = plan
-        .de_deployat_cu(&r.referinta, &texte_finale)
+        .de_deployat_cu_tinte(&r.referinta, &r.altele, &texte_finale)
         .map_err(|e| e.to_string())?;
     let revenire = plan.revenire(&r.referinta, &r.altele);
     let sarite = plan.sarite;

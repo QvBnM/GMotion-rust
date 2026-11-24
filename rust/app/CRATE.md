@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: f3d496c9e9656fd8 -->
+<!-- api-hash: 0b8dbe5a976dabbe -->
 
 ## Rol
 
@@ -49,6 +49,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::{lucrari_detalii, pune_detalii, pune_detalii_multe}`, `LucruDetalii::calculeaza` | „Difera in" si `+N −M` calculate pe alt fir dupa comparare (intai obiectele vizibile); rezultatele vin dupa cheie |
 | `Aplicatie::cu_vederea` | la recomparare, lista noua preia filtrul, ordinea, selectia si „In plan” celei vechi |
 | `Aplicatie::decizii_cazute(plan)`, `StareDeploy::decizii_cazute` | omiterile si textele finale ale obiectelor din plan care nu mai sunt valabile; garda le arata ca schimbari si nu lasa scrierea (N4, N5) |
+| `deploy::EroareScriere` | de ce n-a iesit scrierea, ca date: textul se face la desenare, in limba ferestrei |
+| `rutare::PanouDetalii::pentru_fereastra(limba)` | motivele impactului se scriu aici, cu `impact::text_motive`: `fereastra` nu depinde de modul |
 | `deploy::Deschis::director`, `deploy::ecran(..., limba)` | directorul de deploy se alege o data, la deschiderea planului: ecranul arata exact unde se scrie; textele ecranului in limba interfetei |
 | `Aplicatie::preia_starea(revizuire, editari)` | starea unita la salvare cu ce a scris cli in sesiune (`Revizuire::uneste`); lista se actualizeaza |
 | `Aplicatie::cu_ecranul(e)` | la recomparare, ramai pe ecranul de dinainte daca mai are ce arata (editorul cu model, deploy-ul cu ceva in plan); altfel lista (C7) |

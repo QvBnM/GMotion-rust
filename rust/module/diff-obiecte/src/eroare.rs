@@ -116,6 +116,58 @@ mod teste {
 
     #[test]
     fn coduri_unice_si_prezente_in_mesaj() {
+        // Lista e scrisa de mana, deci se poate uita o varianta — si s-a
+        // uitat: pana la auditul 2026-11-23 avea 12 din 18, fara chiar
+        // ultimele adaugate. `match`-ul de mai jos e exhaustiv, deci
+        // compilatorul cade daca apare o varianta noua si nu e pusa aici.
+        fn exemplu(e: &Eroare) -> Eroare {
+            match e {
+                Eroare::NicioComparare => Eroare::NicioComparare,
+                Eroare::NimicDeDeployat => Eroare::NimicDeDeployat,
+                Eroare::ScriereDeploy { .. } => Eroare::ScriereDeploy {
+                    cale: "c".into(),
+                    detaliu: "d".into(),
+                },
+                Eroare::RandNecunoscut(_) => Eroare::RandNecunoscut(1),
+                Eroare::Export { .. } => Eroare::Export {
+                    cale: "c".into(),
+                    detaliu: "d".into(),
+                },
+                Eroare::Platforma(_) => Eroare::Platforma("p".into()),
+                Eroare::Date(_) => Eroare::Date("d".into()),
+                Eroare::NumeNesigur { .. } => Eroare::NumeNesigur { nume: "n".into() },
+                Eroare::GoInDefinitie { .. } => Eroare::GoInDefinitie {
+                    obiect: "o".into(),
+                    linii: "1".into(),
+                },
+                Eroare::DirectorNegol { .. } => Eroare::DirectorNegol { cale: "c".into() },
+                Eroare::ObiectCriptat { .. } => Eroare::ObiectCriptat { obiect: "o".into() },
+                Eroare::BazaAtinsa { .. } => Eroare::BazaAtinsa {
+                    schimbari: "s".into(),
+                },
+                Eroare::ObiectRepetat { .. } => Eroare::ObiectRepetat {
+                    obiect: "o".into(),
+                    baza: "b".into(),
+                },
+                Eroare::NumeDinDefinitie { .. } => Eroare::NumeDinDefinitie {
+                    obiect: "o".into(),
+                    gasit: "g".into(),
+                },
+                Eroare::CodFaraCreate { .. } => Eroare::CodFaraCreate {
+                    obiect: "o".into(),
+                    asteptat: "PROCEDURE".into(),
+                    gasit: "g".into(),
+                },
+                Eroare::TextFinalGol { .. } => Eroare::TextFinalGol { obiect: "o".into() },
+                Eroare::TipSchimbat { .. } => Eroare::TipSchimbat {
+                    obiect: "o".into(),
+                    martor: "P".into(),
+                    modificata: "V".into(),
+                    baza: "b".into(),
+                },
+                Eroare::DecizieCazuta { .. } => Eroare::DecizieCazuta { lista: "l".into() },
+            }
+        }
         let toate = [
             Eroare::NicioComparare,
             Eroare::NimicDeDeployat,
@@ -140,7 +192,33 @@ mod teste {
             Eroare::BazaAtinsa {
                 schimbari: "s".into(),
             },
+            Eroare::ObiectRepetat {
+                obiect: "o".into(),
+                baza: "b".into(),
+            },
+            Eroare::NumeDinDefinitie {
+                obiect: "o".into(),
+                gasit: "g".into(),
+            },
+            Eroare::CodFaraCreate {
+                obiect: "o".into(),
+                asteptat: "PROCEDURE".into(),
+                gasit: "g".into(),
+            },
+            Eroare::TextFinalGol { obiect: "o".into() },
+            Eroare::TipSchimbat {
+                obiect: "o".into(),
+                martor: "P".into(),
+                modificata: "V".into(),
+                baza: "b".into(),
+            },
+            Eroare::DecizieCazuta { lista: "l".into() },
         ];
+        // fiecare varianta din lista se regaseste in `exemplu`: daca enum-ul
+        // creste, compilatorul cere si acolo o ramura noua
+        for e in &toate {
+            assert_eq!(exemplu(e).cod(), e.cod());
+        }
         let mut c: Vec<&str> = toate.iter().map(|e| e.cod()).collect();
         c.sort_unstable();
         let n = c.len();

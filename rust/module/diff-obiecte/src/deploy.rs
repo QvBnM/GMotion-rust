@@ -494,7 +494,10 @@ fn paranteze(nume: &str) -> String {
 /// comentariul, iar o linie `GO` aparuta asa taie batch-ul si face restul
 /// executabil.
 fn verifica_nume(nume: &str) -> Rezultat<()> {
-    if nume.chars().any(char::is_control) {
+    // un nume gol (plan `.json` scris de mana) dadea `CREATE OR ALTER
+    // PROCEDURE []`, adica un script invalid la rulare in loc de un refuz
+    // inainte de scriere, care e regula zonei (COSMETIC, auditul 2026-11-23)
+    if nume.trim().is_empty() || nume.chars().any(char::is_control) {
         return Err(Eroare::NumeNesigur {
             nume: nume.to_string(),
         });
@@ -676,8 +679,12 @@ GO
 ";
 
 /// La sfarsitul fiecarui fisier: sesiunea se intoarce la normal, ca o garda
-/// declansata sa nu lase `NOEXEC` pornit in fereastra SSMS.
-const SFARSIT_SCRIPT: &str = "SET NOEXEC OFF;\nGO\n";
+/// declansata sa nu lase `NOEXEC` pornit in fereastra SSMS. Se redau si
+/// `ANSI_NULLS` / `QUOTED_IDENTIFIER`: fiecare obiect si le pune pe ale lui,
+/// iar in fereastra SSMS a omului ramaneau cele ale ultimului obiect
+/// deployat, eventual `OFF` (COSMETIC, auditul 2026-11-23).
+const SFARSIT_SCRIPT: &str =
+    "SET NOEXEC OFF;\nGO\nSET ANSI_NULLS ON;\nSET QUOTED_IDENTIFIER ON;\nGO\n";
 
 /// Liniile scrise de GMotion, cu `\r\n`.
 ///
@@ -735,9 +742,27 @@ fn du_te_in_baza(baza: &str) -> String {
     )
 }
 
-fn antet(baza: &str, referinta: &str, acum: &str) -> String {
+/// Avertismentul pus in capul fiecarui fisier cand deploy-ul e impartit.
+const AVERTISMENT_IMPARTIT: &str = "\
+-- ATENTIE: deploy impartit in mai multe fisiere. Oprirea dupa un obiect cazut
+-- tine doar pana la capatul acestui fisier. Ruleaza-le in ordinea numelor si
+-- cu oprire la eroare (sqlcmd -b), altfel un obiect cazut la mijloc lasa
+-- restul sa se execute.
+";
+
+/// Antetul unui script. `mai_multe_fisiere`: deploy-ul e impartit, deci
+/// oprirea dintre obiecte (`SET NOEXEC ON`) **nu trece de marginea
+/// fisierului** — `SET NOEXEC OFF` de la capat o stinge. Se spune in script,
+/// fiindca omul alege ordinea in care le ruleaza (A-7 din auditul
+/// 2026-11-23); altfel un obiect cazut la mijloc lasa restul sa ruleze.
+fn antet(baza: &str, referinta: &str, acum: &str, mai_multe_fisiere: bool) -> String {
+    let avertisment = if mai_multe_fisiere {
+        AVERTISMENT_IMPARTIT
+    } else {
+        ""
+    };
     crlf(&format!(
-        "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\n{GARDA_VERSIUNE}{}",
+        "-- DEPLOYER {baza} | referinta: {referinta} | {acum}\n{avertisment}{GARDA_VERSIUNE}{}",
         du_te_in_baza(baza)
     ))
 }
@@ -1220,9 +1245,13 @@ fn sterge(o: &DeDeployat) -> String {
         "FN" | "TF" | "IF" => "FUNCTION",
         "TR" => "TRIGGER",
         alt => {
-            // Nu se ghiceste: scriptul se opreste vizibil la rulare.
+            // Nu se ghiceste. `RAISERROR` de severitate 16 **nu** opreste
+            // nici SSMS, nici `sqlcmd` fara `-b`, deci pana la auditul
+            // 2026-11-23 revenirea trecea peste obiect si refacea restul, iar
+            // omul credea ca a reusit. Se pune si `SET NOEXEC ON`, ca la un
+            // obiect cazut.
             return crlf(&format!(
-                "-- ═══ {} ═══\nRAISERROR(N'GMotion: nu stiu sa sterg un obiect de tip %s; sterge-l de mana.', 16, 1, N'{}');\nGO\n\n",
+                "-- ═══ {} ═══\nRAISERROR(N'GMotion: nu stiu sa sterg un obiect de tip %s; sterge-l de mana. Revenirea se opreste aici.', 16, 1, N'{}');\nSET NOEXEC ON;\nGO\n\n",
                 o.obiect,
                 alt.replace('\'', "''")
             ));
@@ -1317,7 +1346,10 @@ fn scrie_deploy(
                         tip_nume(&o.tip),
                         slug(&o.obiect)
                     );
-                    scrie_fisier(nume, format!("{}{}", antet(baza, referinta, acum), bloc(o)))?;
+                    scrie_fisier(
+                        nume,
+                        format!("{}{}", antet(baza, referinta, acum, true), bloc(o)),
+                    )?;
                 }
             }
         }
@@ -1334,7 +1366,7 @@ fn scrie_deploy(
                         primul,
                         primul + grup.len() - 1
                     );
-                    let mut text = antet(baza, referinta, acum);
+                    let mut text = antet(baza, referinta, acum, true);
                     for o in grup {
                         text.push_str(&bloc(o));
                     }
@@ -1345,7 +1377,7 @@ fn scrie_deploy(
         ModImpartire::Unul => {
             let mut text = String::new();
             for (baza, obiecte) in pe_baza {
-                text.push_str(&antet(baza, referinta, acum));
+                text.push_str(&antet(baza, referinta, acum, false));
                 for o in obiecte {
                     text.push_str(&bloc(o));
                 }
@@ -1355,7 +1387,7 @@ fn scrie_deploy(
         }
         ModImpartire::PerBaza => {
             for (baza, obiecte) in pe_baza {
-                let mut text = antet(baza, referinta, acum);
+                let mut text = antet(baza, referinta, acum, pe_baza.len() > 1);
                 for o in obiecte {
                     text.push_str(&bloc(o));
                 }
@@ -1376,7 +1408,12 @@ fn scrie_deploy(
         revenire: Vec::new(),
         obiecte,
         sarite,
-        avertismente: Vec::new(),
+        // avertismentele de structura se calculeaza **numai** din ce se
+        // deployeaza, deci exista si aici: lipseau doar fiindca `scrie` nu
+        // vede tinta (A-11 din auditul 2026-11-23). Cele care chiar cer tinta
+        // (view-uri legate, ordinea triggerelor) raman doar la
+        // `scrie_cu_revenire`.
+        avertismente: avertismente_structura(pe_baza),
     })
 }
 
@@ -2013,7 +2050,12 @@ mod teste {
                 .unwrap();
             assert!(garda < poz_use && poz_use < primul_create, "{t}");
             assert!(t.contains("< 4001"), "{t}");
-            assert!(t.ends_with("SET NOEXEC OFF;\r\nGO\r\n"), "{t}");
+            // la capat si setarile de sesiune se redau, ca SSMS sa nu ramana
+            // cu cele ale ultimului obiect deployat
+            assert!(
+                t.ends_with("SET NOEXEC OFF;\r\nGO\r\nSET ANSI_NULLS ON;\r\nSET QUOTED_IDENTIFIER ON;\r\nGO\r\n"),
+                "{t}"
+            );
         }
     }
 
@@ -2113,8 +2155,9 @@ mod teste {
         assert_eq!(t.matches("-- ═══").count(), 3);
         assert_eq!(
             t.matches("\r\nGO\r\n").count(),
-            13,
-            "garda, USE, verificarea bazei, trei per obiect (setarile, codul, oprirea), sfarsitul"
+            14,
+            "garda, USE, verificarea bazei, trei per obiect (setarile, codul, oprirea), \
+             si doua la sfarsit (NOEXEC OFF, setarile redate)"
         );
         std::fs::remove_dir_all(&d).ok();
     }
@@ -2167,7 +2210,7 @@ mod teste {
 
     #[test]
     fn nimic_de_deployat_e_eroare_nu_un_director_gol() {
-        let d = dir("gol");
+        let d = dir("gol-nimic-de-deployat");
         let e = scrie(&d, "Ref", &BTreeMap::new(), ModImpartire::PerBaza, 2, "a").unwrap_err();
         assert_eq!(e.cod(), "GM-MOD-002");
         assert!(!d.exists(), "nu se creeaza directorul degeaba");
@@ -2326,7 +2369,11 @@ mod teste {
         );
         assert!(sql.contains("DROP VIEW IF EXISTS [dbo].[vNou];"), "{sql}");
         assert!(sql.contains("DROP FUNCTION IF EXISTS [dbo].[fNou];"));
-        assert!(sql.trim_end().ends_with("SET NOEXEC OFF;\r\nGO"));
+        assert!(sql.contains("SET NOEXEC OFF;\r\nGO"), "{sql}");
+        assert!(
+            sql.trim_end().ends_with("SET QUOTED_IDENTIFIER ON;\r\nGO"),
+            "{sql}"
+        );
         std::fs::remove_dir_all(&d).ok();
     }
 

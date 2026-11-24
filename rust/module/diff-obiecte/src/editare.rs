@@ -65,7 +65,9 @@ impl Editari {
         self.baze
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
-            .filter(|t| t.amprenta == Amprenta::a_randului(r))
+            // `se_potriveste`, nu `==`: amprenta poarta acum si partea
+            // exacta, iar o sesiune veche n-are una (auditul 2026-11-23)
+            .filter(|t| t.amprenta.se_potriveste(r))
             .filter(|t| match (&t.exacta, &r.exacta_curent) {
                 (Some(a), Some(b)) => a == b,
                 _ => true,

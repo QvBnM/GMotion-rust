@@ -27,6 +27,13 @@ pub struct Amprenta {
     pub referinta: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub curent: Option<String>,
+    /// Amprenta **exacta** a versiunii din baza comparata, cu comentarii si
+    /// spatii. Cele doua de sus sunt pe forma normalizata, deci o schimbare
+    /// cosmetica sau de `QUOTED_IDENTIFIER` nu le atinge: bifa rezista desi
+    /// obiectul a fost atins pe server (auditul 2026-11-23). Garda de deploy
+    /// vede schimbarea, deci nu se scrie nimic gresit — dar bifa mintea.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exacta: Option<String>,
 }
 
 impl Amprenta {
@@ -34,7 +41,21 @@ impl Amprenta {
         Amprenta {
             referinta: r.hash_referinta.clone(),
             curent: r.hash_curent.clone(),
+            exacta: r.exacta_curent.clone(),
         }
+    }
+
+    /// Amprenta mai e a randului asta? Partea exacta se compara **doar cand
+    /// o au amandoua**: o sesiune salvata inainte de 2026-11-23 n-are, si
+    /// bifele ei raman valabile ca pana acum.
+    pub fn se_potriveste(&self, r: &Rand) -> bool {
+        let a = Amprenta::a_randului(r);
+        self.referinta == a.referinta
+            && self.curent == a.curent
+            && match (&self.exacta, &a.exacta) {
+                (Some(x), Some(y)) => x == y,
+                _ => true,
+            }
     }
 }
 
@@ -149,7 +170,7 @@ impl Revizuire {
         self.omise
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
-            .is_some_and(|a| *a == Amprenta::a_randului(r))
+            .is_some_and(|a| a.se_potriveste(r))
     }
 
     /// Obiectul a fost scris intr-un deploy.
@@ -165,7 +186,7 @@ impl Revizuire {
         self.deployate
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
-            .is_some_and(|a| *a == Amprenta::a_randului(r))
+            .is_some_and(|a| a.se_potriveste(r))
     }
 
     /// A fost deployat vreodata (poate intr-o versiune mai veche).
@@ -229,9 +250,14 @@ impl Revizuire {
 
     /// Scoate bifa. Intoarce `true` daca exista.
     pub fn scoate(&mut self, baza: &str, obiect: &str) -> bool {
-        self.baze
+        let scos = self
+            .baze
             .get_mut(baza)
-            .is_some_and(|b| b.remove(obiect).is_some())
+            .is_some_and(|b| b.remove(obiect).is_some());
+        // harta bazei ramasa goala se scoate, ca la `scoate_omis`: altfel
+        // fisierul de sesiune creste cu chei fara nimic in ele
+        self.baze.retain(|_, obiecte| !obiecte.is_empty());
+        scos
     }
 
     /// Bifa, dar **numai daca** obiectul e acelasi ca atunci cand s-a pus.
@@ -241,7 +267,7 @@ impl Revizuire {
         self.baze
             .get(&r.baza)
             .and_then(|b| b.get(&r.obiect))
-            .is_some_and(|a| *a == Amprenta::a_randului(r))
+            .is_some_and(|a| a.se_potriveste(r))
     }
 
     /// Cate bife sunt inca valabile pentru randurile date, si cate au cazut
@@ -268,14 +294,9 @@ impl Revizuire {
         let mut scoase = 0;
         // un index, nu `any` pe toate randurile pentru fiecare bifa: 5 s la
         // 10.000 de obiecte (P6 din auditul QA)
-        let index: std::collections::HashMap<(&str, &str), Amprenta> = randuri
+        let index: std::collections::HashMap<(&str, &str), &Rand> = randuri
             .iter()
-            .map(|r| {
-                (
-                    (r.baza.as_str(), r.obiect.as_str()),
-                    Amprenta::a_randului(r),
-                )
-            })
+            .map(|r| ((r.baza.as_str(), r.obiect.as_str()), r))
             .collect();
         // bifele „revizuit" cad cand obiectul se schimba; omiterile raman cat
         // obiectul e in comparare, ca deploy-ul sa poata spune ca au cazut
@@ -292,7 +313,7 @@ impl Revizuire {
                 obiecte.retain(|obiect, amprenta| {
                     let pastreaza = index
                         .get(&(baza.as_str(), obiect.as_str()))
-                        .is_some_and(|a| !pe_amprenta || a == amprenta);
+                        .is_some_and(|r| !pe_amprenta || amprenta.se_potriveste(r));
                     scoase += usize::from(!pastreaza);
                     pastreaza
                 });
@@ -351,7 +372,7 @@ impl Revizuire {
                 self.omise
                     .get(&r.baza)
                     .and_then(|b| b.get(&r.obiect))
-                    .is_some_and(|a| *a != Amprenta::a_randului(r))
+                    .is_some_and(|a| !a.se_potriveste(r))
             })
             .map(|r| (r.baza.clone(), r.obiect.clone()))
             .collect()
@@ -397,6 +418,36 @@ mod teste {
             creat: None,
             exacta_curent: None,
         }
+    }
+
+    /// A-3 din auditul 2026-11-23: bifa „revizuit" se tinea doar pe forma
+    /// normalizata, deci o schimbare pe server pe care normalizarea n-o vede
+    /// (spatii, capete de linie, `QUOTED_IDENTIFIER`) o lasa in picioare —
+    /// desi garda de deploy vedea schimbarea. Acum amprenta poarta si partea
+    /// exacta, si bifa cade cu ea.
+    #[test]
+    fn bifa_cade_si_la_o_schimbare_pe_care_normalizarea_n_o_vede() {
+        let mut r = rand("dbo.p", "h1", "h2");
+        r.exacta_curent = Some("exact-1".into());
+        let mut v = Revizuire::noua();
+        v.marcheaza(&r);
+        assert!(v.e_revizuit(&r));
+        // acelasi hash normalizat, alta versiune exacta pe server
+        r.exacta_curent = Some("exact-2".into());
+        assert!(
+            !v.e_revizuit(&r),
+            "bifa nu poate rezista cand obiectul a fost atins"
+        );
+        // si `curata` o scoate, nu doar `e_revizuit`
+        let scoase = v.curata(std::slice::from_ref(&r), &["Client1".to_string()]);
+        assert_eq!(scoase, 1);
+
+        // o sesiune veche n-are amprenta exacta: bifele ei raman valabile
+        let mut vechi = Revizuire::noua();
+        r.exacta_curent = None;
+        vechi.marcheaza(&r);
+        r.exacta_curent = Some("exact-3".into());
+        assert!(vechi.e_revizuit(&r), "sesiunile vechi nu se invalideaza");
     }
 
     /// C10: golirea lasa notele si marcajele de deploy.
