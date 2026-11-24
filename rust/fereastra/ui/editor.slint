@@ -188,6 +188,9 @@ component CapPanou inherits Rectangle {
 }
 
 export component EditorDiferente inherits Window {
+    // sub atat, cele doua panouri de cod nu mai au ce arata (C-S6)
+    min-width: 900px;
+    min-height: 560px;
     // „Verifica pe server" (etapa 26): cererea, si ce a raspuns serverul
     callback verifica-pe-server();
     // × pe raspunsul serverului

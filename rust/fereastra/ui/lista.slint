@@ -114,7 +114,9 @@ export global Coloane {
     in-out property <length> linii: 84px;
     in-out property <length> scor: 118px;
     in-out property <length> difera: 124px;
-    in-out property <length> revizuit: 62px;
+    // 62 px incapea „Revizuit", dar nu si „Reviewed": capetele „Reviewed" si
+    // „Deploy" se atingeau in engleza (K-3, auditul 2026-11-23)
+    in-out property <length> revizuit: 76px;
     // incape „Extra · fara deploy"; varianta lunga, din v3.4, sta in panou
     in-out property <length> deploy: 130px;
     in-out property <length> folosit: 76px;
@@ -1070,10 +1072,19 @@ export component FereastraLista inherits Window {
                         }
                     }
                 }
-                g-filtre := HorizontalLayout {
-                    width: self.preferred-width;
+                // Randul de filtre se poate derula pe orizontala cand nu
+                // incape: la 1024x768 pastila „Similar 0 – 100 %" era taiata
+                // de marginea ferestrei, iar in engleza iesea de tot (K-1 din
+                // auditul 2026-11-23). Cat incape, Flickable-ul nu se vede.
+                filtre-vizibile := Flickable {
                     x: bara.b-toate ? 24px + g-cautare.preferred-width + bara.gol : 24px;
                     y: bara.b-toate ? bara.y-b : bara.y-b + bara.rand;
+                    height: bara.rand;
+                    width: Math.min(g-filtre.preferred-width, bara.width - self.x - 16px);
+                    content-width: g-filtre.preferred-width;
+                    content-height: bara.rand;
+                g-filtre := HorizontalLayout {
+                    width: self.preferred-width;
                     height: bara.rand;
                     spacing: 8px;
                     for t[i] in root.tipuri: VerticalLayout {
@@ -1164,6 +1175,7 @@ export component FereastraLista inherits Window {
                             }
                         }
                     }
+                }
                 }
                 g-plan := HorizontalLayout {
                     width: self.preferred-width;

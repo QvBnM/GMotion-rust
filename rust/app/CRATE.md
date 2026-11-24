@@ -17,10 +17,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
   `gmotion-modul-diff-obiecte` si `gmotion-core`.
 - Nu tine secrete si nu salveaza acreditari: progresul merge prin sesiunile
   din `gmotion-platforma`, care nu au camp de parola.
-- Nu are inca selector de fisiere pentru instantaneu: calea se da la pornire
-  (`--sursa`). Vezi `STARE.md`.
-- Nu arata progresul unei comparari lungi: pe server real, compararea blocheaza
-  fereastra pana se termina. De rezolvat cand apare ecranul de progres.
+- Nu deschide singur fisiere si nu alege foldere: dialogul nativ e `rfd`,
+  chemat din `main.rs`; aici se primeste doar calea aleasa.
 
 ## API public
 
@@ -84,8 +82,11 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 3. **Detaliile („Difera in", `+N −M`) se calculeaza doar pentru randurile
    cerute.** Pe comparari mari, calculul pentru tot ar fi aruncat aproape
    integral.
-4. **Un obiect care exista doar intr-o parte nu deschide editorul:** nu are cu
-   ce fi comparat. `ObiectUrmator` sare peste el.
+4. **Un obiect care exista doar intr-o parte se deschide in editor** (F-A9):
+   tot codul apare verde, ca „adus din Martor". Nu se deschide doar ce n-are
+   niciun text: obiectele criptate. Pana la auditul 2026-11-23 invarianta de
+   aici spunea contrariul, desi codul facea deja asa
+   (`rutare::executa`, `Comanda::Selecteaza`).
 5. **Parola iese din `Acreditari` intr-un singur loc:** `pornire::deschide`.
    Nu ajunge in starea afisata, in sesiuni sau in mesajele de eroare — exista
    test.

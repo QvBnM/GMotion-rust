@@ -39,11 +39,22 @@ fn main() {
     c.baza.baza = a[3].clone();
     let r = pornire::compara(&c).expect("compararea");
     let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, modul::Revizuire::noua());
-    // primele sase obiecte, in plan, prin aceleasi comenzi ca fereastra
-    for p in 0..6.min(app.lista().vizibile().len()) {
+    // Primele sase obiecte **care se pot deploia**, in plan, prin aceleasi
+    // comenzi ca fereastra. Nu „primele sase randuri": de la etapa 28 primele
+    // sunt tabele, care se refuza din plan, iar captura iesea cu planul gol si
+    // cu propozitia rupta (C-D6 din auditul 2026-11-23).
+    for p in 0..app.lista().vizibile().len() {
+        if app.lista().in_plan().len() >= 6 {
+            break;
+        }
         app.comanda(Comanda::Selecteaza(p));
         app.comanda(Comanda::ComutaInPlan);
     }
+    let puse = app.lista().in_plan().len();
+    assert!(
+        puse > 0,
+        "instantaneul n-are niciun obiect deployabil: captura n-ar arata nimic"
+    );
     app.comanda(Comanda::DeschideDeploy);
     let mut st = StareDeploy::nou(app.plan(&a[2], "2026-11-18 14:41"));
     let recitit = pornire::compara(&c).expect("recitirea");

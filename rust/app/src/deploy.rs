@@ -254,6 +254,13 @@ pub fn asigura_planul(
     }
     let plan = app.plan(referinta, acum);
     let mut stare = StareDeploy::nou(plan);
+    // Modul de impartire e o preferinta de interfata, nu o parte a planului:
+    // scoteai un obiect din plan de pe ecranul de deploy si „Un fisier per
+    // obiect" sarea inapoi la „Un fisier per baza" (C-S5 din auditul
+    // 2026-11-23). Garda si rezultatul **se** refac, corect (C1/C2).
+    if let Some(d) = deschis.as_ref() {
+        stare.impartire = d.stare.impartire;
+    }
     stare.decizii_cazute = app.decizii_cazute(&stare.plan);
     *deschis = Some(Deschis {
         cheie,

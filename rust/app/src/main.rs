@@ -31,7 +31,73 @@ use gmotion_fereastra::{
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
 
+/// Ce scrie `gmotion-ui --help`. Pana la auditul 2026-11-23 binarul n-avea
+/// `--help` si inghitea in tacere orice argument scris gresit: un `--tena`
+/// pornea fereastra ca si cum nimic nu s-ar fi intamplat (C-S7).
+const AJUTOR_CLI: &str = "\
+gmotion-ui — comparare si deploy de obiecte SQL Server, cu fereastra.
+
+Folosire:
+  gmotion-ui [optiuni]
+
+Optiuni:
+  --sursa <CALE>        porneste de la un instantaneu `.json`, fara server
+  --referinta <BAZA>    baza martor, cu --sursa si --baza: compara direct
+  --baza <BAZA>         baza modificata, cu --sursa si --referinta
+  --previzualizare      instantaneul sintetic din instalare, fara server
+  --tema <intunecat|luminos>
+  --limba <ro|en>
+  -h, --help            textul asta
+
+Fara optiuni porneste ecranul de conectare. Tema si limba se tin minte
+intre porniri; optiunea le schimba doar pentru rularea asta.
+Tot ce face fereastra se poate face si din `gmotion` (linia de comanda).
+";
+
+/// Optiunile pe care le stie binarul. Un argument care nu e aici si nu e
+/// valoarea uneia dintre ele e o greseala de scriere, si se spune.
+const OPTIUNI: [&str; 7] = [
+    "--sursa",
+    "--referinta",
+    "--baza",
+    "--previzualizare",
+    "--tema",
+    "--limba",
+    "--ajutor",
+];
+
+/// Argumentele care nu sunt recunoscute. Valoarea unei optiuni cu valoare nu
+/// se numara: vine imediat dupa ea.
+fn argumente_necunoscute() -> Vec<String> {
+    let a: Vec<String> = std::env::args().skip(1).collect();
+    let cu_valoare = ["--sursa", "--referinta", "--baza", "--tema", "--limba"];
+    let mut rele = Vec::new();
+    let mut i = 0;
+    while i < a.len() {
+        let x = &a[i];
+        if cu_valoare.contains(&x.as_str()) {
+            i += 2;
+            continue;
+        }
+        if !OPTIUNI.contains(&x.as_str()) && x != "-h" && x != "--help" {
+            rele.push(x.clone());
+        }
+        i += 1;
+    }
+    rele
+}
+
 fn main() {
+    if std::env::args().any(|a| a == "--help" || a == "-h" || a == "--ajutor") {
+        print!("{AJUTOR_CLI}");
+        return;
+    }
+    let rele = argumente_necunoscute();
+    if !rele.is_empty() {
+        eprintln!("Nu cunosc: {}\n", rele.join(", "));
+        eprint!("{AJUTOR_CLI}");
+        std::process::exit(2);
+    }
     // mesaj de om la iesirea de erori, nu un `Debug` al tipului de eroare:
     // asta e tot ce vede cineva care porneste gresit aplicatia
     if let Err(e) = ruleaza() {
@@ -1081,9 +1147,13 @@ fn ruleaza() -> Result<(), String> {
         // reconstruieste la redesenare, din ce arata fereastra acum
         pe_comanda!(editor_ui.on_comuta_omis(|| Comanda::ComutaOmis));
         pe_comanda!(editor_ui.on_comuta_unirea_cursorului(|cu| Comanda::ComutaUnireaCursorului(cu)));
-        let c = comanda.clone();
-        editor_ui
-            .on_aplica_diferenta(move |k| c(Comanda::AplicaDiferenta(usize::try_from(k).ok())));
+        // prin `pe_comanda!`, ca toate celelalte: scrie si linia in jurnalul
+        // de sesiune. Era singura actiune reala fara ea, si tocmai cea care
+        // schimba textul ce pleaca in baza — „un buton fara linie in jurnal
+        // nu e legat" (C-D5 din auditul 2026-11-23)
+        pe_comanda!(
+            editor_ui.on_aplica_diferenta(|k| Comanda::AplicaDiferenta(usize::try_from(k).ok()))
+        );
         // un bloc tras si lasat: pe locul sugerat (-1) sau unde l-a lasat omul
         let c = comanda.clone();
         editor_ui.on_plaseaza(move |bloc, loc| {

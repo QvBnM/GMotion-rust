@@ -32,28 +32,6 @@ impl Stare {
         }
     }
 
-    /// Numele categoriei in bara laterala, ca in macheta.
-    pub fn categorie(self) -> &'static str {
-        match self {
-            Stare::Modificat => "Modificate",
-            Stare::DoarSursa => "Doar in sursa",
-            Stare::DoarBaza => "Extra",
-            Stare::Identic => "Identice",
-            Stare::Criptat => "Criptate",
-        }
-    }
-
-    /// Cum se citeste starea unui rand (pentru cititoarele de ecran).
-    pub fn descriere(self) -> &'static str {
-        match self {
-            Stare::Modificat => "modificat",
-            Stare::DoarSursa => "doar in sursa",
-            Stare::DoarBaza => "doar in baza",
-            Stare::Identic => "identic",
-            Stare::Criptat => "criptat",
-        }
-    }
-
     /// Obiectul chiar difera (intra in progresul revizuirii si in deploy).
     pub fn difera(self) -> bool {
         matches!(self, Stare::Modificat | Stare::DoarSursa | Stare::DoarBaza)
@@ -203,17 +181,6 @@ impl FiltruRevizuire {
         FiltruRevizuire::Deployate,
         FiltruRevizuire::Nedeployate,
     ];
-
-    pub fn eticheta(self) -> &'static str {
-        match self {
-            FiltruRevizuire::Nerevizuite => "Nerevizuite",
-            FiltruRevizuire::Revizuite => "Revizuite",
-            FiltruRevizuire::Omise => "Omise",
-            FiltruRevizuire::InPlan => "In plan",
-            FiltruRevizuire::Deployate => "Deployate",
-            FiltruRevizuire::Nedeployate => "Nedeployate",
-        }
-    }
 
     fn potriveste(self, o: &Obiect) -> bool {
         match self {

@@ -66,6 +66,10 @@ export component FereastraDeploy inherits Window {
     title: "gmotion — deploy"; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
+    // sub atat, lista pasilor si panoul „Inainte de scriere" nu mai incap
+    // unul langa altul (C-S6 din auditul 2026-11-23)
+    min-width: 900px;
+    min-height: 560px;
     background: Tema.fundal;
     default-font-family: Tema.font-ui;
     default-font-size: 13px;

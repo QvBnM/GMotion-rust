@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: fa1fff0d87c359c5 -->
+<!-- api-hash: a16b54a0278e118d -->
 
 ## Rol
 
@@ -14,8 +14,9 @@ aceleasi pe ambele moduri; capturile sunt in `cercetare/capturi/`. Jetoanele, in
 (`INTUNECAT`, `LUMINOS`), si fonturile (Geist si Geist Mono, incorporate in
 binar) stau in `src/jetoane.rs` — in `.slint` nu se scrie nicio culoare.
 
-Stare: **prototip** — conectarea (etapa 11), lista cu previzualizare (etapa 9)
-si editorul de diferente (etapa 8).
+Stare: **in folosinta** — conectarea, lista cu harta si panou de detalii,
+editorul cu doua panouri si deploy-ul, in doua teme si doua limbi. Ultima
+etapa care a atins-o: 28 (tabelele in comparare).
 
 ## Nu face
 
