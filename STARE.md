@@ -303,7 +303,8 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   una din parti.
 - **Fixture-ul de plasare se regenereaza ruland pagina v3.4**, nu extragand
   cod: `unelte/regenereaza-fixture-plasare.sh` (cere `node` si `playwright`;
-  poarta sare verificarea daca lipsesc).
+  regenerarea e numai de acolo, explicit, cu motivul in `JURNAL.md`: poarta
+  n-are niciun pas de plasare, si fixture-ul nu se atinge la rulare).
 - **Garda de cost (`core/tests/cost.rs`) e pe numarul de pasi, nu pe timp.**
   Daca o schimbi in masuratoare de timp, devine instabila pe o masina
   incarcata, si prima oara cand cade nimeni n-o sa o creada.

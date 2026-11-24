@@ -58,7 +58,14 @@ def rol(linii, slint):
         out.append(t)
         if t.endswith("."):
             break
-    return " ".join(out)[:160]
+    # taiere pe cuvant, nu pe caracter: pana la auditul 2026-11-23 rolul se
+    # rupea in mijlocul unui cuvant („...iar optional ")
+    rol = " ".join(out)
+    if len(rol) <= 160:
+        return rol
+    scurt = rol[:160]
+    taiat = scurt.rsplit(" ", 1)[0] if " " in scurt else scurt
+    return taiat.rstrip(" ,;:") + "…"
 
 
 def harta_fisier(cale):

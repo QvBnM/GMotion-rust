@@ -13,7 +13,11 @@
 #   linii (pana la `{` sau `;`);
 # - variantele unui `pub enum` si metodele unui `pub trait`;
 # - pentru un binar cu `enum Comanda` (cli), subcomenzile si argumentele.
-# Comentariile si `mod teste` nu intra; spatiile se normalizeaza.
+# Comentariile nu intra si spatiile se normalizeaza. **`mod teste` intra**: un
+# `pub fn` dintr-un `#[cfg(test)] mod teste` schimba hash-ul, fiindca filtrul e
+# pe linii care incep cu `pub`, nu pe module. Verificat la auditul 2026-11-23,
+# cand comentariul de aici spunea contrariul. Practic: cand adaugi un ajutor de
+# test `pub`, `CRATE.md` cere si el hash nou.
 set -euo pipefail
 
 crate="${1:?folosire: unelte/api-hash.sh <cale-crate>}"

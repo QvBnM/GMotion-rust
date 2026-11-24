@@ -19,6 +19,10 @@ pub struct ArgumenteSursa {
     pub server: Option<String>,
 
     /// Port, daca nu e cel implicit.
+    ///
+    /// Nu `conflicts_with = "sursa"`: refuzul il face `deschide`, cu
+    /// `GM-CLI-001` si un mesaj care spune de ce. Mesajul lui clap („cannot
+    /// be used with") n-are cod stabil.
     #[arg(long, requires = "server")]
     pub port: Option<u16>,
 

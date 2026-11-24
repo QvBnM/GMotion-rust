@@ -245,6 +245,17 @@ pub fn comparare_json<'a>(c: &'a Comparare, detalii: &'a Detalii) -> CompararJso
 
 /// Scrie un JSON la iesirea standard. `Result` ca sa nu dea panica pe o
 /// conducta inchisa (`| head`).
+/// Codul stabil dintr-un mesaj de eroare (`[GM-DB-007] ...`), daca are unul.
+/// Cu `--json`, eroarea pleaca structurata, si codul e campul dupa care se
+/// poate decide programatic (auditul 2026-11-23).
+pub fn cod_din_mesaj(mesaj: &str) -> Option<&str> {
+    let rest = mesaj.strip_prefix('[')?;
+    let (cod, _) = rest.split_once(']')?;
+    cod.starts_with("GM-")
+        .then_some(cod)
+        .filter(|c| c.len() <= 20 && c.chars().all(|x| x.is_ascii_alphanumeric() || x == '-'))
+}
+
 pub fn scrie_json<T: serde::Serialize>(v: &T) -> std::io::Result<()> {
     let text = serde_json::to_string_pretty(v)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;

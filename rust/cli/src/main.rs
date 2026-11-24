@@ -470,6 +470,11 @@ fn main() -> std::process::ExitCode {
             if cate.is_some() && !matches!(mod_fisiere, ModArg::CateN) {
                 return Err("[GM-CLI-001] --cate merge doar cu --mod-fisiere cate-n".to_string());
             }
+            // `--cate 0` era acceptat si reinterpretat ca 1, undeva mai jos:
+            // o valoare evident invalida se refuza, nu se ghiceste (D-19)
+            if cate == &Some(0) {
+                return Err("[GM-CLI-001] --cate cere cel putin 1 obiect per fisier".to_string());
+            }
             comenzi::deploy(
                 sursa,
                 referinta,
@@ -515,7 +520,22 @@ fn main() -> std::process::ExitCode {
         Err(mesaj) => {
             // Mereu la iesirea de erori, si mereu cod nenul: altfel o rulare
             // programata ar raporta succes.
-            eprintln!("Eroare: {mesaj}");
+            //
+            // Cu `--json`, eroarea e tot JSON: pana la auditul 2026-11-23
+            // stdout ramanea gol si cine citea cu `jq` primea o eroare de
+            // parsare in loc de cod si mesaj. Merge tot pe stderr, ca sa nu se
+            // amestece cu rezultatul — invarianta „pe stdout numai JSON-ul
+            // cerut" ramane.
+            if format == Format::Json {
+                let cod = afisare::cod_din_mesaj(&mesaj);
+                let obiect = serde_json::json!({ "eroare": { "cod": cod, "mesaj": mesaj } });
+                match serde_json::to_string_pretty(&obiect) {
+                    Ok(t) => eprintln!("{t}"),
+                    Err(_) => eprintln!("Eroare: {mesaj}"),
+                }
+            } else {
+                eprintln!("Eroare: {mesaj}");
+            }
             std::process::ExitCode::FAILURE
         }
     }

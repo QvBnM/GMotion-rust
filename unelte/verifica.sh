@@ -53,6 +53,10 @@ fi
 # avertisment pica poarta (o proprietate depreciata a ajuns asa la Mihai,
 # 2026-11-19, iar o bucla de layout „poate cadea la rulare").
 avertismente_slint() {
+  # `touch` pe un fisier urmarit: nu-i schimba continutul, doar mtime-ul, ca
+  # `build.rs` sa reruleze. Doua rulari in paralel pe acelasi repo isi
+  # reconstruiesc deci reciproc `gmotion-fereastra` (D-13, auditul
+  # 2026-11-23); nu se poate altfel fara sa ocolim cache-ul cargo.
   touch rust/fereastra/ui/fereastra.slint
   local ies
   ies="$(cargo build --manifest-path rust/Cargo.toml -p gmotion-fereastra 2>&1)" || { printf '%s\n' "$ies"; return 1; }

@@ -303,7 +303,9 @@ impl SursaSqlServer {
     }
 
     /// Verifica conexiunea si intoarce ce raporteaza serverul despre el insusi.
-    /// Pentru ecranul de conectare si pentru `gmotion diagnostic`.
+    /// Pentru ecranul de conectare si pentru `gmotion testeaza --server ...`
+    /// (nu `gmotion diagnostic`, care nu se conecteaza nicaieri — comentariul
+    /// de aici a fost gresit pana la auditul 2026-11-23).
     pub fn verifica(&mut self, baza: &str) -> Rezultat<InfoServer> {
         let randuri = self.interogheaza(baza, INTEROGARE_INFO)?;
         let Some(r) = randuri.first() else {

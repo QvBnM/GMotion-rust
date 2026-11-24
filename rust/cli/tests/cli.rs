@@ -2287,3 +2287,40 @@ fn baza_goala_se_semnaleaza() {
     );
     serde_json::from_str::<serde_json::Value>(&out(&o)).expect("stdout ramane JSON");
 }
+
+/// D-4 din auditul 2026-11-23: cu `--json`, eroarea era doar text romanesc pe
+/// stderr, iar stdout ramanea gol — cine citea cu `jq` primea o eroare de
+/// parsare in loc de cod si mesaj. Acum eroarea e tot JSON, pe stderr (pe
+/// stdout ramane numai rezultatul cerut).
+#[test]
+fn json_da_json_si_cand_cade() {
+    let o = ruleaza(&["--json", "baze", "--sursa", "/nu/exista.json"]);
+    assert!(!o.status.success());
+    assert_eq!(out(&o), "", "stdout ramane curat");
+    let v: serde_json::Value = serde_json::from_str(&err(&o)).expect("stderr e JSON");
+    assert_eq!(v["eroare"]["cod"], "GM-DB-007");
+    assert!(
+        v["eroare"]["mesaj"]
+            .as_str()
+            .expect("mesaj")
+            .contains("nu poate fi citit"),
+        "{v}"
+    );
+
+    // o eroare fara cod stabil are `cod: null`, nu lipseste campul
+    let o = ruleaza(&[
+        "--json",
+        "compara",
+        "--sursa",
+        "/nu/exista.json",
+        "--referinta",
+        "X",
+    ]);
+    assert!(!o.status.success());
+    let v: serde_json::Value = serde_json::from_str(&err(&o)).expect("stderr e JSON");
+    assert!(v["eroare"].get("cod").is_some(), "{v}");
+
+    // fara `--json`, mesajul ramane ca pana acum
+    let o = ruleaza(&["baze", "--sursa", "/nu/exista.json"]);
+    assert!(err(&o).starts_with("Eroare: "), "{}", err(&o));
+}

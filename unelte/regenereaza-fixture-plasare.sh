@@ -10,7 +10,12 @@
 # starea paginii. Deci pagina se genereaza din `mostenire/ui.py` si se deschide
 # intr-un browser fara cap, prin „comparare offline", care e complet locala.
 #
-# Cere `node` si `playwright`. Daca lipsesc, poarta sare verificarea.
+# Cere `node` si `playwright`. **Poarta nu regenereaza nimic** si n-are niciun
+# pas de plasare: fixture-ul `referinta/plasare_js.json` e commitat si citit de
+# `rust/core/tests/plasare.rs`, iar regenerarea e numai de aici, explicit, cu
+# motivul in `JURNAL.md` (regula 2). Pana la auditul 2026-11-23 comentariul
+# asta si `STARE.md` spuneau ca poarta sare verificarea, ceea ce nu era
+# adevarat: nu exista verificarea.
 set -euo pipefail
 
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

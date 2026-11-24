@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 102409d2b116a032 -->
+<!-- api-hash: 68f05dbd2e939cb1 -->
 
 ## Rol
 
@@ -21,7 +21,12 @@ Doua lucruri trebuie sa ramana adevarate:
 - **Nu accepta parola ca argument.** Vezi invarianta 2.
 - **Nu scrie nimic pe iesirea standard in afara de rezultat**, cand e `--json`.
 
-## Comenzi
+## API public
+
+Binarul `gmotion` n-are API de biblioteca: interfata lui publica sunt
+comenzile de mai jos, cu argumentele si codurile lor de iesire.
+
+### Comenzi
 
 | Comanda | Ce face |
 |---|---|

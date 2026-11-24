@@ -41,3 +41,7 @@ referinta/corpus_bench.json
 etapa6-rezultat.txt
 raport.json
 proba-win7/
+
+# scris de `unelte/verifica.sh` la pasul MSRV; sters la final, dar ramane
+# daca poarta e intrerupta la mijloc
+.msrv.json
