@@ -103,6 +103,19 @@ static RE_SET: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bset\b").unwrap());
 static RE_POATE_CONTINUA: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)^(?:declare|insert|update|merge)\b").unwrap());
 static RE_INCEPE_MERGE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^merge\b").unwrap());
+/// Antetul unui obiect: pana la `AS`-ul lui, tot ce urmeaza (parametri,
+/// `RETURNS`, `WITH ENCRYPTION`) e aceeasi instructiune, chiar despartita de
+/// linii goale. Fara asta, o linie goala dupa `CREATE FUNCTION f(@v ...)`
+/// rupea antetul in doua blocuri si obiectul aparea „modificat" desi avea
+/// acelasi hash (auditul 2026-11-23).
+static RE_ANTET_OBIECT: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)^(?:create|alter)\s+(?:or\s+alter\s+)?(?:proc|procedure|function|view|trigger)\b",
+    )
+    .unwrap()
+});
+/// `AS` ca instructiune de sine statatoare, la capatul antetului.
+static RE_ARE_AS: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)(?:^|\s)as(?:\s|$)").unwrap());
 static RE_PUNCT_VIRGULA_FINAL: Lazy<Regex> = Lazy::new(|| Regex::new(r";\s*$").unwrap());
 static RE_BEGIN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)\bbegin\b").unwrap());
 static RE_TRAN_DUPA_BEGIN: Lazy<Regex> =
@@ -366,6 +379,9 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
     // indexul in `curent` al liniei care a pornit instructiunea curenta
     let mut inceput_instructiune = 0usize;
     let mut in_antet = true;
+    // antetul obiectului nu si-a vazut inca `AS`-ul: pana atunci nimic nu-l
+    // desparte, nici o linie goala, nici un `RETURNS` pe rand nou
+    let mut antet_fara_as = false;
     // linia de control anterioara (`IF ...`, `ELSE`) inca asteapta corpul
     let mut corp_asteptat = false;
     // un `WITH` (CTE) inca asteapta instructiunea care il foloseste
@@ -421,6 +437,7 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
             // si `SELECT`-ul lui, nu desparte instructiunea
             let neterminat = corp_asteptat
                 || cte_asteptat
+                || antet_fara_as
                 || instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]);
             if in_construct || neterminat {
                 curent.push(linie);
@@ -454,7 +471,8 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         let continuare = incepe
             && !corp_asteptat
             && !cte_asteptat
-            && instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]);
+            && (antet_fara_as
+                || instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]));
         let lipita = incepe && (corp_asteptat || cte_asteptat || continuare);
 
         if incepe && !lipita {
@@ -469,6 +487,12 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
             // CTE-ul a primit instructiunea lui; un `WITH` nou il reporneste
             cte_asteptat = !lipita && RE_CTE.is_match(s);
             corp_asteptat = asteapta_corp(curata);
+        }
+        if RE_ANTET_OBIECT.is_match(curata.trim_start()) {
+            antet_fara_as = true;
+        }
+        if antet_fara_as && RE_ARE_AS.is_match(&norm(curata)) {
+            antet_fara_as = false;
         }
         curent.push(linie);
         actualizeaza_stiva(curata, &mut stiva_case);

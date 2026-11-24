@@ -489,6 +489,12 @@ pub fn diff_aliniat_cu_raport(
 /// are nevoie de ele pe linie. Fara functia asta, fiecare consumator isi face
 /// propria taiere pe `\n` — si a doua implementare a aceleiasi socoteli e
 /// exact ce evitam.
+///
+/// **Pozitiile sunt in caractere, nu in octeti** — spre deosebire de
+/// [`crate::lexer::Segment`], care e in octeti. Aici se deseneaza text, deci
+/// coloana cerut e cea vazuta de om. Un `&text[a..b]` cu perechile astea da
+/// panica pe orice caracter multi-octet: se indexeaza printr-un
+/// `Vec<char>` (asa face `cli::evidentiat`).
 pub fn marcaje_pe_linii(segmente: &[Segment]) -> Vec<Vec<(usize, usize)>> {
     let mut linii: Vec<Vec<(usize, usize)>> = vec![Vec::new()];
     let mut coloana = 0usize;
@@ -557,6 +563,30 @@ pub fn rezumat_diff(randuri: &[RandDiff]) -> String {
         numara(TipDiferenta::Adaugat),
         numara(TipDiferenta::Sters),
     )
+}
+
+#[cfg(test)]
+mod teste_b11 {
+    /// `diff_aliniat_cu` e API public si nu avea test propriu (B-11 din
+    /// auditul 2026-11-23): cu `uneste_cursor` oprit da exact `diff_aliniat`,
+    /// iar cu el pornit ciclul de cursor iese un singur bloc.
+    #[test]
+    fn diff_aliniat_cu_respecta_unirea_cursorului() {
+        let a = "DECLARE c CURSOR LOCAL FOR\nSELECT id FROM t\nOPEN c\nFETCH NEXT FROM c\nCLOSE c";
+        let b = "DECLARE c CURSOR LOCAL FOR\nSELECT id FROM t2\nOPEN c\nFETCH NEXT FROM c\nCLOSE c";
+        assert_eq!(
+            super::diff_aliniat_cu(a, b, false),
+            super::diff_aliniat(a, b),
+            "fara unire e acelasi lucru ca `diff_aliniat`"
+        );
+        let unit = super::diff_aliniat_cu(a, b, true);
+        assert!(
+            unit.len() <= super::diff_aliniat(a, b).len(),
+            "unirea nu poate da mai multe blocuri: {} vs {}",
+            unit.len(),
+            super::diff_aliniat(a, b).len()
+        );
+    }
 }
 
 #[cfg(test)]

@@ -56,7 +56,7 @@ proiectul.
 | `diff_aliniat(ref, cur) -> Vec<RandDiff>` | diferentele, cu aliniere prin programare dinamica |
 | `rezumat_rapid(ref, cur)` | rezumatul pentru lista de obiecte |
 | `rezumat_diff(randuri)` | rezumatul dintr-un diff deja calculat |
-| `marcaje_pe_linii(segmente)` | bucatile schimbate, taiate pe liniile blocului — ca sa nu-si faca fiecare consumator propria taiere pe `\n` |
+| `marcaje_pe_linii(segmente)` | bucatile schimbate, taiate pe liniile blocului — ca sa nu-si faca fiecare consumator propria taiere pe `\n`. **Pozitiile sunt in caractere**, nu in octeti ca la `lexer::Segment`: se indexeaza printr-un `Vec<char>`, nu cu `&text[a..b]` |
 | `RandDiff`, `Segment`, `FelSchimbare`, `TipDiferenta` | tipurile rezultatului |
 
 ### `aliniere`
@@ -153,6 +153,18 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 1b. **Doua texte cu aceeasi forma normalizata sunt identice; orice alta
    diferenta e diferenta.** Decizia „identic" nu foloseste scorul (rotunjit).
    `cheie_bloc` egala inseamna text normalizat egal (128 de biti de SHA-256).
+   Invarianta cere ca si **segmentarea** sa fie aceeasi pe doua texte cu
+   aceeasi forma normalizata: o linie goala in antetul unui `CREATE FUNCTION`
+   il rupea in doua blocuri, deci un obiect cu hash identic aparea „difera in
+   cod" (auditul 2026-11-23). Antetul nu se desparte pana la `AS`-ul lui
+   (`RE_ANTET_OBIECT` in `segmentare`).
+
+1c. **Ce ramane fals, deliberat:** pe intrare **malformata** — un `[` sau un
+   `'` care nu se inchide — invarianta 5 si idempotenta lui
+   `pregateste_afisare` cad. Acolo nu exista un raspuns corect (`SELECT [a]];`
+   chiar *este* un `[` neinchis in T-SQL), iar o regula care sa ghiceasca ar
+   strica textul bine format. Zero aparitii pe cele 109 obiecte reale din
+   `referinta/instantanee/`.
 2. `scor_similaritate(x, x) == 100.0` pentru orice `x`.
 3. `norm` e idempotenta: `norm(norm(s)) == norm(s)`.
 4. `split_statements` nu taie niciodata in interiorul unui literal, al unui

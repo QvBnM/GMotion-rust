@@ -3829,7 +3829,9 @@ mod teste {
 
     #[test]
     fn problemele_de_structura_se_spun_cu_linia_in_ambele_limbi() {
-        let p = gmotion_core::structura::verifica("BEGIN\nSELECT (1\nGO");
+        // `GO` la mijloc, nu pe ultima linie: unul final nu taie obiectul in
+        // doua, deci nu mai e o problema (auditul 2026-11-23)
+        let p = gmotion_core::structura::verifica("BEGIN\nSELECT (1\nGO\nSELECT 2");
         assert_eq!(text_probleme(&[], texte::Limba::Romana), "");
         let ro = text_probleme(&p, texte::Limba::Romana);
         assert!(

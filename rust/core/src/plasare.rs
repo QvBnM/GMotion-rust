@@ -302,6 +302,11 @@ pub struct Plasare {
 /// aleasa de motor bate o a doua parere, altfel „Aplica" ar scrie in alt loc
 /// decat arata editorul. [`sugereaza`] raspunde doar pentru blocurile ramase
 /// fara pereche — exact intrebarea pe care diff-ul n-o acopera.
+/// **Ordinea rezultatului e cea a blocurilor din martor** (`rand`), nu a
+/// tintei: `bloc_tinta` poate merge si inapoi, cand un bloc fara pereche
+/// seamana cu unul de mai sus. Cine scrie mai multe blocuri deodata le
+/// ordoneaza dupa pozitia din tinta, nu dupa ordinea de aici — asa face
+/// [`crate::aliniere::compune_plasat`], care sorteaza operatiile pe pozitie.
 pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
     // Blocurile din tinta pe care le poate inlocui un bloc fara pereche: doar
     // cele care sunt si ele fara pereche (exista doar in tinta). Unul deja

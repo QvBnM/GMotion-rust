@@ -304,6 +304,47 @@ pub fn propozitie_in(text_referinta: &str, text_curent: &str, setari: &[&str], l
 }
 
 #[cfg(test)]
+mod teste_b11 {
+    use super::*;
+
+    /// `clasifica_randuri` si `doar_comentarii` sunt API public si nu aveau
+    /// test propriu (B-11 din auditul 2026-11-23). `clasifica` merge pe
+    /// acelasi drum, deci se compara cu el.
+    #[test]
+    fn clasifica_randuri_da_acelasi_lucru_ca_clasifica() {
+        let a = "CREATE PROC p AS\n-- o nota\nSELECT 'mesaj', col FROM t";
+        let b = "CREATE PROC p AS\n-- alta nota\nSELECT 'mesaj', col FROM t";
+        let randuri = crate::diff::diff_aliniat(a, b);
+        assert_eq!(clasifica_randuri(&randuri), clasifica_diferente(a, b));
+    }
+
+    #[test]
+    fn doar_comentarii_cere_sa_nu_fie_nimic_altceva() {
+        let c = Clasificare {
+            cod: 0,
+            siruri: 0,
+            comentarii: 2,
+        };
+        assert!(c.doar_comentarii());
+        assert!(!c.doar_siruri());
+        assert!(!Clasificare {
+            cod: 1,
+            siruri: 0,
+            comentarii: 2,
+        }
+        .doar_comentarii());
+        assert!(!Clasificare {
+            cod: 0,
+            siruri: 1,
+            comentarii: 2,
+        }
+        .doar_comentarii());
+        // nicio diferenta: nu e „doar comentarii"
+        assert!(!Clasificare::default().doar_comentarii());
+    }
+}
+
+#[cfg(test)]
 mod teste {
     use super::*;
     use crate::pregateste_afisare;

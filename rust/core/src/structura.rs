@@ -215,7 +215,21 @@ pub fn verifica(text: &str) -> Vec<Problema> {
             fel: FelProblema::ParantezaNeinchisa,
         });
     }
+    // Un `GO` pe **ultima** linie nu taie obiectul in doua: dupa el nu mai
+    // vine nimic. Patru obiecte reale din `referinta/instantanee/` il au, dupa
+    // `END`, si apareau ca probleme de structura (COSMETIC, auditul
+    // 2026-11-23).
+    let ultima_cu_cod = text
+        .split('\n')
+        .enumerate()
+        .filter(|(_, l)| !l.trim().is_empty())
+        .map(|(i, _)| i + 1)
+        .last()
+        .unwrap_or(0);
     for linie in crate::lexer::linii_go(text) {
+        if linie >= ultima_cu_cod {
+            continue;
+        }
         probleme.push(Problema {
             linie,
             fel: FelProblema::Go,
@@ -295,6 +309,10 @@ mod teste {
             [(1, FelProblema::ComentariuNeinchis)]
         );
         assert_eq!(feluri("SELECT 1\nGO\nSELECT 2"), [(2, FelProblema::Go)]);
+        // `GO` pe ultima linie nu taie nimic: dupa el nu mai vine cod
+        assert_eq!(feluri("SELECT 1\nGO"), []);
+        assert_eq!(feluri("SELECT 1\nGO\n"), []);
+        assert_eq!(feluri("SELECT 1\nGO\n   \n"), []);
     }
 
     #[test]

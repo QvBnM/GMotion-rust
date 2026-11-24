@@ -501,7 +501,13 @@ pub enum Loc {
 pub fn loc_la_linie(a: &Aliniere, linie: usize) -> Loc {
     a.randuri
         .iter()
-        .find(|r| r.dreapta.as_ref().is_some_and(|l| l.nr == linie + 1))
+        // `saturating_add`: `linie` vine de la apelant (`cli` o ia de la om),
+        // iar `usize::MAX + 1` dadea panica in debug (auditul 2026-11-23)
+        .find(|r| {
+            r.dreapta
+                .as_ref()
+                .is_some_and(|l| l.nr == linie.saturating_add(1))
+        })
         .and_then(|r| r.bloc)
         .filter(|&b| a.diff[b].dreapta.is_some())
         .map_or(Loc::Insereaza(linie), Loc::Inlocuieste)

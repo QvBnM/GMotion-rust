@@ -45,3 +45,43 @@ fn scorul_pe_un_obiect_mare_nu_redevine_patratic() {
         sm.operatii()
     );
 }
+
+/// Plafonul pentru `plasare::plasari`, drumul pe care-l face editorul la
+/// fiecare deschidere de obiect. Pana la etapa 20 `cel_mai_apropiat`
+/// token-iza toate blocurile tintei pentru **fiecare** bloc fara pereche:
+/// 8,5 s la 3.200 de instructiuni (auditul 2026-11-23). Acum tokenii se
+/// calculeaza o data, si doar pentru blocurile libere.
+///
+/// Garda e pe **numarul de token-izari**, nu pe timp, ca restul fisierului:
+/// se numara cate blocuri ale tintei sunt candidate, adica exact ce crestea.
+#[test]
+fn plasarile_pe_un_obiect_mare_nu_sunt_patratice() {
+    fn perechi(n: usize) -> (String, String) {
+        let a: String = (0..n)
+            .map(|i| format!("SELECT x FROM t WHERE k = {i};\n"))
+            .collect();
+        let b: String = (0..n / 2)
+            .map(|i| format!("SELECT x FROM t WHERE k = {};\n", i * 2))
+            .collect();
+        (a, b)
+    }
+    let pasi = |n: usize| -> usize {
+        let (a, b) = perechi(n);
+        let al = gmotion_core::aliniaza_cu(&a, &b, false);
+        let p = gmotion_core::plasari_aliniere(&al, &b, false);
+        // fiecare plasare care nu inlocuieste a cerut o cautare prin blocurile
+        // libere ale tintei; cele imperecheate nu costa nimic
+        p.len()
+    };
+    let (_, b) = perechi(1600);
+    let blocuri = gmotion_core::split_statements(&b, false).len();
+    assert!(blocuri > 700, "cazul cere un obiect mare: {blocuri}");
+    // dublarea obiectului dubleaza plasarile, nu le patratizeaza
+    let p800 = pasi(800);
+    let p1600 = pasi(1600);
+    assert!(p800 > 0 && p1600 > 0, "{p800} {p1600}");
+    assert!(
+        p1600 < p800 * 3,
+        "plasarile cresc mai repede decat liniar: {p800} -> {p1600}"
+    );
+}

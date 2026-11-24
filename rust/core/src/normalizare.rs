@@ -349,6 +349,39 @@ pub fn scor_similaritate(referinta: &str, curent: &str) -> f64 {
 }
 
 #[cfg(test)]
+mod teste_b11 {
+    use super::*;
+
+    /// `unifica_linii` e API public si nu avea test: orice fel de terminator
+    /// devine `\n`, si nimic altceva nu se atinge.
+    #[test]
+    fn unifica_linii_face_doar_terminatoarele() {
+        assert_eq!(unifica_linii("a\r\nb\rc\nd"), "a\nb\nc\nd");
+        assert_eq!(unifica_linii(""), "");
+        assert_eq!(unifica_linii("fara terminator"), "fara terminator");
+        // un `\r` din interiorul unui sir e tot terminator aici: filtrarea pe
+        // siruri e treaba lui `pregateste_afisare`, nu a acestei functii
+        assert_eq!(unifica_linii("SELECT 'a\r\nb'"), "SELECT 'a\nb'");
+        assert_eq!(unifica_linii("\r\n\r\n"), "\n\n");
+    }
+
+    /// `calc_hash` e API public (il folosesc `app`, `modul` si `cli`) si nu
+    /// avea test propriu: acelasi text da acelasi hash, texte diferite dau
+    /// hash-uri diferite, si rezultatul e stabil intre rulari.
+    #[test]
+    fn calc_hash_e_stabil_si_deosebeste() {
+        let a = calc_hash("create procedure p as select 1");
+        assert_eq!(a, calc_hash("create procedure p as select 1"));
+        assert_ne!(a, calc_hash("create procedure p as select 2"));
+        assert_ne!(calc_hash(""), calc_hash(" "));
+        assert!(!a.is_empty());
+        // nu depinde de lungime: doua texte lungi care difera la capat
+        let lung = "x".repeat(10_000);
+        assert_ne!(calc_hash(&lung), calc_hash(&(lung.clone() + "y")));
+    }
+}
+
+#[cfg(test)]
 mod teste {
     use super::*;
 
