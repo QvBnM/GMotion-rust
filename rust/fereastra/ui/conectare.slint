@@ -436,7 +436,12 @@ component PanouParte inherits Card {
         HorizontalLayout {
             spacing: 10px;
             height: 26px;
-            Text { text: p.eticheta; font-family: Tema.font-ui; font-size: 17px; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.3px; }
+            // Before / After, cu explicatia la hover (Mihai, 2026-11-25)
+            Rectangle {
+                width: tt.preferred-width;
+                tt := Text { text: p.eticheta; font-family: Tema.font-ui; font-size: 17px; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.3px; }
+                ZonaSfat { sfat: root.are-bifa ? Texte.sfat-after : Texte.sfat-before; }
+            }
             // baza aleasa, langa rol: „Martor · CharismaERP_GetsBet"
             if p.eticheta-baze != "": VerticalLayout {
                 alignment: center;

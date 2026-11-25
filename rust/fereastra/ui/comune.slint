@@ -229,6 +229,8 @@ export global Texte {
     in-out property <string> filtru-nedeployate;
     in-out property <string> nerevizuite-din;
     in-out property <string> martor-explicatie;
+    in-out property <string> sfat-before;
+    in-out property <string> sfat-after;
     in-out property <string> modificata-explicatie;
     in-out property <string> anuleaza-ctrlz;
     in-out property <string> opreste;
@@ -666,6 +668,38 @@ export component ButonLimba inherits Rectangle {
 
 // Eticheta mica de rol: Martor (verde) / Modificata (chihlimbar), aceleasi
 // culori ca pe ecranul de conectare.
+export global Sfat {
+    in-out property <string> text;
+    in-out property <length> x;
+    in-out property <length> sus;
+    in-out property <length> jos;
+    in-out property <int> generatie;
+    public function arata(t: string, x: length, y: length, inaltime: length) {
+        root.text = t;
+        root.x = x;
+        root.sus = y;
+        root.jos = y + inaltime;
+        root.generatie += 1;
+    }
+    public function ascunde(t: string) {
+        if (root.text == t) { root.text = ""; }
+    }
+    public function goleste() {
+        root.text = "";
+    }
+}
+
+export component ZonaSfat inherits TouchArea {
+    in property <string> sfat;
+    changed has-hover => {
+        if (self.has-hover && root.sfat != "") {
+            Sfat.arata(root.sfat, self.absolute-position.x, self.absolute-position.y, self.height);
+        } else {
+            Sfat.ascunde(root.sfat);
+        }
+    }
+}
+
 export component EticRol inherits HorizontalLayout {
     in property <string> text;
     in property <bool> martor;
@@ -684,6 +718,8 @@ export component EticRol inherits HorizontalLayout {
                 font-weight: 600;
                 color: root.martor ? Tema.add-text : Tema.mod-text;
             }
+            // care e dinainte si care e dupa, la hover (Mihai, 2026-11-25)
+            ZonaSfat { sfat: root.martor ? Texte.sfat-before : Texte.sfat-after; }
         }
     }
 }
@@ -1189,26 +1225,6 @@ export component Despre inherits Rectangle {
 // acumuleaza"). De-aia: un singur sfat odata, sters la schimbarea ecranului,
 // si care pleaca singur dupa cateva secunde chiar daca elementul a disparut
 // de sub mouse fara sa mai spuna.
-export global Sfat {
-    in-out property <string> text;
-    in-out property <length> x;
-    in-out property <length> sus;
-    in-out property <length> jos;
-    in-out property <int> generatie;
-    public function arata(t: string, x: length, y: length, inaltime: length) {
-        root.text = t;
-        root.x = x;
-        root.sus = y;
-        root.jos = y + inaltime;
-        root.generatie += 1;
-    }
-    public function ascunde(t: string) {
-        if (root.text == t) { root.text = ""; }
-    }
-    public function goleste() {
-        root.text = "";
-    }
-}
 
 export component SfatAfisat inherits Rectangle {
     property <bool> gata;
@@ -1332,13 +1348,3 @@ export component Rotitor inherits HorizontalLayout {
 // O zona care, sub mouse, arata un sfat (vezi `Sfat`). E un `TouchArea`:
 // cine o foloseste peste un rand isi leaga si `clicked`, altfel clicul nu
 // mai ajunge la rand.
-export component ZonaSfat inherits TouchArea {
-    in property <string> sfat;
-    changed has-hover => {
-        if (self.has-hover && root.sfat != "") {
-            Sfat.arata(root.sfat, self.absolute-position.x, self.absolute-position.y, self.height);
-        } else {
-            Sfat.ascunde(root.sfat);
-        }
-    }
-}

@@ -197,21 +197,21 @@ impl Rulare {
     }
 }
 
-/// Numele etapei `k` din `din` + 1: citirea martorului, a fiecarei baze
-/// modificate, apoi compararea.
+/// Numele etapei `k` din `din` + 1: citirea bazei Before, a fiecarei baze
+/// After, apoi compararea.
 pub fn nume_etapa(k: usize, din: usize, l: gmotion_core::Limba) -> String {
     if k == 0 {
-        l.alege("Citesc Martor", "Reading Witness").to_string()
+        l.alege("Citesc Before", "Reading Before").to_string()
     } else if k >= din {
         l.alege("Compar obiectele", "Comparing objects").to_string()
     } else if din > 2 {
         format!(
             "{} {k}/{}",
-            l.alege("Citesc Modificata", "Reading Modified"),
+            l.alege("Citesc After", "Reading After"),
             din - 1
         )
     } else {
-        l.alege("Citesc Modificata", "Reading Modified").to_string()
+        l.alege("Citesc After", "Reading After").to_string()
     }
 }
 
@@ -306,10 +306,7 @@ mod teste {
         // trei etape, toate terminate, fiecare cu durata ei; fara numele bazei
         let e = r.etape(gmotion_core::Limba::Romana);
         let nume: Vec<&str> = e.iter().map(|x| x.0.as_str()).collect();
-        assert_eq!(
-            nume,
-            ["Citesc Martor", "Citesc Modificata", "Compar obiectele"]
-        );
+        assert_eq!(nume, ["Citesc Before", "Citesc After", "Compar obiectele"]);
         assert!(e.iter().all(|x| x.2 == 2 && x.1.ends_with(" s")), "{e:?}");
         assert!(!r.text().contains("Ref") && !r.text().contains("C1"));
         assert!(r.timp().starts_with("0:"), "{}", r.timp());

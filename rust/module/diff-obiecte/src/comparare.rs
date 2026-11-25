@@ -269,7 +269,7 @@ pub fn compara_cu_oprire(
 
     progres(Progres {
         mesaj: format!(
-            "Martor '{referinta}': {} obiecte. Incep compararea...",
+            "Before '{referinta}': {} obiecte. Incep compararea...",
             ref_obiecte.len()
         ),
         procent: 5,
@@ -380,7 +380,7 @@ pub fn compara_cu_oprire(
                 gmotion_core::rezumat_si_masura_rapide(&r.afisare, &c.afisare);
             let rezumat = if r.tip.trim() != c.tip.trim() {
                 format!(
-                    "tip schimbat: {} in martor, {} in modificata; {rezumat_blocuri}",
+                    "tip schimbat: {} in Before, {} in After; {rezumat_blocuri}",
                     r.tip.trim(),
                     c.tip.trim(),
                 )
@@ -439,7 +439,7 @@ pub fn compara_cu_oprire(
 
     progres(Progres {
         mesaj: format!(
-            "Gata. {} obiecte in martor: {} identice, {} diferite, {} lipsa, {} extra.",
+            "Gata. {} obiecte in Before: {} identice, {} diferite, {} lipsa, {} extra.",
             n.total_referinta, n.identice, n.diferite, n.lipsa, n.extra
         ),
         procent: 100,

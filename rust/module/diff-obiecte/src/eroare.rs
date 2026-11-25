@@ -10,7 +10,7 @@ pub enum Eroare {
     #[error("[GM-MOD-001] nu s-a rulat nicio comparare")]
     NicioComparare,
 
-    #[error("[GM-MOD-002] niciun obiect de deployat. Obiectele marcate exista doar in bazele modificate, deci nu exista cod de adus din martor")]
+    #[error("[GM-MOD-002] niciun obiect de deployat. Obiectele marcate exista doar in bazele After, deci nu exista cod de adus din Before")]
     NimicDeDeployat,
 
     #[error("[GM-MOD-003] nu pot scrie in {cale}: {detaliu}")]
@@ -53,10 +53,10 @@ pub enum Eroare {
         gasit: String,
     },
 
-    #[error("[GM-MOD-016] textul final al lui {obiect} e gol; ar sterge codul obiectului. Sterge textul final (Reset) daca vrei codul din martor")]
+    #[error("[GM-MOD-016] textul final al lui {obiect} e gol; ar sterge codul obiectului. Sterge textul final (Reset) daca vrei codul din Before")]
     TextFinalGol { obiect: String },
 
-    #[error("[GM-MOD-017] {obiect} e {martor} in martor si {modificata} in {baza}; `CREATE OR ALTER` nu poate schimba tipul unui obiect, deci scriptul ar cadea. Obiectul se deployeaza de mana (DROP, apoi CREATE)")]
+    #[error("[GM-MOD-017] {obiect} e {martor} in Before si {modificata} in {baza}; `CREATE OR ALTER` nu poate schimba tipul unui obiect, deci scriptul ar cadea. Obiectul se deployeaza de mana (DROP, apoi CREATE)")]
     TipSchimbat {
         obiect: String,
         baza: String,

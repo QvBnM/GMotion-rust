@@ -92,8 +92,8 @@ pub fn text_despre(
          \u{2022} {}\n\n\
          {}:\n{}\n{}:\n{}",
         l.alege(
-            "Compara obiectele SQL Server (proceduri, functii, view-uri, triggere) dintre un Martor si o baza Modificata si pregateste deploy-ul, cu revenire.",
-            "Compares SQL Server objects (procedures, functions, views, triggers) between a Witness and a Modified database and prepares the deploy, with rollback.",
+            "Compara obiectele SQL Server (proceduri, functii, view-uri, triggere) dintre o baza Before (starea de dinainte) si una After (starea de dupa) si pregateste deploy-ul, cu revenire.",
+            "Compares SQL Server objects (procedures, functions, views, triggers) between a Before database (the state before) and an After one (the state after) and prepares the deploy, with rollback.",
         ),
         l.alege("Componente terte:", "Third-party components:"),
         l.alege("interfata", "user interface"),
@@ -2068,13 +2068,13 @@ pub fn incarca_deploy(ui: &FereastraDeploy, e: &model_deploy::EcranDeploy) {
             0 => String::new(),
             1 => limba_curenta(ui)
                 .alege(
-                    "Un obiect ales nu intra: exista doar in baza modificata sau e criptat.",
+                    "Un obiect ales nu intra: exista doar in baza After sau e criptat.",
                     "One chosen object is left out: it exists only in the modified database or is encrypted.",
                 )
                 .into(),
             n => match limba_curenta(ui) {
                 texte::Limba::Romana => format!(
-                    "{n} obiecte alese nu intra: exista doar in baza modificata sau sunt criptate."
+                    "{n} obiecte alese nu intra: exista doar in baza After sau sunt criptate."
                 ),
                 texte::Limba::Engleza => format!(
                     "{n} chosen objects are left out: they exist only in the modified database or are encrypted."
@@ -2318,8 +2318,8 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         // cu „Aceeasi conexiune" e evident: nu se mai spune
         if c.aceeasi_instanta() && !c.aceeasi_conexiune {
             limba_curenta(ui).alege(
-                "Martorul si modificata sunt pe aceeasi instanta",
-                "The witness and the modified database are on the same instance",
+                "Before si After sunt pe aceeasi instanta",
+                "Before and After are on the same instance",
             )
         } else {
             ""
@@ -3331,8 +3331,9 @@ mod teste {
         );
         assert_eq!(ro.compara, "Compara");
         assert_eq!(en.compara, "Compare");
-        assert_eq!(ro.martor, "Martor");
-        assert_eq!(en.martor, "Witness");
+        assert_eq!(ro.martor, "Before");
+        assert_eq!(en.martor, "Before");
+        assert_ne!(ro.martor_explicatie, en.martor_explicatie);
         assert_ne!(ro.deconecteaza, en.deconecteaza);
     }
 
@@ -4405,7 +4406,7 @@ mod teste {
             categorii,
             [
                 "Modificate",
-                "Doar in martor",
+                "Doar in Before",
                 "Extra",
                 "Identice",
                 "Criptate"
@@ -4755,7 +4756,7 @@ mod teste {
         let ui = fereastra_conectare();
         let mut c = Conectare::noua();
         incarca_conectare(&ui, &c);
-        assert_eq!(ui.get_ce_lipseste(), "completeaza serverul pentru martor");
+        assert_eq!(ui.get_ce_lipseste(), "completeaza serverul pentru Before");
 
         c.sursa = Parte {
             server: "SRV-DEV".into(),
@@ -5680,8 +5681,8 @@ export component Ecran inherits Rectangle {
         .expect("se arata");
         assert_eq!(t, "baze citite sursa=true baze=7");
         assert!(!t.contains("connected"));
-        let (_, t) = linie_jurnal_vizibila("[INFO] Citesc Martor: 4,8 s").expect("se arata");
-        assert_eq!(t, "Citesc Martor: 4,8 s");
+        let (_, t) = linie_jurnal_vizibila("[INFO] Citesc Before: 4,8 s").expect("se arata");
+        assert_eq!(t, "Citesc Before: 4,8 s");
     }
 
     /// Un clic pe rand nu reface randurile listei (erau refacute toate, la

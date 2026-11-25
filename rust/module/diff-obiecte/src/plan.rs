@@ -118,7 +118,7 @@ impl fmt::Display for Schimbare {
             Parte::Tinta => write!(f, "{}: {} {fel} de la comparare", self.baza, self.obiect),
             Parte::Referinta => write!(
                 f,
-                "{} {fel} in martor de la comparare (deploy pe {})",
+                "{} {fel} in Before de la comparare (deploy pe {})",
                 self.obiect, self.baza
             ),
             Parte::TextFinal => write!(
@@ -344,7 +344,7 @@ impl Plan {
         let mut pe_baza: BTreeMap<String, Vec<DeDeployat>> = BTreeMap::new();
         for p in &self.pasi {
             let o = referinta.get(&p.obiect).ok_or_else(|| Eroare::BazaAtinsa {
-                schimbari: format!("{} a disparut din martor", p.obiect),
+                schimbari: format!("{} a disparut din Before", p.obiect),
             })?;
             if let Some(t) = &p.tip_tinta {
                 return Err(Eroare::TipSchimbat {
@@ -883,7 +883,7 @@ mod teste {
         assert!(
             c.randuri[0]
                 .rezumat
-                .starts_with("tip schimbat: P in martor, V"),
+                .starts_with("tip schimbat: P in Before, V"),
             "{}",
             c.randuri[0].rezumat
         );

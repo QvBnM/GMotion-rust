@@ -449,14 +449,14 @@ impl Conectare {
             return match (self.sursa.baza.is_empty(), self.baza.baza.is_empty()) {
                 (true, _) => Some(
                     l.alege(
-                        "alege baza martor din instantaneu",
-                        "choose the witness database from the snapshot",
+                        "alege baza Before din instantaneu",
+                        "choose the Before database from the snapshot",
                     )
                     .into(),
                 ),
                 (_, true) => Some(
                     l.alege(
-                        "alege baza modificata din instantaneu",
+                        "alege baza After din instantaneu",
                         "choose the modified database from the snapshot",
                     )
                     .into(),
@@ -465,8 +465,8 @@ impl Conectare {
             };
         }
         for (parte, ro, en) in [
-            (&self.sursa, "martor", "the witness"),
-            (&self.baza, "modificata", "the modified side"),
+            (&self.sursa, "Before", "Before"),
+            (&self.baza, "After", "After"),
         ] {
             let nume = l.alege(ro, en);
             if let Some(ce) = parte.ce_lipseste() {
@@ -503,8 +503,8 @@ impl Conectare {
         {
             return Some(
                 l.alege(
-                    "martorul si modificata sunt aceeasi baza",
-                    "the witness and the modified database are the same",
+                    "Before si After sunt aceeasi baza",
+                    "Before and After are the same database",
                 )
                 .into(),
             );
@@ -699,16 +699,16 @@ mod teste {
         let mut c = Conectare::noua();
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("completeaza serverul pentru martor")
+            Some("completeaza serverul pentru Before")
         );
         c.sursa.server = "SRV-DEV".into();
-        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru martor"));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("alege baza pentru Before"));
         c.sursa.baza = "Dev".into();
-        assert_eq!(c.ce_lipseste().as_deref(), Some("conecteaza-te la martor"));
+        assert_eq!(c.ce_lipseste().as_deref(), Some("conecteaza-te la Before"));
         c.sursa.stare = StareConexiune::Conectat("conectat".into());
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("completeaza serverul pentru modificata")
+            Some("completeaza serverul pentru After")
         );
         c.baza = parte_gata("SRV-PROD", "Prod");
         assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
@@ -761,7 +761,7 @@ mod teste {
         c.baza.comuta_baza("Referinta");
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("martorul si modificata sunt aceeasi baza"),
+            Some("Before si After sunt aceeasi baza"),
             "referinta bifata printre tinte nu are ce compara cu ea insasi"
         );
     }
@@ -773,7 +773,7 @@ mod teste {
         c.baza = parte_gata("srv", "aceeasi");
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("martorul si modificata sunt aceeasi baza"),
+            Some("Before si After sunt aceeasi baza"),
             "acelasi server si aceeasi baza, indiferent de majuscule"
         );
         // alt server, acelasi nume de baza: e o comparare buna
@@ -809,12 +809,12 @@ mod teste {
         c.instantaneu = Some("/tmp/inst.json".into());
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("alege baza martor din instantaneu")
+            Some("alege baza Before din instantaneu")
         );
         c.sursa.baza = "A".into();
         assert_eq!(
             c.ce_lipseste().as_deref(),
-            Some("alege baza modificata din instantaneu")
+            Some("alege baza After din instantaneu")
         );
         c.baza.baza = "B".into();
         assert!(c.poate_compara(), "{:?}", c.ce_lipseste());
@@ -841,7 +841,7 @@ mod teste {
         let mut c = Conectare::noua();
         assert_eq!(
             c.ce_lipseste_in(e).as_deref(),
-            Some("fill in the server for the witness")
+            Some("fill in the server for Before")
         );
         assert_eq!(
             c.text_certificat_in(e),
@@ -853,7 +853,7 @@ mod teste {
         c.instantaneu = Some("/tmp/i.json".into());
         assert_eq!(
             c.ce_lipseste_in(e).as_deref(),
-            Some("choose the witness database from the snapshot")
+            Some("choose the Before database from the snapshot")
         );
     }
 

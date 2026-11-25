@@ -169,10 +169,14 @@ sau din `unelte/api-hash.sh <crate>`.
   globalul `Texte`. Un text nou se adauga in ambele limbi, altfel nu
   compileaza. Comutatorul de limba din fereastra le schimba pe toate si tine
   minte alegerea (Mihai, 2026-11-18).
-- **Denumirile celor doua parti sunt „Martor" si „Modificata"** („Witness" /
-  „Modified"): martorul e baza de referinta, modificata e cea care a primit
-  schimbari. Nu „sursa" / „baza" / „tinta" in textele catre utilizator;
-  in cod, `referinta` si `tinta` raman (asa e si in `cli` si in plan).
+- **Denumirile celor doua parti sunt „Before" si „After"**, in ambele limbi
+  (Mihai, 2026-11-25; inainte „Martor" / „Modificata", care induceau in
+  eroare): Before e starea de dinainte (de exemplu baza inainte de deploy),
+  After e starea de dupa, in care se vede ce s-a adus in plus. Orice eticheta
+  de rol are la hover explicatia (`Texte.sfat-before` / `sfat-after`). Nu
+  „sursa" / „baza" / „tinta" / „martor" in textele catre utilizator din
+  fereastra; in cod, `referinta` / `tinta` / `martor` raman (asa e si in
+  `cli` si in plan), iar `cli` isi pastreaza deocamdata textele lui.
 - `cargo clippy --all-targets -- -D warnings` trebuie sa taca.
 - **Cod in spatele unui `cfg` pentru alta tinta nu e verificat de nimic pe
   masina de dezvoltare** — nici `build`, nici `clippy`, nici testele se uita la

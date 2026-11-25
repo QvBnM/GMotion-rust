@@ -287,7 +287,7 @@ pub fn compara_offline(sursa: &str, tinta: &str, l: Limba) -> Result<Comparata, 
         server: l
             .alege("comparare offline", "offline comparison")
             .to_string(),
-        referinta: l.alege("Lipit (martor)", "Pasted (witness)").to_string(),
+        referinta: l.alege("Lipit (Before)", "Pasted (Before)").to_string(),
         dependente: None,
     })
 }

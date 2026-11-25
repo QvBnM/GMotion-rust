@@ -137,7 +137,7 @@ pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
             format!(
                 "{} {de_la}-{pana_la} · {} → {unde}",
                 l.alege("blocurile", "blocks"),
-                l.alege("DOAR IN MARTOR", "WITNESS ONLY")
+                l.alege("DOAR IN BEFORE", "BEFORE ONLY")
             )
         }
         Eticheta::Bloc { nr, fel, unde } => {
@@ -146,11 +146,11 @@ pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
                 l.alege("bloc", "block"),
                 match fel {
                     FelBloc::Modificat => l.alege("MODIFICAT", "MODIFIED"),
-                    FelBloc::DoarMartor => l.alege("DOAR IN MARTOR", "WITNESS ONLY"),
-                    FelBloc::DoarModificata => l.alege("DOAR IN MODIFICATA", "MODIFIED ONLY"),
-                    FelBloc::MutatDinMartor => l.alege("MUTAT, din Martor", "MOVED, from Witness"),
+                    FelBloc::DoarMartor => l.alege("DOAR IN BEFORE", "BEFORE ONLY"),
+                    FelBloc::DoarModificata => l.alege("DOAR IN AFTER", "AFTER ONLY"),
+                    FelBloc::MutatDinMartor => l.alege("MUTAT, din Before", "MOVED, from Before"),
                     FelBloc::MutatInModificata => {
-                        l.alege("MUTAT, in Modificata", "MOVED, in Modified")
+                        l.alege("MUTAT, in After", "MOVED, in After")
                     }
                 }
             );
@@ -159,7 +159,7 @@ pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
                 UndeBloc::Inlocuieste(t) => format!(
                     "{nume} → {} {t} {}",
                     l.alege("inlocuieste blocul", "replaces block"),
-                    l.alege("din Modificata", "in Modified")
+                    l.alege("din After", "in After")
                 ),
                 UndeBloc::SimilarInsereaza { tinta, scor } => format!(
                     "{nume} · {scor:.0}% {} {tinta} → {}",
@@ -194,8 +194,8 @@ pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
                     "{} {care} {}",
                     l.alege("aici vine blocul", "block"),
                     l.alege(
-                        "din Martor, daca il aplici",
-                        "from Witness goes here, if you apply it"
+                        "din Before, daca il aplici",
+                        "from Before goes here, if you apply it"
                     )
                 )
             } else {
@@ -203,8 +203,8 @@ pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
                     "{} {care} {}",
                     l.alege("aici vin blocurile", "blocks"),
                     l.alege(
-                        "din Martor, daca le aplici",
-                        "from Witness go here, if you apply them"
+                        "din Before, daca le aplici",
+                        "from Before go here, if you apply them"
                     )
                 )
             }
@@ -1403,7 +1403,7 @@ mod teste_plasare {
         assert!(
             etichete
                 .iter()
-                .any(|e| e.contains("DOAR IN MARTOR") && e.contains("se insereaza")),
+                .any(|e| e.contains("DOAR IN BEFORE") && e.contains("se insereaza")),
             "{etichete:?}"
         );
         // etichetele stau doar pe primul rand al blocului
@@ -1459,9 +1459,9 @@ mod teste_plasare {
         // textul se face la desenare, in limba ferestrei: modelul tine doar
         // ce blocuri ar veni aici (auditul 2026-11-23)
         let text = text_eticheta(&fantome[0].eticheta_fantoma, Limba::Romana);
-        assert!(text.contains("din Martor"), "{text:?}");
+        assert!(text.contains("din Before"), "{text:?}");
         let en = text_eticheta(&fantome[0].eticheta_fantoma, Limba::Engleza);
-        assert!(en.contains("from Witness"), "{en:?}");
+        assert!(en.contains("from Before"), "{en:?}");
         assert!(
             fantome[0].dreapta.bucati.is_empty(),
             "textul nu sta in model"
@@ -1514,8 +1514,8 @@ mod teste_plasare {
             .collect();
         assert_eq!(pastile.len(), 2, "doua capete, doua pastile: {pastile:?}");
         assert!(
-            pastile.iter().any(|x| x.contains("din Martor"))
-                && pastile.iter().any(|x| x.contains("in Modificata")),
+            pastile.iter().any(|x| x.contains("din Before"))
+                && pastile.iter().any(|x| x.contains("in After")),
             "{pastile:?}"
         );
         // starile ramane cele vechi: nicio culoare noua in editor

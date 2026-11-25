@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -161,7 +161,12 @@ component CapPanou inherits Rectangle {
         padding-left: 14px;
         padding-right: 8px;
         spacing: 8px;
-        Text { text: root.rol; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+        Rectangle {
+            width: tr.preferred-width;
+            tr := Text { text: root.rol; font-family: Tema.font-ui; font-size: 12px; font-weight: 600; color: Tema.text; vertical-alignment: center; }
+            // Before / After: care e dinainte si care e dupa (Mihai, 2026-11-25)
+            ZonaSfat { sfat: root.rol == Texte.martor ? Texte.sfat-before : root.rol == Texte.modificata ? Texte.sfat-after : ""; }
+        }
         Text { text: root.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; vertical-alignment: center; overflow: elide; }
         Text { text: root.detaliu; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
         if root.eticheta != "": VerticalLayout {
