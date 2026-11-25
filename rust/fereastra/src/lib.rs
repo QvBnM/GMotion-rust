@@ -5753,4 +5753,29 @@ export component Ecran inherits Rectangle {
         assert_eq!(t.chars().count(), 20);
         assert!(t.ends_with("_Delete") && t.starts_with("Contr"), "{t}");
     }
+
+    /// Sfatul la hover pleaca la schimbarea ecranului si la redimensionarea
+    /// ferestrei (ar ramane pe locul vechi, cu textul altui rand).
+    #[test]
+    fn sfatul_pleaca_la_schimbarea_ecranului_si_a_marimii() {
+        let ui = fereastra_lista();
+        let a = ui.aplicatie();
+        a.window().set_size(slint::PhysicalSize::new(1440, 900));
+        a.show().expect("se arata");
+        let sfat = || a.global::<Sfat>();
+        sfat().invoke_arata("dbo.p".into(), 10.0, 10.0, 20.0);
+        assert_eq!(sfat().get_text(), "dbo.p");
+        a.window().set_size(slint::PhysicalSize::new(1366, 900));
+        slint::platform::update_timers_and_animations();
+        assert_eq!(sfat().get_text(), "", "mai ingusta");
+        sfat().invoke_arata("dbo.p".into(), 10.0, 10.0, 20.0);
+        a.window().set_size(slint::PhysicalSize::new(1366, 768));
+        slint::platform::update_timers_and_animations();
+        assert_eq!(sfat().get_text(), "", "mai scunda");
+        sfat().invoke_arata("dbo.p".into(), 10.0, 10.0, 20.0);
+        a.set_ecran(EditorDiferente::ECRAN);
+        slint::platform::update_timers_and_animations();
+        assert_eq!(sfat().get_text(), "", "alt ecran");
+        let _ = a.hide();
+    }
 }

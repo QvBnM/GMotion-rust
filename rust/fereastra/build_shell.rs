@@ -245,6 +245,8 @@ pub fn shell_slint(
     s.push_str(&format!(
         "import {{ Sfat, SfatAfisat }} from \"{ui}/comune.slint\";\n"
     ));
+    // si in Rust: testele il citesc
+    s.push_str("export { Sfat }\n");
     s.push_str(&format!(
         "import {{ {} }} from \"{ui}/fereastra.slint\";\n",
         importate.join(", ")
@@ -272,6 +274,10 @@ pub fn shell_slint(
     }
     // sfatul la hover, unul pentru toata fereastra, deasupra ecranelor
     s.push_str("    SfatAfisat { x: 0; y: 0; width: root.width; height: root.height; }\n");
+    // o fereastra redimensionata muta totul de sub mouse: sfatul ar ramane
+    // pe locul vechi, cu textul altui rand (2026-11-25)
+    s.push_str("    changed width => { Sfat.goleste(); }\n");
+    s.push_str("    changed height => { Sfat.goleste(); }\n");
     // tastele merg pe ecranul vizibil; un sfat ramas de pe ecranul vechi pleaca
     s.push_str("    changed ecran => {\n        Sfat.goleste();\n");
     // un ecran care are `public function intra()` decide singur unde merg
