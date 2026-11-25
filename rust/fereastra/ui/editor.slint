@@ -249,6 +249,13 @@ export component EditorDiferente inherits Rectangle {
     in-out property <int> diferenta-curenta: 0;
     // ce randuri sunt incarcate acum (model + optiuni), din Rust (C6)
     in-out property <string> semnatura-randuri;
+    // derularea verticala a panourilor (amandoua sunt pe acelasi rand). Rust
+    // o pune la loc dupa ce reface randurile aceluiasi obiect (transpunere,
+    // Aplica, Anuleaza, Plaseaza): omul ramane unde a lucrat (etapa 33, B)
+    in-out property <length> derulare-y <=> lista.content-y;
+    // randurile tocmai refacute sunt ale aceluiasi obiect: diferenta ceruta
+    // se marcheaza fara sa se derulze la ea
+    in-out property <bool> pastreaza-derularea: false;
     in property <image> tigla-hasura;
     // starea obiectului
     in property <bool> revizuit: false;

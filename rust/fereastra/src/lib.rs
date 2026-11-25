@@ -1336,7 +1336,11 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     };
 
     ui.set_tigla_hasura(tigla_hasura(mod_curent(ui)));
-    if ui.get_obiect_id() != antet.id {
+    // acelasi obiect, randuri refacute (textul final s-a schimbat, wrap,
+    // pliere): vederea ramane unde era, in ambele panouri (etapa 33, B)
+    let acelasi_obiect = ui.get_obiect_id() == antet.id;
+    let derulare_y = ui.get_derulare_y();
+    if !acelasi_obiect {
         // alt obiect: editarea de mana nu se duce cu el (F-A1), dar nici nu se
         // pierde: ce s-a tastat se salveaza pe obiectul **lui**, dupa
         // desenare (desenarea tine starea aplicatiei imprumutata). Inainte un
@@ -1377,8 +1381,13 @@ pub fn incarca_editor(ui: &EditorDiferente, antet: &AntetEditor, model: &ModelEd
     ui.set_tinte_pana_la(ModelRc::new(VecModel::from(
         tinte.iter().map(|t| t.1).collect::<Vec<_>>(),
     )));
-    // -1: `incarca_editarea` vede ca e alta decat cea ceruta si derulam la ea
+    // -1: `incarca_editarea` vede ca e alta decat cea ceruta si derulam la ea;
+    // pe acelasi obiect doar o marcheaza, derularea se pune la loc
     ui.set_diferenta_curenta(-1);
+    ui.set_pastreaza_derularea(acelasi_obiect);
+    if acelasi_obiect {
+        ui.set_derulare_y(derulare_y);
+    }
     // cu wrap nu mai e nimic de derulat pe orizontala
     ui.set_latime_continut(if ui.get_impacheteaza() {
         0.0
@@ -1540,10 +1549,16 @@ pub fn incarca_editarea(ui: &EditorDiferente, e: &StareEditare) {
     }
     // doar cand diferenta ceruta e alta decat cea aratata (sau randurile s-au
     // reincarcat): altfel vederea ramane unde a lasat-o omul (C6)
+    let pastreaza = ui.get_pastreaza_derularea();
+    ui.set_pastreaza_derularea(false);
     if total > 0 {
         let ceruta = e.diferenta.min(total - 1) as i32;
         if ui.get_diferenta_curenta() != ceruta {
-            ui.invoke_mergi_la(ceruta);
+            if pastreaza {
+                ui.set_diferenta_curenta(ceruta);
+            } else {
+                ui.invoke_mergi_la(ceruta);
+            }
         }
     }
 }
@@ -5271,6 +5286,90 @@ mod teste {
         // un model nou (alt text) incepe de la stanga
         incarca(2, true);
         assert_eq!(ui.get_derulare_x(), 0.0);
+    }
+
+    /// Etapa 33, B: transpunerea unui bloc (sau Aplica / Anuleaza /
+    /// Plaseaza) reface randurile aceluiasi obiect; vederea nu sare in capul
+    /// paginii si nici la alta diferenta, ramane unde a lucrat omul. Alt
+    /// obiect porneste, ca inainte, de la diferenta lui.
+    #[test]
+    fn transpunerea_pastreaza_derularea_pe_acelasi_obiect() {
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1366, 768));
+        // 300 de linii, o diferenta la fiecare 30
+        let linii = |schimbate: &[usize]| {
+            let mut t = String::from("CREATE PROC dbo.p AS\n");
+            for i in 0..300 {
+                if i % 30 == 15 && schimbate.contains(&i) {
+                    t.push_str(&format!("SELECT {i} AS schimbat\n"));
+                } else {
+                    t.push_str(&format!("SELECT {i} AS linie\n"));
+                }
+            }
+            t
+        };
+        let toate: Vec<usize> = (0..300).filter(|i| i % 30 == 15).collect();
+        let a = linii(&toate);
+        let b = linii(&[]);
+        let incarca = |id: &str, model: &model_editor::ModelEditor, generatie: u64, dif: usize| {
+            incarca_editor(
+                &ui,
+                &AntetEditor {
+                    id,
+                    schema: "dbo",
+                    nume: "p",
+                    tip: "procedura",
+                    sursa_baza: "Dev",
+                    sursa_server: "srv",
+                    tinta_baza: "Prod",
+                    tinta_server: "srv",
+                    stare_obiecte: "",
+                    revizuit: false,
+                    in_plan: false,
+                    generatie: Some(generatie),
+                },
+                model,
+            );
+            incarca_editarea(
+                &ui,
+                &StareEditare {
+                    omis: false,
+                    editat: generatie > 1,
+                    se_poate_anula: generatie > 1,
+                    diferenta: dif,
+                    ghidat: None,
+                    text_sursa: "",
+                    text_final: "",
+                    salvat: "",
+                    probleme: &[],
+                },
+            );
+        };
+        let m1 = model_editor::construieste(&a, &b);
+        assert_eq!(m1.diferente.len(), 10);
+        incarca("Prod/dbo.p", &m1, 1, 0);
+        ui.show().expect("fereastra se arata");
+        // omul a derulat la diferenta 6 si o transpune
+        ui.invoke_mergi_la(6);
+        let y = ui.get_derulare_y();
+        assert!(y < -500.0, "s-a derulat in jos: {y}");
+        // dupa transpunere: diferenta 6 nu mai e, raman 9; aplicatia tine
+        // indicele 6 (acum urmatoarea)
+        let m2 = model_editor::construieste(&a, &linii(&[toate[6]]));
+        assert_eq!(m2.diferente.len(), 9);
+        incarca("Prod/dbo.p", &m2, 2, 6);
+        assert_eq!(ui.get_derulare_y(), y, "vederea ramane pe loc");
+        assert_eq!(ui.get_diferenta_curenta(), 6, "diferenta curenta e marcata");
+        // si dupa un cadru desenat (lista virtuala isi reface inaltimea)
+        slint::platform::update_timers_and_animations();
+        ui.window().request_redraw();
+        assert_eq!(ui.get_derulare_y(), y);
+        // Anuleaza: inapoi la modelul cu 10, tot pe loc
+        incarca("Prod/dbo.p", &m1, 3, 6);
+        assert_eq!(ui.get_derulare_y(), y);
+        // alt obiect: de la diferenta lui, ca inainte
+        incarca("Prod/dbo.q", &m1, 4, 0);
+        assert!(ui.get_derulare_y() > y, "alt obiect porneste de sus");
     }
 
     #[test]
