@@ -64,11 +64,14 @@ fn instantaneu() -> Instantaneu {
                 "CREATE PROCEDURE dbo.pModificat AS\nSELECT a FROM t WHERE x = 1\n\nSELECT b FROM u",
             ),
             ob("pLipsa", "P", "CREATE PROCEDURE dbo.pLipsa AS\nSELECT 3"),
-            // acelasi cod, alta aranjare si un comentariu: hash diferit, cod identic
+            // acelasi cod, alta aranjare in pagina: hash diferit, cod identic.
+            // Un comentariu in plus **nu** mai e cosmetic (etapa 30): e o
+            // diferenta ascunsa, ca hinturile, si are testul lui in
+            // `comparare.rs`.
             ob(
                 "vCosmetic",
                 "V",
-                "CREATE VIEW dbo.vCosmetic AS\n   SELECT   a   FROM t   -- nimic nou",
+                "CREATE VIEW dbo.vCosmetic AS\n   SELECT   a   FROM t   ",
             ),
         ],
     );

@@ -50,13 +50,14 @@ fn main() {
         let cod: String = (0..n)
             .map(|i| format!("SELECT {i} FROM t{i};\n\n"))
             .collect();
-        let blocuri = gmotion_core::split_statements(&cod, false);
         let t = Instant::now();
-        let _ = gmotion_core::linii_start_blocuri(&cod, &blocuri);
+        let s = gmotion_core::segmenteaza(&cod, false);
+        let linii = gmotion_core::linii_start(&s);
         println!(
-            "rust   linii_start   : {:>8.1} ms ({} blocuri)",
+            "rust   segmenteaza    : {:>8.1} ms ({} blocuri, {} pozitii)",
             t.elapsed().as_secs_f64() * 1000.0,
-            blocuri.len()
+            s.blocuri.len(),
+            linii.len()
         );
         let alt = format!("{cod}SELECT 1\n");
         let t = Instant::now();

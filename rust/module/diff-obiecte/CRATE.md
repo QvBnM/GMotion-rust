@@ -1,6 +1,6 @@
 # gmotion-modul-diff-obiecte
 
-<!-- api-hash: d2ac117b192255c5 -->
+<!-- api-hash: c7fd1c8cdaca2226 -->
 
 ## Rol
 
@@ -24,8 +24,8 @@ biblioteca** — fara nicio interfata.
 
 | Zona | Ce ofera |
 |---|---|
-| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `compara_cu_oprire(..., continua) -> Option<Comparare>` (se opreste cel mult dupa un obiect, P8), `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3), `ObiectPregatit::hinturi`, `Rand` (cu `modificat` si `creat`: din baza comparata, la `Lipsa` din martor, etapa 25; si `exacta_curent`, amprenta exacta a versiunii din baza, F-D5), `Categorie`, `Numaratoare`, `Progres` |
-| `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii`, `plasari_obiect(ref, cur) -> Vec<Plasare>`, `Fel`, `Bucata`, `Marcaj` |
+| `comparare` | `pregateste(obiecte) -> Baza`, `compara(...) -> Comparare`, `compara_cu_oprire(..., continua) -> Option<Comparare>` (se opreste cel mult dupa un obiect, P8), `setari_diferite(a, b)`, `diferente_ascunse(a, b)` (setari + hinturi de blocare, F-M3, + amprenta comentariilor, etapa 30), `ObiectPregatit::hinturi`, `ObiectPregatit::comentarii`, `Rand` (cu `modificat` si `creat`: din baza comparata, la `Lipsa` din martor, etapa 25; `exacta_curent`, amprenta exacta a versiunii din baza, F-D5; si `schimbat`, cat la suta din obiect e atins, ponderat pe marimea blocurilor, etapa 30), `Categorie`, `Numaratoare`, `Progres` |
+| `diferente` | `diferente_obiect(ref, cur) -> (Vec<Diferenta>, rezumat)`, `detalii_obiect(ref, cur, setari) -> Detalii` (in ce difera, linii +/-, `schimbat`, `mutate`, si cele doua semne de degradare: `segmente_pozitionale`, `instructiuni_retezate`), `plasari_obiect(ref, cur) -> Vec<Plasare>`, `Fel` (cu `Mutat`: acelasi bloc, in alt loc — vine pe doua randuri, ca in `core`), `Bucata`, `Marcaj` |
 
 | `deploy` | `aplica_create_or_alter`, `verifica_text_final(obiect, tip, text)`, `scrie(...)`, `scrie_cu_revenire(...)`, `DeDeployat`, `PasRevenire`, `ModImpartire`, `Raport` (cu `avertismente`), `avertismente(revenire) -> Vec<Avertisment>` (view-uri cu `SCHEMABINDING` si triggere existente in tinta: ce pierde `CREATE OR ALTER`, F-D8) |
 | `deploy::avertismente_structura(pe_baza)`, `Avertisment::StructuraStricata` | codul care se deployeaza si nu se inchide (`core::structura`): avertisment in raport, deci in `cli` si in fereastra (etapa 26) |
@@ -161,7 +161,10 @@ pentru blocurile ramase fara pereche. Se vede din `gmotion diferente`.
 8e. **Un obiect e ori revizuit, ori omis.** Omisele nu intra in planul facut
    din `cli` fara `--doar`.
 9. **CSV-ul are BOM UTF-8, separator `;`, CRLF si virgula zecimala** — altfel
-   Excel romanesc strica diacriticele sau pune totul pe o coloana.
+   Excel romanesc strica diacriticele sau pune totul pe o coloana. Coloanele
+   noi se adauga **la sfarsit** („Ultima modificare", „Data crearii", iar din
+   etapa 30 „Schimbat %"), ca o foaie care citeste dupa pozitie sa nu se
+   strice.
 10. **Un nume din cod se leaga de un obiect intr-un singur loc**
    (`deploy::referinte`): ordinea de deploy si impactul estimat il folosesc pe
    acelasi. Un nume scurt ambiguu nu se leaga; comentariile si string-urile nu

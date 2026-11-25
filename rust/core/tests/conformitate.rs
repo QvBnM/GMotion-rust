@@ -63,6 +63,25 @@ fn citeste<T: serde::de::DeserializeOwned>(fisier: &str) -> Vec<T> {
 /// are bug-ul. Fiecare intrare trebuie sa si diverga efectiv: o intrare care nu
 /// mai diverge e o eroare, ca lista sa nu ramana in urma codului.
 const DIVERGENTE_DELIBERATE: &[(&str, &str, &str)] = &[
+    // Un bloc reordonat: text normalizat identic, alt loc. JS (si v3.4) n-au
+    // notiunea si raporteaza „adaugat" plus „sters", doua diferente fara
+    // nicio legatura vizibila intre ele — iar cine se uita in lista nu poate
+    // sti ca textul n-a fost atins. Etapa 30, decizia e in `JURNAL.md`.
+    (
+        "reordonare_blocuri",
+        "rezumat_rapid",
+        "blocul reordonat se raporteaza `mutat`, nu `adaugat` + `sters`",
+    ),
+    (
+        "reordonare_blocuri",
+        "rezumat_diff",
+        "blocul reordonat se raporteaza `mutat`, nu `adaugat` + `sters`",
+    ),
+    (
+        "reordonare_blocuri",
+        "tipuri",
+        "blocul reordonat se raporteaza `mutat`, nu `adaugat` + `sters`",
+    ),
     (
         "string_cu_cuvinte_cheie",
         "norm_ref",

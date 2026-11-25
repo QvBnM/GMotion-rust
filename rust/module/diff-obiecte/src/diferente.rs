@@ -52,6 +52,9 @@ pub enum Fel {
     Modificat,
     Sters,
     Adaugat,
+    /// Acelasi bloc, in alt loc. Vine pe **doua** randuri (unul cu text in
+    /// martor, unul cu text in modificata), ca in `gmotion_core`.
+    Mutat,
 }
 
 impl Fel {
@@ -61,6 +64,7 @@ impl Fel {
             TipDiferenta::Modificat => Fel::Modificat,
             TipDiferenta::Sters => Fel::Sters,
             TipDiferenta::Adaugat => Fel::Adaugat,
+            TipDiferenta::Mutat => Fel::Mutat,
         }
     }
 
@@ -70,6 +74,7 @@ impl Fel {
             Fel::Modificat => "modificat",
             Fel::Sters => "sters",
             Fel::Adaugat => "adaugat",
+            Fel::Mutat => "mutat",
         }
     }
 }
@@ -167,14 +172,15 @@ pub struct Plasare {
 /// blocurile ramase fara pereche — exact intrebarea pe care diff-ul n-o
 /// acopera.
 pub fn plasari_obiect(referinta: &str, curent: &str) -> Vec<Plasare> {
-    let randuri = diff_aliniat(referinta, curent);
-    let blocuri_martor = gmotion_core::split_statements(referinta, false);
-    let blocuri_tinta = gmotion_core::split_statements(curent, false);
-    let start_martor = gmotion_core::linii_start_blocuri(referinta, &blocuri_martor);
-    let start_tinta = gmotion_core::linii_start_blocuri(curent, &blocuri_tinta);
+    let c = gmotion_core::compara(referinta, curent, false);
+    let randuri = c.randuri;
+    let blocuri_tinta: Vec<String> = c.tinta.blocuri.iter().map(|b| b.text.clone()).collect();
+    let start_martor = gmotion_core::linii_start(&c.referinta);
+    let start_tinta = gmotion_core::linii_start(&c.tinta);
 
-    // decizia e a motorului; aici doar se adauga numerele de linie, pe care
-    // `core` nu le are de unde sti (el lucreaza pe blocuri, nu pe text)
+    // decizia e a motorului; aici doar se trec numerele de linie de la blocuri
+    // la randuri. Liniile vin din segmentare (`Bloc::linii`), nu se mai cauta
+    // in text (B-1 din auditul 2026-11-23-clever-cerf).
     let mut linie_a_blocului = Vec::new();
     let mut bloc_martor = 0usize;
     for r in &randuri {
@@ -209,7 +215,7 @@ pub fn plasari_obiect(referinta: &str, curent: &str) -> Vec<Plasare> {
 /// La cerere, ca si diff-ul: pe o comparare cu zeci de mii de obiecte,
 /// alinierea fiecarui obiect ar fi scumpa si aproape toata aruncata. Lista o
 /// cere pentru randurile pe care chiar le arata.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Detalii {
     /// „cod, siruri", „un sir", „comentariu", „QUOTED_IDENTIFIER", „—".
     pub difera_in: String,
@@ -217,13 +223,29 @@ pub struct Detalii {
     pub linii_plus: usize,
     /// Linii care ar iesi din baza.
     pub linii_minus: usize,
+    /// Cat la suta din obiect e atins, ponderat pe marimea blocurilor
+    /// (`gmotion_core::Masura::schimbat`).
+    pub schimbat: f64,
+    /// Cate blocuri sunt acelasi text, in alt loc.
+    pub mutate: usize,
+    /// Cate segmente au ramas pe imperechere **pozitionala**, fiind prea mari
+    /// pentru imperecherea pe scor: acolo „modificat" poate insemna doua
+    /// blocuri fara legatura. Peste zero, diff-ul e de citit cu rezerva — se
+    /// spune, nu se degradeaza in tacere.
+    pub segmente_pozitionale: usize,
+    /// Cate instructiuni au fost taiate la plafonul de linii al segmentarii
+    /// (`gmotion_core::Segmentare::instructiuni_retezate`), pe cele doua parti
+    /// la un loc.
+    pub instructiuni_retezate: usize,
 }
 
 /// `setari` sunt numele setarilor de sesiune care difera intre cele doua
 /// versiuni (`QUOTED_IDENTIFIER`, `ANSI_NULLS`): nu se vad in text, dar
 /// schimba comportamentul la executie, deci intra in „Difera in".
 pub fn detalii_obiect(referinta: &str, curent: &str, setari: &[&str]) -> Detalii {
-    let randuri = diff_aliniat(referinta, curent);
+    let c = gmotion_core::compara(referinta, curent, false);
+    let randuri = c.randuri;
+    let masura = gmotion_core::masoara(&randuri);
     let clasificare = gmotion_core::clasificare::clasifica_randuri(&randuri);
     let linii = |t: &Option<String>| t.as_deref().map_or(0, |x| x.lines().count());
     let (mut plus, mut minus) = (0usize, 0usize);
@@ -238,6 +260,10 @@ pub fn detalii_obiect(referinta: &str, curent: &str, setari: &[&str]) -> Detalii
         difera_in: gmotion_core::clasificare::eticheta(clasificare, setari),
         linii_plus: plus,
         linii_minus: minus,
+        schimbat: masura.schimbat,
+        mutate: masura.mutate,
+        segmente_pozitionale: c.segmente_pozitionale,
+        instructiuni_retezate: c.referinta.instructiuni_retezate + c.tinta.instructiuni_retezate,
     }
 }
 

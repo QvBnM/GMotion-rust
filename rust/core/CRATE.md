@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 811c72b8b41fa6bf -->
+<!-- api-hash: 40f19d93fe02124d -->
 
 ## Rol
 
@@ -38,26 +38,64 @@ proiectul.
 | `unifica_linii(cod)` | normalizeaza terminatorii de linie |
 | `calc_hash(normalizat)` | SHA-256 hex al formei normalizate |
 | `hinturi(cod)` | hinturile de blocare din pozitia de hint, in ordine; normalizarea le sterge, asta le deosebeste (F-M3) |
+| `amprenta_comentarii(cod)` | amprenta comentariilor; acelasi mecanism ca `hinturi`, pentru ce arunca normalizarea. Un obiect cu cod identic si comentarii schimbate e vizibil, fara sa se schimbe verdictul „identic" pe cod (etapa 30) |
 | `scor_similaritate(ref, cur)` | procent 0-100 |
 | `scor_pe_tokeni(a, b)` | acelasi scor, pe token-uri deja calculate |
 | `tokeni_scor(text)` | token-izare folosita de scor |
 | `round_py(x, zecimale)` | rotunjire bancara, identica cu `round()` din Python |
+| `scor_maxim_posibil(n, m)` | marginea de sus a scorului din lungimi (`ratio <= 2*min/(n+m)`). **Exacta**, nu euristica: o pereche a carei margine e sub prag nu poate trece pragul, deci nu merita nicio comparatie. Pe matricile `n*m` din `diff` si `aliniere` sare peste cele mai multe perechi fara sa schimbe niciun rezultat |
 
 ### `segmentare`
-| Functie | Ce face |
+| Functie / tip | Ce face |
 |---|---|
-| `split_statements(cod, uneste_cursor)` | taie obiectul in blocuri |
+| `segmenteaza(cod, uneste_cursor) -> Segmentare` | taie obiectul in blocuri, **cu liniile pe care stau** |
+| `Segmentare` (`blocuri`, `instructiuni_retezate`, `normalizari`) | rezultatul: blocurile, cate instructiuni au fost taiate la plafon, si cate normalizari a cerut taierea (masura de cost deterministica) |
+| `Bloc` (`text`, `linii`, `linie()`) | un bloc: textul lui si liniile (0-based) din original. `text` e **exact** aceste linii unite cu `\n` |
+| `split_statements(cod, uneste_cursor)` | doar textele, infasuratoare peste `segmenteaza` |
+| `linii_start(&Segmentare)` | linia de start a fiecarui bloc |
 | `cheie_bloc(bloc)` | cheia de imperechere a unui bloc |
-| `linii_start_blocuri(cod, blocuri)` | linia de start a fiecarui bloc, pentru ancore; potrivirea se cauta doar la inceput de linie si in afara comentariilor / literalelor (prin `lexer`) |
+
+**Pozitia unui bloc nu se mai cauta** (din 2026-11-24, etapa 30). Pana atunci,
+`linii_start_blocuri(cod, &[String])` cauta textul blocului inapoi in textul
+original, cu o ramura de rezerva care punea linia blocului **precedent** cand
+nu-l gasea — iar blocurile unite (`UNION`, ciclu de cursor) nu sunt subsir al
+originalului, deci cadeau mereu pe ramura aceea: 8 din 109 obiecte reale
+aveau cel putin un bloc asezat pe linia gresita, si „Aplica" scria peste alte
+linii (B-1, CRITIC, din `cercetare/audit-qa-2026-11-23-clever-cerf.md`).
+Functia nu mai exista: din texte **nu se poate** afla pozitia, de aia ghicea.
+La fel a disparut `aliniere::harta_linii`, care reconstruia a doua oara harta
+liniilor unui bloc prin potrivire in text.
 
 ### `diff`
 | Functie / tip | Ce face |
 |---|---|
+| `compara(ref, cur, uneste_cursor) -> Comparare` | tot ce iese dintr-o comparare, calculat **o data**: randurile, blocurile amandoua parti cu pozitiile lor, si cate segmente au ramas pe imperechere pozitionala |
 | `diff_aliniat(ref, cur) -> Vec<RandDiff>` | diferentele, cu aliniere prin programare dinamica |
 | `rezumat_rapid(ref, cur)` | rezumatul pentru lista de obiecte |
+| `rezumat_si_masura_rapide(ref, cur)` | rezumatul **si** masura, dintr-un singur plan: ce foloseste lista |
+| `masoara(randuri) -> Masura` | cat s-a schimbat: blocuri pe feluri, si `schimbat` — procentul din obiect atins, ponderat pe marimea blocurilor. Langa scor, nu in locul lui: o instructiune schimbata din patruzeci da scor ~98 si `schimbat` ~2,5 |
 | `rezumat_diff(randuri)` | rezumatul dintr-un diff deja calculat |
 | `marcaje_pe_linii(segmente)` | bucatile schimbate, taiate pe liniile blocului — ca sa nu-si faca fiecare consumator propria taiere pe `\n`. **Pozitiile sunt in caractere**, nu in octeti ca la `lexer::Segment`: se indexeaza printr-un `Vec<char>`, nu cu `&text[a..b]` |
-| `RandDiff`, `Segment`, `FelSchimbare`, `TipDiferenta` | tipurile rezultatului |
+| `RandDiff` (`id`, `tip`, `mutat_cu`, `stanga`, `dreapta`, `seg_*`), `Segment`, `FelSchimbare`, `TipDiferenta`, `Masura`, `Comparare` | tipurile rezultatului |
+
+**`TipDiferenta::Mutat`** (din 2026-11-24, etapa 30): acelasi bloc, in alt loc.
+Vine pe **doua** randuri — unul cu text in martor, unul cu text in tinta — care
+se arata reciproc prin `mutat_cu`; un singur rand cu text pe amandoua partile
+ar strica ordinea pe care se sprijina tot restul (randurile cu text in dreapta
+vin in ordinea blocurilor tintei, iar blocul mutat e prin definitie in alta
+ordine). „Mutat" cere text normalizat **identic**: un bloc mutat si schimbat
+ramane „sters" plus „adaugat". Pana la etapa 30 motorul n-avea notiunea, iar
+reordonarea — refactorul cel mai frecvent — ieseau fie doua diferente fara
+nicio legatura vizibila, fie, mai rau, **doua blocuri „modificate"** care nu
+fusesera atinse.
+
+**Imperecherea blocurilor are trei straturi**, in ordinea increderii:
+ancorele lui `SequenceMatcher`; apoi blocurile identice ramase libere (aceeasi
+cheie, deci acelasi text normalizat) — cele care se pot pastra in ordine devin
+si ele ancore, cele incrucisate sunt mutari; si abia la urma scorul, pe ce a
+ramas liber in fiecare gol. Stratul doi exista fiindca Ratcliff-Obershelp nu e
+un LCS exhaustiv: un bloc care si-a schimbat locul peste potrivirea aleasa nu
+mai e privit niciodata, si scorul il lua drept pereche a altui bloc.
 
 ### `aliniere`
 | Functie / tip | Ce face |
@@ -70,6 +108,7 @@ proiectul.
 | `aplica_blocuri_la(stanga, dreapta, uneste_cursor, blocuri, loc)`, `Loc`, `loc_la_linie(aliniere, linie)` | blocul lasat de om in alt loc decat cel sugerat (tragerea in editor, `gmotion editare --la`): peste un bloc din dreapta il inlocuieste, intre blocuri se insereaza (etapa 23) |
 | `compune_plasat(aliniere, stanga, dreapta, plasari, aplica)` | ca `compune`, cu blocurile fara pereche duse unde spun `plasari` |
 | `plasari_aliniere(aliniere, dreapta, uneste_cursor) -> Vec<Plasare>` | plasarea pe o aliniere, cu blocurile tintei taiate la fel; ce intreaba si editorul, ca ecranul sa arate locul in care scrie `aplica_blocuri` |
+| `plasari_aliniere_cu_raport(...)` | la fel, plus `RaportPlasare`: cate comparatii s-au facut si cate plasari au fost puse pozitional la plafonul de cost |
 | `Aliniere` (`randuri`, `diff`, `diferente()`, `blocuri_nealiniate`), `RandAliniat` (`linie_in_bloc_stanga` / `_dreapta`, `primul_din_bloc`, `ultimul_din_bloc`, `ignorata`), `Linie` | tipurile rezultatului |
 
 **Liniile a doua blocuri imperecheate se potrivesc intre ele, nu pe pozitie**
@@ -87,6 +126,7 @@ degradeze in tacere.
 |---|---|
 | `grupuri_diferente(randuri, plasari) -> Vec<Vec<usize>>` | diferentele cum le vede omul: instructiunile consecutive fara pereche care se insereaza in acelasi gol sunt una singura (etapa 23); editorul aplica tot grupul |
 | `plasari(randuri, blocuri_tinta) -> Vec<Plasare>` | unde ajunge **fiecare** bloc care difera, dupa ce cele doua straturi s-au impacat: perechea aleasa de diff bate, `sugereaza` raspunde doar unde nu exista pereche |
+| `plasari_cu_raport(...) -> (Vec<Plasare>, RaportPlasare)` | la fel, plus costul. Peste `MAX_COMPARATII_PLASARE` (200.000 de comparatii) blocurile fara pereche se asaza in golul lor pozitional, fara cautare, si faptul se **raporteaza** (`degradate`), nu se trece in tacere (restul lui B-5) |
 | `sugereaza(randuri, pozitie, blocuri_tinta) -> Option<Sugestie>` | unde ar ajunge blocul din martor: inlocuieste blocul k, sau se insereaza in golul g |
 | `cel_mai_apropiat(text, blocuri, indice_preferat)` | blocul care seamana cel mai bine, cu regula de ambiguitate |
 | `tokeni_potrivire(text)` | token-izarea folosita la potrivire (alta decat cea de la scorul din lista) |
@@ -159,6 +199,16 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
    cod" (auditul 2026-11-23). Antetul nu se desparte pana la `AS`-ul lui
    (`RE_ANTET_OBIECT` in `segmentare`).
 
+1d. **Comentariile si hinturile sunt vizibile fara sa fie „cod".**
+   Normalizarea le sterge, deci doua texte care difera doar prin ele au acelasi
+   hash si invarianta 1b le declara identice. Ca sa nu dispara totusi din
+   vedere, fiecare are o amprenta proprie (`hinturi`, `amprenta_comentarii`) pe
+   care modulul o compara separat si o arata in „Difera in" ca diferenta
+   ascunsa, langa setarile de sesiune. Verdictul pe **cod** nu se schimba.
+   Consecinta pe care Mihai trebuie sa o stie: un obiect care difera doar
+   intr-un comentariu intra acum in lista si in planul de deploy (etapa 30;
+   pentru hinturi, asa e din F-M3).
+
 1c. **Ce ramane fals, deliberat:** pe intrare **malformata** — un `[` sau un
    `'` care nu se inchide — invarianta 5 si idempotenta lui
    `pregateste_afisare` cad. Acolo nu exista un raspuns corect (`SELECT [a]];`
@@ -169,6 +219,18 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 3. `norm` e idempotenta: `norm(norm(s)) == norm(s)`.
 4. `split_statements` nu taie niciodata in interiorul unui literal, al unui
    comentariu bloc, al unei paranteze deschise sau al unui `CASE`.
+4d. **O instructiune neterminata nu inghite obiectul.** Peste
+   `MAX_LINII_INSTRUCTIUNE` (500 de linii) se declara terminata cu forta, si
+   `Segmentare::instructiuni_retezate` o spune. Exceptie deliberata la 4c: un
+   `MERGE` fara `;` final sau un `UPDATE` al carui `SET` nu vine mai lipea tot
+   restul obiectului intr-un singur bloc, deci diff-ul nu mai avea nicio
+   valoare (un bloc „modificat" de 8.000 de linii). Cel mai lung bloc
+   neterminat real din corpus are 39 de linii.
+
+4e. **Un bloc e exact liniile lui din original, unite cu `\n`**
+   (`Bloc::linii`). De aici pozitiile exacte, fara nicio cautare in text;
+   verificat pe toate obiectele reale si pe fuzz.
+
 4c. Un bloc e o instructiune intreaga si nimic in plus: `BEGIN` si `END` au
    blocuri proprii (in afara de `BEGIN`-ul care e corpul unui `IF` / `WHILE` /
    `ELSE`), iar o instructiune neterminata (`IF` fara corp, `INSERT` fara
@@ -223,6 +285,9 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
 | Doua linii fara legatura, una langa alta, intr-un bloc modificat | `perechi_linii` / `PRAG_LINIE` | `src/aliniere.rs` |
 | Rezumat care raporteaza blocuri inexistente | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `src/diff.rs` |
 | Rezultate diferite de `difflib` | portul `SequenceMatcher`, atentie la `autojunk=False` | `src/seqmatch.rs` |
+| Un bloc reordonat iese „modificat" (sau „sters" + „adaugat") in loc de „mutat" | stratul de blocuri identice din `plan_blocuri`, sau `marcheaza_mutarile` | `src/diff.rs` |
+| Segmentarea unui obiect mare dureaza secunde | o instructiune care nu se termina niciodata: `StareInstructiune`, plafonul `MAX_LINII_INSTRUCTIUNE` | `src/segmentare.rs` |
+| „Difera in" spune „comentarii" pe un obiect cu hash identic | `amprenta_comentarii`; e intentionat, vezi invarianta 1d | `src/normalizare.rs` |
 
 ## Testare
 
@@ -241,10 +306,23 @@ Trei straturi:
    browser fara cap (`unelte/regenereaza-fixture-plasare.sh`). Plasarea nu se
    poate extrage mecanic din `ui.py` ca motorul de diff, fiindca tine de starea
    paginii.
-4. **`tests/cost.rs`** — garda de cost: plafon pe numarul de pasi (nu pe
-   timp) al cautarii, pe un obiect de 8.000 de linii. Vazuta cazand cu
-   automatul de sufixe oprit: 1,43 miliarde de pasi fata de plafonul de 5
-   milioane.
+4. **`tests/cost.rs`** — garzi de cost, toate pe numere deterministe (pasi,
+   normalizari, comparatii), nu pe timp: cautarea pe un obiect de 8.000 de
+   linii (vazuta cazand cu automatul de sufixe oprit: 1,43 miliarde de pasi
+   fata de plafonul de 5 milioane); segmentarea unei instructiuni neterminate,
+   care trebuie sa ramana liniara (vazuta cazand cu starea incrementala si
+   plafonul scoase: 125.751 -> 501.501 normalizari la dublarea liniilor);
+   cresterea comparatiilor din `plasari`, si plafonul lor, vazut cazand cu
+   plafonul ridicat la `usize::MAX`.
+4b. **`tests/calitate.rs`** — cat de **bune** sunt diferentele, nu doar cat de
+   stabile. Pe fiecare obiect real din `referinta/instantanee/` se aplica o
+   mutatie cunoscuta (bloc sters, bloc adaugat, doua blocuri inversate, literal
+   schimbat, reindentare, comentariu adaugat) si se cere motorului sa raporteze
+   **exact** mutatia. Rata de recuperare are plafon de jos pe fiecare mutatie.
+   Fara numarul asta, pragurile mostenite din v3.4 (44, 40, 55, 8, 40, 70, 80)
+   nu se pot atinge: n-ai cum sa arati ca o schimbare e o imbunatatire. Primul
+   lucru pe care l-a prins: doua blocuri inversate ieseau „2 modificate" pe 23
+   din 25 de obiecte.
 5. **`tests/invariante.rs`** — fuzz dirijat, 400 de intrari generate
    determinist per test, pe invariantele 2-6. Generatorul nu produce SQL
    aleator, ci formele care pun la incercare invariantele: literale si

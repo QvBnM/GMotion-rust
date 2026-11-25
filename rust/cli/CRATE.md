@@ -1,6 +1,6 @@
 # gmotion-cli
 
-<!-- api-hash: 68f05dbd2e939cb1 -->
+<!-- api-hash: f2926a0a6e71c318 -->
 
 ## Rol
 
@@ -35,7 +35,7 @@ comenzile de mai jos, cu argumentele si codurile lor de iesire.
 | `baze` | bazele disponibile |
 | `testeaza` | testul de conexiune, ca butonul din fereastra: editia, versiunea, de cand merge, cate baze; doar pe server |
 | `instantaneu` | obiectele brute intr-un fisier, pentru reluare offline |
-| `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect si cate linii se misca) |
+| `compara` | lista de diferente (`--detalii`: in ce difera fiecare obiect, cate linii se misca, coloana `SCHIMBAT` — cat la suta din obiect e atins, ponderat pe marimea blocurilor — si `NOTE`: blocuri mutate, segmente imperecheate pozitional, instructiuni retezate) |
 | `revizuire` | ce s-a marcat ca revizuit sau omis (`--omite`); bifa cade cand obiectul s-a schimbat; note (`--nota X --text T`, text gol = sterge); `--goleste` sterge doar bifele (textele finale, notele si marcajele de deploy raman) |
 | `impact` | impactul estimat al deploy-ului fiecarui obiect care difera; cu `--obiect`, si cine il foloseste |
 | `editare` | textul final al unui obiect: diferentele numerotate, `--aplica 1,3`, `--aplica-toate`, `--reset`, `--la N` (lasa diferenta pe linia N, ca tragerea), `--din-fisier` (scris de mana; un text care n-ar trece de deploy se refuza pe loc), `--arata-final` (textul final pe iesirea standard); aceeasi sesiune si acelasi `uneste_cursor` (din configurare) ca fereastra |

@@ -37,17 +37,23 @@ pub mod structura;
 
 pub use aliniere::{
     aliniaza, aliniaza_cu, aplica_blocuri, aplica_blocuri_la, compune, compune_plasat,
-    loc_la_linie, plasari_aliniere, Aliniere, Linie, Loc, RandAliniat,
+    loc_la_linie, plasari_aliniere, plasari_aliniere_cu_raport, Aliniere, Linie, Loc, RandAliniat,
 };
 pub use diff::{
-    diff_aliniat, diff_aliniat_cu, rezumat_diff, rezumat_rapid, FelSchimbare, RandDiff, Segment,
-    TipDiferenta,
+    compara, diff_aliniat, diff_aliniat_cu, masoara, rezumat_diff, rezumat_rapid,
+    rezumat_si_masura_rapide, Comparare, FelSchimbare, Masura, RandDiff, Segment, TipDiferenta,
 };
 pub use normalizare::{
-    calc_hash, hinturi, norm, normalizeaza, pregateste_afisare, round_py, scor_similaritate,
+    amprenta_comentarii, calc_hash, hinturi, norm, normalizeaza, pregateste_afisare, round_py,
+    scor_maxim_posibil, scor_similaritate,
 };
-pub use plasare::{grupuri_diferente, plasari, sugereaza, Plasare, Sugestie, Tinta};
-pub use segmentare::{are_cursor, cheie_bloc, linii_start_blocuri, split_statements};
+pub use plasare::{
+    grupuri_diferente, plasari, plasari_cu_raport, sugereaza, Plasare, RaportPlasare, Sugestie,
+    Tinta,
+};
+pub use segmentare::{
+    are_cursor, cheie_bloc, linii_start, segmenteaza, split_statements, Bloc, Segmentare,
+};
 
 /// Tipurile de obiecte SQL comparate, asa cum apar in `sys.objects.type`.
 /// `P` procedura, `V` view, `FN`/`IF`/`TF` functii, `TR` trigger.

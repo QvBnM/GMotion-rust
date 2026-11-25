@@ -2086,8 +2086,11 @@ mod teste {
         a.exporta_csv(&cale).unwrap();
         let text = std::fs::read_to_string(&cale).unwrap();
         // Omis, apoi Ultima modificare si Data crearii (goale: aplicatia de
-        // test nu le stie)
-        assert!(text.trim_end().ends_with("NU;DA;;"), "coloana Omis: {text}");
+        // test nu le stie), apoi Schimbat % (etapa 30)
+        assert!(
+            text.trim_end().ends_with("NU;DA;;;16,67"),
+            "coloana Omis: {text}"
+        );
         // o lista filtrata la zero nu scrie un fisier gol, da eroare
         a.comanda(Comanda::Cauta("nu-exista".into()));
         assert!(a.exporta_csv(&cale).is_err());

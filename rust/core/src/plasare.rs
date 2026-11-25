@@ -38,6 +38,30 @@ const PRAG_AMBIGUU: f64 = 70.0;
 /// Plafon de siguranta la gruparea blocurilor care se muta impreuna. (v3.4)
 const MAX_BLOCURI_GRUPATE: usize = 6;
 
+/// Plafon de cost pe o rulare de [`plasari`]: cate comparatii de blocuri se
+/// fac in total. Peste el, blocurile fara pereche ramane netrecute prin
+/// `sugereaza` si se asaza in golul lor pozitional, iar faptul se
+/// **raporteaza** ([`RaportPlasare::degradate`]).
+///
+/// Cautarea e „fiecare bloc fara pereche contra fiecarui bloc liber al
+/// tintei", deci patratica in obiectele patologice. B-5 din auditul
+/// 2026-11-23-clever-cerf a cerut explicit plafonul: masurarea de atunci
+/// (8,52 s la 3200 de blocuri) a scazut la 0,13 s prin retezarea candidatilor,
+/// dar costul a ramas superliniar, iar un plafon care nu exista nu apara nimic.
+/// Numarul e deterministic (comparatii, nu milisecunde), deci se poate pune in
+/// test fara sa devina instabil pe o masina incarcata.
+const MAX_COMPARATII_PLASARE: usize = 200_000;
+
+/// Ce a costat o rulare de [`plasari`] si ce a trebuit degradat.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RaportPlasare {
+    /// Cate comparatii de blocuri s-au facut.
+    pub comparatii: usize,
+    /// Cate blocuri fara pereche au fost asezate pozitional, fara cautare,
+    /// fiindca s-a atins [`MAX_COMPARATII_PLASARE`].
+    pub degradate: usize,
+}
+
 /// `#tmp`, `##tmp` si `@tmp` se potrivesc ca acelasi identificator: altfel
 /// exact refactorul urmarit (tabel temporar -> variabila tabel) isi scade
 /// singur scorul si cade sub prag.
@@ -108,7 +132,7 @@ pub fn cel_mai_apropiat(
     indice_preferat: Option<usize>,
 ) -> Option<(usize, f64)> {
     let tok: Vec<Vec<String>> = blocuri.iter().map(|b| tokeni_potrivire(b)).collect();
-    cel_mai_apropiat_tok(text, &tok, indice_preferat)
+    cel_mai_apropiat_tok(text, &tok, indice_preferat, &mut 0)
 }
 
 /// Ca [`cel_mai_apropiat`], cu tokenii blocurilor deja calculati: `plasari`
@@ -118,15 +142,26 @@ fn cel_mai_apropiat_tok(
     text: &str,
     blocuri: &[Vec<String>],
     indice_preferat: Option<usize>,
+    comparatii: &mut usize,
 ) -> Option<(usize, f64)> {
     if blocuri.is_empty() {
         return None;
     }
     let ta = tokeni_potrivire(text);
+    // Nu se reteaza pe lungimi, ca la `diff::perechi_replace`: acolo marginea
+    // e exacta fiindca scorul conteaza numai peste prag, aici conteaza si
+    // **al doilea** scor (`DIFERENTA_AMBIGUA`), deci un candidat coborat la
+    // zero ar putea schimba decizia. Costul se apara cu plafonul din
+    // `plasari`, nu cu o aproximare.
     let mut rez: Vec<(usize, f64)> = blocuri
         .iter()
         .enumerate()
-        .map(|(k, b)| (k, scor_potrivire(&ta, b)))
+        .map(|(k, b)| {
+            if !b.is_empty() {
+                *comparatii += 1;
+            }
+            (k, scor_potrivire(&ta, b))
+        })
         .collect();
     // sortare stabila: la scor egal ramane ordinea blocurilor
     rez.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -215,7 +250,7 @@ pub fn sugereaza(
     blocuri_tinta: &[String],
 ) -> Option<Sugestie> {
     let tok: Vec<Vec<String>> = blocuri_tinta.iter().map(|b| tokeni_potrivire(b)).collect();
-    sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok)
+    sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok, &mut 0)
 }
 
 fn sugereaza_tok(
@@ -223,6 +258,7 @@ fn sugereaza_tok(
     pozitie: usize,
     blocuri_tinta: &[String],
     tok_tinta: &[Vec<String>],
+    comparatii: &mut usize,
 ) -> Option<Sugestie> {
     let rand = randuri.get(pozitie)?;
     let text_bloc = rand.stanga.clone()?;
@@ -239,7 +275,7 @@ fn sugereaza_tok(
             scor: 100.0,
         }
     } else {
-        match cel_mai_apropiat_tok(&text_bloc, tok_tinta, Some(preferat)) {
+        match cel_mai_apropiat_tok(&text_bloc, tok_tinta, Some(preferat), comparatii) {
             Some((indice, scor)) if scor >= PRAG_INLOCUIRE => Tinta::Bloc { indice, scor },
             // scor -1 inseamna „n-a fost ales niciun candidat" (ca in v3.4),
             // nu „candidat cu scor zero"
@@ -308,6 +344,16 @@ pub struct Plasare {
 /// ordoneaza dupa pozitia din tinta, nu dupa ordinea de aici — asa face
 /// [`crate::aliniere::compune_plasat`], care sorteaza operatiile pe pozitie.
 pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
+    plasari_cu_raport(randuri, blocuri_tinta).0
+}
+
+/// Ca [`plasari`], plus ce a costat si ce a trebuit degradat la plafonul de
+/// cost ([`MAX_COMPARATII_PLASARE`]). Cine afiseaza trebuie sa poata spune ca
+/// o plasare a fost pusa pozitional, nu gasita.
+pub fn plasari_cu_raport(
+    randuri: &[RandDiff],
+    blocuri_tinta: &[String],
+) -> (Vec<Plasare>, RaportPlasare) {
     // Blocurile din tinta pe care le poate inlocui un bloc fara pereche: doar
     // cele care sunt si ele fara pereche (exista doar in tinta). Unul deja
     // imperecheat (egal sau modificat) e al altui bloc din martor; scris peste
@@ -339,6 +385,7 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
         })
         .collect();
     let mut out = Vec::new();
+    let mut raport = RaportPlasare::default();
     let mut bloc_tinta_urmator = 0usize;
     for (pozitie, r) in randuri.iter().enumerate() {
         // blocurile din tinta se consuma in ordine
@@ -361,7 +408,28 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
                 vec![pozitie],
             ),
             None => {
-                let Some(s) = sugereaza_tok(randuri, pozitie, blocuri_tinta, &tok_tinta) else {
+                if raport.comparatii >= MAX_COMPARATII_PLASARE {
+                    // plafonul atins: blocul se asaza in golul lui pozitional,
+                    // fara cautare, si se raporteaza
+                    raport.degradate += 1;
+                    let (indici, _) = grup_plasare(randuri, pozitie);
+                    let gol = gol_sugerat(randuri, pozitie, blocuri_tinta.len());
+                    out.push(Plasare {
+                        rand: pozitie,
+                        inlocuieste: false,
+                        bloc_tinta: gol,
+                        scor: -1.0,
+                        randuri: indici,
+                    });
+                    continue;
+                }
+                let Some(s) = sugereaza_tok(
+                    randuri,
+                    pozitie,
+                    blocuri_tinta,
+                    &tok_tinta,
+                    &mut raport.comparatii,
+                ) else {
                     continue;
                 };
                 match s.tinta {
@@ -405,7 +473,7 @@ pub fn plasari(randuri: &[RandDiff], blocuri_tinta: &[String]) -> Vec<Plasare> {
             randuri: mutate,
         });
     }
-    out
+    (out, raport)
 }
 
 /// Diferentele asa cum le vede omul: fiecare bloc care difera e o

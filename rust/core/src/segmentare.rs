@@ -166,16 +166,159 @@ fn actualizeaza_stiva(linie_curata: &str, stiva: &mut Vec<String>) {
     }
 }
 
-/// Instructiunea curenta e inca neterminata, deci urmatoarea instructiune nu
-/// porneste un bloc nou: un `DECLARE ... CURSOR FOR` asteapta corpul, un
-/// `INSERT INTO ...` asteapta `SELECT`-ul sau `EXEC`-ul propriu, un `UPDATE t`
-/// asteapta `SET`-ul, iar un `MERGE` tine pana la `;` (obligatoriu in T-SQL),
-/// fiindca ramurile lui `WHEN ... THEN UPDATE / INSERT` incep cu cuvinte cheie.
+/// Cate linii poate inghiti o instructiune neterminata inainte sa o declaram
+/// terminata cu forta.
 ///
-/// Primeste doar instructiunea curenta (de la ultima linie care a pornit una),
-/// nu tot blocul: altfel `IF @x = 1` + `UPDATE t` n-ar mai astepta `SET`-ul.
-fn bloc_este_continuat(curent: &str) -> bool {
-    let n = norm(curent);
+/// O instructiune care nu se termina niciodata (un `MERGE` fara `;` final, un
+/// `UPDATE t` al carui `SET` nu vine) lipea tot restul obiectului intr-un
+/// singur bloc: diff-ul nu mai avea nicio valoare (un bloc „modificat" de
+/// 8.000 de linii), si segmentarea devenea patratica. Plafonul taie exact
+/// cazul asta si se **raporteaza** (`Segmentare::instructiuni_retezate`), nu
+/// se aplica in tacere. 500 de linii trec peste orice `MERGE` sau
+/// `INSERT ... SELECT` real din corpus (cel mai lung are 39).
+const MAX_LINII_INSTRUCTIUNE: usize = 500;
+
+/// Faptele despre instructiunea curenta, tinute pe masura ce intra liniile.
+///
+/// Inainte, aceeasi intrebare se punea renormalizand instructiunea **intreaga**
+/// la fiecare linie goala si la fiecare inceput de instructiune, deci
+/// patratic in lungimea ei: un `UPDATE` fara `SET` pe 4.000 de linii costa
+/// 7,0 s, un `MERGE` fara `;` pe 2.000 de linii 1,4 s (masurat 2026-11-24).
+/// Acum fiecare linie se normalizeaza o singura data.
+///
+/// Echivalenta cu varianta veche e **probata**, nu presupusa: oracolul
+/// `bloc_este_continuat` a ramas in teste (`acelasi_verdict_ca_oracolul`), pe
+/// corpus si pe fuzz. Se poate tine asa fiindca `norm` colapseaza orice spatiu
+/// (deci si capatul de linie) la un singur spatiu: un cuvant nu se poate forma
+/// peste granita de linie, deci „contine cuvantul X" si „ultimul token e X" se
+/// pot decide linie cu linie.
+#[derive(Debug, Default, Clone)]
+struct StareInstructiune {
+    /// prima linie poate incepe o instructiune care ramane neterminata
+    poate_continua: bool,
+    /// forma normalizata a inceputului, pentru regexurile de prefix; nu creste
+    /// peste [`LIMITA_PREFIX`], ca sa nu depinda de lungimea instructiunii
+    prefix: String,
+    /// forma normalizata a ultimei linii nevide, pentru `for$` si `;$`
+    ultima: String,
+    /// nicio linie cu forma normalizata nevida
+    goala: bool,
+    are_cursor: bool,
+    are_values: bool,
+    are_sursa: bool,
+    are_set: bool,
+    linii: usize,
+    /// plafonul a fost atins: instructiunea se declara terminata
+    retezata: bool,
+}
+
+/// Cat din forma normalizata se tine pentru regexurile de prefix. Cel mai lung
+/// dintre ele (`^update\s+statistics`) cere 18 caractere; 64 lasa loc pentru
+/// un cuvant despartit peste doua linii (`update` + `statistics`).
+const LIMITA_PREFIX: usize = 64;
+
+impl StareInstructiune {
+    fn nou() -> Self {
+        Self {
+            goala: true,
+            ..Default::default()
+        }
+    }
+
+    /// Inca o linie a instructiunii curente. Intoarce cate normalizari a cerut
+    /// (0 sau 1): e masura de cost a segmentarii, vezi
+    /// [`Segmentare::normalizari`].
+    fn adauga(&mut self, linie: &str) -> usize {
+        let brut = linie.trim_start();
+        if self.linii == 0 && !brut.is_empty() {
+            // acelasi filtru ieftin ca inainte, pe textul brut: doar
+            // `DECLARE`, `INSERT`, `UPDATE` si `MERGE` pot ramane neterminate
+            self.poate_continua = RE_POATE_CONTINUA.is_match(brut);
+        }
+        if !brut.is_empty() {
+            self.linii += 1;
+            if self.linii >= MAX_LINII_INSTRUCTIUNE {
+                self.retezata = true;
+            }
+        }
+        if !self.poate_continua {
+            return 0;
+        }
+        let n = norm(linie);
+        if n.is_empty() {
+            return 1;
+        }
+        self.goala = false;
+        if self.prefix.len() < LIMITA_PREFIX {
+            if !self.prefix.is_empty() {
+                self.prefix.push(' ');
+            }
+            self.prefix.push_str(&n);
+            if self.prefix.len() > LIMITA_PREFIX {
+                let k = (0..=LIMITA_PREFIX)
+                    .rev()
+                    .find(|&k| self.prefix.is_char_boundary(k))
+                    .unwrap_or(0);
+                self.prefix.truncate(k);
+            }
+        }
+        self.are_cursor |= RE_CURSOR.is_match(&n);
+        self.are_values |= n.contains("values");
+        self.are_sursa |= RE_SURSA_INSERT.is_match(&n);
+        self.are_set |= RE_SET.is_match(&n);
+        self.ultima = n;
+        1
+    }
+
+    /// Instructiunea curenta e inca neterminata, deci urmatoarea instructiune
+    /// nu porneste un bloc nou: un `DECLARE ... CURSOR FOR` asteapta corpul,
+    /// un `INSERT INTO ...` asteapta `SELECT`-ul sau `EXEC`-ul propriu, un
+    /// `UPDATE t` asteapta `SET`-ul, iar un `MERGE` tine pana la `;`
+    /// (obligatoriu in T-SQL), fiindca ramurile lui `WHEN ... THEN UPDATE /
+    /// INSERT` incep cu cuvinte cheie.
+    fn neterminata(&self) -> bool {
+        if !self.poate_continua || self.goala || self.retezata {
+            return false;
+        }
+        if self.are_cursor && RE_FOR_LA_FINAL.is_match(&self.ultima) {
+            return true;
+        }
+        if RE_INCEPE_MERGE.is_match(&self.prefix) {
+            return !RE_PUNCT_VIRGULA_FINAL.is_match(&self.ultima);
+        }
+        // `UPDATE STATISTICS t` e complet: n-are `SET`, si asteptat ar fi
+        // inghitit tot restul obiectului intr-un bloc (C3)
+        if RE_INCEPE_UPDATE.is_match(&self.prefix)
+            && !self.are_set
+            && !RE_UPDATE_STATISTICS.is_match(&self.prefix)
+        {
+            return true;
+        }
+        if RE_INCEPE_INSERT.is_match(&self.prefix)
+            && !self.are_values
+            && !RE_PUNCT_VIRGULA_FINAL.is_match(&self.ultima)
+        {
+            // Odata ce sursa acestui INSERT (SELECT sau EXEC) a aparut,
+            // urmatoarea instructiune e una noua. Fara conditia asta,
+            // INSERT-ul ar inghiti tot restul obiectului, fiindca in acest
+            // dialect nu apar VALUES sau `;`.
+            return !self.are_sursa;
+        }
+        false
+    }
+}
+
+/// Oracolul: varianta veche, care renormalizeaza instructiunea intreaga.
+/// Pastrata **numai** ca referinta de test pentru [`StareInstructiune`].
+#[cfg(test)]
+fn instructiune_neterminata_oracol(linii: &[&str]) -> bool {
+    let Some(prima) = linii.iter().map(|l| l.trim_start()).find(|l| !l.is_empty()) else {
+        return false;
+    };
+    if !RE_POATE_CONTINUA.is_match(prima) {
+        return false;
+    }
+    let n = norm(&linii.join("\n"));
     if n.is_empty() {
         return false;
     }
@@ -185,8 +328,6 @@ fn bloc_este_continuat(curent: &str) -> bool {
     if RE_INCEPE_MERGE.is_match(&n) {
         return !RE_PUNCT_VIRGULA_FINAL.is_match(&n);
     }
-    // `UPDATE STATISTICS t` e complet: n-are `SET`, si asteptat ar fi
-    // inghitit tot restul obiectului intr-un bloc (C3)
     if RE_INCEPE_UPDATE.is_match(&n) && !RE_SET.is_match(&n) && !RE_UPDATE_STATISTICS.is_match(&n) {
         return true;
     }
@@ -194,25 +335,9 @@ fn bloc_este_continuat(curent: &str) -> bool {
         && !n.contains("values")
         && !RE_PUNCT_VIRGULA_FINAL.is_match(&n)
     {
-        // Odata ce sursa acestui INSERT (SELECT sau EXEC) a aparut, urmatoarea
-        // instructiune e una noua. Fara conditia asta, INSERT-ul ar inghiti tot
-        // restul obiectului, fiindca in acest dialect nu apar VALUES sau `;`.
         return !RE_SURSA_INSERT.is_match(&n);
     }
     false
-}
-
-/// [`bloc_este_continuat`] pe liniile instructiunii curente, cu un filtru
-/// ieftin inainte: doar `DECLARE`, `INSERT`, `UPDATE` si `MERGE` pot ramane
-/// neterminate, deci restul nu se mai lipesc si normalizeaza.
-fn instructiune_neterminata(linii: &[&str]) -> bool {
-    let Some(prima) = linii.iter().map(|l| l.trim_start()).find(|l| !l.is_empty()) else {
-        return false;
-    };
-    if !RE_POATE_CONTINUA.is_match(prima) {
-        return false;
-    }
-    bloc_este_continuat(&linii.join("\n"))
 }
 
 /// Linia (fara literale si comentarii) e o linie de control al carei corp nu
@@ -270,22 +395,78 @@ fn incepe_cu_if_while(text: &str) -> bool {
 /// inghitim tot obiectul cand `BEGIN` apartine unui construct mult mai larg.
 const MAX_BLOCURI_COMPUSE: usize = 6;
 
+/// Un bloc: textul lui si liniile din textul original pe care sta.
+///
+/// `text` e **exact** aceste linii unite cu `\n`, fiindca asa a fost
+/// construit. De aia pozitia unui bloc nu se mai cauta: pana la 2026-11-24 se
+/// cauta textul blocului inapoi in original, cu o ramura de rezerva care punea
+/// linia blocului **precedent** cand nu-l gasea — si blocurile unite (`UNION`,
+/// ciclu de cursor) nu sunt subsir al originalului, deci nu era gasit niciodata
+/// (B-1 din `cercetare/audit-qa-2026-11-23-clever-cerf.md`, CRITIC: „Aplica"
+/// scria peste alte linii).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bloc {
+    pub text: String,
+    /// liniile (0-based) din textul original, in ordine
+    pub linii: Vec<usize>,
+}
+
+impl Bloc {
+    /// Linia (0-based) pe care incepe blocul.
+    pub fn linie(&self) -> usize {
+        self.linii.first().copied().unwrap_or(0)
+    }
+}
+
+/// Rezultatul segmentarii: blocurile si ce a trebuit fortat.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Segmentare {
+    pub blocuri: Vec<Bloc>,
+    /// Cate instructiuni au fost declarate terminate cu forta, la plafonul
+    /// [`MAX_LINII_INSTRUCTIUNE`]. Peste zero, blocurile din jur pot fi taiate
+    /// altfel decat o cere gramatica — se **spune**, nu se degradeaza in
+    /// tacere (ca `Aliniere::blocuri_nealiniate`).
+    pub instructiuni_retezate: usize,
+    /// Cate normalizari de linie a cerut taierea. Masura de cost
+    /// **deterministica** a segmentarii: trebuie sa ramana liniara in numarul de
+    /// linii. Pana la 2026-11-24, starea instructiunii curente se recalcula
+    /// renormalizand-o intreaga, deci numarul crestea patratic (un `UPDATE`
+    /// fara `SET` pe 4.000 de linii: 7,0 s). Un plafon pe timp ar fi instabil
+    /// pe o masina incarcata; pe numarul asta, nu. Vezi `tests/cost.rs`.
+    pub normalizari: usize,
+}
+
+/// Blocuri lipite intr-unul singur, cu liniile lor puse cap la cap.
+fn uneste(blocuri: &[Bloc]) -> Bloc {
+    Bloc {
+        text: blocuri
+            .iter()
+            .map(|b| b.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n"),
+        linii: blocuri
+            .iter()
+            .flat_map(|b| b.linii.iter().copied())
+            .collect(),
+    }
+}
+
 /// Leaga un `IF`/`WHILE ... BEGIN` neinchis de blocurile urmatoare, pana se
 /// echilibreaza `BEGIN`/`END`.
-fn uneste_blocuri_compuse(blocuri: Vec<String>) -> Vec<String> {
-    let mut out: Vec<String> = Vec::with_capacity(blocuri.len());
+fn uneste_blocuri_compuse(blocuri: Vec<Bloc>) -> Vec<Bloc> {
+    let mut out: Vec<Bloc> = Vec::with_capacity(blocuri.len());
     let mut i = 0usize;
     while i < blocuri.len() {
-        let d = adancime_begin_end(&blocuri[i]);
-        if d > 0 && incepe_cu_if_while(&blocuri[i]) {
+        let d = adancime_begin_end(&blocuri[i].text);
+        if d > 0 && incepe_cu_if_while(&blocuri[i].text) {
             let mut adancime = d;
             let mut j = i + 1;
             while j < blocuri.len() && adancime > 0 && (j - i) < MAX_BLOCURI_COMPUSE {
-                adancime += adancime_begin_end(&blocuri[j]);
+                adancime += adancime_begin_end(&blocuri[j].text);
                 j += 1;
             }
             if adancime <= 0 {
-                out.push(blocuri[i..j].join("\n"));
+                out.push(uneste(&blocuri[i..j]));
                 i = j;
                 continue;
             }
@@ -331,18 +512,18 @@ fn contine_deallocate(text: &str, nume: &str) -> bool {
 }
 
 /// Uneste `DECLARE ... CURSOR` ... `DEALLOCATE <nume>` intr-un singur bloc.
-fn uneste_cicluri_cursor(blocuri: Vec<String>) -> Vec<String> {
+fn uneste_cicluri_cursor(blocuri: Vec<Bloc>) -> Vec<Bloc> {
     // Forma normalizata a fiecarui bloc, calculata o data: inainte se
     // recalcula pentru fiecare cursor, patratic in numarul de blocuri.
-    let norme: Vec<String> = blocuri.iter().map(|b| norm(b)).collect();
-    let mut out: Vec<String> = Vec::with_capacity(blocuri.len());
+    let norme: Vec<String> = blocuri.iter().map(|b| norm(&b.text)).collect();
+    let mut out: Vec<Bloc> = Vec::with_capacity(blocuri.len());
     let mut i = 0usize;
     while i < blocuri.len() {
-        if let Some(nume) = nume_cursor_din_bloc(&blocuri[i]) {
+        if let Some(nume) = nume_cursor_din_bloc(&blocuri[i].text) {
             if let Some(sfarsit) =
                 (i + 1..blocuri.len()).find(|&j| contine_deallocate(&norme[j], &nume))
             {
-                out.push(blocuri[i..=sfarsit].join("\n"));
+                out.push(uneste(&blocuri[i..=sfarsit]));
                 i = sfarsit + 1;
                 continue;
             }
@@ -357,27 +538,49 @@ fn uneste_cicluri_cursor(blocuri: Vec<String>) -> Vec<String> {
 /// exista un `DECLARE <nume> CURSOR`. Fereastra arata butonul „Uneste ciclul
 /// cursor" doar atunci — pe restul obiectelor n-ar face nimic.
 pub fn are_cursor(cod: &str) -> bool {
-    split_statements(cod, false)
+    segmenteaza(cod, false)
+        .blocuri
         .iter()
-        .any(|b| nume_cursor_din_bloc(b).is_some())
+        .any(|b| nume_cursor_din_bloc(&b.text).is_some())
 }
 
-/// Imparte codul in blocuri logice.
+/// Imparte codul in blocuri logice, cu textul lor.
+///
+/// Infasuratoare peste [`segmenteaza`], pentru cine nu are nevoie de pozitii.
+pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
+    segmenteaza(cod, uneste_cursor)
+        .blocuri
+        .into_iter()
+        .map(|b| b.text)
+        .collect()
+}
+
+/// Imparte codul in blocuri logice, cu liniile pe care stau.
 ///
 /// `uneste_cursor` corespunde comutatorului din interfata ("Uneste ciclul
 /// cursor"); implicit e oprit.
-pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
+pub fn segmenteaza(cod: &str, uneste_cursor: bool) -> Segmentare {
     if cod.is_empty() {
-        return Vec::new();
+        return Segmentare::default();
     }
 
-    let mut blocuri: Vec<String> = Vec::new();
-    let mut curent: Vec<&str> = Vec::new();
+    let linii_cod: Vec<&str> = cod.split('\n').collect();
+    let text_din = |idx: &[usize]| {
+        idx.iter()
+            .map(|&i| linii_cod[i])
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let mut blocuri: Vec<Bloc> = Vec::new();
+    let mut curent: Vec<usize> = Vec::new();
     // liniile goale dupa o instructiune: se decide la urmatoarea linie cu cod
     // daca o despart (instructiune noua) sau nu (continuare, N1)
-    let mut goale: Vec<&str> = Vec::new();
-    // indexul in `curent` al liniei care a pornit instructiunea curenta
-    let mut inceput_instructiune = 0usize;
+    let mut goale: Vec<usize> = Vec::new();
+    // faptele despre instructiunea curenta, tinute pe masura ce intra liniile
+    let mut stare = StareInstructiune::nou();
+    let mut retezate = 0usize;
+    let mut normalizari = 0usize;
     let mut in_antet = true;
     // antetul obiectului nu si-a vazut inca `AS`-ul: pana atunci nimic nu-l
     // desparte, nici o linie goala, nici un `RETURNS` pe rand nou
@@ -409,7 +612,7 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
     };
     let mut poz_linie = 0usize;
 
-    for linie in cod.split('\n') {
+    for (nr, linie) in linii_cod.iter().copied().enumerate() {
         // BOM-ul de la inceputul fisierului nu e cod: lasat aici, prima linie
         // nu mai era recunoscuta ca inceput de instructiune sau de CTE
         // (COSMETIC 11 din auditul 2026-11-23)
@@ -435,16 +638,13 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         if s.is_empty() {
             // o linie goala intre `IF` si corpul lui, sau intre `INSERT INTO`
             // si `SELECT`-ul lui, nu desparte instructiunea
-            let neterminat = corp_asteptat
-                || cte_asteptat
-                || antet_fara_as
-                || instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]);
+            let neterminat = corp_asteptat || cte_asteptat || antet_fara_as || stare.neterminata();
             if in_construct || neterminat {
-                curent.push(linie);
+                curent.push(nr);
             } else if !in_antet && !curent.is_empty() {
-                goale.push(linie);
+                goale.push(nr);
             } else if in_antet && !curent.is_empty() {
-                curent.push(linie);
+                curent.push(nr);
             }
             actualizeaza_stiva(curata, &mut stiva_case);
             continue;
@@ -458,8 +658,10 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
             } else {
                 goale.clear();
                 if !curent.is_empty() {
-                    blocuri.push(curent.join("\n"));
-                    curent.clear();
+                    blocuri.push(Bloc {
+                        text: text_din(&curent),
+                        linii: std::mem::take(&mut curent),
+                    });
                 }
             }
         }
@@ -468,22 +670,23 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         // instructiune noua lipita de cea dinainte (corpul unui `IF`,
         // instructiunea care foloseste un CTE)
         let incepe = RE_INCEPUT_INSTRUCTIUNE.is_match(s) && !in_construct;
-        let continuare = incepe
-            && !corp_asteptat
-            && !cte_asteptat
-            && (antet_fara_as
-                || instructiune_neterminata(&curent[inceput_instructiune.min(curent.len())..]));
+        let continuare =
+            incepe && !corp_asteptat && !cte_asteptat && (antet_fara_as || stare.neterminata());
         let lipita = incepe && (corp_asteptat || cte_asteptat || continuare);
 
         if incepe && !lipita {
             in_antet = false;
             if !curent.is_empty() {
-                blocuri.push(curent.join("\n"));
-                curent.clear();
+                blocuri.push(Bloc {
+                    text: text_din(&curent),
+                    linii: std::mem::take(&mut curent),
+                });
             }
         }
         if incepe && !continuare {
-            inceput_instructiune = curent.len();
+            // instructiune noua: faptele de dinainte nu mai conteaza
+            retezate += usize::from(stare.retezata);
+            stare = StareInstructiune::nou();
             // CTE-ul a primit instructiunea lui; un `WITH` nou il reporneste
             cte_asteptat = !lipita && RE_CTE.is_match(s);
             corp_asteptat = asteapta_corp(curata);
@@ -491,14 +694,22 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         if RE_ANTET_OBIECT.is_match(curata.trim_start()) {
             antet_fara_as = true;
         }
-        if antet_fara_as && RE_ARE_AS.is_match(&norm(curata)) {
-            antet_fara_as = false;
+        if antet_fara_as {
+            normalizari += 1;
+            if RE_ARE_AS.is_match(&norm(curata)) {
+                antet_fara_as = false;
+            }
         }
-        curent.push(linie);
+        curent.push(nr);
+        normalizari += stare.adauga(linie);
         actualizeaza_stiva(curata, &mut stiva_case);
     }
+    retezate += usize::from(stare.retezata);
     if !curent.is_empty() {
-        blocuri.push(curent.join("\n"));
+        blocuri.push(Bloc {
+            text: text_din(&curent),
+            linii: curent,
+        });
     }
 
     if uneste_cursor {
@@ -509,15 +720,15 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
     // `UNION` / `UNION ALL` la finalul unui bloc se lipeste de blocul urmator.
     // Forma normalizata a fiecarui bloc se calculeaza o singura data: e nevoie
     // de ea atat la testul de UNION, cat si la filtrarea finala.
-    let normalizate: Vec<String> = blocuri.iter().map(|b| norm(b)).collect();
-    let mut rezultat: Vec<String> = Vec::with_capacity(blocuri.len());
+    let normalizate: Vec<String> = blocuri.iter().map(|b| norm(&b.text)).collect();
+    let mut rezultat: Vec<Bloc> = Vec::with_capacity(blocuri.len());
     let mut i = 0usize;
     while i < blocuri.len() {
         if RE_UNION_LA_FINAL.is_match(&normalizate[i]) && i + 1 < blocuri.len() {
             // blocul unit se renormalizeaza; e singurul caz in care forma
             // precalculata nu mai corespunde
-            let unit = format!("{}\n{}", blocuri[i], blocuri[i + 1]);
-            if !norm(&unit).is_empty() {
+            let unit = uneste(&blocuri[i..=i + 1]);
+            if !norm(&unit.text).is_empty() {
                 rezultat.push(unit);
             }
             i += 2;
@@ -529,7 +740,11 @@ pub fn split_statements(cod: &str, uneste_cursor: bool) -> Vec<String> {
         }
     }
 
-    rezultat
+    Segmentare {
+        blocuri: rezultat,
+        instructiuni_retezate: retezate,
+        normalizari,
+    }
 }
 
 /// Cheia de identificare a unui bloc, folosita la alinierea cu
@@ -556,118 +771,18 @@ pub fn cheie_bloc(bloc: &str) -> String {
     format!("{}:{}:{}", tip, prefix, &h[..32])
 }
 
-/// Linia (0-based) pe care incepe fiecare bloc in textul original.
+/// Linia (0-based) pe care incepe fiecare bloc, pentru blocurile unei
+/// segmentari.
 ///
-/// Nu se poate obtine prin insumarea numarului de linii al blocurilor:
-/// segmentarea arunca liniile goale folosite ca separator, deci suma
-/// subestimeaza pozitia reala cu o linie pentru fiecare gol intalnit. Se cauta
-/// in schimb blocul ca subsir literal in textul original.
-///
-/// O potrivire conteaza doar daca incepe la inceputul unei linii (dupa
-/// spatii) si **nu** in interiorul unui comentariu sau al unui literal inceput
-/// inaintea ei — granitele vin din [`crate::lexer`], ca peste tot. Pana la
-/// 2026-11-18 blocul `SELECT 1` se aseza pe linia `SELECT 1 din comentariu`
-/// dintr-un `/* ... */` (gasit de fuzz-ul compunerii, seed 61): editorul il
-/// desena acolo, iar „Aplica" ar fi inlocuit linii gresite.
-/// `bloc` in `cod`, de la `poz`, linie cu linie: prima linie a blocului la
-/// inceput de linie (in afara sirurilor si comentariilor), apoi fiecare linie
-/// urmatoare a blocului pe urmatoarea linie negoala din cod. Intoarce
-/// (inceput, sfarsit) in `cod`.
-fn cauta_pe_linii(
-    cod: &str,
-    poz: usize,
-    bloc: &str,
-    la_inceput_de_linie: &dyn Fn(usize) -> bool,
-    in_interior: &dyn Fn(usize) -> bool,
-) -> Option<(usize, usize)> {
-    let linii: Vec<&str> = bloc.split('\n').filter(|l| !l.trim().is_empty()).collect();
-    let prima = *linii.first()?;
-    let rest = cod.get(poz..)?;
-    'candidat: for (i, _) in rest.match_indices(prima) {
-        let start = poz + i;
-        if !la_inceput_de_linie(start) || in_interior(start) {
-            continue;
-        }
-        let mut cursor = start;
-        for (k, l) in linii.iter().enumerate() {
-            if k > 0 {
-                // urmatoarea linie negoala din cod
-                loop {
-                    let Some(nl) = cod[cursor..].find('\n') else {
-                        continue 'candidat;
-                    };
-                    cursor += nl + 1;
-                    let linie = cod[cursor..].split('\n').next().unwrap_or("");
-                    if !linie.trim().is_empty() {
-                        break;
-                    }
-                }
-            }
-            if !cod[cursor..].starts_with(l) {
-                continue 'candidat;
-            }
-        }
-        let ultima = linii.last().map_or(0, |l| l.len());
-        return Some((start, cursor + ultima));
-    }
-    None
-}
-
-pub fn linii_start_blocuri(cod: &str, blocuri: &[String]) -> Vec<usize> {
-    use crate::lexer::{segmente, Fel};
-    // segmentele sunt in ordinea pozitiei, deci se cauta binar; cautarea
-    // liniara pe fiecare candidat facea functia patratica (P2 din auditul QA)
-    let seg: Vec<_> = segmente(cod)
-        .into_iter()
-        .filter(|s| s.fel != Fel::Cod)
-        .collect();
-    let in_interior = |poz: usize| {
-        let i = seg.partition_point(|s| s.start <= poz);
-        i > 0 && poz < seg[i - 1].sfarsit && poz > seg[i - 1].start
-    };
-    let la_inceput_de_linie = |poz: usize| {
-        cod[..poz]
-            .rsplit('\n')
-            .next()
-            .is_none_or(|inainte| inainte.chars().all(|c| c == ' ' || c == '\t'))
-    };
-    let mut out: Vec<usize> = Vec::with_capacity(blocuri.len());
-    let mut poz = 0usize;
-    // numaratoarea liniilor merge din aproape in aproape: `cod[..idx]` la
-    // fiecare bloc insemna inca o parcurgere a tot textului (P2)
-    let (mut linii_pana, mut numarat_pana) = (0usize, 0usize);
-    for bloc in blocuri {
-        let gasit = if bloc.is_empty() {
-            None
-        } else {
-            cod.get(poz..)
-                .and_then(|rest| {
-                    rest.match_indices(bloc.as_str())
-                        .map(|(i, _)| (poz + i, poz + i + bloc.len()))
-                        .find(|&(idx, _)| la_inceput_de_linie(idx) && !in_interior(idx))
-                })
-                // blocurile unite (UNION, cursor) pierd liniile goale dintre
-                // ele, deci nu mai sunt subsir al codului: atunci blocul se
-                // cauta linie cu linie, sarind liniile goale. Fara asta, blocul
-                // primea inceputul celui de dinainte si „Aplica" pierdea sau
-                // dubla linii (N3 din `cercetare/audit-qa-2026-11-23.md`)
-                .or_else(|| cauta_pe_linii(cod, poz, bloc, &la_inceput_de_linie, &in_interior))
-        };
-        match gasit {
-            None => out.push(out.last().copied().unwrap_or(0)),
-            Some((idx, sfarsit)) => {
-                if idx >= numarat_pana {
-                    linii_pana += cod[numarat_pana..idx].matches('\n').count();
-                } else {
-                    linii_pana = cod[..idx].matches('\n').count();
-                }
-                numarat_pana = idx;
-                out.push(linii_pana);
-                poz = sfarsit;
-            }
-        }
-    }
-    out
+/// Pozitia vine din [`segmenteaza`], care o stie cand taie. Pana la 2026-11-24
+/// se cauta textul blocului inapoi in textul original, cu o ramura de rezerva
+/// care punea linia blocului **precedent** cand nu-l gasea; blocurile unite
+/// (`UNION`, ciclu de cursor) nu sunt subsir al originalului, deci cadeau mereu
+/// pe ramura aceea (B-1, CRITIC: 8 din 109 obiecte reale, iar „Aplica" scria
+/// peste alte linii). Functia veche, `linii_start_blocuri(cod, &[String])`, nu
+/// mai exista: din texte nu se **poate** afla pozitia, de aia ghicea.
+pub fn linii_start(s: &Segmentare) -> Vec<usize> {
+    s.blocuri.iter().map(Bloc::linie).collect()
 }
 
 #[cfg(test)]
@@ -694,18 +809,36 @@ mod teste {
         assert_eq!(split_statements(&t, true).len(), 2);
     }
 
+    /// Un `SELECT 1` dintr-un comentariu nu e un bloc, si blocul adevarat
+    /// `SELECT 1` sta pe linia lui, nu pe cea din comentariu.
     #[test]
     fn blocul_nu_se_aseaza_in_interiorul_unui_comentariu() {
         let cod = "SELECT 2\n/* vechi\nSELECT 1 din comentariu\n*/\nSELECT 1";
-        let blocuri = vec!["SELECT 2".to_string(), "SELECT 1".to_string()];
-        assert_eq!(linii_start_blocuri(cod, &blocuri), vec![0, 4]);
+        let s = segmenteaza(cod, false);
+        assert_eq!(linii_start(&s), vec![0, 4]);
+        assert_eq!(s.blocuri[1].text, "SELECT 1");
     }
 
     #[test]
     fn nici_in_interiorul_unui_sir_sau_in_mijlocul_liniei() {
         let cod = "PRINT 'x\nEXEC p'\nSELECT a, EXEC_p\nEXEC p";
-        let blocuri = vec!["EXEC p".to_string()];
-        assert_eq!(linii_start_blocuri(cod, &blocuri), vec![3]);
+        let s = segmenteaza(cod, false);
+        assert_eq!(linii_start(&s), vec![0, 2, 3]);
+        assert_eq!(s.blocuri.last().unwrap().text, "EXEC p");
+    }
+
+    /// Fiecare bloc e **exact** liniile lui din original, unite cu `\n`. Asta
+    /// e ce face pozitiile exacte si ce inlocuieste cautarea de dinainte.
+    #[test]
+    fn textul_blocului_e_exact_liniile_lui() {
+        let cod = "CREATE PROC p AS\nBEGIN\n\nSELECT 1\n\nUNION ALL\nSELECT 2\n\nEND";
+        let linii: Vec<&str> = cod.split('\n').collect();
+        for uneste in [false, true] {
+            for b in segmenteaza(cod, uneste).blocuri {
+                let din_linii: Vec<&str> = b.linii.iter().map(|&i| linii[i]).collect();
+                assert_eq!(b.text, din_linii.join("\n"), "linii {:?}", b.linii);
+            }
+        }
     }
 
     /// Pana pe 2026-11-21 antetul lua `BEGIN`-ul, iar ultima instructiune
@@ -772,8 +905,79 @@ mod teste {
     #[test]
     fn linii_start_sare_peste_goluri() {
         let cod = "SELECT 1\n\nSELECT 2";
-        let b = split_statements(cod, false);
-        assert_eq!(linii_start_blocuri(cod, &b), vec![0, 2]);
+        assert_eq!(linii_start(&segmenteaza(cod, false)), vec![0, 2]);
+    }
+
+    /// Blocul unit de `UNION` nu e subsir al textului original (liniile goale
+    /// dintre parti se pierd), deci cautarea literala nu-l gasea niciodata.
+    /// Acum pozitia nu se mai cauta.
+    #[test]
+    fn blocul_unit_de_union_sta_pe_linia_lui() {
+        let cod = "SELECT 1\nUNION ALL\n\nSELECT 2\n\nSELECT 3";
+        let s = segmenteaza(cod, false);
+        assert_eq!(linii_start(&s), vec![0, 1, 5]);
+        // blocul unit sare peste linia goala: liniile 1 si 3, nu 1 si 2
+        assert_eq!(s.blocuri[1].linii, vec![1, 3]);
+        assert_eq!(s.blocuri[1].text, "UNION ALL\nSELECT 2");
+    }
+
+    /// Oracolul si starea incrementala dau acelasi verdict. Varianta veche
+    /// renormaliza instructiunea intreaga la fiecare linie; echivalenta se
+    /// probeaza, nu se presupune.
+    #[test]
+    fn acelasi_verdict_ca_oracolul() {
+        const BUCATI: [&str; 14] = [
+            "UPDATE dbo.t",
+            "SET a = 1",
+            "INSERT INTO dbo.t (a, b)",
+            "SELECT 1, 2",
+            "VALUES (1, 2);",
+            "MERGE dbo.t AS x USING dbo.s AS y ON x.id = y.id",
+            "WHEN MATCHED THEN UPDATE SET x.a = y.a;",
+            "DECLARE c CURSOR FOR",
+            "UPDATE STATISTICS dbo.t",
+            "EXEC dbo.p",
+            "-- comentariu",
+            "",
+            "   ",
+            "SELECT 'insert into x values'",
+        ];
+        let mut seed = 0x243f_6a88_85a3_08d3u64;
+        let mut urm = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for _ in 0..3000 {
+            let n = 1 + (urm() % 6) as usize;
+            let linii: Vec<&str> = (0..n).map(|_| BUCATI[(urm() % 14) as usize]).collect();
+            let mut stare = StareInstructiune::nou();
+            for l in &linii {
+                stare.adauga(l);
+            }
+            assert_eq!(
+                stare.neterminata(),
+                instructiune_neterminata_oracol(&linii),
+                "linii: {linii:?}"
+            );
+        }
+    }
+
+    /// O instructiune care nu se termina niciodata nu mai inghite obiectul.
+    #[test]
+    fn instructiunea_neterminata_se_retezeaza() {
+        let mut cod = String::from("UPDATE dbo.Tinta\n");
+        for i in 0..MAX_LINII_INSTRUCTIUNE + 50 {
+            cod.push_str(&format!("SELECT {i} FROM dbo.T{i}\n\n"));
+        }
+        let s = segmenteaza(&cod, false);
+        assert_eq!(s.instructiuni_retezate, 1);
+        assert!(
+            s.blocuri.len() > 40,
+            "retezarea trebuie sa sparga blocul: {} blocuri",
+            s.blocuri.len()
+        );
     }
 
     #[test]

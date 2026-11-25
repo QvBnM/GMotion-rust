@@ -14,7 +14,7 @@
 #[cfg(test)]
 use crate::diff::diff_aliniat;
 use crate::diff::{RandDiff, TipDiferenta};
-use crate::segmentare::{linii_start_blocuri, split_statements};
+use crate::segmentare::{split_statements, Bloc};
 
 /// O linie dintr-o parte, cu numarul ei real (de la 1).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -92,8 +92,9 @@ const PRAG_LINIE: f64 = 40.0;
 /// Peste acest produs `n*m` nu se mai cauta perechi prin programare dinamica
 /// intr-un segment `replace` de linii; se cade pe imperechere pozitionala.
 /// Blocurile atat de mari sunt rare, si cand se intampla **se spune**: vezi
-/// [`Aliniere::blocuri_nealiniate`].
-const MAX_PRODUS_LINII: usize = 4096;
+/// [`Aliniere::blocuri_nealiniate`]. Urcat de la 4096 odata cu retezarea pe
+/// lungimi din [`crate::normalizare::scor_maxim_posibil`].
+const MAX_PRODUS_LINII: usize = 16_384;
 
 /// Liniile care nu intra in imperechere: goale, sau numai comentariu.
 ///
@@ -134,9 +135,13 @@ fn perechi_pe_scor(st: &[&str], dr: &[&str]) -> Vec<(usize, usize)> {
     }
     let tv: Vec<Vec<String>> = st.iter().map(|l| tokeni_scor(l)).collect();
     let tn: Vec<Vec<String>> = dr.iter().map(|l| tokeni_scor(l)).collect();
+    // retezare exacta pe lungimi, ca la blocuri (`diff::perechi_replace`)
     let mut s = vec![vec![0f64; m]; n];
     for i in 0..n {
         for j in 0..m {
+            if crate::normalizare::scor_maxim_posibil(tv[i].len(), tn[j].len()) < PRAG_LINIE {
+                continue;
+            }
             s[i][j] = scor_pe_tokeni(&tv[i], &tn[j]);
         }
     }
@@ -283,36 +288,14 @@ pub fn aliniaza(text_stanga: &str, text_dreapta: &str) -> Aliniere {
     aliniaza_cu(text_stanga, text_dreapta, false)
 }
 
-/// Indicele din `original` al fiecarei linii din `linii_bloc`, de la `start`:
-/// liniile goale din cod care nu sunt in bloc se sar. Pe un bloc contiguu da
-/// `start, start + 1, ...`, ca inainte.
-fn harta_linii(original: &[&str], start: usize, linii_bloc: &[&str]) -> Vec<usize> {
-    let egal = |a: &str, b: &str| a.trim_end_matches('\r') == b.trim_end_matches('\r');
-    let mut cursor = start;
-    let mut out = Vec::with_capacity(linii_bloc.len());
-    for l in linii_bloc {
-        while cursor < original.len()
-            && !egal(original[cursor], l)
-            && original[cursor].trim().is_empty()
-        {
-            cursor += 1;
-        }
-        out.push(cursor);
-        cursor += 1;
-    }
-    out
-}
-
 /// Ca [`aliniaza`], dar cu „uneste ciclul cursorului" pornit: blocurile se
 /// taie altfel, deci si alinierea. Optiunea trebuie sa ajunga **si** la diff,
 /// **si** la inceputurile de blocuri — altfel cele doua n-ar mai vorbi despre
 /// aceleasi blocuri.
 pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -> Aliniere {
-    let (diff, segmente_pozitionale) =
-        crate::diff::diff_aliniat_cu_raport(text_stanga, text_dreapta, uneste_cursor);
-    let start_st = linii_start_blocuri(text_stanga, &split_statements(text_stanga, uneste_cursor));
-    let start_dr =
-        linii_start_blocuri(text_dreapta, &split_statements(text_dreapta, uneste_cursor));
+    let c = crate::diff::compara(text_stanga, text_dreapta, uneste_cursor);
+    let (diff, segmente_pozitionale) = (c.randuri, c.segmente_pozitionale);
+    let (bl_st, bl_dr) = (&c.referinta.blocuri, &c.tinta.blocuri);
     let original_st: Vec<&str> = text_stanga.lines().collect();
     let original_dr: Vec<&str> = text_dreapta.lines().collect();
 
@@ -346,16 +329,27 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
     };
 
     for (indice, rd) in diff.iter().enumerate() {
-        let s_st = rd.stanga.as_ref().map(|_| {
-            let s = start_st.get(bloc_st).map_or(ultim_st, |&s| s.max(ultim_st));
+        // liniile reale ale blocului, din segmentare: `Bloc::linii`. Inainte
+        // se pornea de la o linie de start si se reconstruia harta liniilor
+        // prin potrivire in textul original (`harta_linii`), ceea ce ghicea de
+        // doua ori acelasi lucru.
+        let h_st = rd.stanga.as_ref().map(|_| {
+            let h = bl_st.get(bloc_st).map(|b: &Bloc| b.linii.clone());
             bloc_st += 1;
-            s
+            h.unwrap_or_default()
         });
-        let s_dr = rd.dreapta.as_ref().map(|_| {
-            let s = start_dr.get(bloc_dr).map_or(ultim_dr, |&s| s.max(ultim_dr));
+        let h_dr = rd.dreapta.as_ref().map(|_| {
+            let h = bl_dr.get(bloc_dr).map(|b: &Bloc| b.linii.clone());
             bloc_dr += 1;
-            s
+            h.unwrap_or_default()
         });
+        let prima = |h: &Option<Vec<usize>>, implicit: usize| {
+            h.as_ref()
+                .and_then(|v| v.first().copied())
+                .map_or(implicit, |l| l.max(implicit))
+        };
+        let s_st = h_st.as_ref().map(|_| prima(&h_st, ultim_st));
+        let s_dr = h_dr.as_ref().map(|_| prima(&h_dr, ultim_dr));
         completeaza(
             &mut randuri,
             (ultim_st, s_st.unwrap_or(ultim_st)),
@@ -391,10 +385,11 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                     .collect(),
             };
         // linia din cod a fiecarei linii din bloc: un bloc unit (UNION,
-        // cursor) a pierdut liniile goale dintre parti, deci nu mai e
-        // contiguu in cod (N3 din `cercetare/audit-qa-2026-11-23.md`)
-        let harta_st = s_st.map(|s| harta_linii(&original_st, s, &linii_st));
-        let harta_dr = s_dr.map(|s| harta_linii(&original_dr, s, &linii_dr));
+        // cursor) a pierdut liniile goale dintre parti, deci nu e contiguu in
+        // cod (N3 din `cercetare/audit-qa-2026-11-23.md`). Vine din
+        // segmentare, nu din potrivire pe text.
+        let harta_st = h_st;
+        let harta_dr = h_dr;
         for (k, (is, id, ignorata)) in perechi.iter().copied().enumerate() {
             let linie = |idx: Option<usize>, linii: &[&str], harta: &Option<Vec<usize>>| match (
                 idx.and_then(|i| linii.get(i)),
@@ -459,8 +454,18 @@ pub fn plasari_aliniere(
     text_dreapta: &str,
     uneste_cursor: bool,
 ) -> Vec<crate::plasare::Plasare> {
+    plasari_aliniere_cu_raport(a, text_dreapta, uneste_cursor).0
+}
+
+/// Ca [`plasari_aliniere`], plus ce a costat si ce a fost degradat la plafonul
+/// de cost (`plasare::RaportPlasare`).
+pub fn plasari_aliniere_cu_raport(
+    a: &Aliniere,
+    text_dreapta: &str,
+    uneste_cursor: bool,
+) -> (Vec<crate::plasare::Plasare>, crate::plasare::RaportPlasare) {
     let blocuri_tinta = split_statements(text_dreapta, uneste_cursor);
-    crate::plasare::plasari(&a.diff, &blocuri_tinta)
+    crate::plasare::plasari_cu_raport(&a.diff, &blocuri_tinta)
 }
 
 /// Textul din dreapta, cu blocurile `blocuri` (indexuri in diff, ca in

@@ -104,6 +104,12 @@ pub enum FelBloc {
     Modificat,
     DoarMartor,
     DoarModificata,
+    /// Acelasi bloc, in alt loc (`TipDiferenta::Mutat`). Culoarea ramane a
+    /// blocului fara pereche; se schimba doar vorba din pastila, fiindca
+    /// altfel ar fi un al cincilea fel de colorat in editor, adica alta
+    /// macheta (CLAUDE.md §10).
+    MutatDinMartor,
+    MutatInModificata,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -142,6 +148,10 @@ pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
                     FelBloc::Modificat => l.alege("MODIFICAT", "MODIFIED"),
                     FelBloc::DoarMartor => l.alege("DOAR IN MARTOR", "WITNESS ONLY"),
                     FelBloc::DoarModificata => l.alege("DOAR IN MODIFICATA", "MODIFIED ONLY"),
+                    FelBloc::MutatDinMartor => l.alege("MUTAT, din Martor", "MOVED, from Witness"),
+                    FelBloc::MutatInModificata => {
+                        l.alege("MUTAT, in Modificata", "MOVED, in Modified")
+                    }
                 }
             );
             match unde {
@@ -548,12 +558,26 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
     let mut rand_fantomei: Vec<(usize, usize)> = Vec::new();
 
     for r in &a.randuri {
+        // Un bloc mutat se coloreaza ca blocul fara pereche care si este (de o
+        // parte lipseste, de alta e in plus); numai pastila spune ca e o
+        // mutare. Un al cincilea cod de stare ar cere alta macheta.
+        // partea pe care se afla blocul randului, nu partea randului: un rand
+        // de umplutura din acelasi bloc trebuie sa aiba aceeasi stare
+        let in_martor = r
+            .bloc
+            .and_then(|b| a.diff.get(b))
+            .is_some_and(|d| d.stanga.is_some());
         let stare = match r.tip {
             TipDiferenta::Egal => Stare::Egal,
             TipDiferenta::Modificat => Stare::Modificat,
             TipDiferenta::Sters => Stare::Sters,
             TipDiferenta::Adaugat => Stare::Adaugat,
+            TipDiferenta::Mutat if in_martor => Stare::Sters,
+            TipDiferenta::Mutat => Stare::Adaugat,
         };
+        let mutat = r
+            .bloc
+            .is_some_and(|b| a.diff.get(b).is_some_and(|d| d.tip == TipDiferenta::Mutat));
         let mut parte = |linie: &Option<gmotion_core::Linie>, dreapta: bool| -> Parte {
             let Some(l) = linie else {
                 return Parte::umplutura();
@@ -618,6 +642,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
                 _ => eticheta_bloc(
                     r.bloc,
                     stare,
+                    mutat,
                     &plasari,
                     &nr_martor,
                     &nr_modificata,
@@ -727,6 +752,7 @@ fn eticheta_grup(
 fn eticheta_bloc(
     bloc: Option<usize>,
     stare: Stare,
+    mutat: bool,
     plasari: &[gmotion_core::plasare::Plasare],
     nr_martor: &[usize],
     nr_modificata: &[usize],
@@ -737,11 +763,22 @@ fn eticheta_bloc(
     };
     let (nr, fel) = match stare {
         Stare::Modificat => (nr_martor.get(b).copied().unwrap_or(0), FelBloc::Modificat),
-        Stare::Sters => (nr_martor.get(b).copied().unwrap_or(0), FelBloc::DoarMartor),
+        Stare::Sters => (
+            nr_martor.get(b).copied().unwrap_or(0),
+            if mutat {
+                FelBloc::MutatDinMartor
+            } else {
+                FelBloc::DoarMartor
+            },
+        ),
         Stare::Adaugat => {
             return Eticheta::Bloc {
                 nr: nr_modificata.get(b).copied().unwrap_or(0),
-                fel: FelBloc::DoarModificata,
+                fel: if mutat {
+                    FelBloc::MutatInModificata
+                } else {
+                    FelBloc::DoarModificata
+                },
                 unde: UndeBloc::Nimic,
             }
         }
@@ -1395,5 +1432,38 @@ mod teste_plasare {
         // blocul fara corespondent tinteste fantoma
         let fantoma = m.randuri.iter().position(|r| r.fantoma).expect("fantoma");
         assert!(m.tinte.contains(&Some(fantoma)), "{:?}", m.tinte);
+    }
+
+    /// Un bloc reordonat: pastila spune ca e o **mutare**, pe amandoua
+    /// partile, iar culorile ramane cele ale blocului fara pereche (un al
+    /// cincilea cod de stare ar cere alta macheta, CLAUDE.md §10).
+    #[test]
+    fn blocul_mutat_isi_spune_numele_in_pastila() {
+        let a = "CREATE PROC dbo.p AS\nBEGIN\n    SELECT unu FROM dbo.Unu;\n\n                     SELECT doi FROM dbo.Doi;\n\n    SELECT trei FROM dbo.Trei;\nEND";
+        let b = "CREATE PROC dbo.p AS\nBEGIN\n    SELECT trei FROM dbo.Trei;\n\n                     SELECT unu FROM dbo.Unu;\n\n    SELECT doi FROM dbo.Doi;\nEND";
+        let m = construieste(a, b);
+        let pastile: Vec<String> = m
+            .randuri
+            .iter()
+            .map(|r| text_eticheta(&r.eticheta, Limba::Romana))
+            .filter(|x| x.contains("MUTAT"))
+            .collect();
+        assert_eq!(pastile.len(), 2, "doua capete, doua pastile: {pastile:?}");
+        assert!(
+            pastile.iter().any(|x| x.contains("din Martor"))
+                && pastile.iter().any(|x| x.contains("in Modificata")),
+            "{pastile:?}"
+        );
+        // starile ramane cele vechi: nicio culoare noua in editor
+        let stari: Vec<Stare> = m.randuri.iter().map(|r| r.stare).collect();
+        assert!(stari.contains(&Stare::Sters) && stari.contains(&Stare::Adaugat));
+        // si in engleza
+        let en: Vec<String> = m
+            .randuri
+            .iter()
+            .map(|r| text_eticheta(&r.eticheta, Limba::Engleza))
+            .filter(|x| x.contains("MOVED"))
+            .collect();
+        assert_eq!(en.len(), 2, "{en:?}");
     }
 }

@@ -186,6 +186,45 @@ pub fn hinturi(s: &str) -> String {
         .join(";")
 }
 
+/// Amprenta comentariilor din cod: o forma scurta si stabila a tot ce e
+/// comentariu, in ordine.
+///
+/// Normalizarea sterge comentariile (sunt zgomot la comparare, ca in v3.4),
+/// deci un obiect care difera **doar** intr-un comentariu are acelasi hash si
+/// nu ajunge niciodata in lista. Mecanismul e acelasi ca la [`hinturi`]: o
+/// amprenta separata pentru ce arunca normalizarea, ca sa ramana vizibil fara sa
+/// se schimbe verdictul „identic" pe cod (decizia e in `JURNAL.md`, etapa 30).
+///
+/// Spatiile din interiorul comentariului se strang (reindentarea nu e o
+/// schimbare de comentariu), dar majusculele ramane: comentariul e text pentru
+/// om. Gol cand nu exista niciun comentariu cu text.
+pub fn amprenta_comentarii(cod: &str) -> String {
+    use crate::lexer::Fel;
+    let mut bucati: Vec<String> = Vec::new();
+    for seg in crate::lexer::segmente(cod) {
+        if !matches!(seg.fel, Fel::ComentariuLinie | Fel::ComentariuBloc) {
+            continue;
+        }
+        let t = RE_SPATII.replace_all(&cod[seg.start..seg.sfarsit], " ");
+        let t = t.trim();
+        // `--` sau `/* */` fara nimic in ele nu sunt un comentariu schimbat
+        let fara_marci = t
+            .trim_start_matches(['-', '/', '*'])
+            .trim_end_matches(['*', '/'])
+            .trim();
+        if fara_marci.is_empty() {
+            continue;
+        }
+        bucati.push(t.to_string());
+    }
+    if bucati.is_empty() {
+        return String::new();
+    }
+    let mut h = Sha256::new();
+    h.update(bucati.join("\n").as_bytes());
+    hex::encode(h.finalize())[..32].to_string()
+}
+
 /// Unifica terminatoarele de linie, apoi normalizeaza.
 pub fn normalizeaza(cod: &str) -> String {
     if cod.is_empty() {
@@ -335,6 +374,20 @@ pub fn tokeni_scor(text: &str) -> Vec<String> {
         .split(' ')
         .map(|t| t.to_string())
         .collect()
+}
+
+/// Marginea de sus a scorului, calculata **numai** din lungimi.
+///
+/// `ratio = 2 * potriviri / (n + m)`, iar `potriviri <= min(n, m)`, deci
+/// `scor <= 200 * min(n, m) / (n + m)`. Marginea e exacta, nu euristica: o
+/// pereche a carei margine e sub prag **nu poate** trece pragul, deci nu merita
+/// nicio comparatie. Pe matricile `n*m` de scoruri din `diff` si `aliniere`
+/// asta sare peste cele mai multe perechi fara sa schimbe niciun rezultat.
+pub fn scor_maxim_posibil(n: usize, m: usize) -> f64 {
+    if n == 0 && m == 0 {
+        return 100.0;
+    }
+    200.0 * n.min(m) as f64 / (n + m) as f64
 }
 
 /// Procentul de similaritate pe token-uri deja calculate.
@@ -658,5 +711,48 @@ mod teste {
             "sirurile nu conteaza"
         );
         assert_eq!(hinturi("SELECT a FROM t"), "");
+    }
+
+    #[test]
+    fn amprenta_comentariilor_prinde_ce_sterge_normalizarea() {
+        let a = "SELECT 1 -- vechi\n";
+        let b = "SELECT 1 -- nou\n";
+        assert_eq!(normalizeaza(a), normalizeaza(b));
+        assert_ne!(amprenta_comentarii(a), amprenta_comentarii(b));
+        // reindentarea in comentariu nu e o schimbare
+        assert_eq!(
+            amprenta_comentarii("/* a\n   b */"),
+            amprenta_comentarii("/* a\nb */")
+        );
+        // majuscula in comentariu e o schimbare: e text pentru om
+        assert_ne!(amprenta_comentarii("-- Nu"), amprenta_comentarii("-- nu"));
+        // fara comentariu, fara amprenta
+        assert_eq!(amprenta_comentarii("SELECT 1"), "");
+        assert_eq!(amprenta_comentarii("SELECT 1 --\n/**/"), "");
+        // un `--` dintr-un sir nu e comentariu
+        assert_eq!(amprenta_comentarii("SELECT '-- nu'"), "");
+    }
+
+    #[test]
+    fn marginea_scorului_din_lungimi() {
+        assert_eq!(scor_maxim_posibil(0, 0), 100.0);
+        assert_eq!(scor_maxim_posibil(10, 10), 100.0);
+        assert_eq!(scor_maxim_posibil(1, 9), 20.0);
+        assert_eq!(scor_maxim_posibil(5, 0), 0.0);
+        // marginea nu minte niciodata: scorul real nu o depaseste
+        for (a, b) in [
+            (
+                "SELECT 1",
+                "SELECT 1 FROM t WHERE x = 1 AND y = 2 AND z = 3",
+            ),
+            ("a b c d e f", "a"),
+            ("", "SELECT 1"),
+        ] {
+            let (ta, tb) = (tokeni_scor(a), tokeni_scor(b));
+            assert!(
+                scor_pe_tokeni(&ta, &tb) <= scor_maxim_posibil(ta.len(), tb.len()) + 1e-9,
+                "{a:?} / {b:?}"
+            );
+        }
     }
 }

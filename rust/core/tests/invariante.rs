@@ -210,6 +210,46 @@ fn segmentarea_nu_pierde_cod() {
     }
 }
 
+/// Invariantul 4e: un bloc e **exact** liniile lui din textul original, unite
+/// cu `\n`, iar liniile lui sunt crescatoare si nu se repeta intre blocuri.
+/// De aici vine faptul ca pozitia unui bloc e corecta prin constructie: pana
+/// la etapa 30 se cauta textul blocului inapoi in original, iar blocurile
+/// unite (`UNION`, cursor) nu sunt subsir, deci nu erau gasite niciodata (B-1,
+/// CRITIC: „Aplica" scria peste alte linii).
+#[test]
+fn blocul_e_exact_liniile_lui() {
+    for seed in 0..SEED_URI {
+        let cod = genereaza(seed, false);
+        let linii: Vec<&str> = cod.split('\n').collect();
+        for uneste_cursor in [false, true] {
+            let s = gmotion_core::segmenteaza(&cod, uneste_cursor);
+            let mut ultima: Option<usize> = None;
+            for (i, b) in s.blocuri.iter().enumerate() {
+                let din_linii: Vec<&str> = b.linii.iter().map(|&k| linii[k]).collect();
+                assert_eq!(
+                    b.text,
+                    din_linii.join("\n"),
+                    "seed {seed}, uneste_cursor={uneste_cursor}, blocul {i}: textul nu e \
+                     liniile {:?}\n--- intrare ---\n{cod}",
+                    b.linii
+                );
+                assert!(
+                    b.linii.windows(2).all(|w| w[0] < w[1]),
+                    "seed {seed}, blocul {i}: linii in dezordine {:?}",
+                    b.linii
+                );
+                if let (Some(u), Some(&prima)) = (ultima, b.linii.first()) {
+                    assert!(
+                        u < prima,
+                        "seed {seed}, blocul {i}: linia {prima} e deja intr-un bloc de dinainte"
+                    );
+                }
+                ultima = b.linii.last().copied().or(ultima);
+            }
+        }
+    }
+}
+
 /// Invariantul 4: un bloc nu se termina niciodata in interiorul unui literal,
 /// al unui comentariu bloc sau al unei paranteze deschise. Daca s-ar intampla,
 /// blocul urmator ar porni cu starea gresita si clasificarea ar fi aiurea —

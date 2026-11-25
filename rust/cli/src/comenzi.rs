@@ -1568,7 +1568,8 @@ pub fn diferente(
 ///
 /// Asezarea pe linii vine din `gmotion_core::aliniaza`, nu se recalculeaza
 /// aici: pana la etapa 20, functia asta isi facea propria socoteala cu
-/// `linii_start_blocuri` si umplea singura golurile dintre blocuri — a doua
+/// `linii_start_blocuri` (functie care nu mai exista: pozitiile vin din
+/// segmentare, etapa 30) si umplea singura golurile dintre blocuri — a doua
 /// implementare a aceleiasi logici, adica exact felul in care au divergat
 /// motoarele din v3.4. Acum liniile din interiorul unui bloc modificat sunt
 /// imperecheate intre ele, nu pe pozitie.
@@ -1730,6 +1731,7 @@ mod teste {
             modificat: None,
             creat: None,
             exacta_curent: None,
+            schimbat: None,
         };
         let r = [rand("dbo.p1"), rand("dbo.P1")];
         let p: Vec<&str> = potrivite(&r, "dbo.P1")

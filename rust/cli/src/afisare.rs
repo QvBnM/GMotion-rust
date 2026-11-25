@@ -162,6 +162,25 @@ pub fn comparare_text(c: &Comparare, detalii: &Detalii) -> String {
                 v.push(d.map_or_else(String::new, |d| {
                     format!("+{} -{}", d.linii_plus, d.linii_minus)
                 }));
+                // „cat s-a schimbat", nu „cat seamana": o instructiune din
+                // patruzeci da scor 98 si SCHIMBAT 2,5% (etapa 30)
+                v.push(d.map_or_else(String::new, |d| format!("{:.1}%", d.schimbat)));
+                v.push(d.map_or_else(String::new, |d| {
+                    let mut semne: Vec<String> = Vec::new();
+                    if d.mutate > 0 {
+                        semne.push(format!("{} mutate", d.mutate));
+                    }
+                    if d.segmente_pozitionale > 0 {
+                        semne.push(format!(
+                            "{} segmente imperecheate pozitional",
+                            d.segmente_pozitionale
+                        ));
+                    }
+                    if d.instructiuni_retezate > 0 {
+                        semne.push(format!("{} instructiuni retezate", d.instructiuni_retezate));
+                    }
+                    semne.join("; ")
+                }));
             }
             v
         })
@@ -178,6 +197,8 @@ pub fn comparare_text(c: &Comparare, detalii: &Detalii) -> String {
     if !detalii.is_empty() {
         antet.push("DIFERA IN");
         antet.push("LINII");
+        antet.push("SCHIMBAT");
+        antet.push("NOTE");
     }
     out.push('\n');
     out.push_str(&tabel(&antet, &randuri));
@@ -212,6 +233,19 @@ pub struct RandDetaliat<'a> {
     pub difera_in: &'a str,
     pub linii_plus: usize,
     pub linii_minus: usize,
+    /// Cat la suta din obiect e atins, ponderat pe marimea blocurilor.
+    pub schimbat: f64,
+    pub mutate: usize,
+    /// Peste zero, diff-ul e de citit cu rezerva: vezi
+    /// `gmotion_modul_diff_obiecte::Detalii`.
+    #[serde(skip_serializing_if = "este_zero")]
+    pub segmente_pozitionale: usize,
+    #[serde(skip_serializing_if = "este_zero")]
+    pub instructiuni_retezate: usize,
+}
+
+fn este_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 pub fn comparare_json<'a>(c: &'a Comparare, detalii: &'a Detalii) -> CompararJson<'a> {
@@ -236,6 +270,10 @@ pub fn comparare_json<'a>(c: &'a Comparare, detalii: &'a Detalii) -> CompararJso
                         difera_in: &d.difera_in,
                         linii_plus: d.linii_plus,
                         linii_minus: d.linii_minus,
+                        schimbat: d.schimbat,
+                        mutate: d.mutate,
+                        segmente_pozitionale: d.segmente_pozitionale,
+                        instructiuni_retezate: d.instructiuni_retezate,
                     })
                 })
                 .collect()
@@ -317,6 +355,7 @@ mod teste {
                     modificat: None,
                     creat: None,
                     exacta_curent: None,
+                    schimbat: None,
                 },
                 Rand {
                     id: 1,
@@ -331,6 +370,7 @@ mod teste {
                     modificat: None,
                     creat: None,
                     exacta_curent: None,
+                    schimbat: None,
                 },
             ],
             numaratoare: Numaratoare {
@@ -427,6 +467,10 @@ mod teste {
         Detalii::from([(
             0,
             gmotion_modul_diff_obiecte::Detalii {
+                schimbat: 0.0,
+                mutate: 0,
+                segmente_pozitionale: 0,
+                instructiuni_retezate: 0,
                 difera_in: "un sir".into(),
                 linii_plus: 2,
                 linii_minus: 1,

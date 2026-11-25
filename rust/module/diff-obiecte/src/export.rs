@@ -15,7 +15,7 @@ use crate::eroare::{Eroare, Rezultat};
 /// diacriticele.
 const BOM: &[u8] = &[0xEF, 0xBB, 0xBF];
 
-const CAP: [&str; 10] = [
+const CAP: [&str; 11] = [
     "Obiect",
     "Baza",
     "Tip",
@@ -28,6 +28,8 @@ const CAP: [&str; 10] = [
     // pozitie coloanele vechi sa nu se strice (etapa 25)
     "Ultima modificare",
     "Data crearii",
+    // la fel, la sfarsit: „cat s-a schimbat", nu „cat seamana" (etapa 30)
+    "Schimbat %",
 ];
 
 /// Un camp CSV: se pun ghilimele doar daca e nevoie, iar ghilimelele din
@@ -97,6 +99,9 @@ pub fn scrie_csv(cale: &Path, randuri: &[Rand], stare: impl Fn(usize) -> Stare) 
             if s.omis { "DA" } else { "NU" }.to_string(),
             camp(r.modificat.as_deref().unwrap_or("")),
             camp(r.creat.as_deref().unwrap_or("")),
+            r.schimbat
+                .map(|x| format!("{x:.2}").replace('.', ","))
+                .unwrap_or_default(),
         ];
         scrie(rand.join(";").as_bytes())?;
         scrie(b"\r\n")?;
@@ -127,6 +132,7 @@ mod teste {
             modificat: None,
             creat: None,
             exacta_curent: None,
+            schimbat: None,
         }
     }
 
@@ -227,14 +233,14 @@ mod teste {
         let text = String::from_utf8(std::fs::read(&cale).unwrap()[3..].to_vec()).unwrap();
         let linii: Vec<&str> = text.lines().collect();
         assert!(
-            linii[0].ends_with(";Omis;Ultima modificare;Data crearii"),
+            linii[0].ends_with(";Omis;Ultima modificare;Data crearii;Schimbat %"),
             "{}",
             linii[0]
         );
-        // Rezolvat, Omis, apoi Ultima modificare si Data crearii
-        assert!(linii[1].ends_with("DA;NU;;"), "{}", linii[1]);
+        // Rezolvat, Omis, apoi Ultima modificare, Data crearii, Schimbat %
+        assert!(linii[1].ends_with("DA;NU;;;"), "{}", linii[1]);
         assert!(
-            linii[2].ends_with("NU;DA;2026-11-22 10:32:15;"),
+            linii[2].ends_with("NU;DA;2026-11-22 10:32:15;;"),
             "{}",
             linii[2]
         );

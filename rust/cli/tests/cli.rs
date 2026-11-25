@@ -68,7 +68,7 @@ fn scrie_instantaneu(cale: &Path) {
         ],
         "Client1": [
           {"schema":"dbo","nume":"pClienti","tip":"P","definitie":"CREATE PROCEDURE dbo.pClienti AS\nSELECT nume FROM Clienti WHERE activ = 0"},
-          {"schema":"dbo","nume":"vFacturi","tip":"V","definitie":"CREATE VIEW dbo.vFacturi AS\n   SELECT id FROM Facturi   -- cosmetic"},
+          {"schema":"dbo","nume":"vFacturi","tip":"V","definitie":"CREATE VIEW dbo.vFacturi AS\n   SELECT id FROM Facturi   "},
           {"schema":"dbo","nume":"pLocal","tip":"P","definitie":"CREATE PROCEDURE dbo.pLocal AS\nSELECT 1"}
         ]
       }

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: a16b54a0278e118d -->
+<!-- api-hash: 10313bc0ccf8a236 -->
 
 ## Rol
 
@@ -63,6 +63,7 @@ etapa care a atins-o: 28 (tabelele in comparare).
 | `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
 | `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, „Folosit de" / „Foloseste" — primele 8 nume, apasabile, si „+N" —, nota); nota se rescrie doar cand se schimba obiectul |
 | `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
+| `model_editor::{FelBloc, Eticheta}` | ce scrie pastila de pe primul rand al unui bloc. Un bloc **mutat** (`gmotion_core::TipDiferenta::Mutat`) pastreaza culoarea blocului fara pereche si schimba doar vorba din pastila (`MUTAT, din Martor` / `MUTAT, in Modificata`): un al cincilea cod de stare ar cere alta macheta (CLAUDE.md §10) |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente; `tinte` = randul catre care se duce fiecare diferenta |
 
 **Unde ajunge un bloc nu se decide aici.** Modelul intreaba

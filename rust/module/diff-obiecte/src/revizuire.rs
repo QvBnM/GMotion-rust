@@ -417,6 +417,7 @@ mod teste {
             modificat: None,
             creat: None,
             exacta_curent: None,
+            schimbat: None,
         }
     }
 
@@ -709,6 +710,7 @@ mod teste {
             modificat: None,
             creat: None,
             exacta_curent: None,
+            schimbat: None,
         }
     }
 }

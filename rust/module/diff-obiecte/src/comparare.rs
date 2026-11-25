@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use gmotion_core::{
-    calc_hash, hinturi, normalizeaza, pregateste_afisare, rezumat_rapid, scor_similaritate,
+    amprenta_comentarii, calc_hash, hinturi, normalizeaza, pregateste_afisare, scor_similaritate,
 };
 use gmotion_db::{Obiect, Setari};
 use serde::{Deserialize, Serialize};
@@ -75,6 +75,15 @@ pub struct Rand {
     /// chiar daca diferenta e doar un comentariu (F-D5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exacta_curent: Option<String>,
+    /// Cat la suta din obiect e atins, ponderat pe marimea blocurilor
+    /// (`gmotion_core::Masura::schimbat`). Langa `scor`, nu in locul lui:
+    /// scorul spune cat seamana textele, asta spune cat s-a schimbat. O
+    /// instructiune schimbata din patruzeci da scor ~98 si `schimbat` ~2,5,
+    /// dar un obiect rescris pe jumatate da scor ~50 si `schimbat` ~50 — la
+    /// scor mic cele doua se apropie, la scor mare `schimbat` e cel care se
+    /// citeste (etapa 30).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub schimbat: Option<f64>,
 }
 
 /// Cat de departe a ajuns compararea. Platforma o publica prin metoda comuna
@@ -117,6 +126,11 @@ pub struct ObiectPregatit {
     /// Hinturile de blocare (`gmotion_core::hinturi`): normalizarea le sterge,
     /// deci un obiect care difera doar prin ele ar iesi identic (F-M3).
     pub hinturi: String,
+    /// Amprenta comentariilor (`gmotion_core::amprenta_comentarii`): acelasi
+    /// mecanism ca la hinturi. Normalizarea sterge comentariile, deci un
+    /// obiect care difera doar intr-un comentariu ieseau „identic" si nu
+    /// ajungea niciodata in lista (etapa 30; decizia e in `JURNAL.md`).
+    pub comentarii: String,
     /// `Obiect::modificat`, purtat pana pe `Rand`.
     pub modificat: Option<String>,
     /// `Obiect::creat`, la fel.
@@ -133,6 +147,7 @@ impl ObiectPregatit {
             afisare: pregateste_afisare(&o.definitie),
             hash: calc_hash(&normalizat),
             hinturi: hinturi(&o.definitie),
+            comentarii: amprenta_comentarii(&o.definitie),
             modificat: o.modificat.clone(),
             creat: o.creat.clone(),
         }
@@ -166,6 +181,9 @@ pub fn diferente_ascunse(a: &ObiectPregatit, b: &ObiectPregatit) -> Vec<&'static
     let mut v = setari_diferite(a.setari, b.setari);
     if a.hinturi != b.hinturi {
         v.push("hinturi");
+    }
+    if a.comentarii != b.comentarii {
+        v.push("comentarii");
     }
     v
 }
@@ -298,6 +316,7 @@ pub fn compara_cu_oprire(
                     modificat: r.modificat.clone(),
                     creat: r.creat.clone(),
                     exacta_curent: None,
+                    schimbat: None,
                 });
                 id += 1;
                 continue;
@@ -317,6 +336,7 @@ pub fn compara_cu_oprire(
                     modificat: c.modificat.clone(),
                     creat: c.creat.clone(),
                     exacta_curent: Some(crate::plan::amprenta_exacta(c)),
+                    schimbat: None,
                 });
                 id += 1;
                 continue;
@@ -346,6 +366,7 @@ pub fn compara_cu_oprire(
                     modificat: c.modificat.clone(),
                     creat: c.creat.clone(),
                     exacta_curent: Some(crate::plan::amprenta_exacta(c)),
+                    schimbat: None,
                 });
                 id += 1;
                 continue;
@@ -355,15 +376,16 @@ pub fn compara_cu_oprire(
             // procedura in martor, view in modificata: `CREATE OR ALTER` nu
             // poate trece de la un tip la altul, deci randul trebuie sa spuna
             // asta, nu doar un procent (F-D3)
+            let (rezumat_blocuri, masura) =
+                gmotion_core::rezumat_si_masura_rapide(&r.afisare, &c.afisare);
             let rezumat = if r.tip.trim() != c.tip.trim() {
                 format!(
-                    "tip schimbat: {} in martor, {} in modificata; {}",
+                    "tip schimbat: {} in martor, {} in modificata; {rezumat_blocuri}",
                     r.tip.trim(),
                     c.tip.trim(),
-                    rezumat_rapid(&r.afisare, &c.afisare)
                 )
             } else {
-                rezumat_rapid(&r.afisare, &c.afisare)
+                rezumat_blocuri
             };
             randuri.push(Rand {
                 id,
@@ -378,6 +400,7 @@ pub fn compara_cu_oprire(
                 modificat: c.modificat.clone(),
                 creat: None,
                 exacta_curent: Some(crate::plan::amprenta_exacta(c)),
+                schimbat: Some(masura.schimbat),
             });
             id += 1;
         }
@@ -408,6 +431,7 @@ pub fn compara_cu_oprire(
                 modificat: o.modificat.clone(),
                 creat: o.creat.clone(),
                 exacta_curent: Some(crate::plan::amprenta_exacta(o)),
+                schimbat: None,
             });
             id += 1;
         }
@@ -690,17 +714,36 @@ mod teste {
 
     #[test]
     fn diferenta_cosmetica_nu_se_raporteaza() {
-        // Acelasi cod, alta aranjare in pagina si un comentariu in plus:
-        // hash-urile difera, dar normalizarea le aduce la aceeasi forma.
+        // Acelasi cod, alta aranjare in pagina: hash-urile textului difera,
+        // dar normalizarea le aduce la aceeasi forma.
         let r = pregateste(&[ob("pA", "CREATE PROC dbo.pA AS\nSELECT a FROM t")]);
-        let t = pregateste(&[ob(
-            "pA",
-            "CREATE PROC dbo.pA AS\n   SELECT   a   FROM t  -- comentariu",
-        )]);
+        let t = pregateste(&[ob("pA", "CREATE PROC dbo.pA AS\n   SELECT   a   FROM t  ")]);
         let c = compara("Ref", &r, &[("T".to_string(), t)], fara_progres());
         assert_eq!(c.numaratoare.identice, 1);
         assert_eq!(c.numaratoare.diferite, 0);
         assert!(c.randuri.is_empty(), "nimic de raportat: {:?}", c.randuri);
+    }
+
+    /// Etapa 30, aceeasi familie ca F-M3 (hinturile): normalizarea sterge
+    /// comentariile, deci un obiect cu cod identic si comentarii schimbate
+    /// ieseau „identic" si nu ajungea niciodata in lista. Acum e o diferenta
+    /// ascunsa, ca hinturile — verdictul pe **cod** nu se schimba.
+    #[test]
+    fn comentariu_adaugat_e_o_diferenta_ascunsa() {
+        let r = pregateste(&[ob("pA", "CREATE PROC dbo.pA AS\nSELECT a FROM t")]);
+        let t = pregateste(&[ob(
+            "pA",
+            "CREATE PROC dbo.pA AS\nSELECT a FROM t -- de verificat",
+        )]);
+        assert_eq!(r["dbo.pA"].hash, t["dbo.pA"].hash);
+        assert_eq!(
+            diferente_ascunse(&r["dbo.pA"], &t["dbo.pA"]),
+            ["comentarii"]
+        );
+        let c = compara("Ref", &r, &[("T".to_string(), t)], fara_progres());
+        assert_eq!(c.numaratoare.identice, 0);
+        assert_eq!(c.numaratoare.diferite, 1);
+        assert_eq!(c.randuri[0].rezumat, "difera doar in: comentarii");
     }
 
     /// Regresie din audit: pe un obiect de 10.000+ token-uri, un `NOT` sters

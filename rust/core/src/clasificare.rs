@@ -136,6 +136,15 @@ pub fn clasifica_randuri(randuri: &[crate::diff::RandDiff]) -> Clasificare {
                 c.siruri += b.siruri;
                 c.comentarii += b.comentarii;
             }
+            // O mutare se numara **o data**, pe capatul din martor: cele doua
+            // randuri descriu acelasi bloc, in doua locuri. Rama „cod":
+            // ordinea instructiunilor s-a schimbat, chiar daca textul nu.
+            TipDiferenta::Mutat if r.stanga.is_some() => {
+                if let Some(t) = r.stanga.as_deref() {
+                    clasifica_bloc(t, &mut c);
+                }
+            }
+            TipDiferenta::Mutat => {}
             TipDiferenta::Sters => {
                 if let Some(t) = r.stanga.as_deref() {
                     clasifica_bloc(t, &mut c);
@@ -190,8 +199,14 @@ pub fn eticheta_in(c: Clasificare, setari: &[&str], l: Limba) -> String {
     }
     parti.extend(setari.iter().map(|s| match *s {
         "hinturi" => l.alege("hinturi", "hints").to_string(),
+        // comentariile pot veni si din `clasificare` (un bloc numai
+        // comentariu) si din `diferente_ascunse` (amprenta comentariilor):
+        // textul e acelasi, deci nu se repeta
+        "comentarii" if c.comentarii > 0 => String::new(),
+        "comentarii" => l.alege("comentarii", "comments").to_string(),
         alt => alt.to_string(),
     }));
+    parti.retain(|p| !p.is_empty());
     if parti.is_empty() {
         "—".to_string()
     } else {
