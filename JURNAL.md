@@ -2510,3 +2510,36 @@ sa revina la ~9 / ~6 s.
 **Serverele gasite**: lista se filtreaza dupa textul din camp (fara
 majuscule); campul gol sau exact un server gasit le arata pe toate (dupa
 alegere poti alege altul); cel mult 5 randuri, cu derulare.
+
+---
+
+## 2026-11-25 — Alinierea: fara ancore pe `END`, antetele mereu pereche
+
+**Context.** Proba lui Mihai (seara): pe BO_Reconcile, side-by-side arata
+tot ce era in After doar in dreapta si tot ce era in Before doar in stanga,
+cu goluri in fata fiecaruia — chiar si pe instructiuni identice (`set
+@SessionId = newid()`, `select * from #BOSyncMaster`). Pe EUTransactionType
+(vedere in Before, tabel in After) cele doua blocuri stateau unul sub altul.
+
+**Cauza.** `SequenceMatcher` (ca `difflib` din v3.4) ia, intre potrivirile de
+aceeasi lungime, pe cea mai din stanga. `END` are bloc propriu (2026-11-21),
+deci `END`-ul unui `IF` din Before se lega de `END`-ul final din After si
+taia obiectul in doua. Verificat: motorul Python din `mostenire/` aliniaza
+identic, deci defectul e mostenit, nu al portului. Apoi, imperecherea
+blocurilor identice era lacoma peste goluri: un `END` din mijloc lua singurul
+`END` al tintei, iar cel final ramanea „sters".
+
+**Decizia.** (1) Un bloc banal (doar `BEGIN`, `END`, `AS`, `GO`, `ELSE`,
+`RETURN`, `TRY`, `CATCH`, `TRAN`, `COMMIT`...) nu e ancora in primul strat;
+se imperecheaza in stratul 2, in golul lui, de la capat (ultimul cu ultimul).
+(2) Blocurile identice se imperecheaza intai in acelasi gol, abia apoi peste
+goluri (mutari). (3) Antetul obiectului (primul `CREATE` / `ALTER` din
+fiecare text) e perechea antetului, oricat de diferit: stau alaturi, iar
+„Aplica" inlocuieste antetul cu antetul. Alternative cantarite: patience diff
+(ancore doar pe blocuri unice in ambele parti) — schimba alinierea pe tot
+corpusul, nu doar unde e defectul; mutarea blocurilor alaturi doar in editor
+— un rand ar fi apartinut la doua blocuri, iar „Aplica" si tragerea lucreaza
+pe blocul randului. Paritatea cu v3.4 (`paritate.py`, `conformitate.rs`,
+`calitate.rs`) nu s-a schimbat: nicio divergenta noua pe cazurile existente,
+deci fixture-ul nu s-a regenerat. Cele doua obiecte reale au intrat ca
+fixture in `rust/core/tests/date/`.

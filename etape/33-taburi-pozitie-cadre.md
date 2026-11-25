@@ -47,6 +47,10 @@ ferestrei.
 - [x] **D** citirea mai lenta (14,0 / 10,3 s fata de 9,3 / 6,5 s): codul de
       citire e identic intre cele doua build-uri; cauza e pe server (vezi
       `JURNAL.md`)
+- [x] **E** (adaugat dupa proba din seara) alinierea: `END` / `BEGIN` nu mai
+      ancoreaza, identicele se imperecheaza intai in golul lor, antetele
+      obiectului sunt mereu pereche (teste in `core/tests/aliniere_reala.rs`
+      pe BO_Reconcile si EUTransactionType, vazute cazand)
 - [ ] proba lui Mihai pe ~12.000 de obiecte: tab nou din Object Explorer,
       transpunere fara salt, repaus fara cadre
 - [ ] **A2** (din etapele 31-32) mutarea intre monitoare, fara inghetare:
@@ -75,6 +79,12 @@ ferestrei.
   si editorul (schimbarea obiectului, tab nou, taburi, wrap, Ctrl+W), cu
   Rust-ul si desenarea separat; redesenarea scrie la `debug` timpii pe
   bucati (`redesenare pe bucati`).
+
+- **2026-11-25 (seara)** Proba lui Mihai: repausul fara cadre confirmat
+  (20:13-20:34). Noi: gauri in side-by-side pe proceduri mari (BO_Reconcile)
+  si pe o vedere devenita tabel; cauza in motor, mostenita din v3.4 — vezi
+  `JURNAL.md`. Raman de lucrat: `alege_randul` 106 ms si inchiderea ultimului
+  tab 187 ms pe Windows (lista refacuta la iesirea din editor).
 
 ## Ce a iesit altfel decat planul
 

@@ -19,6 +19,7 @@ lipsea.
 | Cadre desenate in repaus | ceva cu `animation-tick()` sau un `Timer` care schimba o proprietate cat se vede | `rust/fereastra/ui/*.slint` (`Rotitor`, cursorul campului de editare) |
 | Clic in editor lent (`redesenare lenta`) | coloana / arborele refacute in masa, sau ecranul listei refacut din editor | `incarca_coloana_lista` in `rust/fereastra/src/lib.rs`, redesenarea din `rust/app/src/main.rs` (`redesenare pe bucati` la `debug`) |
 | Un obiect ales din Object Explorer inlocuieste tabul deschis | clicul deschide in previzualizare in loc sa aleaga randul | `rust/fereastra/ui/editor.slint` (`ales-explorer`), `Comanda::DeschideInTabNou` in `rust/app/src/rutare.rs` |
+| Side-by-side cu goluri: un bloc doar intr-o parte, iar perechea lui mai jos, doar in cealalta | ancora proasta in alinierea blocurilor (`END` cu `END`), imperechere peste goluri | `plan_blocuri` in `rust/core/src/diff.rs`; reproducere: `cargo run -p gmotion-fereastra --example arata_blocuri -- before.sql after.sql` |
 | Vederea sare dupa transpunere / Aplica / Ctrl+Z | `incarca_editor` reface randurile si `mergi_la` deruleaza | `incarca_editor` / `incarca_editarea` (`pastreaza-derularea`) in `rust/fereastra/src/lib.rs` |
 | Cadru lung la salvarea sesiunii | unirea cu discul pusa inapoi in aplicatie (arunca modelul editorului) | `primeste_salvarea` in `rust/app/src/stare.rs` |
 | `sesiune salvata` de multe ori pe secunda | salvarea nu mai trece prin `SalvareAmanata` | `rust/app/src/main.rs`, `rust/app/src/stare.rs` |
