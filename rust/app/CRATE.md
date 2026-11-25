@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: c6e2fd6569c7b749 -->
+<!-- api-hash: c7dba7e6ea5b2f91 -->
 
 ## Rol
 
@@ -56,6 +56,8 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::probleme_text_final()` | ce nu se inchide in textul final al obiectului curent (gol fara text final); editorul il arata (etapa 26) |
 | `stare::Stare::{verifica_pe_server, text_verificare}`, `CheieVerificare` | „Verifica pe server" din editor (etapa 26): textul final in forma de deploy, la baza modificata, pe alt fir; raspunsul se arata doar pentru obiectul si codul trimise |
 | `stare::Stare` | starea binarului `gmotion-ui`, fara Slint (etapa 24): formularul de conectare (`server_schimbat`, `cere_bazele`, `testeaza`, `cauta_servere`, `alege_instantaneul`, `reia`, `ignora_recenta`...), compararea pe fir (`compara`, `anuleaza`, `verifica_compararea -> Progres`, `primeste_compararea`, `compara_offline`, `porneste_previzualizarea`), celelalte fire (`verifica_lucrarile`), sesiunea (`salveaza`, `deconecteaza`; una necitibila se pune deoparte si se spune, F-A15), mesajele (`conectare.eroare_comparare` langa Compara, F-A12; `mesaj_lista` / `text_bara_lista` pe lista, F-A8; `progres_recomparare` pentru bara listei cat ruleaza Recompara, etapa 25), deploy-ul (`porneste_garda`, `scrie_deploy`, `folder_deploy` ales cu dialogul nativ, `director_deploy_curent`, `director_scris`), exportul (`exporta_csv`), textele (`text_pozitie`, `text_salvat`, `text_refuz_in_plan`); plus `recente`, `porneste_detalii`, `director_deploy`, `director_deploy_in(ales, referinta)`, `deschide_in_explorer`, `cale_csv`, `cale_previzualizare`, `citeste_configurarea`, `salveaza_in_configurare`. In `main.rs` raman doar legaturile Slint si desenul |
+| `stare::{SalvareAmanata, AMANARE_SALVARE}` | salvarea sesiunii grupata: o comanda doar o cere, se scrie o data dupa `AMANARE_SALVARE` de liniste; deconectarea, scripturile scrise si iesirea o fac imediat (2026-11-25) |
+| `stare::rezumat_verificare(r) -> (cod_valid, eroare)` | „Verifica pe server" pentru jurnal: valid doar daca serverul n-a dat eroare nici la sintaxa, nici la compilare |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
 | `Aplicatie::marcheaza_deployate(plan)` | dupa o scriere reusita: obiectele din plan devin „deployate", cu amprenta lor |
 | `Aplicatie::randuri_vizibile()`, `exporta_csv(cale)` | lista **filtrata**, si exportul ei CSV (acelasi fisier ca `gmotion export`) |

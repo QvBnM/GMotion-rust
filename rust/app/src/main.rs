@@ -660,11 +660,53 @@ fn ruleaza() -> Result<(), String> {
     };
 
     let salveaza = Rc::new(salveaza);
+    // salvarea dupa o comanda e amanata si grupata (`SalvareAmanata`); cele
+    // explicite (deconectare, scripturi scrise, inchidere) raman imediate
+    let amanata = Rc::new(std::cell::Cell::new(stare::SalvareAmanata::default()));
+    let ceas_salvare = Rc::new(slint::Timer::default());
+    let salveaza_acum = {
+        let salveaza = salveaza.clone();
+        let amanata = amanata.clone();
+        let ceas = ceas_salvare.clone();
+        Rc::new(move || {
+            ceas.stop();
+            let mut a = amanata.get();
+            a.facuta();
+            amanata.set(a);
+            salveaza();
+        })
+    };
+    let cere_salvarea = {
+        let amanata = amanata.clone();
+        let ceas = Rc::downgrade(&ceas_salvare);
+        let salveaza_acum = salveaza_acum.clone();
+        move || {
+            let mut a = amanata.get();
+            a.cere(std::time::Instant::now());
+            amanata.set(a);
+            let Some(c) = ceas.upgrade() else { return };
+            let (amanata, salveaza_acum) = (amanata.clone(), salveaza_acum.clone());
+            // repornit la fiecare cerere: se scrie o data, dupa ultima
+            c.start(
+                slint::TimerMode::SingleShot,
+                stare::AMANARE_SALVARE,
+                move || {
+                    if amanata
+                        .get()
+                        .e_timpul(std::time::Instant::now(), stare::AMANARE_SALVARE)
+                    {
+                        salveaza_acum();
+                    }
+                },
+            );
+        }
+    };
+    let salveaza = salveaza_acum.clone();
 
     let comanda = {
         let stare = stare.clone();
         let deseneaza = deseneaza.clone();
-        let salveaza = salveaza.clone();
+        let cere_salvarea = cere_salvarea.clone();
         let lista_slaba = lista_ui.as_weak();
         move |c: Comanda| {
             // mesajul din bara listei („Nu intra in plan", CSV scris) e al
@@ -683,17 +725,18 @@ fn ruleaza() -> Result<(), String> {
                 .unwrap_or(false);
             let ms_comanda = t.elapsed().as_millis() as u64;
             if schimbat {
-                salveaza();
+                cere_salvarea();
             }
             deseneaza();
             let ms = t.elapsed().as_millis() as u64;
             // starea dupa comanda: unde esti si ce e selectat
             let dupa = stare.borrow().app.as_ref().map(|a| {
                 format!(
-                    "ecran={:?} obiect={:?} vizibile={} diferenta={}",
+                    "ecran={:?} obiect={:?} vizibile={} din={} diferenta={}",
                     a.ecran(),
                     a.obiect().map(|o| o.cheie()),
                     a.lista().vizibile().len(),
+                    a.lista().obiecte().len(),
                     a.diferenta_curenta()
                 )
             });
@@ -1382,5 +1425,9 @@ fn ruleaza() -> Result<(), String> {
         });
     }
     slint::run_event_loop().map_err(|e| e.to_string())?;
+    // ce a ramas amanat se scrie la iesire
+    if amanata.get().in_asteptare() {
+        salveaza();
+    }
     Ok(())
 }

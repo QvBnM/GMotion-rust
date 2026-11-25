@@ -1,8 +1,8 @@
 # Etapa 31 — fereastra unica si remedierile de interfata din proba lui Mihai
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/clever-cerf-hjk2qh
-**Deschisa:** 2026-11-25 · **Incheiata:** —
+**Deschisa:** 2026-11-25 · **Incheiata:** 2026-11-25
 
 ## Scop
 
@@ -96,5 +96,7 @@ cerere rezolvate sau lasate cu motiv in `cercetare/lipsuri-portare.md`.
   „Uses" si rezumatul de linii sunt toate in panoul de detalii al listei
   (captura 11 din proba); editorul a primit doar etichetele de rol, fundalul
   si bara de derulare a arborelui.
+- **Inchisa fara A2.** A doua proba a lui Mihai a adus o runda noua de
+  remedieri (etapa 32); A2 (proba pe doua monitoare) trece acolo, neschimbat.
 - **Tastele nu ajung prin XTest sub Xvfb**, deci capturile s-au facut doar
   cu clicuri; tastele raman pe testele headless.

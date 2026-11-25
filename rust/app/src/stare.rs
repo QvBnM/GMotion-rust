@@ -253,12 +253,8 @@ impl Stare {
     /// La recomparare pastram ce s-a revizuit deja si vederea listei; la
     /// prima comparare, ce s-a salvat in sesiune.
     pub fn primeste_compararea(&mut self, r: pornire::Comparata) {
-        tracing::info!(
-            target: "gmotion::app",
-            obiecte = r.randuri.len(),
-            recomparare = self.app.is_some(),
-            "compararea s-a terminat"
-        );
+        let recomparare = self.app.is_some();
+        let diferite = r.randuri.len();
         let referinta = r.referinta.clone();
         let vederea = self.app.as_ref().map(|a| a.lista().clone());
         let (revizuire, editari, taburi) = match self.app.as_mut() {
@@ -300,6 +296,18 @@ impl Stare {
         };
         // ca la offline: comutatorul porneste din configurare
         app.comanda(Comanda::ComutaUnireaCursorului(self.uneste_implicit));
+        // `diferite` = randurile compararii (modificate, lipsa, extra,
+        // criptate); lista mai tine si identicele, ca sa le numere si sa le
+        // gaseasca la cautare. Pana pe 2026-11-25 jurnalul scria doar
+        // `obiecte=<diferite>`, iar `vizibile=<toata lista>` parea mai mare
+        // decat numarul de obiecte.
+        tracing::info!(
+            target: "gmotion::app",
+            diferite,
+            in_lista = app.lista().obiecte().len(),
+            recomparare,
+            "compararea s-a terminat"
+        );
         self.detalii = Some(porneste_detalii(&app));
         self.app = Some(app);
     }
@@ -347,9 +355,11 @@ impl Stare {
             return Progres::InCurs;
         };
         let l = self.conectare.limba;
-        // etapele, cu durata, in jurnal: in fereastra se vede ce a durat cat
+        // etapele, cu durata, in jurnal: in fereastra se vede ce a durat cat.
+        // Jurnalul e in romana oricare ar fi limba interfetei: un singur
+        // registru (pana pe 2026-11-25 aparea „Reading Witness" in engleza)
         if let Some(r) = self.rulare.take() {
-            for (nume, durata, stare) in r.etape(l) {
+            for (nume, durata, stare) in r.etape(gmotion_core::Limba::Romana) {
                 if stare == 2 {
                     tracing::info!(target: "gmotion::app", "{nume}: {durata}");
                 }
@@ -479,7 +489,12 @@ impl Stare {
         if let Some((_, l)) = self.verificare.as_mut() {
             if let Some(r) = l.verifica(limba) {
                 if let Some((cheie, _)) = self.verificare.take() {
-                    tracing::info!(target: "gmotion::app", reusita = r.is_ok(), "verificarea pe server s-a terminat");
+                    let (cod_valid, eroare) = rezumat_verificare(&r);
+                    if cod_valid {
+                        tracing::info!(target: "gmotion::app", cod_valid, "verificarea pe server s-a terminat");
+                    } else {
+                        tracing::warn!(target: "gmotion::app", cod_valid, eroare = %eroare.unwrap_or_default(), "verificarea pe server s-a terminat");
+                    }
                     self.rezultat_verificare = Some((cheie, r));
                     s_a_schimbat = true;
                 }
@@ -1016,11 +1031,70 @@ impl Stare {
     }
 }
 
+/// Cat se asteapta dupa ultima schimbare pana se scrie sesiunea pe disc.
+pub const AMANARE_SALVARE: std::time::Duration = std::time::Duration::from_millis(1200);
+
+/// Salvarea sesiunii, grupata (2026-11-25): pana atunci fiecare clic pe bifa
+/// „Revizuit" scria fisierul (zeci de scrieri in cateva secunde, in jurnalul
+/// lui Mihai). Acum o schimbare doar *cere* salvarea; ea se face o data,
+/// cand au trecut `AMANARE_SALVARE` de la ultima cerere, sau imediat la
+/// deconectare, la scrierea scripturilor si la inchidere (`goleste`).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SalvareAmanata {
+    ultima_cerere: Option<std::time::Instant>,
+}
+
+impl SalvareAmanata {
+    /// O schimbare de salvat; muta termenul mai departe.
+    pub fn cere(&mut self, acum: std::time::Instant) {
+        self.ultima_cerere = Some(acum);
+    }
+
+    /// E ceva de salvat inca nescris?
+    pub fn in_asteptare(&self) -> bool {
+        self.ultima_cerere.is_some()
+    }
+
+    /// A venit momentul: ceva cerut si nimic nou de `amanare` incoace.
+    pub fn e_timpul(&self, acum: std::time::Instant, amanare: std::time::Duration) -> bool {
+        self.ultima_cerere
+            .is_some_and(|t| acum.saturating_duration_since(t) >= amanare)
+    }
+
+    /// Salvarea s-a facut (amanata sau fortata).
+    pub fn facuta(&mut self) {
+        self.ultima_cerere = None;
+    }
+}
+
+/// Rezultatul unei verificari pe server, pentru jurnal: `true` doar daca
+/// serverul a acceptat codul in ambele moduri (sintaxa si compilarea). O
+/// conexiune reusita cu o eroare 102 de la server NU e cod valid; pana pe
+/// 2026-11-25 jurnalul scria `reusita=true` si atunci. Al doilea camp:
+/// eroarea, cu numarul, linia si mesajul.
+pub fn rezumat_verificare(
+    r: &Result<gmotion_db::VerificareServer, String>,
+) -> (bool, Option<String>) {
+    match r {
+        Err(e) => (false, Some(e.clone())),
+        Ok(v) => match v.sintaxa.as_ref().or(v.compilare.as_ref()) {
+            None => (true, None),
+            Some(m) => (
+                false,
+                Some(format!(
+                    "eroarea {} la linia {}: {}",
+                    m.numar, m.linie, m.mesaj
+                )),
+            ),
+        },
+    }
+}
+
 /// Bara listei, dupa un „In plan" refuzat; `None` daca nu s-a refuzat nimic.
 pub fn text_refuz_in_plan(app: &Aplicatie, limba: gmotion_core::Limba) -> Option<&'static str> {
     app.refuzat_in_plan().then(|| {
         limba.alege(
-            "Nu intra in plan: obiectul n-are cod de deploiat (exista doar in baza modificata, e criptat sau e tabel; tabelele doar se compara).",
+            "Nu intra in plan: obiectul n-are cod de deploiat (exista doar in baza After, e criptat sau e tabel; tabelele doar se compara).",
             "Not added to the plan: the object has no code to deploy (it exists only in the modified database, is encrypted or is a table; tables are only compared).",
         )
     })
@@ -1189,6 +1263,54 @@ mod teste {
     use super::*;
     use crate::rutare::Ecran;
     use std::path::PathBuf;
+
+    /// Douazeci de clicuri in doua secunde = o singura scriere, dupa ultimul.
+    #[test]
+    fn salvarea_amanata_grupeaza_clicurile_rapide() {
+        use std::time::{Duration, Instant};
+        let t0 = Instant::now();
+        let mut s = SalvareAmanata::default();
+        assert!(!s.in_asteptare());
+        assert!(!s.e_timpul(t0 + Duration::from_secs(60), AMANARE_SALVARE));
+        let mut scrieri = 0;
+        for i in 0..20u64 {
+            let acum = t0 + Duration::from_millis(100 * i);
+            s.cere(acum);
+            if s.e_timpul(acum, AMANARE_SALVARE) {
+                scrieri += 1;
+                s.facuta();
+            }
+        }
+        assert_eq!(scrieri, 0, "cat timp se tot apasa, nu se scrie");
+        let ultima = t0 + Duration::from_millis(1900);
+        assert!(!s.e_timpul(ultima + Duration::from_millis(1000), AMANARE_SALVARE));
+        assert!(s.e_timpul(ultima + AMANARE_SALVARE, AMANARE_SALVARE));
+        s.facuta();
+        assert!(!s.in_asteptare());
+    }
+
+    #[test]
+    fn verificarea_cu_eroare_de_server_nu_e_cod_valid() {
+        use gmotion_db::{MesajServer, VerificareServer};
+        let eroare = MesajServer {
+            numar: 102,
+            mesaj: "Incorrect syntax near '@SiteId'.".into(),
+            linie: 65,
+        };
+        let cu_eroare = Ok(VerificareServer {
+            sintaxa: Some(eroare.clone()),
+            compilare: Some(eroare),
+        });
+        let (valid, text) = rezumat_verificare(&cu_eroare);
+        assert!(!valid, "eroarea 102 inseamna cod invalid");
+        let text = text.expect("eroarea se spune");
+        assert!(text.contains("102") && text.contains("65") && text.contains("@SiteId"));
+        assert_eq!(
+            rezumat_verificare(&Ok(VerificareServer::default())),
+            (true, None)
+        );
+        assert!(!rezumat_verificare(&Err("fara retea".into())).0);
+    }
 
     /// Un director propriu fiecarui test: testele ruleaza in paralel.
     fn director(eticheta: &str) -> PathBuf {

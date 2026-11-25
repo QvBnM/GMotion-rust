@@ -1757,6 +1757,46 @@ mod teste {
         assert_eq!(a.lista().selectat(), Some(0));
     }
 
+    /// `vizibile=28405` la `obiecte=11938` (jurnalul lui Mihai, 2026-11-25):
+    /// lista tine randurile compararii **si** identicele, fiecare o data.
+    /// Niciun obiect nu apare de doua ori, iar fara filtru vizibile = toata
+    /// lista = diferite + identice.
+    #[test]
+    fn lista_are_fiecare_obiect_o_data_diferitele_plus_identicele() {
+        let sursa = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 1"),
+            obiect_db("pI", "CREATE PROC dbo.pI AS\nSELECT 7"),
+            obiect_db("pDoarSursa", "CREATE PROC dbo.pDoarSursa AS\nSELECT 3"),
+        ]);
+        let tinta = modul::pregateste(&[
+            obiect_db("pA", "CREATE PROC dbo.pA AS\nSELECT 99"),
+            obiect_db("pI", "CREATE PROC dbo.pI AS\nSELECT 7"),
+            obiect_db("pExtra", "CREATE PROC dbo.pExtra AS\nSELECT 5"),
+        ]);
+        let comparare = modul::compara("R", &sursa, &[("C1".to_string(), tinta.clone())], |_| {});
+        let mut a = Aplicatie::noua(
+            comparare.randuri,
+            sursa,
+            vec![("C1".to_string(), tinta)],
+            Revizuire::noua(),
+        );
+        a.comanda(Comanda::Filtreaza(None));
+        let diferite = a.randuri.len();
+        let identice = a
+            .lista()
+            .obiecte()
+            .iter()
+            .filter(|o| o.stare == gmotion_fereastra::model_lista::Stare::Identic)
+            .count();
+        assert_eq!(identice, 1, "pI");
+        assert_eq!(diferite, 3, "pA modificat, pDoarSursa, pExtra");
+        assert_eq!(a.lista().obiecte().len(), diferite + identice);
+        let chei: std::collections::HashSet<_> =
+            a.lista().obiecte().iter().map(|o| o.cheie()).collect();
+        assert_eq!(chei.len(), a.lista().obiecte().len(), "fara dubluri");
+        assert!(a.lista().vizibile().len() <= a.lista().obiecte().len());
+    }
+
     #[test]
     fn arborele_se_comuta_si_selectia_isi_deschide_calea() {
         use gmotion_fereastra::texte::Limba;
