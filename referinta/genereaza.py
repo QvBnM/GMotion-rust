@@ -35,6 +35,10 @@ for c in cazuri:
     })
 
 cale = os.path.join(AICI, "rezultate_python.json")
-with open(cale, "w", encoding="utf-8") as f:
+# `newline=""`: in modul text, pe Windows, Python traduce "\n" in "\r\n", deci
+# fixture-ul ieseai altul decat pe Linux si poarta de pe Windows, care il
+# compara octet cu octet, cadea pe o divergenta care nu exista (2026-11-25).
+# Generatorul JS scrie octeti, deci n-a avut problema asta.
+with open(cale, "w", encoding="utf-8", newline="") as f:
     json.dump(out, f, ensure_ascii=False, indent=1, sort_keys=True)
 print(f"scris: {cale} ({len(out)} cazuri)")

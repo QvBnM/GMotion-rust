@@ -343,7 +343,10 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   octet cu octet. Fara asta, pe Windows poarta e rosie pe veci, iar
   `git diff` nu arata nimic, fiindca normalizeaza terminatoarele. Daca cineva
   pune o regula noua in `.gitattributes`, ultima linie care se potriveste
-  castiga: exceptiile stau la sfarsit, nu la inceput.
+  castiga: exceptiile stau la sfarsit, nu la inceput. Si un generator de
+  fixture scrie LF explicit (`newline=""` in Python, octeti in JS): in modul
+  text, pe Windows, Python traduce `\n` in `\r\n` si fixture-ul iese altul
+  decat pe Linux.
 - **Un test care citeste un fisier de sesiune nu-l citeste ca text.** Pe
   Windows e criptat cu DPAPI, deci `read_to_string` cade cu „stream did not
   contain valid UTF-8" — in test, pe o cale care in produs merge. Se trece
