@@ -183,6 +183,12 @@ impl Bucati {
     }
 }
 
+/// Desenarea pe placa video e ceruta: `--gpu` sau `GMOTION_GPU` cu alta
+/// valoare decat `0`.
+pub fn gpu_cerut(argumente: &[String], variabila: Option<&str>) -> bool {
+    argumente.iter().any(|a| a == "--gpu") || variabila.is_some_and(|v| !v.is_empty() && v != "0")
+}
+
 /// Monitorul e cerut: `--fps` sau `GMOTION_FPS` cu alta valoare decat `0`.
 pub fn cerut(argumente: &[String], variabila: Option<&str>) -> bool {
     argumente.iter().any(|a| a == "--fps") || variabila.is_some_and(|v| !v.is_empty() && v != "0")
@@ -304,5 +310,8 @@ mod teste {
         assert!(cerut(&[], Some("1")));
         assert!(!cerut(&[], Some("0")));
         assert!(!cerut(&[], None));
+        assert!(gpu_cerut(&["--gpu".into()], None));
+        assert!(gpu_cerut(&[], Some("1")));
+        assert!(!gpu_cerut(&[], Some("0")) && !gpu_cerut(&["--fps".into()], None));
     }
 }

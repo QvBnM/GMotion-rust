@@ -50,6 +50,9 @@ Optiuni:
   --limba <ro|en>
   --fps                 monitorul de cadre (cadre/s, cel mai lung cadru);
                         la fel cu variabila GMOTION_FPS=1
+  --gpu                 desenarea pe placa video (OpenGL), in locul celei
+                        software; la fel cu GMOTION_GPU=1. Daca nu porneste
+                        (RDP, driver vechi), ramane cea software
   -h, --help            textul asta
 
 Fara optiuni porneste ecranul de conectare. Tema si limba se tin minte
@@ -59,8 +62,9 @@ Tot ce face fereastra se poate face si din `gmotion` (linia de comanda).
 
 /// Optiunile pe care le stie binarul. Un argument care nu e aici si nu e
 /// valoarea uneia dintre ele e o greseala de scriere, si se spune.
-const OPTIUNI: [&str; 8] = [
+const OPTIUNI: [&str; 9] = [
     "--fps",
+    "--gpu",
     "--sursa",
     "--referinta",
     "--baza",
@@ -349,6 +353,27 @@ fn ruleaza() -> Result<(), String> {
     let stare = Rc::new(RefCell::new(Stare::noua(conectare, sesiuni)));
 
     // o singura fereastra; ecranele sunt in ea (vezi `arata`)
+    // `--gpu`: desenarea pe placa video (etapa 33). Implicit ramane cea
+    // software, care merge si pe RDP fara placa video (decizia din JURNAL);
+    // daca OpenGL nu porneste, tot ea.
+    {
+        let argumente: Vec<String> = std::env::args().collect();
+        let variabila = std::env::var("GMOTION_GPU").ok();
+        if gmotion_app::cadre::gpu_cerut(&argumente, variabila.as_deref()) {
+            match slint::BackendSelector::new()
+                .backend_name("winit".into())
+                .renderer_name("femtovg".into())
+                .select()
+            {
+                Ok(()) => {
+                    tracing::info!(target: "gmotion::app", randare = "femtovg", "desenez pe placa video")
+                }
+                Err(e) => {
+                    tracing::warn!(target: "gmotion::app", eroare = %e, "placa video nu porneste; desenez software")
+                }
+            }
+        }
+    }
     let aplicatie = Aplicatie::new().map_err(|e| e.to_string())?;
     let conectare_ui = FereastraConectare::din(&aplicatie);
     gmotion_fereastra::leaga_scara(&conectare_ui);
