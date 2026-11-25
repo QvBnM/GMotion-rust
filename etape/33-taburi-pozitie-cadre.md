@@ -86,6 +86,11 @@ ferestrei.
   `JURNAL.md`. Raman de lucrat: `alege_randul` 106 ms si inchiderea ultimului
   tab 187 ms pe Windows (lista refacuta la iesirea din editor).
 
+- **2026-11-25 (noaptea)** Cadrele din proba de seara, pe rand: progresul
+  compararii nu mai reface ecranul de conectare; bucatile de cod de aceeasi
+  culoare se unesc; `--gpu` (desenarea pe placa video) ca optiune, de masurat
+  pe Windows. Masurat: Rust 3-8 ms peste tot, restul e desenarea (`JURNAL.md`).
+
 ## Ce a iesit altfel decat planul
 
 - **Nu aplicatia desena continuu, ci monitorul.** Cu `--fps`, `animation-tick()`
@@ -97,5 +102,8 @@ ferestrei.
   completa la 1920x1080 in container, ~22 ms la schimbarea obiectului. Sub
   16,7 ms acolo cere alt renderer sau un editor cu mai putine elemente pe
   rand — decizie de luat cu cifrele de pe Windows.
+- **Ce ramane peste 16,7 ms e desenarea software a textului**, nu Rust-ul:
+  ~2/3 din pictarea editorului e text. Sub prag duce doar placa video
+  (`--gpu`), de probat pe Windows.
 - **Salvarea dadea cadre de 27-45 ms nu din scriere**, ci fiindca unirea cu
   discul se punea mereu inapoi in aplicatie si arunca modelul editorului.

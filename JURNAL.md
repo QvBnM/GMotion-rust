@@ -2543,3 +2543,33 @@ pe blocul randului. Paritatea cu v3.4 (`paritate.py`, `conformitate.rs`,
 `calitate.rs`) nu s-a schimbat: nicio divergenta noua pe cazurile existente,
 deci fixture-ul nu s-a regenerat. Cele doua obiecte reale au intrat ca
 fixture in `rust/core/tests/date/`.
+
+---
+
+## 2026-11-25 — Cadrele de pe Windows: ce e Rust, ce e desenare, `--gpu`
+
+**Masurat** (`masura_ui`, 1920x1080, randat in pixeli, 12.000 de obiecte):
+Rust-ul e 3-8 ms pe orice actiune; desenarea face restul — editorul 24-27 ms
+la orice schimbare de obiect / tab / Aplica (o pictare completa fara nicio
+schimbare: ~14 ms), lista 11-24 ms. Pe masina lui Mihai desenarea e de 2-3
+ori mai lenta decat aici, de unde cele 66-106 ms la `alege_randul` /
+deschidere. `callgrind` pe desenarea editorului: ~2/3 text (modelarea cu
+parley si rasterizarea glifelor), restul dreptunghiuri. Unirea bucatilor de
+aceeasi culoare castiga 1-2 ms — o pastram, dar nu e solutia.
+
+**Decizia.** Cu desenarea software, un editor plin de text la 1920x1080 nu
+coboara sub 16,7 ms pe Windows. Se adauga desenarea pe placa video ca
+**optiune**: `--gpu` / `GMOTION_GPU=1` (functia `renderer-femtovg` a lui
+`slint`, nu un crate nou ales de noi; aduce `femtovg` si `glutin`). Implicitul
+ramane software, fiindca merge si pe RDP fara placa video (decizia din
+etapa 1); daca OpenGL nu porneste, aplicatia scrie in jurnal si deseneaza
+software. Alternative cantarite: `renderer-skia` (mai greu de compilat pe
+Windows, cere C++), `vello` (wgpu, prea nou), un editor cu mai putine elemente
+pe rand (castig estimat sub 30%, nu de 5 ori). Daca pe masina lui Mihai
+`--gpu` da cadre sub 16,7 ms, se discuta daca devine implicit cand exista
+placa video.
+
+**Si, in aceeasi trecere:** cat ruleaza compararea, bataia ceasului (8 pe
+secunda) nu mai reface tot ecranul de conectare (listele de baze, jurnalul,
+ajutorul, „Despre"), ci doar progresul: cadrele de ~26 ms din timpul
+compararii erau ale ei. Jurnalul si etapele se pun pe loc, nu ca model nou.
