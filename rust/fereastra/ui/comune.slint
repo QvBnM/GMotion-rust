@@ -701,26 +701,19 @@ export component ButonLimba inherits Rectangle {
 
 // Eticheta mica de rol: Martor (verde) / Modificata (chihlimbar), aceleasi
 // culori ca pe ecranul de conectare.
-// ---- Monitorul de cadre (`--fps` / `GMOTION_FPS=1`): cadre pe secunda si
-// cel mai lung cadru, scrise din Rust (`gmotion_app::cadre`) de doua ori pe
-// secunda. Ascuns implicit; nu primeste clicuri.
+// ---- Monitorul de cadre (`--fps` / `GMOTION_FPS=1`): cadre pe secunda,
+// percentila 99 si cate cadre au trecut de 16,7 ms, scrise din Rust
+// (`gmotion_app::cadre`) doar cand s-a desenat ceva. Ascuns implicit; nu
+// primeste clicuri. Nu tine fereastra in desenare: cadrele vin din winit
+// (`RedrawRequested`), deci in repaus nu se deseneaza nimic.
 export global Cadre {
     in-out property <bool> arata: false;
     in-out property <string> text;
-    // ultimul cadru a fost peste 16,7 ms (sub 60 de cadre/s)
+    // in ultima fereastra a fost cel putin un cadru peste 16,7 ms
     in-out property <bool> lent: false;
-    // cheamat la fiecare cadru desenat, cat monitorul e aprins (Rust masoara
-    // intervalul dintre doua apeluri: `set_rendering_notifier` nu merge cu
-    // software-renderer pe winit)
-    callback cadru();
 }
 
 export component MonitorCadre inherits Rectangle {
-    // `animation-tick()` tine fereastra in desenare continua cat monitorul e
-    // aprins: fiecare cadru schimba ceasul, iar schimbarea il anunta pe Rust.
-    // Ascuns, nu costa nimic (nu e evaluat).
-    property <duration> ceas: Cadre.arata ? animation-tick() : 0ms;
-    changed ceas => { Cadre.cadru(); }
     if Cadre.arata: Rectangle {
         x: (root.width - self.width) / 2;
         y: 4px;

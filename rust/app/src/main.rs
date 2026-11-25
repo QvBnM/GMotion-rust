@@ -91,33 +91,52 @@ fn argumente_necunoscute() -> Vec<String> {
     rele
 }
 
-/// Monitorul de cadre (`gmotion_app::cadre`): momentele fiecarui cadru vin
-/// din `Cadre.cadru` (desenare continua cat e aprins); de doua ori pe secunda textul se scrie in
-/// fereastra si in jurnal (`gmotion::cadre`, ca cifrele inainte / dupa sa se
-/// poata lua dintr-o rulare). Intoarce ceasul, care trebuie tinut in viata.
+/// Monitorul de cadre (`gmotion_app::cadre`): momentele vin din winit, prin
+/// filtrul de evenimente al ferestrei — fiecare eveniment (lucrul lui) si
+/// fiecare `RedrawRequested` (desenarea). Nu provoaca nicio desenare: in
+/// repaus nu e niciun cadru si nu se scrie nimic. O data pe secunda, daca s-a
+/// desenat ceva, textul ajunge in fereastra si in jurnal (`gmotion::cadre`).
+/// Intoarce ceasul, care trebuie tinut in viata.
 fn porneste_monitorul_cadre(
     aplicatie: &Aplicatie,
     stare: &Rc<RefCell<Stare>>,
 ) -> Option<slint::Timer> {
+    use slint::winit_030::{winit, EventResult, WinitWindowAccessor};
     let argumente: Vec<String> = std::env::args().collect();
     let variabila = std::env::var("GMOTION_FPS").ok();
     if !gmotion_app::cadre::cerut(&argumente, variabila.as_deref()) {
         return None;
     }
-    let statistica = Rc::new(RefCell::new(gmotion_app::cadre::StatisticaCadre::default()));
-    // fiecare cadru desenat cheama `cadru` (vezi `MonitorCadre`): intervalul
-    // dintre doua apeluri e durata cadrului, cu tot ce a facut firul
-    // ferestrei intre ele (evenimente, Rust, desenarea).
-    // `set_rendering_notifier` nu merge cu software-renderer pe winit.
-    let s = statistica.clone();
-    aplicatie
-        .global::<gmotion_fereastra::Cadre>()
-        .on_cadru(move || {
+    // pe firul ferestrei; un `thread_local`, ca apelul pus in coada buclei
+    // (`invoke_from_event_loop` cere `Send`) sa nu care nimic cu el
+    thread_local! {
+        static STATISTICA: RefCell<gmotion_app::cadre::StatisticaCadre> =
+            RefCell::new(gmotion_app::cadre::StatisticaCadre::default());
+    }
+    // Sfarsitul unui eveniment / al desenarii: primul dintre urmatorul
+    // eveniment al ferestrei si un apel pus in coada buclei (care ruleaza
+    // dupa ce winit a terminat ce avea in mana, inainte de orice asteptare).
+    let sfarsit = || {
+        STATISTICA.with_borrow_mut(|st| {
             let acum = std::time::Instant::now();
-            let mut s = s.borrow_mut();
-            s.dupa(acum);
-            s.inainte(acum);
+            st.eveniment_sfarsit(acum);
+            st.dupa(acum);
+        })
+    };
+    aplicatie.window().on_winit_window_event(move |_, ev| {
+        STATISTICA.with_borrow_mut(|st| {
+            let acum = std::time::Instant::now();
+            st.eveniment_sfarsit(acum);
+            st.dupa(acum);
+            if matches!(ev, winit::event::WindowEvent::RedrawRequested) {
+                st.inainte(acum);
+            } else {
+                st.eveniment_inceput(acum);
+            }
         });
+        let _ = slint::invoke_from_event_loop(sfarsit);
+        EventResult::Propagate
+    });
     aplicatie
         .global::<gmotion_fereastra::Cadre>()
         .set_arata(true);
@@ -126,17 +145,22 @@ fn porneste_monitorul_cadre(
     let ceas = slint::Timer::default();
     ceas.start(
         slint::TimerMode::Repeated,
-        std::time::Duration::from_millis(500),
+        std::time::Duration::from_secs(1),
         move || {
-            let Some(r) = statistica.borrow_mut().incheie(std::time::Instant::now()) else {
+            let Some(r) = STATISTICA.with_borrow_mut(|st| st.incheie(std::time::Instant::now())) else {
                 return;
             };
             let limba = stare.borrow().conectare.limba;
-            tracing::info!(target: "gmotion::cadre", pe_secunda = format!("{:.0}", r.pe_secunda), cel_mai_lung_ms = format!("{:.1}", r.cel_mai_lung_ms), mediu_ms = format!("{:.1}", r.mediu_ms), cadre = r.cadre, "cadre");
+            tracing::info!(target: "gmotion::cadre", cadre = r.cadre, p99_ms = format!("{:.1}", r.p99_ms), peste_16_7 = r.peste_prag, cel_mai_lung_ms = format!("{:.1}", r.cel_mai_lung_ms), mediu_ms = format!("{:.1}", r.mediu_ms), pe_secunda = format!("{:.0}", r.pe_secunda), "cadre");
             if let Some(a) = a.upgrade() {
                 let g = a.global::<gmotion_fereastra::Cadre>();
-                g.set_text(r.text(limba).into());
-                g.set_lent(r.cel_mai_lung_ms > 1000.0 / 60.0);
+                let text: slint::SharedString = r.text(limba).into();
+                if g.get_text() != text || g.get_lent() != r.lent() {
+                    // textul nou provoaca un cadru: al monitorului, nu se numara
+                    STATISTICA.with_borrow_mut(|st| st.ignora_urmatorul());
+                    g.set_text(text);
+                    g.set_lent(r.lent());
+                }
             }
         },
     );
