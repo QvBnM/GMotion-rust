@@ -106,4 +106,36 @@ fn main() {
             deseneaza(&mut s, &format!("dupa detalii {i}"));
         }
     }
+    // bifa „Revizuit" pe un rand: comanda, salvarea sesiunii, desenarea
+    for k in 0..3 {
+        let t = Instant::now();
+        s.app
+            .as_mut()
+            .unwrap()
+            .comanda(gmotion_app::rutare::Comanda::ComutaRevizuitLa(14 + k));
+        let c = t.elapsed().as_millis();
+        let t = Instant::now();
+        s.salveaza(None);
+        let sv = t.elapsed().as_millis();
+        println!("revizuit {k}: comanda {c} ms, salvare {sv} ms");
+        deseneaza(&mut s, "dupa revizuit");
+    }
+    // „Toate in plan", salvarea si planul de deploy, pe toate modificatele
+    let t = Instant::now();
+    s.app
+        .as_mut()
+        .unwrap()
+        .comanda(gmotion_app::rutare::Comanda::PuneVizibileleInPlan(false));
+    let c = t.elapsed().as_millis();
+    let t = Instant::now();
+    s.salveaza(None);
+    let sv = t.elapsed().as_millis();
+    let t = Instant::now();
+    let p = s.app.as_ref().unwrap().plan("Ref", "2026-11-25 12:00:00");
+    let pl = t.elapsed().as_millis();
+    println!(
+        "toate in plan: comanda {c} ms, salvare {sv} ms, plan {pl} ms ({} pasi)",
+        p.pasi.len()
+    );
+    deseneaza(&mut s, "dupa plan");
 }

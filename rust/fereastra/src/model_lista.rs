@@ -615,12 +615,31 @@ impl Lista {
         omis: bool,
         deploy: Deploy,
     ) {
-        for o in self.obiecte.iter_mut().filter(|o| &o.cheie() == cheie) {
-            o.revizuit = revizuit && !omis;
-            o.omis = omis;
-            o.deploy = deploy;
-            if omis {
-                o.in_plan = false;
+        self.pune_stari_multe(vec![(cheie.clone(), revizuit, omis, deploy)]);
+    }
+
+    /// Ca [`Lista::pune_stare_cheie`], pentru multe obiecte odata: un index
+    /// si o singura resortare. Cate una, fiecare cauta in toata lista si o
+    /// resorta: 3,4 s pe firul ferestrei la o bifa „Revizuit", pe 12.000 de
+    /// obiecte (salvarea preia starea tuturor; Mihai, 2026-11-25).
+    pub fn pune_stari_multe(&mut self, stari: Vec<((String, String), bool, bool, Deploy)>) {
+        if stari.is_empty() {
+            return;
+        }
+        let mut index: std::collections::HashMap<(String, String), Vec<usize>> =
+            std::collections::HashMap::new();
+        for (i, o) in self.obiecte.iter().enumerate() {
+            index.entry(o.cheie()).or_default().push(i);
+        }
+        for (cheie, revizuit, omis, deploy) in stari {
+            for &i in index.get(&cheie).map_or(&[][..], Vec::as_slice) {
+                let o = &mut self.obiecte[i];
+                o.revizuit = revizuit && !omis;
+                o.omis = omis;
+                o.deploy = deploy;
+                if omis {
+                    o.in_plan = false;
+                }
             }
         }
         self.recalculeaza();
@@ -919,6 +938,52 @@ impl Lista {
 
 #[cfg(test)]
 mod teste {
+    /// Starea pusa pe lot e aceeasi cu cea pusa cate una (2026-11-25).
+    #[test]
+    fn starile_pe_lot_sunt_ca_cele_puse_cate_una() {
+        let obiecte = || {
+            vec![
+                obiect("a", "P", Stare::Modificat),
+                obiect("b", "P", Stare::Modificat),
+                obiect("c", "V", Stare::Modificat),
+            ]
+        };
+        let stari = vec![
+            (
+                obiect("a", "P", Stare::Modificat).cheie(),
+                true,
+                false,
+                Deploy::Nu,
+            ),
+            (
+                obiect("c", "V", Stare::Modificat).cheie(),
+                false,
+                true,
+                Deploy::Deployat,
+            ),
+            (
+                ("Nu".to_string(), "dbo.exista".to_string()),
+                true,
+                false,
+                Deploy::Nu,
+            ),
+        ];
+        let mut unu = Lista::noua(obiecte());
+        for (k, r, o, d) in stari.clone() {
+            unu.pune_stare_cheie(&k, r, o, d);
+        }
+        let mut lot = Lista::noua(obiecte());
+        lot.pune_stari_multe(stari);
+        let f = |l: &Lista| -> Vec<(bool, bool, Deploy)> {
+            l.obiecte()
+                .iter()
+                .map(|o| (o.revizuit, o.omis, o.deploy))
+                .collect()
+        };
+        assert_eq!(f(&unu), f(&lot));
+        assert!(lot.obiecte()[0].revizuit && lot.obiecte()[2].omis);
+    }
+
     /// 2026-11-25: lista porneste pe modificate, cea mai mica similaritate
     /// intai; identicele, doar-intr-o-parte si criptatele nu se vad.
     #[test]

@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 26d3ca233c43459c -->
+<!-- api-hash: 08a10ef697625041 -->
 
 ## Rol
 
@@ -36,7 +36,7 @@ etapa care a atins-o: 28 (tabelele in comparare).
 | `model_conectare::Conectare::{aceeasi_conexiune, pune_aceeasi_conexiune, sincronizeaza, alege_baza_modificata, e_baza_martorului, reia}` | bifa „Aceeasi conexiune": `sincronizeaza` copiaza conexiunea martorului in modificata (se cheama inainte de fiecare desenare; nu goleste alegerea cat bazele nu sunt citite); `reia(recenta)` pune serverul si ambele baze ale unei comparari recente; la modificata se alege **o singura** baza, iar baza martorului nu, cand conexiunea e aceeasi |
 | `scara::{scara, REFERINTA, MINIM, MAXIM, SISTEM_MARIT}`, `leaga_scara(ui)` | `scara` ramane doar pentru capturi; `leaga_scara` pune `scund` (conectarea se strange sub 820 px logici). **Nu se mai pune nicio scara peste cea a sistemului** (2026-11-25: se batea cu marirea monitorului si fereastra ingheta la mutare) |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `linie_jurnal_vizibila(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare; `linie_jurnal_vizibila` scoate zgomotul (fiecare clic, fiecare desenare) si campurile cu server / baza / utilizator / cale (raman in fisier) |
-| `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere; `vederea_implicita()`: modificatele, similaritatea crescator (cum porneste o comparare noua) |
+| `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere; `vederea_implicita()`: modificatele, similaritatea crescator (cum porneste o comparare noua); `pune_stari_multe` / `pune_detalii_multe`: pe lot, cu index si o singura resortare (cate unul era O(n²): secunde pe firul ferestrei la 12.000 de obiecte) |
 | `nume_afisat`, `tip_scurt`, `data_scurta`, `caractere_pe`, `amprenta_randuri` | lista (2026-11-25): numele fara `dbo.` si taiat pe mijloc pe latimea coloanei, tipul ca cod (`P`, `V`, `FN`, `TB`), data fara ora; randurile se refac doar cand se schimba amprenta lor (un clic pe rand nu le mai reface) |
 | `Sfat`, `SfatAfisat`, `ZonaSfat`, `BaraDerulare`, `Rotitor`, `EticRol` (Slint, `comune.slint`) | sfatul la hover, unul pe fereastra (sters la schimbarea ecranului, pleaca singur dupa 7 s); bara de derulare mereu vizibila peste un `ListView`; trei puncte „lucrez"; eticheta Martor / Modificata |
 | `incarca_fundal_harta(ui)`, `harta::instantaneu_estompat` | fundalul listei si al editorului: instantaneul hartii, estompat, refacut doar cand se schimba ce arata |

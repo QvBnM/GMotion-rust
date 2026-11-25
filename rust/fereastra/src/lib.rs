@@ -2429,7 +2429,9 @@ pub fn incarca_fundal_harta(ui: &FereastraLista) {
     let randuri = ui.get_randuri();
     let mut amprenta: u64 = 1469598103934665603;
     for r in randuri.iter() {
-        for b in [r.stare as u64, u64::from(r.revizuit), r.tip.len() as u64] {
+        // fara `revizuit`: estompat, nu se vede, iar refacerea costa ~60 ms
+        // la fiecare bifa
+        for b in [r.stare as u64, r.tip.len() as u64] {
             amprenta = (amprenta ^ b).wrapping_mul(1099511628211);
         }
     }

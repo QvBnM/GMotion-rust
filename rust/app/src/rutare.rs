@@ -631,9 +631,7 @@ impl Aplicatie {
                 )
             })
             .collect();
-        for (cheie, rev, omis, dep) in stari {
-            self.lista.pune_stare_cheie(&cheie, rev, omis, dep);
-        }
+        self.lista.pune_stari_multe(stari);
         self.model.replace(None);
     }
 
@@ -1426,7 +1424,12 @@ impl Aplicatie {
     /// versiune. Deploy-ul le arata si nu scrie pana nu sunt revizuite (N4, N5
     /// din auditul 2026-11-23).
     pub fn decizii_cazute(&self, plan: &modul::Plan) -> Vec<String> {
-        let in_plan = |b: &str, o: &str| plan.pasi.iter().any(|p| p.baza == b && p.obiect == o);
+        let din_plan: std::collections::HashSet<(&str, &str)> = plan
+            .pasi
+            .iter()
+            .map(|p| (p.baza.as_str(), p.obiect.as_str()))
+            .collect();
+        let in_plan = |b: &str, o: &str| din_plan.contains(&(b, o));
         let mut v: Vec<String> = Vec::new();
         for (b, o) in self.revizuire.omise_cazute(&self.randuri) {
             if in_plan(&b, &o) {
@@ -1444,7 +1447,10 @@ impl Aplicatie {
     }
 
     pub fn plan(&self, referinta: &str, facut_la: &str) -> modul::Plan {
-        let alese = self.lista.in_plan();
+        // un set, nu cautat in toata lista pentru fiecare rand: cu „Toate in
+        // plan" pe 12.000 de obiecte ar fi 144 de milioane de comparatii
+        let alese: std::collections::HashSet<(String, String)> =
+            self.lista.in_plan().into_iter().collect();
         let comparare = modul::Comparare {
             referinta: referinta.to_string(),
             baze: self.tinte.iter().map(|(n, _)| n.clone()).collect(),
@@ -1455,7 +1461,7 @@ impl Aplicatie {
             &comparare,
             &self.sursa,
             &self.tinte,
-            |r| alese.iter().any(|(b, o)| b == &r.baza && o == &r.obiect),
+            |r| alese.contains(&(r.baza.clone(), r.obiect.clone())),
             facut_la,
         )
     }
