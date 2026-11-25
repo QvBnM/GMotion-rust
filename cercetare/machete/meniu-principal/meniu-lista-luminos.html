@@ -1,0 +1,116 @@
+<!doctype html><html lang="ro" class="luminos"><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-400.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-500.ttf);font-weight:500}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-600.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-400.ttf);font-weight:400}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-500.ttf);font-weight:500}
+:root{--fundal:#0d1120;--suprafata:#151a2e;--strat:#1d2440;--cod:#0f1424;--linie:#2a3255;--slaba:#1e2542;--text:#eef1ff;--t2:#a3acd0;--t3:#8a93b8;--accent:#ffb547;--pe-accent:#1a1200;--ok:#3ddc97;--mod-fundal:#312b29;--at:#ffb547}
+:root.luminos{--fundal:#f4f5f8;--suprafata:#ffffff;--strat:#eceef3;--cod:#ffffff;--linie:#e3e6ec;--slaba:#eef0f3;--text:#0f1115;--t2:#4f5561;--t3:#5f6572;--accent:#f5a524;--pe-accent:#1a1200;--ok:#0f6a37;--mod-fundal:#fdf1dc;--at:#8f5b00}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+header{height:57px;border-bottom:1px solid var(--linie);display:flex;align-items:center;padding:0 24px;gap:14px}
+.logo{font-size:17px;font-weight:600;letter-spacing:-.4px}
+.logo i{display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--accent);margin:0 1px 1px}
+.v{font:11px GeistMono;color:var(--t3);border:1px solid var(--linie);border-radius:4px;padding:1px 6px}
+.sp{flex:1}
+.hbtn{height:30px;border:1px solid var(--linie);border-radius:8px;background:var(--suprafata);color:var(--t2);display:flex;align-items:center;padding:0 11px;font-size:12.5px}
+main{flex:1;display:flex;flex-direction:column;padding:30px 0 0;min-height:0}
+.cap{padding:0 56px}
+h1{font-size:22px;font-weight:600;letter-spacing:-.3px}
+.sub{color:var(--t2);font-size:13px;margin-top:6px}
+.lista{margin:22px 56px 26px;border:1px solid var(--linie);border-radius:12px;background:var(--suprafata);overflow:hidden;flex:1;display:flex;flex-direction:column;min-height:0}
+.r{display:grid;grid-template-columns:62px 1fr 310px 196px;align-items:center;flex:1;padding:18px 24px 18px 0;border-bottom:1px solid var(--slaba)}
+.r:last-child{border-bottom:none}
+.r.on{background:var(--mod-fundal);box-shadow:inset 3px 0 0 var(--accent)}
+.nr{justify-self:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--linie);background:var(--strat);display:flex;align-items:center;justify-content:center;font:500 13px GeistMono;color:var(--t2)}
+.r.on .nr{background:var(--accent);border-color:var(--accent);color:var(--pe-accent)}
+.t{display:flex;flex-direction:column;gap:5px;padding-right:28px;min-width:0}
+.t b{font-size:16px;font-weight:600}
+.r.soon .t b{color:var(--t3)}
+.t p{color:var(--t2);font-size:12.8px;line-height:1.5}
+.r.soon .t p{color:var(--t3)}
+.ram{display:flex;flex-direction:column;gap:4px;font:11.5px GeistMono;color:var(--t2);border-left:1px solid var(--slaba);padding-left:18px;align-self:stretch;justify-content:center}
+.r.soon .ram{color:var(--t3)}
+.ram i{font-style:normal;white-space:nowrap}
+.dr{justify-self:end;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.et{font:500 10.5px GeistMono;letter-spacing:.6px;padding:2px 7px;border-radius:4px;border:1px solid var(--linie);color:var(--t3)}
+.go{height:34px;border-radius:8px;background:var(--accent);color:var(--pe-accent);font-weight:600;font-size:13.5px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px}
+.go span{font:11px GeistMono;opacity:.72}
+.ult{font:11.5px GeistMono;color:var(--t2);text-align:right;line-height:1.6;white-space:nowrap}
+.ult em{font-style:normal;color:var(--text)}
+footer{height:46px;border-top:1px solid var(--linie);display:flex;align-items:center;padding:0 56px;gap:10px;color:var(--t2);font-size:12.5px}
+.bif{width:14px;height:14px;border:1px solid var(--t3);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pe-accent)}
+.bif.on{background:var(--accent);border-color:var(--accent)}
+.kbd{font:11px GeistMono;color:var(--t3)}
+</style></head><body>
+<header>
+  <div class="logo">GMotion<i></i></div>
+  <div class="v">v4.0.0</div>
+  <div class="sp"></div>
+  <div class="hbtn">RO / EN</div>
+  <div class="hbtn">Tema</div>
+  <div class="hbtn">Ajutor</div>
+</header>
+<main>
+  <div class="cap">
+    <h1>Ce facem?</h1>
+    <div class="sub">Patru directii. Compararea de obiecte merge acum; restul vin pe rand, fiecare cu ramurile ei.</div>
+  </div>
+  <div class="lista">
+
+    <div class="r on">
+      <div class="nr">1</div>
+      <div class="t"><b>Comparare obiecte</b><p>Before fata de After: proceduri, view-uri, functii, triggere si tabele. Lista diferentelor, editorul alaturat, planul de deploy.</p></div>
+      <div class="ram">
+        <i>Doua baze, pe servere diferite</i>
+        <i>Instantaneu salvat (.json)</i>
+        <i>O referinta, mai multe baze</i>
+      </div>
+      <div class="dr">
+        <div class="go">Deschide <span>Enter</span></div>
+        <div class="ult"><em>ERP_TEST &rarr; ERP_PROD</em><br>ultima, acum 2 ore</div>
+      </div>
+    </div>
+
+    <div class="r soon">
+      <div class="nr">2</div>
+      <div class="t"><b>Kit SQL pe baza</b><p>Un script de livrare (CREATE / ALTER / DROP / INSERT) citit si impartit in obiecte, apoi pus fata in fata cu baza de destinatie: ce exista deja, ce se aduce nou, ce se schimba.</p></div>
+      <div class="ram">
+        <i>Un fisier sau un folder de kit</i>
+        <i>Obiectele din script, cu operatia</i>
+        <i>Datele din INSERT, separat</i>
+      </div>
+      <div class="dr"><div class="et">IN CURAND</div></div>
+    </div>
+
+    <div class="r soon">
+      <div class="nr">3</div>
+      <div class="t"><b>Analiza initiala</b><p>Ce s-a personalizat intr-o baza de ERP, inainte de un upgrade sau de o implementare: obiectele proprii fata de standard, tranzactiile folosite, exemple de date de unde pleaca personalizarea.</p></div>
+      <div class="ram">
+        <i>Personalizari fata de standard</i>
+        <i>Tranzactii si tabele atinse</i>
+        <i>Navigare prin date, cu exemple</i>
+      </div>
+      <div class="dr"><div class="et">IN CURAND</div></div>
+    </div>
+
+    <div class="r soon">
+      <div class="nr">4</div>
+      <div class="t"><b>Configurare</b><p>Conexiunile tinute minte, tema si limba, cat se asteapta la conectare, unde se scrie jurnalul si cat se pastreaza.</p></div>
+      <div class="ram">
+        <i>Conexiuni si acreditari</i>
+        <i>Aspect: tema, limba, scara</i>
+        <i>Jurnal si fisiere de lucru</i>
+      </div>
+      <div class="dr"><div class="et">IN CURAND</div></div>
+    </div>
+
+  </div>
+</main>
+<footer>
+  <div class="bif on">&check;</div>
+  <div>Porneste direct in Comparare obiecte</div>
+  <div class="sp"></div>
+  <div class="kbd">1&ndash;4 alege &nbsp;&middot;&nbsp; Enter deschide &nbsp;&middot;&nbsp; Esc inchide</div>
+</footer>
+</body></html>

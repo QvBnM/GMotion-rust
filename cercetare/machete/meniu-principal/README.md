@@ -5,9 +5,13 @@ Propunere, **neaprobata inca**. Desenata dupa raspunsurile lui Mihai din
 
 | Fisier | Ce e |
 |---|---|
-| `meniu.html` | macheta, tema intunecata, 1440x900 |
+| `meniu.html` | varianta **placi** (2x2), tema intunecata, 1440x900 |
 | `meniu-luminos.html` | aceeasi, tema luminoasa |
-| `meniu.png`, `meniu-luminos.png` | capturile machetei (deviceScaleFactor 2) |
+| `meniu-lista.html` | varianta **lista** (patru randuri pe toata inaltimea), intunecata |
+| `meniu-lista-luminos.html` | aceeasi, tema luminoasa |
+| `*.png` | capturile machetelor (deviceScaleFactor 2) |
+
+Doua variante de aspect, acelasi continut. De ales una (Mihai).
 
 Se citesc ca specificatie, nu se ruleaza in aplicatie. Culorile si fonturile
 sunt aceleasi jetoane ca in `conectare-noua/`.
