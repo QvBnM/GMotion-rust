@@ -2318,3 +2318,11 @@ calculate pe firul compararii (care exista deja) si trimise cu rezultatul.
 **Motiv.** (b): aceeasi logica, aceleasi rezultate (test de echivalenta),
 fara un fir nou de sincronizat. Firul ferestrei sta acum ~70 ms o data la
 deschiderea listei si sub 10 ms pe bataie cat sosesc detaliile.
+
+**Completare, aceeasi zi.** A doua proba a lui Mihai: bifa „Revizuit" tinea
+firul 2,4 s. Salvarea sesiunii preia starea tuturor randurilor, iar fiecare
+rand cauta in toata lista si o resorta (`pune_stare_cheie`): 3,4 s la 12.000
+de obiecte. Acum pe lot (`pune_stari_multe`), ~10 ms. Tot aici, `plan` cauta
+liniar in obiectele din plan pentru fiecare rand (cu „Toate in plan", 144 de
+milioane de comparatii); acum printr-un set. `masura_ui` acopera si bifa si
+„Toate in plan".

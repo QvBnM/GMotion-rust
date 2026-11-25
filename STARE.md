@@ -7,7 +7,7 @@
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
 **Actualizat:** 2026-11-25 · commit `5686467` · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde aici (800 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust); de confirmat pe Windows cu clippy-ul lui Mihai
+**Poarta:** verde aici (801 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust); de confirmat pe Windows cu clippy-ul lui Mihai
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
 > aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
