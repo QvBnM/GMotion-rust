@@ -1,0 +1,18 @@
+# Ultima linie care se potriveste castiga, deci regula generala sta prima si
+# exceptiile dupa ea.
+
+# Tot ce e text: LF in depozit si pe disc, pe orice sistem.
+* text=auto eol=lf
+
+# Scripturile de Windows au nevoie de CRLF: cmd citeste etichetele
+# (`:harness`) si `goto` prin cautare in fisier.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Fixture-urile de referinta si Python-ul inghetat se compara octet cu octet
+# (CLAUDE.md regulile 1 si 2), iar poarta de pe Windows le compara cu `fc /b`.
+# Fara liniile de mai jos, `core.autocrlf` le rescrie la checkout si poarta
+# iese rosie pe veci pe Windows, pe o divergenta care nu exista: generatorul
+# scrie LF, git pusese CRLF. Diagnosticat pe masina lui Mihai, 2026-11-25.
+referinta/** -text
+mostenire/** -text
