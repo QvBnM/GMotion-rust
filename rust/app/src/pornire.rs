@@ -387,7 +387,18 @@ pub fn compara_cu(
     progres: impl FnMut(Pas) -> bool,
     continua: impl FnMut() -> bool,
 ) -> Result<Comparata, String> {
-    let x = citeste(c, progres)?;
+    let mut progres = progres;
+    let x = citeste(c, &mut progres)?;
+    // ultima etapa: compararea propriu-zisa (dupa citiri), ca progresul sa
+    // spuna si ea cat a durat
+    let din = x.tinte.len() + 1;
+    if !progres(Pas {
+        baza: String::new(),
+        facut: din,
+        din,
+    }) {
+        return Err(ANULAT.to_string());
+    }
     // „Anuleaza" opreste si compararea, nu doar citirea: altfel firul ardea
     // CPU pana la capat (P8)
     let comparare = modul::compara_cu_oprire(&x.referinta, &x.sursa, &x.tinte, |_| {}, continua)
@@ -566,10 +577,11 @@ mod teste {
             || true,
         )
         .expect("compararea merge");
+        // ultimul pas e compararea propriu-zisa, fara baza (2026-11-25)
         assert_eq!(
             *pasi.borrow(),
-            ["Ref", "C1", "C2"],
-            "progresul spune ce baza se citeste, referinta intai"
+            ["Ref", "C1", "C2", ""],
+            "progresul spune ce baza se citeste, referinta intai, apoi compara"
         );
         assert_eq!(r.tinte.len(), 2);
         assert_eq!(r.prima_tinta(), "C1");

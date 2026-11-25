@@ -11,7 +11,7 @@
 // ecran, in `src/scara.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Antet, ButonTema, Card, Ajutor, Despre } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Antet, ButonTema, Card, Ajutor, Despre, Rotitor, BaraDerulare, ZonaSfat } from "comune.slint";
 
 // Un server gasit in retea, cu etichetele din raspunsul SSRP.
 export struct ServerGasitUi {
@@ -38,11 +38,23 @@ export struct ParteUi {
     fel-stare: int,
     // instantele gasite in retea, de ales cu un clic
     servere-gasite: [ServerGasitUi],
+    // cautarea in retea ruleaza (lupa devine rotitor)
+    se-cauta: bool,
+}
+
+// O etapa a compararii, in panoul de progres: ce face, cat a durat;
+// stare 0 asteapta, 1 in curs, 2 gata
+export struct EtapaUi {
+    nume: string,
+    durata: string,
+    stare: int,
 }
 
 export struct RecentaUi {
     sursa: string,
     baza: string,
+    // serverul (sau instantaneul) compararii, ca in v3.4
+    server: string,
     cand: string,
     progres: string,
 }
@@ -174,6 +186,8 @@ component Camp inherits Rectangle {
     in property <bool> ascuns: false;
     in property <string> gol;
     in property <bool> cauta: false;
+    // cautarea in retea ruleaza
+    in property <bool> lucreaza: false;
     callback schimbat(string);
     callback la-cautare();
     height: 36px;
@@ -198,25 +212,31 @@ component Camp inherits Rectangle {
             input-type: root.ascuns ? InputType.password : InputType.text;
             edited => { root.schimbat(self.text); }
         }
-        if root.cauta: VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 30px;
-                height: 30px;
-                border-radius: 7px;
-                background: lupa.has-hover ? Tema.strat : transparent;
-                // lupa peste trei puncte: „cauta in retea"
-                Path {
-                    width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16;
-                    commands: "M 7 2 A 5 5 0 1 1 6.99 2 M 10.6 10.6 L 14.2 14.2";
-                    stroke: lupa.has-hover ? Tema.accent-text : Tema.text-tert; stroke-width: 1.6px; fill: transparent;
+        // lupa: un singur semn, intr-un buton al lui, despartit de text;
+        // cat cauta, trei puncte care pulseaza
+        if root.cauta: HorizontalLayout {
+            spacing: 4px;
+            Rectangle { width: 1px; background: Tema.linie-slaba; }
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 30px;
+                    height: 28px;
+                    border-radius: 6px;
+                    background: lupa.has-hover && !root.lucreaza ? Tema.strat : transparent;
+                    if !root.lucreaza: Path {
+                        width: 15px; height: 15px; viewbox-width: 16; viewbox-height: 16;
+                        commands: "M 6.8 1.8 A 5 5 0 1 1 6.79 1.8 M 10.4 10.4 L 14.4 14.4";
+                        stroke: lupa.has-hover ? Tema.accent-text : Tema.text-secundar; stroke-width: 1.7px; fill: transparent;
+                    }
+                    if root.lucreaza: Rotitor { culoare: Tema.accent-text; }
+                    lupa := ZonaSfat {
+                        sfat: Texte.sfat-cauta-servere;
+                        enabled: !root.lucreaza;
+                        mouse-cursor: pointer;
+                        clicked => { root.la-cautare(); }
+                    }
                 }
-                Path {
-                    width: 16px; height: 16px; viewbox-width: 16; viewbox-height: 16;
-                    commands: "M 4.3 7 A 0.9 0.9 0 1 1 4.29 7 M 7 7 A 0.9 0.9 0 1 1 6.99 7 M 9.7 7 A 0.9 0.9 0 1 1 9.69 7";
-                    fill: lupa.has-hover ? Tema.accent-text : Tema.text-tert;
-                }
-                lupa := TouchArea { clicked => { root.la-cautare(); } }
             }
         }
     }
@@ -269,6 +289,8 @@ component ListaBaze inherits Rectangle {
     in property <string> blocata;
     in property <string> gol;
     in property <bool> se-incarca;
+    in property <bool> poate-cere;
+    in property <bool> fara-servere;
     callback aleasa(string);
     callback cere();
     min-height: 104px;
@@ -278,20 +300,46 @@ component ListaBaze inherits Rectangle {
     border-color: Tema.linie;
     background: Tema.fundal;
     clip: true;
-    if root.baze.length == 0: Rectangle {
+    // goala: cat se citesc, rotitorul; altfel butonul explicit „Adu bazele"
+    // (Mihai, 2026-11-25: nu se mai incarca singure la un clic pe lista)
+    if root.baze.length == 0: VerticalLayout {
+        alignment: center;
+        spacing: 12px;
+        padding: 16px;
+        if root.se-incarca: Rotitor { }
+        if !root.se-incarca: HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                height: 36px;
+                width: ta.preferred-width + 36px;
+                border-radius: 9px;
+                background: root.poate-cere ? Tema.accent : Tema.strat;
+                opacity: root.poate-cere && za.has-hover ? 0.88 : 1;
+                animate opacity { duration: 90ms; }
+                ta := Text {
+                    text: Texte.adu-bazele;
+                    font-family: Tema.font-ui;
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: root.poate-cere ? Tema.pe-accent : Tema.text-tert;
+                }
+                za := TouchArea {
+                    enabled: root.poate-cere;
+                    mouse-cursor: root.poate-cere ? pointer : default;
+                    clicked => { root.cere(); }
+                }
+            }
+        }
         Text {
             text: root.gol;
             font-family: Tema.font-ui;
             font-size: 12.5px;
             color: Tema.text-tert;
             horizontal-alignment: center;
-            vertical-alignment: center;
             wrap: word-wrap;
-            width: parent.width - 32px;
         }
-        TouchArea { enabled: !root.se-incarca; clicked => { root.cere(); } }
     }
-    ListView {
+    lista-baze := ListView {
         for b[i] in root.baze: rb := Rectangle {
             property <bool> e-aleasa: root.alese[i];
             property <bool> e-blocata: b == root.blocata;
@@ -343,6 +391,13 @@ component ListaBaze inherits Rectangle {
             }
         }
     }
+    BaraDerulare {
+        x: parent.width - self.width;
+        height: parent.height;
+        pozitie <=> lista-baze.content-y;
+        continut: lista-baze.content-height;
+        vizibil: lista-baze.visible-height;
+    }
 }
 
 // O parte (martorul sau modificata): sus conexiunea, dedesubt bazele.
@@ -382,6 +437,26 @@ component PanouParte inherits Card {
             spacing: 10px;
             height: 26px;
             Text { text: p.eticheta; font-family: Tema.font-ui; font-size: 17px; font-weight: 600; color: Tema.text; vertical-alignment: center; letter-spacing: -0.3px; }
+            // baza aleasa, langa rol: „Martor · CharismaERP_GetsBet"
+            if p.eticheta-baze != "": VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 22px;
+                    width: Math.min(eb.preferred-width + 16px, 320px);
+                    border-radius: 11px;
+                    background: root.are-bifa ? Tema.mod-fundal : Tema.add-fundal;
+                    eb := Text {
+                        x: 8px;
+                        width: parent.width - 16px;
+                        text: p.eticheta-baze;
+                        font-family: Tema.font-mono;
+                        font-size: 12px;
+                        color: root.are-bifa ? Tema.mod-text : Tema.add-text;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+            }
             Text { text: p.rol; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
             if root.are-bifa && !root.fara-servere: Bifa {
                 bifat: root.aceeasi;
@@ -425,6 +500,7 @@ component PanouParte inherits Card {
                         text: p.server;
                         mono: true;
                         cauta: true;
+                        lucreaza: p.se-cauta;
                         gol: Texte.exemplu-server;
                         schimbat(t) => { root.server-schimbat(t); }
                         la-cautare => { root.cauta-servere(); }
@@ -513,10 +589,8 @@ component PanouParte inherits Card {
                         text: Texte.testeaza;
                         culoare: Tema.accent-text;
                         marime: 12.5px;
-                        // fara baze, „Testeaza" le si citeste: dupa el lista e plina
-                        apasat => {
-                            if (p.baze.length == 0) { root.cere-bazele(); } else { root.testeaza(); }
-                        }
+                        // doar proba conexiunii: bazele le aduce butonul lor
+                        apasat => { root.testeaza(); }
                     }
                 }
             }
@@ -526,8 +600,12 @@ component PanouParte inherits Card {
             baze: p.baze;
             alese: p.alese;
             blocata: root.blocata;
-            se-incarca: p.fel-stare == 1;
-            gol: root.fara-servere ? Texte.alege-baza : p.fel-stare == 1 ? p.stare : Texte.conecteaza-te-intai;
+            se-incarca: p.fel-stare == 1 && !p.se-cauta;
+            // fara server nu are ce aduce (dintr-un instantaneu, da); cu
+            // „Aceeasi conexiune" le aduce martorul
+            poate-cere: (root.fara-servere || p.server != "") && !(root.are-bifa && root.aceeasi);
+            fara-servere: root.fara-servere;
+            gol: p.fel-stare == 1 ? p.stare : root.fara-servere ? Texte.adu-din-instantaneu : p.server == "" ? Texte.conecteaza-te-intai : Texte.apasa-adu-bazele;
             aleasa(b) => { root.baza-aleasa(b); }
             cere => { if (!(root.are-bifa && root.aceeasi)) { root.cere-bazele(); } }
         }
@@ -553,6 +631,7 @@ component RandRecenta inherits Rectangle {
             Text { text: r.sursa; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; }
             Text { text: "→"; font-family: Tema.font-mono; color: Tema.text-tert; vertical-alignment: center; }
             Text { text: r.baza; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; }
+            Text { text: r.server; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-tert; vertical-alignment: center; overflow: elide; }
         }
         Text { width: 130px; text: r.cand; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
         Text { width: 200px; text: r.progres; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
@@ -594,6 +673,10 @@ export component FereastraConectare inherits Rectangle {
     in property <string> eroare-comparare;
     in property <string> instantaneu;
     in property <[RecentaUi]> recente;
+    // care recenta se arata pe ecranul de conectare, si daca e potrivita cu
+    // ce e ales acum (altfel e doar cea mai noua)
+    in property <int> recenta-aleasa;
+    in property <bool> recenta-potrivita;
     /// Ce lipseste ca sa se poata compara; gol = se poate.
     in property <string> ce-lipseste;
     /// Ultimele linii din jurnalul aplicatiei, cea mai noua la sfarsit.
@@ -649,6 +732,8 @@ export component FereastraConectare inherits Rectangle {
     in property <float> progres;
     in property <string> progres-text;
     in property <string> progres-timp;
+    // etapele compararii, cu durata fiecareia
+    in property <[EtapaUi]> etape;
     callback reia(int);
     callback alege-tema(bool);
     // comutatorul de limba: etichetele si indicele ales vin din Rust
@@ -668,6 +753,11 @@ export component FereastraConectare inherits Rectangle {
 
     taste := FocusScope {
         key-pressed(e) => {
+            // cat ruleaza compararea, restul e blocat: doar Esc (opreste)
+            if (root.ruleaza) {
+                if (e.text == Key.Escape) { root.anuleaza(); }
+                return accept;
+            }
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
             if (e.text == Key.F1) { root.arata-ajutorul = !root.arata-ajutorul; root.ajutor(); return accept; }
             if (e.text == Key.Escape && root.arata-ajutorul) { root.arata-ajutorul = false; return accept; }
@@ -797,12 +887,21 @@ export component FereastraConectare inherits Rectangle {
                         spacing: 6px;
                         Text { text: Texte.comparari-recente; font-family: Tema.font-ui; font-size: 15px; font-weight: 600; color: Tema.text; }
                         if root.recente.length == 0: Text { text: Texte.nicio-comparare; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-tert; }
-                        ListView {
+                        Rectangle {
                             vertical-stretch: 1;
-                            for s[i] in root.recente: RandRecenta {
-                                r: s;
-                                reia => { root.tab = 0; root.reia(i); }
-                                ignora => { root.ignora-recenta(i); }
+                            lista-sesiuni := ListView {
+                                for s[i] in root.recente: RandRecenta {
+                                    r: s;
+                                    reia => { root.tab = 0; root.reia(i); }
+                                    ignora => { root.ignora-recenta(i); }
+                                }
+                            }
+                            BaraDerulare {
+                                x: parent.width - self.width;
+                                height: parent.height;
+                                pozitie <=> lista-sesiuni.content-y;
+                                continut: lista-sesiuni.content-height;
+                                vizibil: lista-sesiuni.visible-height;
                             }
                         }
                     }
@@ -856,66 +955,31 @@ export component FereastraConectare inherits Rectangle {
                         horizontal-alignment: center;
                     }
                 }
-                // cat ruleaza: ce se citeste, de cat timp, si Opreste. Fara asta
-                // fereastra pare inghetata (12 s pe o baza adevarata).
-                if root.ruleaza: HorizontalLayout {
-                    vertical-stretch: 0;
-                    Rectangle { horizontal-stretch: 1; }
-                    VerticalLayout {
-                        horizontal-stretch: 1000;
-                        max-width: 640px;
-                        spacing: 8px;
-                        HorizontalLayout {
-                            spacing: 12px;
-                            Text {
-                                text: root.progres-text;
-                                font-family: Tema.font-ui;
-                                font-size: 13px;
-                                color: Tema.text;
-                                vertical-alignment: center;
-                                horizontal-stretch: 1;
-                                overflow: elide;
-                            }
-                            Text { text: root.progres-timp; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
-                            VerticalLayout {
-                                alignment: center;
-                                Buton { text: Texte.opreste; apasat => { root.anuleaza(); } }
-                            }
-                        }
-                        Rectangle {
-                            height: 6px;
-                            border-radius: 3px;
-                            background: Tema.strat;
-                            Rectangle {
-                                x: 0;
-                                width: parent.width * Math.max(0.03, root.progres);
-                                border-radius: 3px;
-                                background: Tema.accent;
-                            }
-                        }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                }
-
-                // comparatiile recente, reluabile: cel mult trei, restul in tabul
-                // Sesiuni; pe ecrane scunde, doar acolo
+                // ultima sesiune: cea potrivita cu ce e ales acum, altfel cea
+                // mai noua; toate sunt in tabul Sesiuni (Mihai, 2026-11-25)
                 if root.tab == 0 && !root.scund && root.recente.length > 0: VerticalLayout {
                     vertical-stretch: 0;
                     spacing: 8px;
-                    Text { text: Texte.comparari-recente; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; }
+                    HorizontalLayout {
+                        height: 22px;
+                        Text { text: root.recenta-potrivita ? Texte.sesiune-potrivita : Texte.ultima-sesiune; font-family: Tema.font-ui; font-size: 13px; font-weight: 600; color: Tema.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        Legatura {
+                            height: 22px;
+                            text: Texte.toate-sesiunile + " (" + root.recente.length + ") →";
+                            culoare: Tema.accent-text;
+                            marime: 12.5px;
+                            apasat => { root.tab = 1; }
+                        }
+                    }
                     Card {
                         border-radius: 8px;
-                        height: Math.min(3, root.recente.length) * 36px + 2px;
+                        height: 38px;
                         clip: true;
-                        VerticalLayout {
+                        RandRecenta {
                             y: 1px;
-                            for s[i] in root.recente: RandRecenta {
-                                visible: i < 3;
-                                height: i < 3 ? 36px : 0px;
-                                r: s;
-                                reia => { root.reia(i); }
-                                ignora => { root.ignora-recenta(i); }
-                            }
+                            r: root.recente[root.recenta-aleasa];
+                            reia => { root.reia(root.recenta-aleasa); }
+                            ignora => { root.ignora-recenta(root.recenta-aleasa); }
                         }
                     }
                 }
@@ -1159,4 +1223,73 @@ export component FereastraConectare inherits Rectangle {
     }
 
     init => { taste.focus(); }
+
+    // ---- cat ruleaza compararea: tot restul e acoperit si nu raspunde (nici
+    // tabul Sesiuni, nici setarile), iar in mijloc se vede unde a ajuns, cat
+    // a durat fiecare etapa si cat a trecut (Mihai, 2026-11-25)
+    if root.ruleaza: Rectangle {
+        background: Tema.intunecat ? #000000a0 : #0f111570;
+        opacity: 0;
+        init => { self.opacity = 1; }
+        animate opacity { duration: 160ms; easing: ease-out; }
+        TouchArea { }
+        Rectangle {
+            width: Math.min(root.width - 64px, 560px);
+            height: progres-interior.preferred-height;
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: Tema.linie;
+            background: Tema.suprafata;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #00000050;
+            progres-interior := VerticalLayout {
+                padding: 22px;
+                spacing: 14px;
+                HorizontalLayout {
+                    spacing: 12px;
+                    Rotitor { }
+                    Text { text: Texte.compar-in-curs; font-family: Tema.font-ui; font-size: 16px; font-weight: 600; color: Tema.text; vertical-alignment: center; horizontal-stretch: 1; }
+                    Text { text: root.progres-timp; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-secundar; vertical-alignment: center; }
+                }
+                Rectangle {
+                    height: 6px;
+                    border-radius: 3px;
+                    background: Tema.strat;
+                    Rectangle {
+                        x: 0;
+                        width: parent.width * Math.max(0.03, root.progres);
+                        border-radius: 3px;
+                        background: Tema.accent;
+                        animate width { duration: 300ms; easing: ease-out; }
+                    }
+                }
+                Text { text: root.progres-text; font-family: Tema.font-ui; font-size: 13px; color: Tema.text; overflow: elide; }
+                VerticalLayout {
+                    spacing: 4px;
+                    for e in root.etape: HorizontalLayout {
+                        height: 22px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 9px;
+                                height: 9px;
+                                border-radius: 4.5px;
+                                border-width: e.stare == 0 ? 1.3px : 0px;
+                                border-color: Tema.text-tert;
+                                background: e.stare == 2 ? Tema.add-bara : e.stare == 1 ? Tema.accent : transparent;
+                            }
+                        }
+                        Text { text: e.nume; font-family: Tema.font-ui; font-size: 12.5px; color: e.stare == 0 ? Tema.text-tert : Tema.text; vertical-alignment: center; horizontal-stretch: 1; }
+                        Text { text: e.durata; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    Buton { text: Texte.opreste; apasat => { root.anuleaza(); } }
+                }
+            }
+        }
+    }
+
 }

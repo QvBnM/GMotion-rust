@@ -910,6 +910,47 @@ pub fn plieaza(model: &ModelEditor, context: usize, l: Limba) -> Vec<RandAfisat>
     rez
 }
 
+/// Cate linii s-au schimbat, pe fel, ca in panoul de detalii al listei
+/// (Mihai, 2026-11-25: „rezumatul de linii, cat mai precis"). Pe linii, nu
+/// pe instructiuni: o instructiune de 30 de linii cu un singur cuvant
+/// schimbat e o linie modificata, nu 30.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RezumatLinii {
+    /// Linii care sunt doar in Modificata.
+    pub adaugate: usize,
+    /// Linii care sunt doar in Martor.
+    pub sterse: usize,
+    /// Linii puse fata in fata, cu text diferit.
+    pub modificate: usize,
+    /// Linii ale blocurilor mutate (numarate o data, din Martor).
+    pub mutate: usize,
+}
+
+/// [`RezumatLinii`] pe aceeasi aliniere ca editorul (un singur motor): ce
+/// numara aici e exact ce se coloreaza acolo.
+pub fn rezumat_linii(text_ref: &str, text_tinta: &str) -> RezumatLinii {
+    use gmotion_core::TipDiferenta as T;
+    let a = gmotion_core::aliniaza(text_ref, text_tinta);
+    let mut r = RezumatLinii::default();
+    for rand in &a.randuri {
+        let (st, dr) = (rand.stanga.as_ref(), rand.dreapta.as_ref());
+        match rand.tip {
+            T::Egal => {}
+            T::Mutat => r.mutate += usize::from(st.is_some()),
+            T::Adaugat => r.adaugate += usize::from(dr.is_some()),
+            T::Sters => r.sterse += usize::from(st.is_some()),
+            T::Modificat => match (st, dr) {
+                (Some(x), Some(y)) if x.text.trim_end() != y.text.trim_end() => r.modificate += 1,
+                (Some(_), Some(_)) => {}
+                (Some(_), None) => r.sterse += 1,
+                (None, Some(_)) => r.adaugate += 1,
+                (None, None) => {}
+            },
+        }
+    }
+    r
+}
+
 /// O linie din previzualizarea la hover („cum arata Modificata daca aplici").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiniePrevizualizare {
@@ -1298,6 +1339,29 @@ mod teste_previzualizare {
 
 #[cfg(test)]
 mod teste_plasare {
+    /// Rezumatul de linii al panoului: pe linii, pe fel, si o mutare se
+    /// numara o data.
+    #[test]
+    fn rezumatul_de_linii_numara_pe_fel() {
+        // o instructiune schimbata intr-un cuvant: o linie modificata; una
+        // stearsa si una adaugata, fiecare cu linia ei
+        let a = "SELECT 1;\nUPDATE t SET a = 1 WHERE id = 7;\nDELETE FROM x WHERE id = 3;";
+        let b = "SELECT 1;\nUPDATE t SET a = 2 WHERE id = 7;\nINSERT INTO y (c) VALUES (1);";
+        let r = rezumat_linii(a, b);
+        assert_eq!(r.modificate, 1, "{r:?}");
+        assert_eq!((r.adaugate, r.sterse), (1, 1), "{r:?}");
+        assert_eq!(r.mutate, 0);
+        assert_eq!(rezumat_linii(a, a), RezumatLinii::default());
+        // doua instructiuni inversate: mutate, nu sterse + adaugate
+        let x =
+            "SELECT 1;\nUPDATE t SET a = 1 WHERE id = 7;\nDELETE FROM x WHERE id = 3;\nSELECT 2;";
+        let y =
+            "SELECT 1;\nDELETE FROM x WHERE id = 3;\nUPDATE t SET a = 1 WHERE id = 7;\nSELECT 2;";
+        let m = rezumat_linii(x, y);
+        assert!(m.mutate >= 1, "{m:?}");
+        assert_eq!(m.modificate, 0, "{m:?}");
+    }
+
     use super::*;
 
     const MARTOR: &str = concat!(

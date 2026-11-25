@@ -293,9 +293,11 @@ impl Stare {
         let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
             .cu_editari(editari)
             .cu_taburi(taburi);
-        if let Some(v) = &vederea {
-            app = app.cu_vederea(v);
-        }
+        app = match &vederea {
+            Some(v) => app.cu_vederea(v),
+            // o comparare noua: modificatele, cele mai diferite primele
+            None => app.cu_vederea_implicita(),
+        };
         // ca la offline: comutatorul porneste din configurare
         app.comanda(Comanda::ComutaUnireaCursorului(self.uneste_implicit));
         self.detalii = Some(porneste_detalii(&app));
@@ -344,8 +346,15 @@ impl Stare {
         let Some(rezultat) = gata else {
             return Progres::InCurs;
         };
-        self.rulare = None;
         let l = self.conectare.limba;
+        // etapele, cu durata, in jurnal: in fereastra se vede ce a durat cat
+        if let Some(r) = self.rulare.take() {
+            for (nume, durata, stare) in r.etape(l) {
+                if stare == 2 {
+                    tracing::info!(target: "gmotion::app", "{nume}: {durata}");
+                }
+            }
+        }
         // o recomparare se face de pe lista: acolo se spune ce s-a intamplat,
         // iar lista veche ramane (F-A8). Prima comparare, langa buton (F-A12).
         let recomparare = self.app.is_some();
@@ -1041,13 +1050,24 @@ pub fn recente(sesiuni: &gmotion_platforma::Sesiuni, limba: gmotion_core::Limba)
         .take(8)
         .map(|s| {
             let baza = s.baze.first().cloned().unwrap_or_default();
-            let revizuite = modul::Revizuire::din_sesiune(&s).numar();
+            let revizuire = modul::Revizuire::din_sesiune(&s);
+            // ca in v3.4: cat s-a lucrat pe ea (revizuite, omise, texte
+            // editate), nu doar revizuitele
+            let parti = [
+                (revizuire.numar(), limba.alege("revizuite", "reviewed")),
+                (revizuire.numar_omise(), limba.alege("omise", "skipped")),
+                (
+                    modul::Editari::din_sesiune(&s).numar(),
+                    limba.alege("editate", "edited"),
+                ),
+            ];
             Recenta {
-                progres: if revizuite == 0 {
-                    String::new()
-                } else {
-                    format!("{revizuite} {}", limba.alege("revizuite", "reviewed"))
-                },
+                progres: parti
+                    .iter()
+                    .filter(|(n, _)| *n > 0)
+                    .map(|(n, t)| format!("{n} {t}"))
+                    .collect::<Vec<_>>()
+                    .join(" · "),
                 cand: s.salvata.clone(),
                 sursa: s.referinta.clone(),
                 server: s.server.clone(),
@@ -1259,7 +1279,11 @@ mod teste {
         let r = comparata(&alta);
         alta.primeste_compararea(r);
         assert_eq!(alta.app.as_ref().unwrap().revizuire().numar(), 1);
-        assert_eq!(recente(&alta.sesiuni, gmotion_core::Limba::Romana).len(), 1);
+        let r = recente(&alta.sesiuni, gmotion_core::Limba::Romana);
+        assert_eq!(r.len(), 1);
+        // ca in v3.4: cat s-a lucrat si pe ce server (2026-11-25)
+        assert_eq!(r[0].progres, "1 revizuite");
+        assert!(!r[0].server.is_empty());
         std::fs::remove_dir_all(&d).ok();
     }
 

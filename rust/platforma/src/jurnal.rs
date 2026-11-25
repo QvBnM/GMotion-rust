@@ -165,6 +165,11 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for StratTampon {
                 }
             }
         }
+        // doar ce scrie aplicatia: liniile bibliotecilor (fereastra, TLS,
+        // X11) raman in fisier, nu in jurnalul din fereastra (2026-11-25)
+        if !event.metadata().target().starts_with("gmotion") {
+            return;
+        }
         let mut c = Culege::default();
         event.record(&mut c);
         if c.mesaj.is_empty() && c.campuri.is_empty() {
@@ -219,8 +224,11 @@ fn curata_linie(s: &str) -> String {
 /// Filtrul vine din `GMOTION_JURNAL` sau `RUST_LOG`; implicit `info`.
 /// Filtrul cand nu e dat altul in `GMOTION_JURNAL` / `RUST_LOG`. `tiberius`
 /// scrie ~8 linii INFO la fiecare conexiune (TLS, schimbari de context); la
-/// prima rulare pe o baza reala acopereau progresul. Avertismentele raman.
-const FILTRU_IMPLICIT: &str = "info,tiberius=warn";
+/// prima rulare pe o baza reala acopereau progresul. Avertismentul lui despre
+/// certificat („Trusting the server certificate without validation") vine la
+/// fiecare conexiune si spune ce spune deja `gmotion::db`, o data pe sesiune:
+/// de la `tiberius` raman doar erorile (2026-11-25).
+const FILTRU_IMPLICIT: &str = "info,tiberius=error";
 
 pub fn porneste() {
     porneste_intern(None);
@@ -288,7 +296,7 @@ fn porneste_intern(fisier: Option<std::fs::File>) {
             .with_ansi(false)
             .with_writer(Mutex::new(Curatat(f)))
             .with_filter(tracing_subscriber::EnvFilter::new(
-                "info,tiberius=warn,gmotion=debug",
+                "info,tiberius=error,gmotion=debug",
             ))
     });
     let _ = tracing_subscriber::registry()
@@ -415,6 +423,27 @@ mod teste {
         assert_eq!(
             curata_linie("\"citat\" la capete \""),
             "\"citat\" la capete \""
+        );
+    }
+
+    /// Jurnalul din fereastra arata doar ce scrie aplicatia: winit, TLS si
+    /// celelalte biblioteci raman in fisier (2026-11-25).
+    #[test]
+    fn tamponul_primeste_doar_tintele_aplicatiei() {
+        use tracing_subscriber::layer::SubscriberExt;
+        let sub = tracing_subscriber::registry().with(StratTampon);
+        tracing::subscriber::with_default(sub, || {
+            tracing::warn!(target: "winit::x11", "biblioteca-7f3 vorbeste");
+            tracing::info!(target: "gmotion::app", "aplicatia-7f3 vorbeste");
+        });
+        let (toate, _) = linii(0);
+        assert!(
+            toate.iter().any(|l| l.contains("aplicatia-7f3")),
+            "{toate:?}"
+        );
+        assert!(
+            !toate.iter().any(|l| l.contains("biblioteca-7f3")),
+            "{toate:?}"
         );
     }
 

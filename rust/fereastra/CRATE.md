@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 02d3c65649985398 -->
+<!-- api-hash: 26d3ca233c43459c -->
 
 ## Rol
 
@@ -35,8 +35,11 @@ etapa care a atins-o: 28 (tabelele in comparare).
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare (etapa 17, `cercetare/machete/conectare-noua/`): doua carduri simetrice (martor, modificata), fiecare cu conexiunea sus si lista bazelor cu cerc dedesubt; bifa „Aceeasi conexiune"; Compara la mijloc; tabul Sesiuni; Setari (certificatul) |
 | `model_conectare::Conectare::{aceeasi_conexiune, pune_aceeasi_conexiune, sincronizeaza, alege_baza_modificata, e_baza_martorului, reia}` | bifa „Aceeasi conexiune": `sincronizeaza` copiaza conexiunea martorului in modificata (se cheama inainte de fiecare desenare; nu goleste alegerea cat bazele nu sunt citite); `reia(recenta)` pune serverul si ambele baze ale unei comparari recente; la modificata se alege **o singura** baza, iar baza martorului nu, cand conexiunea e aceeasi |
 | `scara::{scara, REFERINTA, MINIM, MAXIM, SISTEM_MARIT}`, `leaga_scara(ui)` | `scara` ramane doar pentru capturi; `leaga_scara` pune `scund` (conectarea se strange sub 820 px logici). **Nu se mai pune nicio scara peste cea a sistemului** (2026-11-25: se batea cu marirea monitorului si fereastra ingheta la mutare) |
-| `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
-| `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
+| `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `linie_jurnal_vizibila(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare; `linie_jurnal_vizibila` scoate zgomotul (fiecare clic, fiecare desenare) si campurile cu server / baza / utilizator / cale (raman in fisier) |
+| `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere; `vederea_implicita()`: modificatele, similaritatea crescator (cum porneste o comparare noua) |
+| `nume_afisat`, `tip_scurt`, `data_scurta`, `caractere_pe`, `amprenta_randuri` | lista (2026-11-25): numele fara `dbo.` si taiat pe mijloc pe latimea coloanei, tipul ca cod (`P`, `V`, `FN`, `TB`), data fara ora; randurile se refac doar cand se schimba amprenta lor (un clic pe rand nu le mai reface) |
+| `Sfat`, `SfatAfisat`, `ZonaSfat`, `BaraDerulare`, `Rotitor`, `EticRol` (Slint, `comune.slint`) | sfatul la hover, unul pe fereastra (sters la schimbarea ecranului, pleaca singur dupa 7 s); bara de derulare mereu vizibila peste un `ListView`; trei puncte „lucrez"; eticheta Martor / Modificata |
+| `incarca_fundal_harta(ui)`, `harta::instantaneu_estompat` | fundalul listei si al editorului: instantaneul hartii, estompat, refacut doar cand se schimba ce arata |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire, Impact}` | modelul listei; cheia unui rand e `(baza, schema.nume)`; `Obiect::{folosit_de, impact}` vin din `diff-obiecte::impact` (fereastra doar le arata, sorteaza si filtreaza: `Ordine::{FolositDe, Impact}`, `Lista::filtreaza_impact`); `Obiect::modificat` si `Ordine::Modificat`: coloana „Ultima modificare", recentele intai (etapa 25) |
 | `model_lista::{Perioada, Operatie, zile_inainte}`, `Obiect::{creat, operatie}`, `Lista::{filtreaza_creat, filtreaza_modificat, filtreaza_operatie}` | filtrele din etapa 27: creat / modificat azi, in 7 sau 30 de zile (fara data nu trece), si CREATE / ALTER / DROP (ce ar face deploy-ul; DROP doar filtru) |
 | `incarca_coloana_lista(ui, lista)` | coloana ingusta din editor: aceleasi randuri ca lista intreaga, construite intr-un singur loc |
@@ -62,8 +65,9 @@ etapa care a atins-o: 28 (tabelele in comparare).
 | `FereastraDeploy` (Slint), `incarca_deploy(ui, ecran)` | planul de deploy: pasii in ordinea din script, garda, revenirea, impartirea fisierelor, scrierea |
 | `model_deploy::{EcranDeploy, PasDeploy, GardaDeploy, RezultatDeploy, rezumat, text_garda, text_rezultat}` | ce spune ecranul de deploy, fara fereastra; `GardaDeploy::SeVerifica` = recitirea ruleaza pe alt fir (P4) |
 | `model_lista::Obiect::{in_plan, se_poate_deploia}`, `Lista::{comuta_in_plan, scoate_din_plan, in_plan}` | ce e pus in planul de deploy |
-| `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)` | previzualizarea obiectului selectat |
-| `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, „Folosit de" / „Foloseste" — primele 8 nume, apasabile, si „+N" —, nota); nota se rescrie doar cand se schimba obiectul |
+| `incarca_previzualizare(ui, sursa, baza, setari)`, `goleste_previzualizarea(ui)`, `randuri_doar_diferente`, `model_editor::{rezumat_linii, RezumatLinii}` | previzualizarea obiectului selectat: **doar blocurile diferite**, fara context, rupte pe latimea panoului, la 11 px; rezumatul de linii (adaugate / sterse / modificate / mutate) pe aceeasi aliniere ca editorul |
+| `incarca_detalii(ui, panou)`, `PanouDetalii` | panoul de detalii din lista (deschis, impact, „Folosit de" / „Foloseste" ca **text selectabil**, toate numele, fara navigare —, nota); nota se rescrie doar cand se schimba obiectul |
+| `model_conectare::Conectare::recenta_potrivita()` | sesiunea aratata pe conectare: a perechii alese, altfel a martorului, altfel cea mai noua |
 | `model_editor::construieste_cu(ref, tinta, uneste_cursor)` | acelasi model, cu ciclul de cursor luat intr-un singur bloc |
 | `model_editor::{FelBloc, Eticheta}` | ce scrie pastila de pe primul rand al unui bloc. Un bloc **mutat** (`gmotion_core::TipDiferenta::Mutat`) pastreaza culoarea blocului fara pereche si schimba doar vorba din pastila (`MUTAT, din Martor` / `MUTAT, in Modificata`): un al cincilea cod de stare ar cere alta macheta (CLAUDE.md §10) |
 | `model_editor::construieste(ref, tinta) -> ModelEditor` | randurile editorului: aliniate (prin `gmotion_core::aliniaza`, aceeasi aliniere ca „Aplica"), numerotate, colorate; `blocuri` = blocul motorului al fiecarei diferente; `tinte` = randul catre care se duce fiecare diferenta |

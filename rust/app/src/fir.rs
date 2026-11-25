@@ -83,6 +83,9 @@ pub struct Rulare {
     pornit_la: Instant,
     /// Ultimul pas primit: din el se deseneaza bara si textul.
     pub pas: Option<Pas>,
+    /// Cand a inceput fiecare pas primit, si cat a durat (dupa ce s-a
+    /// terminat): panoul de progres si jurnalul arata etapele cu durata.
+    pasi: Vec<(usize, Instant, Option<std::time::Duration>)>,
     /// `true` dupa ce s-a apasat Anuleaza, ca butonul sa nu mai raspunda.
     pub se_opreste: bool,
 }
@@ -115,6 +118,7 @@ impl Rulare {
             vesti: rx,
             pornit_la: Instant::now(),
             pas: None,
+            pasi: Vec::new(),
             se_opreste: false,
         }
     }
@@ -131,8 +135,16 @@ impl Rulare {
     pub fn verifica(&mut self) -> Option<Result<Box<Comparata>, String>> {
         loop {
             match self.vesti.try_recv() {
-                Ok(Veste::Progres(p)) => self.pas = Some(p),
-                Ok(Veste::Gata(r)) => return Some(Ok(r)),
+                Ok(Veste::Progres(p)) => {
+                    let acum = Instant::now();
+                    self.inchide_pasul(acum);
+                    self.pasi.push((p.facut, acum, None));
+                    self.pas = Some(p);
+                }
+                Ok(Veste::Gata(r)) => {
+                    self.inchide_pasul(Instant::now());
+                    return Some(Ok(r));
+                }
                 Ok(Veste::Esuata(e)) => return Some(Err(e)),
                 Err(TryRecvError::Empty) => return None,
                 // firul a murit fara sa spuna nimic: mai bine o eroare decat
@@ -150,14 +162,75 @@ impl Rulare {
         format!("{}:{:02}", s / 60, s % 60)
     }
 
-    /// Cat din drum s-a facut, 0..1.
+    /// Cat din drum s-a facut, 0..1: citirile si compararea, fiecare o
+    /// parte egala.
     pub fn fractie(&self) -> f32 {
         match &self.pas {
-            Some(p) if p.din > 0 => p.facut as f32 / p.din as f32,
+            Some(p) if p.din > 0 => p.facut as f32 / (p.din + 1) as f32,
             _ => 0.0,
         }
     }
 
+    fn inchide_pasul(&mut self, acum: Instant) {
+        if let Some((_, start, durata @ None)) = self.pasi.last_mut() {
+            *durata = Some(acum.duration_since(*start));
+        }
+    }
+
+    /// Etapele, in ordine: numele (rolul, nu numele bazei: ecranul si
+    /// jurnalul nu arata server sau baza), cat a durat („4,8 s", sau cat
+    /// a trecut pentru cea in curs) si starea (0 asteapta, 1 in curs, 2 gata).
+    pub fn etape(&self, l: gmotion_core::Limba) -> Vec<(String, String, i32)> {
+        let Some(din) = self.pas.as_ref().map(|p| p.din) else {
+            return Vec::new();
+        };
+        (0..=din)
+            .map(|k| {
+                let nume = nume_etapa(k, din, l);
+                match self.pasi.iter().find(|(f, _, _)| *f == k) {
+                    Some((_, _, Some(d))) => (nume, durata(*d, l), 2),
+                    Some((_, start, None)) => (nume, durata(start.elapsed(), l), 1),
+                    None => (nume, String::new(), 0),
+                }
+            })
+            .collect()
+    }
+}
+
+/// Numele etapei `k` din `din` + 1: citirea martorului, a fiecarei baze
+/// modificate, apoi compararea.
+pub fn nume_etapa(k: usize, din: usize, l: gmotion_core::Limba) -> String {
+    if k == 0 {
+        l.alege("Citesc Martor", "Reading Witness").to_string()
+    } else if k >= din {
+        l.alege("Compar obiectele", "Comparing objects").to_string()
+    } else if din > 2 {
+        format!(
+            "{} {k}/{}",
+            l.alege("Citesc Modificata", "Reading Modified"),
+            din - 1
+        )
+    } else {
+        l.alege("Citesc Modificata", "Reading Modified").to_string()
+    }
+}
+
+/// O durata scurta, ca „4,8 s" / „4.8 s" sau „1:05".
+pub fn durata(d: std::time::Duration, l: gmotion_core::Limba) -> String {
+    let s = d.as_secs_f64();
+    if s >= 60.0 {
+        let t = s as u64;
+        format!("{}:{:02}", t / 60, t % 60)
+    } else {
+        let text = format!("{s:.1} s");
+        match l {
+            gmotion_core::Limba::Romana => text.replace('.', ","),
+            _ => text,
+        }
+    }
+}
+
+impl Rulare {
     /// Propozitia de sub bara.
     pub fn text(&self) -> String {
         self.text_in(gmotion_core::Limba::Romana)
@@ -168,14 +241,15 @@ impl Rulare {
         if self.se_opreste {
             return l.alege("se opreste…", "stopping…").to_string();
         }
+        // rolul, nu numele bazei (Mihai, 2026-11-25: fara server / baza in
+        // ce se vede pe ecran)
         match &self.pas {
             Some(p) => format!(
-                "{} {} ({} {} {})",
-                l.alege("Citesc", "Reading"),
-                p.baza,
+                "{} ({} {} {})",
+                nume_etapa(p.facut, p.din, l),
                 p.facut + 1,
                 l.alege("din", "of"),
-                p.din
+                p.din + 1
             ),
             None => l.alege("Se porneste…", "Starting…").to_string(),
         }
@@ -224,7 +298,20 @@ mod teste {
         let rezultat = asteapta(&mut r).expect("compararea merge");
         assert_eq!(rezultat.randuri.len(), 1);
         assert!(r.pas.is_some(), "s-a primit cel putin un pas");
-        assert!(r.text().starts_with("Citesc "), "{}", r.text());
+        assert!(
+            r.text().starts_with("Compar obiectele (3 din 3)"),
+            "{}",
+            r.text()
+        );
+        // trei etape, toate terminate, fiecare cu durata ei; fara numele bazei
+        let e = r.etape(gmotion_core::Limba::Romana);
+        let nume: Vec<&str> = e.iter().map(|x| x.0.as_str()).collect();
+        assert_eq!(
+            nume,
+            ["Citesc Martor", "Citesc Modificata", "Compar obiectele"]
+        );
+        assert!(e.iter().all(|x| x.2 == 2 && x.1.ends_with(" s")), "{e:?}");
+        assert!(!r.text().contains("Ref") && !r.text().contains("C1"));
         assert!(r.timp().starts_with("0:"), "{}", r.timp());
         std::fs::remove_dir_all(&d).ok();
     }

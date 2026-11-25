@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -457,6 +457,18 @@ export component EditorDiferente inherits Rectangle {
         root.editeaza-textul-final();
     }
 
+    // fundalul: instantaneul hartii, estompat si stins, ca accentul sa ramana
+    // pe text si pe panoul din fata (Mihai, 2026-11-25)
+    in property <image> fundal-harta;
+    Image {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        source: root.fundal-harta;
+        image-fit: cover;
+        opacity: Tema.intunecat ? 0.30 : 0.22;
+    }
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
@@ -1607,8 +1619,9 @@ export component EditorDiferente inherits Rectangle {
                         }
                     }
                 }
+                Rectangle {
+                vertical-stretch: 1;
                 lista-ingusta := ListView {
-                    vertical-stretch: 1;
                     property <int> tinta: root.nod-selectat-lista;
                     changed tinta => {
                         if (self.tinta < 0) { return; }
@@ -1703,6 +1716,14 @@ export component EditorDiferente inherits Rectangle {
                         }
                     }
                 }
+                BaraDerulare {
+                    x: parent.width - self.width;
+                    height: parent.height;
+                    pozitie <=> lista-ingusta.content-y;
+                    continut: lista-ingusta.content-height;
+                    vizibil: lista-ingusta.visible-height;
+                }
+                }
                 Rectangle { height: 1px; background: Tema.linie-slaba; }
                 // la hover: numele complet si ce se stie despre rand
                 Text {
@@ -1772,8 +1793,10 @@ export component EditorDiferente inherits Rectangle {
                     spacing: 8px;
                     horizontal-stretch: 1;
                     alignment: start;
+                    EticRol { text: Texte.martor; martor: true; }
                     Text { text: root.sursa-baza; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                     Text { text: "→"; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; vertical-alignment: center; }
+                    EticRol { text: Texte.modificata; martor: false; }
                     Text { text: root.tinta-baza; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
                 }
                 // progresul revizuirii; pe ecrane inguste lasa loc numelor

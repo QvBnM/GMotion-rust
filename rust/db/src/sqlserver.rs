@@ -108,7 +108,12 @@ impl SursaSqlServer {
                 });
             }
         }
-        if tinta.certificat == Certificat::Nevalidat {
+        // o data pe sesiune, nu la fiecare conexiune (Mihai, 2026-11-25: se
+        // repeta de trei ori la o comparare si acoperea restul jurnalului)
+        static AVERTIZAT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if tinta.certificat == Certificat::Nevalidat
+            && !AVERTIZAT.swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
             tracing::warn!(
                 target: "gmotion::db",
                 server = %tinta.server,

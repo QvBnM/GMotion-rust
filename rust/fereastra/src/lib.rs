@@ -537,6 +537,31 @@ fn randuri_ui_cu_tinte(
     limba: texte::Limba,
     wrap: Option<usize>,
 ) -> (Vec<RandUi>, Vec<i32>, Tinte) {
+    randuri_ui_cu_context(model, pliat, CONTEXT_EDITOR, unificat, limba, wrap)
+}
+
+/// Cate linii identice se lasa langa o diferenta, in editorul pliat.
+const CONTEXT_EDITOR: usize = 3;
+
+/// Randurile previzualizarii din panoul listei: **doar** blocurile diferite,
+/// fara linii identice in jur, rupte pe latimea panoului (Mihai, 2026-11-25:
+/// „direct diferentele, ca sa-ti faci o idee dintr-o privire").
+pub fn randuri_doar_diferente(
+    model: &ModelEditor,
+    limba: texte::Limba,
+    wrap: Option<usize>,
+) -> Vec<RandUi> {
+    randuri_ui_cu_context(model, true, 0, false, limba, wrap).0
+}
+
+fn randuri_ui_cu_context(
+    model: &ModelEditor,
+    pliat: bool,
+    context: usize,
+    unificat: bool,
+    limba: texte::Limba,
+    wrap: Option<usize>,
+) -> (Vec<RandUi>, Vec<i32>, Tinte) {
     // un rand al modelului devine unul sau mai multe randuri afisate: cu
     // wrap, linia lunga continua pe randuri fara numar, iar partea mai
     // scurta primeste randuri goale, ca stanga si dreapta sa ramana aliniate
@@ -570,7 +595,7 @@ fn randuri_ui_cu_tinte(
     // 2026-11-19: „vreau sa vad indiferent")
     let pliat = pliat && !model.diferente.is_empty();
     let afisate = if pliat {
-        model_editor::plieaza(model, 3, limba)
+        model_editor::plieaza(model, context, limba)
     } else {
         (0..model.randuri.len()).map(RandAfisat::Linie).collect()
     };
@@ -931,6 +956,83 @@ fn detaliu_panou(server: &str, linii: usize, limba: texte::Limba) -> String {
 /// Randurile listei, pentru tabelul intreg si pentru coloana ingusta din
 /// editor. Un singur loc: altfel cele doua ar arata altceva despre acelasi
 /// obiect.
+/// Numele din lista: fara `dbo.` (schema implicita, pe aproape toate
+/// obiectele: lua loc si nu spunea nimic, Mihai 2026-11-25); celelalte
+/// scheme raman, ca doua obiecte cu acelasi nume sa nu se confunde.
+pub fn nume_afisat(schema: &str, nume: &str) -> String {
+    if schema.is_empty() || schema.eq_ignore_ascii_case("dbo") {
+        nume.to_string()
+    } else {
+        format!("{schema}.{nume}")
+    }
+}
+
+/// Codul tipului, scurt, pentru coloana „Tip": codul din `sys.objects`
+/// (`P`, `V`, `FN`, `IF`, `TF`, `TR`), iar tabela `TB` (`U` nu spune nimic
+/// cuiva care nu stie catalogul).
+pub fn tip_scurt(tip: &str) -> String {
+    match tip.trim().to_ascii_uppercase().as_str() {
+        "U" => "TB".to_string(),
+        "" => "?".to_string(),
+        t => t.to_string(),
+    }
+}
+
+/// Data, fara ora: primele zece caractere ale lui „2026-11-22 10:32:05".
+pub fn data_scurta(cand: Option<&str>) -> &str {
+    cand.map_or("", |m| m.get(..10).unwrap_or(m))
+}
+
+/// Cate caractere mono de 12,5 px incap pe `latime` pixeli logici (cu o
+/// margine de 8 px), cel putin 6.
+pub fn caractere_pe(latime: f32) -> usize {
+    (((latime - 8.0) / CARACTER_MONO).floor().max(6.0)) as usize
+}
+
+thread_local! {
+    /// Amprenta randurilor puse ultima data in lista (vezi `incarca_lista`).
+    static AMPRENTA_RANDURI: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Amprenta a tot ce se vede pe randurile listei: ordinea, si pe fiecare
+/// obiect vizibil campurile care se pot schimba fara sa se schimbe obiectul
+/// (revizuit, in plan, omis, deploy, detaliile sosite, impactul). Plus limba
+/// si cate caractere incap din nume. Doua amprente egale = aceleasi randuri.
+pub fn amprenta_randuri(lista: &model_lista::Lista, limba: texte::Limba, cate: usize) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut pune = |x: u64| h = (h ^ x).wrapping_mul(0x0100_0000_01b3);
+    pune(limba as u64);
+    pune(cate as u64);
+    pune(lista.vizibile().len() as u64);
+    for &i in lista.vizibile() {
+        let o = &lista.obiecte()[i];
+        pune(i as u64);
+        // si obiectul insusi: o recomparare aduce alte obiecte pe aceiasi indici
+        for t in [&o.schema, &o.nume, &o.baza, &o.tip] {
+            for b in t.bytes() {
+                pune(u64::from(b));
+            }
+            pune(0xff);
+        }
+        pune(o.stare as u64);
+        pune(o.modificat.as_deref().map_or(0, str::len) as u64);
+        pune(u64::from(o.revizuit) | u64::from(o.in_plan) << 1 | u64::from(o.omis) << 2);
+        pune(cod_deploy(o) as u64);
+        pune(o.impact.map_or(9, |x| x as u64));
+        pune(o.folosit_de.map_or(u64::MAX, |x| x as u64));
+        match &o.detalii {
+            Some(d) => {
+                pune(d.linii_plus as u64);
+                pune(d.linii_minus as u64);
+                pune(d.difera_in.len() as u64);
+            }
+            None => pune(u64::MAX - 1),
+        }
+        pune(o.scor.map_or(u64::MAX, f64::to_bits));
+    }
+    h
+}
+
 fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<RandListaUi> {
     use model_lista::Stare;
     let cod = |s: Stare| match s {
@@ -956,11 +1058,12 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
             RandListaUi {
                 antet: SharedString::new(),
                 pozitie: pozitie as i32,
-                nume_scurt: o.nume.as_str().into(),
+                nume_scurt: nume_afisat(&o.schema, &o.nume).into(),
                 schema: o.schema.as_str().into(),
                 nume: o.nume.as_str().into(),
                 baza: o.baza.as_str().into(),
                 tip: gmotion_core::nume_tip_in(&o.tip, limba).into(),
+                tip_scurt: tip_scurt(&o.tip).into(),
                 litera: o.stare.litera().into(),
                 stare: cod(o.stare),
                 plus: plus.into(),
@@ -980,12 +1083,8 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
                 deploy: cod_deploy(o),
                 folosit_de: o.folosit_de.map_or(String::new(), |n| n.to_string()).into(),
                 impact: o.impact.map_or(-1, |i| i as i32),
-                // fara secunde: in lista ajunge minutul
-                modificat: o
-                    .modificat
-                    .as_deref()
-                    .map_or("", |m| m.get(..16).unwrap_or(m))
-                    .into(),
+                // doar data: ora nu ajuta la nimic aici (Mihai, 2026-11-25)
+                modificat: data_scurta(o.modificat.as_deref()).into(),
             }
         })
         .collect()
@@ -1493,7 +1592,23 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
             F::Nedeployate => t.get_filtru_nedeployate(),
         }
     };
-    let randuri = randuri_lista_ui(lista, limba_curenta(ui));
+    // numele se taie pe mijloc, pe latimea coloanei: capatul unei proceduri
+    // spune mai mult decat inceputul (`uspX_..._Delete` / `_Insert`)
+    let cate = caractere_pe(ui.get_latime_nume());
+    // randurile se refac doar cand s-a schimbat ceva din ce arata: un clic pe
+    // rand (detaliile) le lasa neatinse. Pe 12.000 de obiecte, refacerea lor
+    // era cea mai mare parte dintr-o redesenare (2026-11-25).
+    let amprenta = amprenta_randuri(lista, limba_curenta(ui), cate);
+    let refa = AMPRENTA_RANDURI.with(|a| a.replace(Some(amprenta))) != Some(amprenta)
+        || slint::Model::row_count(&ui.get_randuri()) != lista.vizibile().len();
+    let mut randuri = if refa {
+        randuri_lista_ui(lista, limba_curenta(ui))
+    } else {
+        Vec::new()
+    };
+    for r in randuri.iter_mut() {
+        r.nume_scurt = model_taburi::taie_pe_mijloc(r.nume_scurt.as_str(), cate).into();
+    }
     let cod_categorie = |s: Stare| match s {
         Stare::Modificat => 0,
         Stare::DoarSursa => 1,
@@ -1665,8 +1780,10 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     let selectat = lista.selectat().map_or(0, |p| p as i32);
     let schimbat = ui.get_selectat() != selectat;
     ui.set_selectat(selectat);
-    if let Some(m) = pe_loc(ui.get_randuri(), randuri) {
-        ui.set_randuri(m);
+    if refa {
+        if let Some(m) = pe_loc(ui.get_randuri(), randuri) {
+            ui.set_randuri(m);
+        }
     }
     // o selectie schimbata din Rust (harta, recomparare, filtru) se aduce in
     // vedere; una neschimbata lasa derularea omului in pace (V12)
@@ -1764,27 +1881,6 @@ pub struct PanouDetalii<'a> {
     pub foloseste: &'a [String],
 }
 
-/// Cate nume de dependente incap in panou; restul se spun ca numar.
-const NUME_IN_PANOU: usize = 8;
-
-/// Primele `NUME_IN_PANOU` nume, si „+N" pentru cele ramase.
-fn nume_taiate(nume: &[String]) -> (ModelRc<SharedString>, SharedString) {
-    let arata: Vec<SharedString> = nume
-        .iter()
-        .take(NUME_IN_PANOU)
-        .map(|n| n.as_str().into())
-        .collect();
-    let rest = nume.len().saturating_sub(NUME_IN_PANOU);
-    (
-        ModelRc::new(VecModel::from(arata)),
-        if rest == 0 {
-            SharedString::new()
-        } else {
-            format!("+{rest}").into()
-        },
-    )
-}
-
 /// Umple panoul de detalii. Nota se pune doar cand s-a schimbat obiectul:
 /// rescrisa la fiecare tasta, ar muta cursorul si ar taia spatiul de la
 /// capat pe care tocmai l-ai scris.
@@ -1792,12 +1888,11 @@ pub fn incarca_detalii(ui: &FereastraLista, p: &PanouDetalii) {
     ui.set_detalii_deschise(p.deschis);
     ui.set_impact_nivel(p.impact.unwrap_or(-1));
     ui.set_impact_motive(p.motive.into());
-    let (folosit, rest) = nume_taiate(p.folosit_de);
-    ui.set_folosit_de_lista(folosit);
-    ui.set_folosit_de_rest(rest);
-    let (foloseste, rest) = nume_taiate(p.foloseste);
-    ui.set_foloseste_lista(foloseste);
-    ui.set_foloseste_rest(rest);
+    // ca text, unul pe rand: se selecteaza si se copiaza
+    ui.set_folosit_de_text(p.folosit_de.join("\n").into());
+    ui.set_folosit_de_numar(p.folosit_de.len() as i32);
+    ui.set_foloseste_text(p.foloseste.join("\n").into());
+    ui.set_foloseste_numar(p.foloseste.len() as i32);
     if ui.get_nota_id().as_str() != p.obiect || ui.get_nota_baza().as_str() != p.baza {
         ui.set_nota_baza(p.baza.into());
         ui.set_nota_id(p.obiect.into());
@@ -1845,8 +1940,9 @@ pub fn incarca_previzualizare(
             const { std::cell::RefCell::new(None) };
     }
     let limba = limba_curenta(ui);
-    // wrap-ul e doar in editor; previzualizarea din panou ramane neimpachetata
-    let wrap: Option<usize> = None;
+    // rupta pe latimea jumatatii de panou, ca sa nu se derulezi pe orizontala
+    let coloane = ui.get_previz_coloane();
+    let wrap: Option<usize> = (coloane >= 20).then_some(coloane as usize);
     let acelasi = ULTIMA.with_borrow(|u| {
         u.as_ref().is_some_and(|(a, b, s, l, w)| {
             a == text_sursa
@@ -1860,8 +1956,13 @@ pub fn incarca_previzualizare(
         return;
     }
     let model = model_editor::construieste(text_sursa, text_baza);
-    let (randuri, _) = randuri_ui(&model, true, false, limba, wrap);
+    let randuri = randuri_doar_diferente(&model, limba, wrap);
     ui.set_previzualizare(ModelRc::new(VecModel::from(randuri)));
+    let r = model_editor::rezumat_linii(text_sursa, text_baza);
+    ui.set_linii_adaugate(r.adaugate as i32);
+    ui.set_linii_sterse(r.sterse as i32);
+    ui.set_linii_modificate(r.modificate as i32);
+    ui.set_linii_mutate(r.mutate as i32);
     ui.set_ce_difera(gmotion_core::clasificare::propozitie(text_sursa, text_baza, setari).into());
     ULTIMA.with_borrow_mut(|u| {
         *u = Some((
@@ -1877,6 +1978,10 @@ pub fn incarca_previzualizare(
 /// Goleste previzualizarea (niciun obiect selectat).
 pub fn goleste_previzualizarea(ui: &FereastraLista) {
     ui.set_previzualizare(ModelRc::new(VecModel::from(Vec::<RandUi>::new())));
+    ui.set_linii_adaugate(-1);
+    ui.set_linii_sterse(-1);
+    ui.set_linii_modificate(-1);
+    ui.set_linii_mutate(-1);
 }
 
 /// Ce scrie in campul bazelor cand se pot bifa mai multe: numele, daca sunt
@@ -2027,13 +2132,81 @@ pub fn linie_jurnal(linie: &str) -> (i32, String) {
     (0, linie.to_string())
 }
 
-/// Pune ultimele [`LINII_JURNAL`] linii din jurnal in banda de jos.
-pub fn incarca_jurnal(ui: &FereastraConectare, linii: &[String]) {
-    let de_la = linii.len().saturating_sub(LINII_JURNAL);
-    let v: Vec<LinieJurnalUi> = linii[de_la..]
+/// Campurile care nu ajung in jurnalul din fereastra: numele serverului, al
+/// bazei, al utilizatorului, cai de fisiere, si orice poate contine unul din
+/// ele (argumentele unei actiuni, starea conexiunii). Raman in fisierul de
+/// jurnal, pentru depanare (Mihai, 2026-11-25).
+const CAMPURI_ASCUNSE: &[&str] = &[
+    "server",
+    "baza",
+    "utilizator",
+    "fisier",
+    "cale",
+    "referinta",
+    "argumente",
+    "obiect",
+    "stare",
+    "director",
+    "tinta",
+    "dupa",
+    "comanda",
+];
+
+/// Mesajele care in fereastra sunt doar zgomot (fiecare clic, fiecare
+/// desenare); in fisier raman.
+const MESAJE_ASCUNSE: &[&str] = &[
+    "actiune",
+    "comanda",
+    "redesenare",
+    "redesenare lenta",
+    "comanda lenta",
+];
+
+/// O linie din jurnal, cum se arata in fereastra: fara zgomot si fara
+/// campurile din [`CAMPURI_ASCUNSE`]. `None` = nu se arata.
+pub fn linie_jurnal_vizibila(linie: &str) -> Option<(i32, String)> {
+    let (nivel, text) = linie_jurnal(linie);
+    let e_camp = |t: &str| {
+        t.split_once('=').is_some_and(|(k, _)| {
+            !k.is_empty() && k.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+        })
+    };
+    let bucati: Vec<&str> = text.split(' ').collect();
+    let inceput_campuri = bucati
         .iter()
-        .map(|l| {
-            let (nivel, text) = linie_jurnal(l);
+        .position(|t| e_camp(t))
+        .unwrap_or(bucati.len());
+    let mesaj = bucati[..inceput_campuri].join(" ");
+    if MESAJE_ASCUNSE.contains(&mesaj.trim()) {
+        return None;
+    }
+    let mut iesire = mesaj;
+    let mut ascuns = false;
+    for t in &bucati[inceput_campuri..] {
+        if e_camp(t) {
+            let cheie = t.split_once('=').map_or("", |(k, _)| k);
+            ascuns = CAMPURI_ASCUNSE.contains(&cheie);
+        }
+        if !ascuns {
+            iesire.push(' ');
+            iesire.push_str(t);
+        }
+    }
+    Some((nivel, iesire.trim().to_string()))
+}
+
+/// Pune ultimele [`LINII_JURNAL`] linii din jurnal in banda de jos, dupa
+/// [`linie_jurnal_vizibila`].
+pub fn incarca_jurnal(ui: &FereastraConectare, linii: &[String]) {
+    let vizibile: Vec<(i32, String)> = linii
+        .iter()
+        .filter_map(|l| linie_jurnal_vizibila(l))
+        .collect();
+    let de_la = vizibile.len().saturating_sub(LINII_JURNAL);
+    let v: Vec<LinieJurnalUi> = vizibile[de_la..]
+        .iter()
+        .map(|(nivel, text)| {
+            let (nivel, text) = (*nivel, text.clone());
             LinieJurnalUi {
                 nivel,
                 text: text.into(),
@@ -2099,6 +2272,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         eticheta_baze: eticheta_baze(p, limba_curenta(ui)).into(),
         stare: p.stare.text_in(limba_curenta(ui)).into(),
         fel_stare: fel(&p.stare),
+        se_cauta: matches!(p.stare, StareConexiune::SeCauta),
         servere_gasite: ModelRc::new(VecModel::from(
             p.servere_gasite
                 .iter()
@@ -2116,6 +2290,7 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         .map(|r| RecentaUi {
             sursa: r.sursa.as_str().into(),
             baza: r.baza.as_str().into(),
+            server: r.server.as_str().into(),
             cand: r.cand.as_str().into(),
             progres: r.progres.as_str().into(),
         })
@@ -2154,6 +2329,9 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
     ui.set_eroare_comparare(c.eroare_comparare.as_deref().unwrap_or("").into());
     ui.set_instantaneu(c.instantaneu.as_deref().unwrap_or("").into());
     ui.set_recente(ModelRc::new(VecModel::from(recente)));
+    let (aleasa, potrivita) = c.recenta_potrivita().unwrap_or((0, false));
+    ui.set_recenta_aleasa(aleasa as i32);
+    ui.set_recenta_potrivita(potrivita);
     ui.set_ce_lipseste(
         c.ce_lipseste_in(limba_curenta(ui))
             .unwrap_or_default()
@@ -2237,6 +2415,56 @@ pub fn incarca_harta(ui: &FereastraLista, selectat: Option<usize>) {
     ui.set_patrat(scara.latura as f32);
     ui.set_harta(ModelRc::new(VecModel::from(ui_grupuri)));
     ui.set_harta_inaltime(total);
+}
+
+/// Fundalul listei si al editorului: instantaneul hartii pe randurile de
+/// acum, estompat. Se reface doar cand s-a schimbat ceva din ce se vede pe
+/// harta (stari, revizuiri, modul); altfel ramane imaginea de dinainte.
+pub fn incarca_fundal_harta(ui: &FereastraLista) {
+    use slint::Model;
+    type Cheie = (usize, u64, bool);
+    thread_local! {
+        static ULTIMA: std::cell::RefCell<Option<Cheie>> = const { std::cell::RefCell::new(None) };
+    }
+    let randuri = ui.get_randuri();
+    let mut amprenta: u64 = 1469598103934665603;
+    for r in randuri.iter() {
+        for b in [r.stare as u64, u64::from(r.revizuit), r.tip.len() as u64] {
+            amprenta = (amprenta ^ b).wrapping_mul(1099511628211);
+        }
+    }
+    let m = mod_curent(ui);
+    let cheie = (randuri.row_count(), amprenta, m == Mod::Intunecat);
+    if ULTIMA.with_borrow(|u| *u == Some(cheie)) {
+        return;
+    }
+    let mut pe_tip: Vec<(String, Vec<harta::Celula>)> = Vec::new();
+    for (i, r) in randuri.iter().enumerate() {
+        let c = harta::Celula {
+            rand: i,
+            stare: r.stare,
+            revizuit: r.revizuit,
+        };
+        match pe_tip
+            .iter_mut()
+            .find(|(t, _)| t.as_str() == r.tip.as_str())
+        {
+            Some((_, v)) => v.push(c),
+            None => pe_tip.push((r.tip.to_string(), vec![c])),
+        }
+    }
+    pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
+    let (latime, inaltime) = (1200u32, 760u32);
+    let (grupuri, _) = harta::aseaza(pe_tip, latime as f32, inaltime as f32);
+    let img = imagine(harta::instantaneu_estompat(
+        &grupuri,
+        m.paleta(),
+        latime,
+        inaltime,
+        5,
+    ));
+    ui.set_fundal_harta(img);
+    ULTIMA.with_borrow_mut(|u| *u = Some(cheie));
 }
 
 /// O imagine Slint din pixelii pictati de `harta`.
@@ -3724,14 +3952,11 @@ mod teste {
         }
     }
 
-    /// Etapa 22, cu mouse-ul: coloanele „Folosit de" si „Impact" vin din
-    /// model, filtrul pe impact se alege din meniu, iar un nume din panou
-    /// („Folosit de" / „Foloseste") se apasa si cere obiectul lui.
+    /// Etapa 22: coloanele „Folosit de" si „Impact" vin din model, filtrul
+    /// pe impact se alege din meniu; din 2026-11-25, numele din panou
+    /// („Folosit de" / „Foloseste") sunt text de copiat, toate, nu legaturi.
     #[test]
-    fn dependentele_si_impactul_se_vad_si_se_apasa() {
-        use slint::platform::{PointerEventButton, WindowEvent};
-        use slint::LogicalPosition;
-        use std::cell::RefCell;
+    fn dependentele_si_impactul_se_vad_si_se_copiaza() {
         let ui = fereastra_lista();
         ui.window().set_size(slint::PhysicalSize::new(1440, 900));
         let mut lista = lista_de_proba();
@@ -3768,41 +3993,14 @@ mod teste {
                 foloseste: &foloseste,
             },
         );
-        assert_eq!(ui.get_folosit_de_lista().row_count(), NUME_IN_PANOU);
-        assert_eq!(ui.get_folosit_de_rest(), "+3");
-        assert_eq!(ui.get_foloseste_rest(), "");
-
+        // toate numele, ca text de copiat (nu taiate la opt, nu legaturi:
+        // Mihai, 2026-11-25)
+        assert_eq!(ui.get_folosit_de_numar(), 11);
+        assert_eq!(ui.get_folosit_de_text().lines().count(), 11);
+        assert!(ui.get_folosit_de_text().starts_with("dbo.p00\n"));
+        assert_eq!(ui.get_foloseste_text(), "dbo.fCalc");
+        assert_eq!(ui.get_foloseste_numar(), 1);
         ui.show().expect("fereastra se arata");
-        let cerute: Rc<RefCell<Vec<String>>> = Rc::default();
-        let c = cerute.clone();
-        ui.on_alege_dependenta(move |n| c.borrow_mut().push(n.to_string()));
-        let fixat = ui.clone_strong();
-        ui.on_inchide_detalii(move || fixat.set_detalii_deschise(true));
-        let clic = |x: f32, y: f32| {
-            let position = LogicalPosition::new(x, y);
-            ui.window()
-                .dispatch_event(WindowEvent::PointerMoved { position });
-            ui.window().dispatch_event(WindowEvent::PointerPressed {
-                position,
-                button: PointerEventButton::Left,
-            });
-            ui.window().dispatch_event(WindowEvent::PointerReleased {
-                position,
-                button: PointerEventButton::Left,
-            });
-        };
-        // numele sunt aliniate la dreapta panoului: se cauta cu clicuri
-        'cauta: for y in (150..880).step_by(5) {
-            for x in [1380.0, 1340.0] {
-                clic(x, y as f32);
-                if cerute.borrow().iter().any(|n| n == "dbo.fCalc") {
-                    break 'cauta;
-                }
-            }
-        }
-        let vazute = cerute.borrow().clone();
-        assert!(vazute.contains(&"dbo.p00".to_string()), "{vazute:?}");
-        assert!(vazute.contains(&"dbo.fCalc".to_string()), "{vazute:?}");
         let _ = ui.hide();
     }
 
@@ -3883,7 +4081,7 @@ mod teste {
     /// Etapa 25: coloana „Ultima modificare" arata minutul si sorteaza cele
     /// mai recente primele.
     #[test]
-    fn ultima_modificare_se_arata_la_minut_si_sorteaza_recentele_intai() {
+    fn ultima_modificare_se_arata_ca_data_si_sorteaza_recentele_intai() {
         use model_lista::{Deploy, Obiect, Ordine, Stare};
         let ob = |nume: &str, cand: Option<&str>| Obiect {
             schema: "dbo".into(),
@@ -3916,7 +4114,8 @@ mod teste {
             .iter()
             .map(|r| (r.nume.to_string(), r.modificat.to_string()))
             .collect();
-        assert_eq!(randuri[0], ("pNou".into(), "2026-11-22 10:32".into()));
+        // doar data, fara ora (Mihai, 2026-11-25)
+        assert_eq!(randuri[0], ("pNou".into(), "2026-11-22".into()));
         assert_eq!(randuri[1].0, "pVechi");
         assert_eq!(randuri[2], ("pNestiut".into(), String::new()));
         assert_eq!(ui.get_coloana_sortata(), 10);
@@ -5447,5 +5646,111 @@ export component Ecran inherits Rectangle {
             let d = build_shell::declaratii(&sursa, e.componenta);
             assert!(d.len() > 10, "{}: {}", e.componenta, d.len());
         }
+    }
+
+    /// Jurnalul din fereastra nu arata server, baza, utilizator sau cai, si
+    /// nici zgomotul fiecarui clic (Mihai, 2026-11-25).
+    #[test]
+    fn jurnalul_vizibil_nu_arata_nume_si_nici_zgomot() {
+        assert_eq!(
+            linie_jurnal_vizibila(
+                r#"[INFO] actiune ecran="lista" nume="clic_rand" argumente=(1,)"#
+            ),
+            None
+        );
+        assert_eq!(linie_jurnal_vizibila("[TRACE] redesenare ms=3"), None);
+        let (n, t) = linie_jurnal_vizibila(
+            r#"[WARN] certificatul serverului NU se verifica server=TS2409\MIHAIG"#,
+        )
+        .expect("se arata");
+        assert_eq!(
+            (n, t.as_str()),
+            (2, "certificatul serverului NU se verifica")
+        );
+        let (_, t) = linie_jurnal_vizibila(
+            r#"[INFO] deschid conexiunea server=SRV baza=CharismaERP_GetsBet auth="Windows""#,
+        )
+        .expect("se arata");
+        assert_eq!(t, r#"deschid conexiunea auth="Windows""#);
+        let (_, t) = linie_jurnal_vizibila(
+            r#"[INFO] baze citite sursa=true baze=7 stare=Conectat("connected · 7 databases")"#,
+        )
+        .expect("se arata");
+        assert_eq!(t, "baze citite sursa=true baze=7");
+        assert!(!t.contains("connected"));
+        let (_, t) = linie_jurnal_vizibila("[INFO] Citesc Martor: 4,8 s").expect("se arata");
+        assert_eq!(t, "Citesc Martor: 4,8 s");
+    }
+
+    /// Un clic pe rand nu reface randurile listei (erau refacute toate, la
+    /// fiecare clic); o schimbare pe un obiect, sau alte obiecte pe aceiasi
+    /// pozitii (recomparare), le reface.
+    #[test]
+    fn randurile_listei_se_refac_doar_cand_se_schimba_ceva() {
+        use model_lista::{Deploy, Obiect, Stare};
+        use slint::Model;
+        let ob = |n: &str| Obiect {
+            schema: "dbo".into(),
+            nume: n.into(),
+            tip: "P".into(),
+            baza: "B".into(),
+            stare: Stare::Modificat,
+            revizuit: false,
+            in_plan: false,
+            omis: false,
+            detalii: None,
+            scor: Some(50.0),
+            deploy: Deploy::Nu,
+            folosit_de: None,
+            impact: None,
+            modificat: None,
+            creat: None,
+        };
+        let ui = fereastra_lista();
+        let mut l = model_lista::Lista::noua(vec![ob("pA"), ob("pB")]);
+        incarca_lista(&ui, &antet_lista(), &l);
+        let m = ui.get_randuri();
+        // „inainte de" se vede prin marcajul pus de mana pe model
+        let mut r0 = m.row_data(0).expect("rand");
+        r0.antet = "atins".into();
+        m.set_row_data(0, r0);
+        incarca_lista(&ui, &antet_lista(), &l);
+        assert_eq!(
+            ui.get_randuri().row_data(0).expect("rand").antet,
+            "atins",
+            "nimic nou: nu s-a refacut"
+        );
+        l.comuta_revizuit(0);
+        incarca_lista(&ui, &antet_lista(), &l);
+        let r = ui.get_randuri().row_data(0).expect("rand");
+        assert!(r.revizuit && r.antet.is_empty(), "revizuit: refacut");
+        // alte obiecte, aceleasi pozitii si aceleasi bife
+        let mut alta = model_lista::Lista::noua(vec![ob("pX"), ob("pY")]);
+        alta.comuta_revizuit(0);
+        incarca_lista(&ui, &antet_lista(), &alta);
+        assert_eq!(ui.get_randuri().row_data(0).expect("rand").nume, "pX");
+    }
+
+    /// Lista (Mihai, 2026-11-25): numele fara `dbo.`, tipul prescurtat, data
+    /// fara ora, si cate caractere de nume incap pe o latime.
+    #[test]
+    fn numele_tipul_si_data_din_lista_sunt_scurte() {
+        assert_eq!(nume_afisat("dbo", "uspX"), "uspX");
+        assert_eq!(nume_afisat("DBO", "uspX"), "uspX");
+        assert_eq!(nume_afisat("vanzari", "uspX"), "vanzari.uspX");
+        assert_eq!(nume_afisat("", "uspX"), "uspX");
+        assert_eq!(tip_scurt("P "), "P");
+        assert_eq!(tip_scurt("fn"), "FN");
+        assert_eq!(tip_scurt("U"), "TB");
+        assert_eq!(tip_scurt(""), "?");
+        assert_eq!(data_scurta(Some("2026-11-22 10:32:15")), "2026-11-22");
+        assert_eq!(data_scurta(Some("2026")), "2026");
+        assert_eq!(data_scurta(None), "");
+        assert_eq!(caractere_pe(0.0), 6);
+        assert_eq!(caractere_pe(8.0 + CARACTER_MONO * 30.0), 30);
+        // taiat pe mijloc: inceputul si capatul raman
+        let t = model_taburi::taie_pe_mijloc("ContractManagement_ActivityCodeValue_Delete", 20);
+        assert_eq!(t.chars().count(), 20);
+        assert!(t.ends_with("_Delete") && t.starts_with("Contr"), "{t}");
     }
 }

@@ -8,7 +8,7 @@
 // (`deploy::StareDeploy::poate_scrie`), al doilea din `model_deploy::rezumat`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, Antet, ButonTema, Card } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, Antet, ButonTema, Card, BaraDerulare } from "comune.slint";
 
 export struct PasDeployUi {
     nr: string,
@@ -158,8 +158,9 @@ export component FereastraDeploy inherits Rectangle {
                     }
                     if root.sarite != "": Text { text: root.sarite; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.mod-text; }
                     Rectangle { height: 14px; }
-                    ListView {
-                        vertical-stretch: 1;
+                    Rectangle {
+                    vertical-stretch: 1;
+                    lista-pasi := ListView {
                         for p[i] in root.pasi: Rectangle {
                             height: 52px;
                             // sina care leaga pasii, cu nodul numerotat
@@ -229,6 +230,14 @@ export component FereastraDeploy inherits Rectangle {
                                 rand := TouchArea { }
                             }
                         }
+                    }
+                    BaraDerulare {
+                        x: parent.width - self.width;
+                        height: parent.height;
+                        pozitie <=> lista-pasi.content-y;
+                        continut: lista-pasi.content-height;
+                        vizibil: lista-pasi.visible-height;
+                    }
                     }
                 }
 

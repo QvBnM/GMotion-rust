@@ -368,6 +368,20 @@ impl Lista {
         l
     }
 
+    /// Cum porneste lista dupa o comparare noua (Mihai, 2026-11-25): doar
+    /// obiectele modificate, cele mai diferite primele (similaritatea
+    /// crescator). Restul filtrelor raman deschise; o recomparare isi pastreaza
+    /// vederea (`preia_vederea`).
+    pub fn vederea_implicita(&mut self) {
+        self.filtru = Filtru {
+            stare: Some(Stare::Modificat),
+            ..Filtru::default()
+        };
+        self.ordine = Ordine::Scor;
+        self.descrescator = false;
+        self.recalculeaza();
+    }
+
     pub fn obiecte(&self) -> &[Obiect] {
         &self.obiecte
     }
@@ -905,6 +919,35 @@ impl Lista {
 
 #[cfg(test)]
 mod teste {
+    /// 2026-11-25: lista porneste pe modificate, cea mai mica similaritate
+    /// intai; identicele, doar-intr-o-parte si criptatele nu se vad.
+    #[test]
+    fn vederea_implicita_arata_modificatele_cele_mai_diferite_intai() {
+        let cu_scor = |n: &str, stare: Stare, scor: Option<f64>| {
+            let mut o = obiect(n, "P", stare);
+            o.scor = scor;
+            o
+        };
+        let mut l = Lista::noua(vec![
+            cu_scor("a", Stare::Modificat, Some(99.0)),
+            cu_scor("b", Stare::Identic, Some(100.0)),
+            cu_scor("c", Stare::Modificat, Some(42.0)),
+            cu_scor("d", Stare::DoarSursa, None),
+            cu_scor("e", Stare::Modificat, Some(87.5)),
+        ]);
+        assert_eq!(l.vizibile().len(), 5, "fara vedere, totul");
+        l.vederea_implicita();
+        let nume: Vec<&str> = l
+            .vizibile()
+            .iter()
+            .map(|&i| l.obiecte()[i].nume.as_str())
+            .collect();
+        assert_eq!(nume, ["c", "e", "a"]);
+        assert_eq!(l.ordine(), Ordine::Scor);
+        assert!(!l.descrescator());
+        assert_eq!(l.filtru().stare, Some(Stare::Modificat));
+    }
+
     use super::*;
 
     fn obiect(nume: &str, tip: &str, stare: Stare) -> Obiect {

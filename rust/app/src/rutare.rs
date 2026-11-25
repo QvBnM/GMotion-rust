@@ -1512,6 +1512,16 @@ impl Aplicatie {
         self.mesaj_tab
     }
 
+    /// Vederea cu care porneste o comparare noua: modificatele, cele mai
+    /// diferite primele (Mihai, 2026-11-25). Selectia ramane pe primul rand.
+    pub fn cu_vederea_implicita(mut self) -> Self {
+        self.lista.vederea_implicita();
+        if !self.lista.vizibile().is_empty() {
+            self.lista.selecteaza(0);
+        }
+        self
+    }
+
     /// Filtrul, ordinea si selectia listei de dinainte (recomparare).
     pub fn cu_vederea(mut self, vechi: &Lista) -> Self {
         self.lista.preia_vederea(vechi);
@@ -1660,6 +1670,31 @@ mod teste {
 
     /// Etapa 19: nodurile arborelui din editor se inchid / deschid prin
     /// comanda, iar obiectul selectat isi deschide singur dosarul.
+    /// O comparare noua porneste pe modificate, cea mai mica similaritate
+    /// intai (2026-11-25); aplicatia de test are si identice si doar-in-martor.
+    #[test]
+    fn compararea_noua_porneste_pe_modificatele_cele_mai_diferite() {
+        let a = aplicatie().cu_vederea_implicita();
+        assert_eq!(
+            a.lista().filtru().stare,
+            Some(gmotion_fereastra::model_lista::Stare::Modificat)
+        );
+        assert_eq!(
+            a.lista().ordine(),
+            gmotion_fereastra::model_lista::Ordine::Scor
+        );
+        assert!(!a.lista().descrescator());
+        let scoruri: Vec<f64> = a
+            .lista()
+            .vizibile()
+            .iter()
+            .map(|&i| a.lista().obiecte()[i].scor.unwrap_or(101.0))
+            .collect();
+        assert!(!scoruri.is_empty());
+        assert!(scoruri.windows(2).all(|w| w[0] <= w[1]), "{scoruri:?}");
+        assert_eq!(a.lista().selectat(), Some(0));
+    }
+
     #[test]
     fn arborele_se_comuta_si_selectia_isi_deschide_calea() {
         use gmotion_fereastra::texte::Limba;

@@ -249,6 +249,30 @@ export global Texte {
     in-out property <string> inchide-detaliile-mic;
     in-out property <string> tasta-dublu-clic;
     in-out property <string> omite-mic;
+    in-out property <string> deschide-scurt;
+    in-out property <string> sfat-impact-ridicat;
+    in-out property <string> sfat-impact-mediu;
+    in-out property <string> sfat-impact-scazut;
+    in-out property <string> sfat-deploy-pregatit;
+    in-out property <string> sfat-deploy-trimis;
+    in-out property <string> sfat-deploy-versiune;
+    in-out property <string> sfat-deploy-neintrodus;
+    in-out property <string> detalii-linii;
+    in-out property <string> sfat-linii-adaugate;
+    in-out property <string> sfat-linii-sterse;
+    in-out property <string> sfat-linii-modificate;
+    in-out property <string> sfat-linii-mutate;
+    in-out property <string> sfat-cauta-servere;
+    in-out property <string> adu-bazele;
+    in-out property <string> apasa-adu-bazele;
+    in-out property <string> sesiune-potrivita;
+    in-out property <string> ultima-sesiune;
+    in-out property <string> toate-sesiunile;
+    in-out property <string> compar-in-curs;
+    in-out property <string> sfat-omis;
+    in-out property <string> sfat-revizuit;
+    in-out property <string> sfat-nerevizuit;
+    in-out property <string> adu-din-instantaneu;
 }
 
 export global Tema {
@@ -640,6 +664,30 @@ export component ButonLimba inherits Rectangle {
     }
 }
 
+// Eticheta mica de rol: Martor (verde) / Modificata (chihlimbar), aceleasi
+// culori ca pe ecranul de conectare.
+export component EticRol inherits HorizontalLayout {
+    in property <string> text;
+    in property <bool> martor;
+    alignment: center;
+    VerticalLayout {
+        alignment: center;
+        Rectangle {
+            height: 20px;
+            width: t.preferred-width + 14px;
+            border-radius: 10px;
+            background: root.martor ? Tema.add-fundal : Tema.mod-fundal;
+            t := Text {
+                text: root.text;
+                font-family: Tema.font-ui;
+                font-size: 11px;
+                font-weight: 600;
+                color: root.martor ? Tema.add-text : Tema.mod-text;
+            }
+        }
+    }
+}
+
 export component Antet inherits Rectangle {
     in property <string> loc;
     in property <string> sursa;
@@ -656,8 +704,12 @@ export component Antet inherits Rectangle {
             spacing: 10px;
             alignment: start;
             horizontal-stretch: 0;
+            // rolurile, pe fiecare ecran (Mihai, 2026-11-25): martorul e baza
+            // de referinta, modificata e cea care a primit schimbari
+            EticRol { text: Texte.martor; martor: true; }
             Text { text: root.sursa; font-family: Tema.font-ui; font-size: 13px; font-weight: 500; color: Tema.text; vertical-alignment: center; }
             Text { text: "→"; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
+            EticRol { text: Texte.modificata; martor: false; }
             Text { text: root.tinta; font-family: Tema.font-ui; font-size: 13px; font-weight: 500; color: Tema.text; vertical-alignment: center; }
         }
         Rectangle { horizontal-stretch: 1; }
@@ -814,6 +866,8 @@ export component Hasura inherits Rectangle {
 export component Bucati inherits HorizontalLayout {
     in property <[BucataUi]> bucati;
     in property <int> stare;
+    // codul mai mic in previzualizarea din panou (privire de ansamblu)
+    in property <length> marime: 12.5px;
     spacing: 0px;
     alignment: start;
     for b in bucati: Rectangle {
@@ -822,7 +876,7 @@ export component Bucati inherits HorizontalLayout {
         t := Text {
             text: b.text;
             font-family: Tema.font-mono;
-            font-size: 12.5px;
+            font-size: root.marime;
             font-italic: b.sintaxa == 5;
             color: b.sintaxa == 1 ? Tema.s-cuvant
                  : b.sintaxa == 2 ? Tema.s-variabila
@@ -867,6 +921,9 @@ export component Jumatate inherits Rectangle {
     // linia din baza: 0 cum era, 1 adusa din sursa (verde, ca „doar in
     // sursa"), 2 scrisa de tine (violet, ca eticheta „editabil")
     in property <int> marcaj: 0;
+    // marimea codului si a numerelor; latimea jgheabului de numere
+    in property <length> marime: 12.5px;
+    in property <length> jgheab-numere: 44px;
     // cat s-a derulat pe orizontala: liniile mai lungi decat panoul erau
     // taiate fara nimic — fara elipsa, fara derulare (V10 din auditul QA)
     in property <length> decalaj-x: 0px;
@@ -927,10 +984,10 @@ export component Jumatate inherits Rectangle {
             }
         }
         Text {
-            width: 44px;
+            width: root.jgheab-numere;
             text: root.nr;
             font-family: Tema.font-mono;
-            font-size: 12.5px;
+            font-size: root.marime;
             color: root.marcaj == 2 ? Tema.tine : Tema.numar-stare(root.st);
             horizontal-alignment: right;
             vertical-alignment: center;
@@ -949,13 +1006,14 @@ export component Jumatate inherits Rectangle {
             // latimea ramasa dupa jgheab (3) + numar (44) + numarul al doilea
             // + spatiul (10): `alignment: start` nu intinde nimic singur
             clip: true;
-            width: root.width - 57px - (root.doua-numere ? 44px : 0px);
+            width: root.width - 13px - root.jgheab-numere - (root.doua-numere ? 44px : 0px);
             Bucati {
                 x: -root.decalaj-x;
                 width: self.preferred-width;
                 height: parent.height;
                 bucati: root.bucati;
                 stare: root.st;
+                marime: root.marime;
             }
         }
     }
@@ -1116,6 +1174,171 @@ export component Despre inherits Rectangle {
                     }
                 }
             }
+        }
+    }
+}
+
+// ---- Sfatul la hover (tooltip): un singur loc pentru toata aplicatia.
+// Un element il cere cu `Sfat.arata(text, pozitia lui)` cand mouse-ul intra
+// si il lasa cu `Sfat.ascunde(text)` cand iese; `SfatAfisat` (pus o data, in
+// shell) il deseneaza dupa o clipa. `ascunde` sterge doar textul propriu:
+// trecand de pe un element pe altul, ordinea celor doua `changed has-hover`
+// nu e garantata.
+//
+// Se strica astfel: sfatul ramane pe ecran (2026-11-25, „ramane agatat si se
+// acumuleaza"). De-aia: un singur sfat odata, sters la schimbarea ecranului,
+// si care pleaca singur dupa cateva secunde chiar daca elementul a disparut
+// de sub mouse fara sa mai spuna.
+export global Sfat {
+    in-out property <string> text;
+    in-out property <length> x;
+    in-out property <length> sus;
+    in-out property <length> jos;
+    in-out property <int> generatie;
+    public function arata(t: string, x: length, y: length, inaltime: length) {
+        root.text = t;
+        root.x = x;
+        root.sus = y;
+        root.jos = y + inaltime;
+        root.generatie += 1;
+    }
+    public function ascunde(t: string) {
+        if (root.text == t) { root.text = ""; }
+    }
+    public function goleste() {
+        root.text = "";
+    }
+}
+
+export component SfatAfisat inherits Rectangle {
+    property <bool> gata;
+    property <int> generatie: Sfat.generatie;
+    changed generatie => { root.gata = false; }
+    // apare dupa o clipa, ca trecerea mouse-ului peste lista sa nu clipeasca
+    Timer {
+        interval: 450ms;
+        running: Sfat.text != "" && !root.gata;
+        triggered => { root.gata = true; }
+    }
+    // si pleaca singur, orice s-ar intampla cu elementul de sub el
+    Timer {
+        interval: 7s;
+        running: Sfat.text != "" && root.gata;
+        triggered => { Sfat.goleste(); }
+    }
+    if root.gata && Sfat.text != "": bula := Rectangle {
+        property <length> latime: Math.min(440px, txt.preferred-width + 20px);
+        width: self.latime;
+        height: txt.preferred-height + 12px;
+        x: Math.max(8px, Math.min(Sfat.x, root.width - self.width - 8px));
+        y: Sfat.jos + 6px + self.height > root.height - 8px ? Math.max(8px, Sfat.sus - self.height - 6px) : Sfat.jos + 6px;
+        border-radius: 7px;
+        border-width: 1px;
+        border-color: Tema.linie;
+        background: Tema.suprafata;
+        drop-shadow-blur: 12px;
+        drop-shadow-offset-y: 3px;
+        drop-shadow-color: #00000040;
+        opacity: 0;
+        init => { self.opacity = 1; }
+        animate opacity { duration: 140ms; easing: ease-out; }
+        txt := Text {
+            x: 10px;
+            width: parent.width - 20px;
+            text: Sfat.text;
+            font-family: Tema.font-ui;
+            font-size: 12px;
+            color: Tema.text;
+            wrap: word-wrap;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// ---- Bara de derulare mereu vizibila, pusa peste marginea dreapta a unui
+// `ListView` / `Flickable` (`pozitie <=> lista.viewport-y`). Bara stilului
+// Fluent are 2 px si se ingroasa doar la hover: pe ecranul lui Mihai nu se
+// vedea deloc (2026-11-25). Se trage, se apasa pe sina, merge si cu rotita.
+export component BaraDerulare inherits Rectangle {
+    in-out property <length> pozitie;
+    in property <length> continut;
+    in property <length> vizibil;
+    width: 12px;
+    property <length> maxim: Math.max(0px, root.continut - root.vizibil);
+    property <length> lung: Math.max(32px, root.height * Math.min(1, root.vizibil / Math.max(1px, root.continut)));
+    property <length> drum: Math.max(1px, root.height - root.lung);
+    visible: root.maxim > 1px;
+    sina := Rectangle {
+        x: 4px;
+        width: 4px;
+        border-radius: 2px;
+        background: Tema.linie;
+    }
+    maner := Rectangle {
+        x: zona.has-hover || zona.pressed ? 2px : 3px;
+        width: zona.has-hover || zona.pressed ? 8px : 6px;
+        height: root.lung;
+        y: root.maxim <= 0px ? 0px : root.drum * (-root.pozitie / root.maxim);
+        border-radius: self.width / 2;
+        background: zona.pressed || zona.has-hover ? Tema.text-secundar : Tema.text-tert;
+        animate width, x { duration: 120ms; easing: ease-out; }
+    }
+    zona := TouchArea {
+        property <length> start-pozitie;
+        property <length> start-y;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                // pe sina, in afara manerului: sare acolo
+                if (self.mouse-y < maner.y || self.mouse-y > maner.y + maner.height) {
+                    root.pozitie = -Math.max(0px, Math.min(root.maxim, (self.mouse-y - root.lung / 2) / root.drum * root.maxim));
+                }
+                self.start-pozitie = root.pozitie;
+                self.start-y = self.mouse-y;
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                root.pozitie = -Math.max(0px, Math.min(root.maxim, -self.start-pozitie + (self.mouse-y - self.start-y) / root.drum * root.maxim));
+            }
+        }
+        scroll-event(e) => {
+            root.pozitie = Math.max(-root.maxim, Math.min(0px, root.pozitie + e.delta-y));
+            accept
+        }
+    }
+}
+
+// ---- Trei puncte care pulseaza: „lucrez" (cautarea serverelor, citirea
+// bazelor, compararea). Cat se vede, fereastra se redeseneaza continuu.
+export component Rotitor inherits HorizontalLayout {
+    in property <color> culoare: Tema.accent;
+    spacing: 5px;
+    alignment: center;
+    // cat cele trei puncte: altfel se intinde in layout si impinge textul
+    horizontal-stretch: 0;
+    min-width: 31px;
+    for i in 3: VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 7px;
+            height: 7px;
+            border-radius: 3.5px;
+            background: root.culoare;
+            opacity: 0.25 + 0.75 * Math.max(0, Math.sin((animation-tick() / 1ms * 0.36 - i * 60) * 1deg));
+        }
+    }
+}
+
+// O zona care, sub mouse, arata un sfat (vezi `Sfat`). E un `TouchArea`:
+// cine o foloseste peste un rand isi leaga si `clicked`, altfel clicul nu
+// mai ajunge la rand.
+export component ZonaSfat inherits TouchArea {
+    in property <string> sfat;
+    changed has-hover => {
+        if (self.has-hover && root.sfat != "") {
+            Sfat.arata(root.sfat, self.absolute-position.x, self.absolute-position.y, self.height);
+        } else {
+            Sfat.ascunde(root.sfat);
         }
     }
 }

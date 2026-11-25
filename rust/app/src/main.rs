@@ -192,7 +192,7 @@ fn pune_geometria(a: &Aplicatie, cfg: &gmotion_platforma::Configurare) {
     };
     let (monitoare, cursor) = citeste_sistemul();
     let ales = alege_geometria(salvata, &monitoare, cursor);
-    tracing::info!(target: "gmotion::app", monitoare = monitoare.len(), reluata = salvata.is_some(), geometrie = ?ales, "pozitia ferestrei la pornire");
+    tracing::debug!(target: "gmotion::app", monitoare = monitoare.len(), reluata = salvata.is_some(), geometrie = ?ales, "pozitia ferestrei la pornire");
     if let Some(g) = ales {
         a.window()
             .set_size(slint::PhysicalSize::new(g.latime, g.inaltime));
@@ -468,6 +468,16 @@ fn ruleaza() -> Result<(), String> {
                         c_ui.set_progres(r.fractie());
                         c_ui.set_progres_text(r.text_in(limba).into());
                         c_ui.set_progres_timp(r.timp().into());
+                        c_ui.set_etape(slint::ModelRc::new(slint::VecModel::from(
+                            r.etape(limba)
+                                .into_iter()
+                                .map(|(nume, durata, stare)| gmotion_fereastra::EtapaUi {
+                                    nume: nume.into(),
+                                    durata: durata.into(),
+                                    stare,
+                                })
+                                .collect::<Vec<_>>(),
+                        )));
                     }
                     None => c_ui.set_ruleaza(false),
                 }
@@ -522,6 +532,8 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
+            gmotion_fereastra::incarca_fundal_harta(&l_ui);
+            e_ui.set_fundal_harta(l_ui.get_fundal_harta());
             l_ui.set_mesaj_csv(bara.into());
             l_ui.set_recompara_ruleaza(progres.is_some());
             if let Some((text, fractie)) = progres {
@@ -899,18 +911,24 @@ fn ruleaza() -> Result<(), String> {
             }
         });
         pe_comanda!(lista_ui.on_alege_randul(|i| Comanda::Selecteaza(indice(i).unwrap_or(0))));
+        // un clic: selecteaza si deschide / inchide detaliile. Dublul clic nu
+        // mai deschide obiectul (Mihai, 2026-11-25): deschide butonul de pe rand
+        pe_comanda!(lista_ui.on_clic_rand(|i| Comanda::ClicPeRand(indice(i).unwrap_or(0))));
         let c = comanda.clone();
-        let dc = RefCell::new(DubluClic::default());
-        lista_ui.on_clic_rand(move |i| {
-            actiune("lista", "clic_rand", &format!("{:?}", (&i,)), false);
-            c(Comanda::ClicPeRand(indice(i).unwrap_or(0)));
-            // al doilea clic repede pe acelasi rand deschide obiectul (ca si
-            // inainte: primul clic deschide detaliile, al doilea le inchide)
-            if dc.borrow_mut().apasat(i, Instant::now()) {
-                tracing::debug!(target: "gmotion::actiuni", rand = i, "dublu clic in lista");
-                c(Comanda::Selecteaza(indice(i).unwrap_or(0)));
-                c(Comanda::Deschide);
-            }
+        lista_ui.on_deschide_randul(move |i| {
+            actiune("lista", "deschide_randul", &format!("{:?}", (&i,)), false);
+            c(Comanda::Selecteaza(indice(i).unwrap_or(0)));
+            c(Comanda::Deschide);
+        });
+        // numele se taie pe latimea coloanei: o latime noua le reface (amanat,
+        // `changed` vine din mijlocul unei aranjari)
+        let d = deseneaza.clone();
+        lista_ui.on_latime_nume_schimbata(move || {
+            slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
+        });
+        let d = deseneaza.clone();
+        lista_ui.on_previz_redimensionata(move || {
+            slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
         });
         pe_comanda!(lista_ui.on_inchide_detalii(|| Comanda::InchideDetalii));
         pe_comanda!(lista_ui.on_deschide_obiectul(|| Comanda::Deschide));
@@ -1037,9 +1055,6 @@ fn ruleaza() -> Result<(), String> {
                 .get(i)
                 .copied())
         )));
-        pe_comanda!(
-            lista_ui.on_alege_dependenta(|nume| Comanda::SelecteazaDependenta(nume.to_string()))
-        );
         // campurile sunt numerice, dar pot fi goale cat se scrie in ele
         pe_comanda!(lista_ui.on_schimba_scorul(|min, max| {
             let n = |t: &str, implicit: f64| t.trim().parse::<f64>().unwrap_or(implicit);

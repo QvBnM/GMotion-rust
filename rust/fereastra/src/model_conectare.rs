@@ -355,6 +355,32 @@ impl Conectare {
     /// Inainte se puneau doar numele bazelor: serverul de acum ramanea, iar cu
     /// „Aceeasi conexiune" modificata se golea la urmatoarea desenare, fiindca
     /// bazele nu erau inca citite (auditul 2026-11-23).
+    /// Care sesiune recenta se arata pe ecranul de conectare: cea a perechii
+    /// alese acum (martor si modificata), daca exista; altfel cea mai noua.
+    /// `bool` spune daca e potrivita. `None` fara nicio sesiune.
+    pub fn recenta_potrivita(&self) -> Option<(usize, bool)> {
+        if self.recente.is_empty() {
+            return None;
+        }
+        let (a, b) = (self.sursa.baza.as_str(), self.baza.baza.as_str());
+        if !a.is_empty() && !b.is_empty() {
+            if let Some(i) = self
+                .recente
+                .iter()
+                .position(|r| r.sursa == a && r.baza == b)
+            {
+                return Some((i, true));
+            }
+        }
+        // doar martorul ales: ultima sesiune cu el
+        if !a.is_empty() {
+            if let Some(i) = self.recente.iter().position(|r| r.sursa == a) {
+                return Some((i, true));
+            }
+        }
+        Some((0, false))
+    }
+
     pub fn reia(&mut self, r: &Recenta) {
         if self.instantaneu.is_none() && !r.server.is_empty() && r.server != self.sursa.server {
             self.sursa.server.clone_from(&r.server);
@@ -507,6 +533,33 @@ impl Conectare {
 
 #[cfg(test)]
 mod teste {
+    /// Pe ecranul de conectare se vede o singura sesiune (Mihai, 2026-11-25):
+    /// a perechii alese, altfel a martorului ales, altfel cea mai noua.
+    #[test]
+    fn sesiunea_aratata_e_cea_potrivita_altfel_cea_mai_noua() {
+        let r = |a: &str, b: &str| Recenta {
+            sursa: a.into(),
+            server: "S".into(),
+            baza: b.into(),
+            cand: String::new(),
+            progres: String::new(),
+        };
+        let mut c = Conectare::noua();
+        assert_eq!(c.recenta_potrivita(), None);
+        c.recente = vec![r("A", "B"), r("GetsBet", "Copy"), r("GetsBet", "Alta")];
+        assert_eq!(
+            c.recenta_potrivita(),
+            Some((0, false)),
+            "nimic ales: cea mai noua"
+        );
+        c.sursa.baza = "GetsBet".into();
+        assert_eq!(c.recenta_potrivita(), Some((1, true)), "doar martorul");
+        c.baza.baza = "Alta".into();
+        assert_eq!(c.recenta_potrivita(), Some((2, true)), "perechea");
+        c.sursa.baza = "Nimic".into();
+        assert_eq!(c.recenta_potrivita(), Some((0, false)));
+    }
+
     use super::*;
 
     fn parte_gata(server: &str, baza: &str) -> Parte {

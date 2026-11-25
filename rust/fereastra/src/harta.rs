@@ -460,8 +460,141 @@ pub fn picteaza_bara_la(g: &Grup, p: &Paleta, factor: f32) -> (u32, u32, Vec<[u8
     (w, h, px)
 }
 
+/// Instantaneul hartii, toate grupurile intr-o singura imagine de
+/// `latime` x `inaltime` pixeli, estompat: fundalul listei si al editorului
+/// (Mihai, 2026-11-25). Estomparea e o medie pe fereastra glisanta, de trei
+/// ori (aproape gaussiana), pe fiecare canal.
+pub fn instantaneu_estompat(
+    grupuri: &[Grup],
+    p: &Paleta,
+    latime: u32,
+    inaltime: u32,
+    raza: usize,
+) -> (u32, u32, Vec<[u8; 4]>) {
+    let (w, h) = (latime.max(1) as usize, inaltime.max(1) as usize);
+    let mut px = vec![[0u8; 4]; w * h];
+    for g in grupuri {
+        let (gw, gh, gp) = picteaza(g, p);
+        let (ox, oy) = (g.x.max(0.0) as usize, g.y.max(0.0) as usize);
+        for yy in 0..gh as usize {
+            let y = oy + yy;
+            if y >= h {
+                break;
+            }
+            for xx in 0..gw as usize {
+                let x = ox + xx;
+                if x >= w {
+                    break;
+                }
+                px[y * w + x] = gp[yy * gw as usize + xx];
+            }
+        }
+    }
+    for _ in 0..3 {
+        estompeaza_linii(&mut px, w, h, raza);
+        estompeaza_coloane(&mut px, w, h, raza);
+    }
+    (w as u32, h as u32, px)
+}
+
+fn estompeaza_linii(px: &mut [[u8; 4]], w: usize, h: usize, raza: usize) {
+    if raza == 0 || w == 0 {
+        return;
+    }
+    let mut rand = vec![[0u8; 4]; w];
+    for y in 0..h {
+        let linie = &px[y * w..(y + 1) * w];
+        let mut suma = [0u32; 4];
+        let fereastra = |x: isize| -> Option<&[u8; 4]> {
+            (x >= 0 && (x as usize) < w).then(|| &linie[x as usize])
+        };
+        for x in -(raza as isize)..=(raza as isize) {
+            if let Some(c) = fereastra(x) {
+                for k in 0..4 {
+                    suma[k] += c[k] as u32;
+                }
+            }
+        }
+        let n = (2 * raza + 1) as u32;
+        for x in 0..w as isize {
+            for k in 0..4 {
+                rand[x as usize][k] = (suma[k] / n) as u8;
+            }
+            if let Some(c) = fereastra(x - raza as isize) {
+                for k in 0..4 {
+                    suma[k] -= c[k] as u32;
+                }
+            }
+            if let Some(c) = fereastra(x + raza as isize + 1) {
+                for k in 0..4 {
+                    suma[k] += c[k] as u32;
+                }
+            }
+        }
+        px[y * w..(y + 1) * w].copy_from_slice(&rand);
+    }
+}
+
+fn estompeaza_coloane(px: &mut [[u8; 4]], w: usize, h: usize, raza: usize) {
+    if raza == 0 || h == 0 {
+        return;
+    }
+    let mut col = vec![[0u8; 4]; h];
+    for x in 0..w {
+        let mut suma = [0u32; 4];
+        let la = |px: &[[u8; 4]], y: isize| -> Option<[u8; 4]> {
+            (y >= 0 && (y as usize) < h).then(|| px[y as usize * w + x])
+        };
+        for y in -(raza as isize)..=(raza as isize) {
+            if let Some(c) = la(px, y) {
+                for k in 0..4 {
+                    suma[k] += c[k] as u32;
+                }
+            }
+        }
+        let n = (2 * raza + 1) as u32;
+        for y in 0..h as isize {
+            for k in 0..4 {
+                col[y as usize][k] = (suma[k] / n) as u8;
+            }
+            if let Some(c) = la(px, y - raza as isize) {
+                for k in 0..4 {
+                    suma[k] -= c[k] as u32;
+                }
+            }
+            if let Some(c) = la(px, y + raza as isize + 1) {
+                for k in 0..4 {
+                    suma[k] += c[k] as u32;
+                }
+            }
+        }
+        for y in 0..h {
+            px[y * w + x] = col[y];
+        }
+    }
+}
+
 #[cfg(test)]
 mod teste {
+    /// Fundalul din harta: are marimea ceruta, e estompat (niciun pixel nu
+    /// mai e plin acolo unde vecinii lui sunt goi) si nu e gol.
+    #[test]
+    fn instantaneul_estompat_are_marimea_ceruta_si_e_moale() {
+        let celule: Vec<Celula> = (0..200)
+            .map(|i| Celula {
+                rand: i,
+                stare: (i % 4) as i32,
+                revizuit: false,
+            })
+            .collect();
+        let (g, _) = aseaza(vec![("procedura".into(), celule)], 300.0, 200.0);
+        let p = crate::jetoane::Mod::Intunecat.paleta();
+        let (w, h, px) = instantaneu_estompat(&g, p, 320, 200, 4);
+        assert_eq!((w, h, px.len()), (320, 200, 320 * 200));
+        assert!(px.iter().any(|c| c[3] > 0), "are ceva desenat");
+        assert!(px.iter().all(|c| c[3] < 255), "estompat: nimic plin");
+    }
+
     use super::*;
     use crate::jetoane::{INTUNECAT, LUMINOS};
 

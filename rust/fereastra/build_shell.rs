@@ -243,6 +243,9 @@ pub fn shell_slint(
         importate.push("Tema");
     }
     s.push_str(&format!(
+        "import {{ Sfat, SfatAfisat }} from \"{ui}/comune.slint\";\n"
+    ));
+    s.push_str(&format!(
         "import {{ {} }} from \"{ui}/fereastra.slint\";\n",
         importate.join(", ")
     ));
@@ -267,8 +270,10 @@ pub fn shell_slint(
             n = e.numar
         ));
     }
-    // tastele merg pe ecranul vizibil
-    s.push_str("    changed ecran => {\n");
+    // sfatul la hover, unul pentru toata fereastra, deasupra ecranelor
+    s.push_str("    SfatAfisat { x: 0; y: 0; width: root.width; height: root.height; }\n");
+    // tastele merg pe ecranul vizibil; un sfat ramas de pe ecranul vechi pleaca
+    s.push_str("    changed ecran => {\n        Sfat.goleste();\n");
     // un ecran care are `public function intra()` decide singur unde merg
     // tastele (editorul nu fura focusul campului de editare)
     for (e, d) in ECRANE.iter().zip(decl) {
