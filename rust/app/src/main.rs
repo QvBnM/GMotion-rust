@@ -488,6 +488,8 @@ fn ruleaza() -> Result<(), String> {
     // N din „Cate N obiecte per fisier": din configurare, schimbabil din ecran
     let cate_per_fisier = Rc::new(std::cell::Cell::new(cfg.obiecte_per_script.max(1)));
     let deseneaza_brut = {
+        let limba_textelor = std::cell::Cell::new(None::<gmotion_core::Limba>);
+        let progres_aratat = std::cell::Cell::new(false);
         let stare = stare.clone();
         let cate_per_fisier = cate_per_fisier.clone();
         let (c_ui, l_ui, e_ui, d_ui) = (
@@ -526,22 +528,35 @@ fn ruleaza() -> Result<(), String> {
                 e_ui.set_lista_dreapta(c.dreapta);
                 e_ui.set_lista_banda(c.banda);
             }
-            c_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
-            l_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
-            let despre = gmotion_fereastra::text_despre(
-                limba,
-                env!("CARGO_PKG_VERSION"),
-                cale_jurnal.as_deref(),
-                director_date.as_deref(),
-            );
-            c_ui.set_text_despre(despre.as_str().into());
-            l_ui.set_text_despre(despre.into());
+            // ajutorul si „Despre" sunt texte lungi: doar cand se schimba limba
+            // (pana pe 2026-11-25 se refaceau la fiecare redesenare)
+            if limba_textelor.get() != Some(limba) {
+                limba_textelor.set(Some(limba));
+                c_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
+                l_ui.set_text_ajutor(gmotion_fereastra::ajutor(limba).into());
+                let despre = gmotion_fereastra::text_despre(
+                    limba,
+                    env!("CARGO_PKG_VERSION"),
+                    cale_jurnal.as_deref(),
+                    director_date.as_deref(),
+                );
+                c_ui.set_text_despre(despre.as_str().into());
+                l_ui.set_text_despre(despre.into());
+            }
             if s.app.is_none() {
-                arata(c_ui.aplicatie(), FereastraConectare::ECRAN);
-                // „Aceeasi conexiune": ce s-a schimbat la martor ajunge si la
-                // modificata, inainte sa se deseneze
-                s.conectare.sincronizeaza();
-                incarca_conectare(&c_ui, &s.conectare);
+                // Cat ruleaza compararea, formularul e blocat si nu se schimba:
+                // bataia ceasului (8 pe secunda) pune doar progresul. Pana pe
+                // 2026-11-25 refacea tot formularul (listele de baze, jurnalul)
+                // si dadea cadre de ~26 ms cat dura compararea.
+                let doar_progres = s.rulare.is_some() && progres_aratat.get();
+                progres_aratat.set(s.rulare.is_some());
+                if !doar_progres {
+                    arata(c_ui.aplicatie(), FereastraConectare::ECRAN);
+                    // „Aceeasi conexiune": ce s-a schimbat la martor ajunge si la
+                    // modificata, inainte sa se deseneze
+                    s.conectare.sincronizeaza();
+                    incarca_conectare(&c_ui, &s.conectare);
+                }
                 // progresul compararii, cat ruleaza pe alt fir
                 match s.rulare.as_ref() {
                     Some(r) => {
@@ -549,7 +564,8 @@ fn ruleaza() -> Result<(), String> {
                         c_ui.set_progres(r.fractie());
                         c_ui.set_progres_text(r.text_in(limba).into());
                         c_ui.set_progres_timp(r.timp().into());
-                        c_ui.set_etape(slint::ModelRc::new(slint::VecModel::from(
+                        gmotion_fereastra::pune_etape(
+                            &c_ui,
                             r.etape(limba)
                                 .into_iter()
                                 .map(|(nume, durata, stare)| gmotion_fereastra::EtapaUi {
@@ -557,8 +573,8 @@ fn ruleaza() -> Result<(), String> {
                                     durata: durata.into(),
                                     stare,
                                 })
-                                .collect::<Vec<_>>(),
-                        )));
+                                .collect(),
+                        );
                     }
                     None => c_ui.set_ruleaza(false),
                 }

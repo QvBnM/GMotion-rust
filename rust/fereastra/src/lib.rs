@@ -2364,7 +2364,19 @@ pub fn incarca_jurnal(ui: &FereastraConectare, linii: &[String]) {
             }
         })
         .collect();
-    ui.set_jurnal(ModelRc::new(VecModel::from(v)));
+    // pe loc: un model nou la fiecare redesenare refacea si repicta tot
+    // jurnalul, de 8 ori pe secunda cat ruleaza compararea (etapa 33)
+    if let Some(m) = pe_loc(ui.get_jurnal(), v) {
+        ui.set_jurnal(m);
+    }
+}
+
+/// Etapele compararii, in panoul de progres; pe loc, ca `incarca_jurnal`:
+/// se cheama la fiecare bataie de ceas cat ruleaza compararea.
+pub fn pune_etape(ui: &FereastraConectare, etape: Vec<EtapaUi>) {
+    if let Some(m) = pe_loc(ui.get_etape(), etape) {
+        ui.set_etape(m);
+    }
 }
 
 /// Ecranul de conectare se strange pe o fereastra scunda (`scund`). Pana pe
