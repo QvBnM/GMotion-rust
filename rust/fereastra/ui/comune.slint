@@ -230,13 +230,19 @@ export global Texte {
     in-out property <string> nerevizuite-din;
     in-out property <string> martor-explicatie;
     in-out property <string> sfat-before;
+    in-out property <string> reseteaza-filtrele;
+    in-out property <string> sfat-diferenta-curenta;
+    in-out property <string> legenda-diferenta-curenta;
+    in-out property <string> legenda-impact;
+    in-out property <string> legenda-deploy;
+    in-out property <string> legenda-revizuit;
+    in-out property <string> sfat-reseteaza-filtrele;
     in-out property <string> sfat-after;
     in-out property <string> modificata-explicatie;
     in-out property <string> anuleaza-ctrlz;
     in-out property <string> opreste;
     in-out property <string> inapoi-la-lista;
     in-out property <string> lista-scurt;
-    in-out property <string> detalii-stare;
     in-out property <string> detalii-modificari;
     in-out property <string> detalii-similaritate;
     in-out property <string> detalii-impact;
@@ -248,7 +254,6 @@ export global Texte {
     in-out property <string> nota-indiciu;
     in-out property <string> tasta-clic;
     in-out property <string> detalii-mic;
-    in-out property <string> inchide-detaliile-mic;
     in-out property <string> tasta-dublu-clic;
     in-out property <string> omite-mic;
     in-out property <string> deschide-scurt;
@@ -259,7 +264,6 @@ export global Texte {
     in-out property <string> sfat-deploy-trimis;
     in-out property <string> sfat-deploy-versiune;
     in-out property <string> sfat-deploy-neintrodus;
-    in-out property <string> detalii-linii;
     in-out property <string> sfat-linii-adaugate;
     in-out property <string> sfat-linii-sterse;
     in-out property <string> sfat-linii-modificate;
@@ -426,6 +430,35 @@ export component Buton inherits Rectangle {
 }
 
 // Butonul principal: chihlimbar (`accent`), scris cu `pe-accent`.
+// Butonul × (mesaje, taburi, randurile planului): o cruce desenata, nu
+// glifa „×" (care pe Windows venea din alt font, mai jos si taiata de
+// marginea mesajului: „bug vizual la butonul de inchis", Mihai 2026-11-25).
+// Patrat, centrat, cu stari clare: normal stins, hover pe fundal, apasat
+// mai inchis; aceleasi jetoane in ambele teme.
+export component ButonInchide inherits Rectangle {
+    in property <length> latura: 20px;
+    in property <length> cruce: 8px;
+    callback apasat();
+    width: root.latura;
+    height: root.latura;
+    border-radius: 5px;
+    background: z.pressed ? Tema.linie : z.has-hover ? Tema.strat : transparent;
+    animate background { duration: 80ms; }
+    Path {
+        x: (parent.width - root.cruce) / 2;
+        y: (parent.height - root.cruce) / 2;
+        width: root.cruce;
+        height: root.cruce;
+        viewbox-width: 10;
+        viewbox-height: 10;
+        commands: "M 1 1 L 9 9 M 9 1 L 1 9";
+        stroke: z.has-hover || z.pressed ? Tema.text : Tema.text-secundar;
+        stroke-width: 1.5px;
+        fill: transparent;
+    }
+    z := TouchArea { mouse-cursor: pointer; clicked => { root.apasat(); } }
+}
+
 export component ButonPrincipal inherits Rectangle {
     in property <string> text;
     // `false`: cenusiu si fara clic („Deploy (0)" parea apasabil, V15)
@@ -668,6 +701,34 @@ export component ButonLimba inherits Rectangle {
 
 // Eticheta mica de rol: Martor (verde) / Modificata (chihlimbar), aceleasi
 // culori ca pe ecranul de conectare.
+// ---- Monitorul de cadre (`--fps` / `GMOTION_FPS=1`): cadre pe secunda si
+// cel mai lung cadru, scrise din Rust (`gmotion_app::cadre`) de doua ori pe
+// secunda. Ascuns implicit; nu primeste clicuri.
+export global Cadre {
+    in-out property <bool> arata: false;
+    in-out property <string> text;
+    // ultimul cadru a fost peste 16,7 ms (sub 60 de cadre/s)
+    in-out property <bool> lent: false;
+}
+
+export component MonitorCadre inherits Rectangle {
+    if Cadre.arata: Rectangle {
+        x: (root.width - self.width) / 2;
+        y: 4px;
+        height: 22px;
+        width: tc.preferred-width + 20px;
+        border-radius: 6px;
+        background: #000000c0;
+        tc := Text {
+            text: Cadre.text;
+            font-family: Tema.font-mono;
+            font-size: 12px;
+            color: Cadre.lent ? #ffb347 : #7CFC9A;
+            vertical-alignment: center;
+        }
+    }
+}
+
 export global Sfat {
     in-out property <string> text;
     in-out property <length> x;
@@ -1013,10 +1074,16 @@ export component Jumatate inherits Rectangle {
             background: root.fara-linie || root.st == 0 ? transparent
                       : root.marcaj == 2 ? Tema.tine
                       : Tema.bara-stare(root.st);
+            // diferenta curenta (n / p): bara groasa. Pe liniile ei deja
+            // identice (bloc aplicat) se desena in rosu, culoarea implicita a
+            // lui `bara-stare` — „liniile rosii" din proba lui Mihai
+            // (2026-11-25), care pareau o eroare. Acum: culoarea blocului, sau
+            // accentul cand blocul nu mai difera; sensul, la hover.
             if root.curenta && !root.fara-linie: Rectangle {
                 x: 0px;
                 width: 5px;
-                background: Tema.bara-stare(root.st);
+                background: root.st == 0 ? Tema.accent : Tema.bara-stare(root.st);
+                ZonaSfat { width: 8px; sfat: Texte.sfat-diferenta-curenta; }
             }
         }
         Text {

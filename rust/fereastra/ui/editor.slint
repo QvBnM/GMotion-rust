@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat, ButonInchide } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -107,33 +107,33 @@ component RandMeniu inherits Rectangle {
 component MesajBanda inherits Rectangle {
     in property <string> text;
     in property <bool> bine;
+    // nici bine, nici eroare: ceva de stiut (chihlimbar)
+    in property <bool> atentie: false;
+    property <color> bara: root.atentie ? Tema.mod-bara : root.bine ? Tema.add-bara : Tema.del-bara;
     callback inchide();
     height: 26px;
     border-radius: 6px;
-    background: root.bine ? Tema.add-fundal : Tema.del-fundal;
+    background: root.atentie ? Tema.mod-fundal : root.bine ? Tema.add-fundal : Tema.del-fundal;
     border-width: 1px;
-    border-color: root.bine ? Tema.add-bara : Tema.del-bara;
+    border-color: root.bara;
     HorizontalLayout {
         padding-left: 10px;
         padding-right: 4px;
         spacing: 6px;
-        Rectangle { width: 3px; height: 14px; y: (parent.height - 14px) / 2; border-radius: 1.5px; background: root.bine ? Tema.add-bara : Tema.del-bara; }
+        Rectangle { width: 3px; height: 14px; y: (parent.height - 14px) / 2; border-radius: 1.5px; background: root.bara; }
         Text {
             text: root.text;
             font-family: Tema.font-ui;
             font-size: 12px;
             font-weight: 600;
-            color: root.bine ? Tema.add-text : Tema.del-text;
+            color: root.atentie ? Tema.mod-text : root.bine ? Tema.add-text : Tema.del-text;
             vertical-alignment: center;
             overflow: elide;
             horizontal-stretch: 1;
         }
-        Rectangle {
-            width: 20px;
-            border-radius: 4px;
-            background: zx.has-hover ? Tema.strat : transparent;
-            Text { text: "×"; font-family: Tema.font-ui; font-size: 14px; color: Tema.text-secundar; }
-            zx := TouchArea { mouse-cursor: pointer; clicked => { root.inchide(); } }
+        VerticalLayout {
+            alignment: center;
+            ButonInchide { apasat => { root.inchide(); } }
         }
     }
 }
@@ -200,6 +200,14 @@ export component EditorDiferente inherits Rectangle {
     min-height: 560px;
     // „Verifica pe server" (etapa 26): cererea, si ce a raspuns serverul
     callback verifica-pe-server();
+    // un bloc lasat de mana in alt loc decat cel sugerat: ce s-a intamplat
+    // si cum se revine (gol = nimic de spus); × il ascunde
+    in property <string> plasare-text;
+    in-out property <string> plasare-ascunsa;
+    // cursorul campului de editare, desenat de noi peste randurile colorate
+    property <length> ed-cursor-x;
+    property <length> ed-cursor-y;
+    property <bool> ed-clipire: true;
     // × pe raspunsul serverului
     callback inchide-verificarea();
     in property <string> verificare-text;
@@ -255,7 +263,8 @@ export component EditorDiferente inherits Rectangle {
     in-out property <bool> pliaza-identicul: false;
     // wrap (etapa 19): liniile lungi continua pe randul urmator; Rust le
     // rupe la `coloane-wrap` caractere, calculat aici din latimea panoului
-    in-out property <bool> impacheteaza: false;
+    // pornit implicit (Mihai, 2026-11-25: „vreau sa vina by default cu Wrap Lines")
+    in-out property <bool> impacheteaza: true;
     out property <int> coloane-wrap: Math.floor((root.panou - 60px - (root.alaturat ? 0px : 44px)) / 7.52px);
     callback comuta-wrap(bool);
     changed coloane-wrap => {
@@ -472,7 +481,10 @@ export component EditorDiferente inherits Rectangle {
         height: root.height;
         source: root.fundal-harta;
         image-fit: cover;
-        opacity: Tema.intunecat ? 0.30 : 0.22;
+        // opaca si amestecata deja cu fundalul (`harta::amesteca_pe_fundal`):
+        // fara opacitate si fara netezire, ca derularea sa nu plateasca ~9 ms
+        // pe cadru pentru un decor (2026-11-25)
+        image-rendering: pixelated;
     }
     taste := FocusScope {
         key-pressed(e) => {
@@ -578,10 +590,9 @@ export component EditorDiferente inherits Rectangle {
                                 Text { text: "◆"; font-size: 11px; color: zpin.has-hover ? Tema.accent-text : Tema.text-tert; }
                                 zpin := TouchArea { clicked => { root.fixeaza-previzualizarea(); } }
                             }
-                            Rectangle {
-                                width: 16px;
-                                Text { text: "×"; font-size: 13px; color: zx-tab.has-hover ? Tema.text : Tema.text-tert; }
-                                zx-tab := TouchArea { clicked => { root.inchide-tab(t.cod); } }
+                            VerticalLayout {
+                                alignment: center;
+                                ButonInchide { latura: 18px; cruce: 7px; apasat => { root.inchide-tab(t.cod); } }
                             }
                         }
                         zt := TouchArea {
@@ -796,6 +807,7 @@ export component EditorDiferente inherits Rectangle {
                                 Punct { c: Tema.add-bara; t: Texte.adus-din-martor; }
                                 Punct { c: Tema.del-bara; t: Texte.doar-in-modificata; }
                                 Punct { c: Tema.tine; t: Texte.scris-de-tine; }
+                                Punct { c: Tema.accent; t: Texte.legenda-diferenta-curenta; }
                             }
                         }
                     }
@@ -1334,26 +1346,6 @@ export component EditorDiferente inherits Rectangle {
                                 }
                             }
                         }
-                        // mesajele despre textul final (etapa 26): in banda lor, sub
-                        // panouri, nu peste cod; fiecare se inchide cu ×. Al
-                        // serverului pleaca si singur la alt obiect sau alt text,
-                        // cel de structura cand textul se repara.
-                        if root.arata-probleme || root.verificare-text != "": VerticalLayout {
-                            padding-left: 8px;
-                            padding-top: 4px;
-                            padding-bottom: 4px;
-                            spacing: 4px;
-                            if root.arata-probleme: MesajBanda {
-                                text: root.probleme-structura;
-                                bine: false;
-                                inchide => { root.probleme-ascunse = root.probleme-structura; }
-                            }
-                            if root.verificare-text != "": MesajBanda {
-                                text: root.verificare-text;
-                                bine: root.verificare-ok;
-                                inchide => { root.inchide-verificarea(); }
-                            }
-                        }
                     }
                     // ce tragi: o fantoma care urmeaza mouse-ul, cu ce se intampla
                     // daca o lasi acum si primul rand al blocului (Mihai: „nu are
@@ -1460,9 +1452,16 @@ export component EditorDiferente inherits Rectangle {
                                     wrap: no-wrap;
                                     font-family: Tema.font-mono;
                                     font-size: 12.5px;
-                                    color: Tema.text;
+                                    // o singura randare a glifelor (Mihai, 2026-11-25:
+                                    // „textul se vede foarte dubios"): cat timp randurile
+                                    // colorate de dedesubt acopera textul, campul nu-si mai
+                                    // deseneaza glifele (le dubla, decalat cu fractiuni de
+                                    // pixel = text ingrosat si neclar); cursorul il desenam noi
+                                    color: root.ed-linii.length > 0 ? transparent : Tema.text;
+                                    text-cursor-width: root.ed-linii.length > 0 ? 0px : 1.5px;
                                     selection-background-color: Tema.tine.transparentize(0.6);
-                                    selection-foreground-color: Tema.text;
+                                    selection-foreground-color: root.ed-linii.length > 0 ? transparent : Tema.text;
+                                    cursor-position-changed(p) => { root.ed-cursor-x = p.x; root.ed-cursor-y = p.y; root.ed-clipire = true; }
                                     init => { self.focus(); root.text-editat(self.text); }
                                     // `text-in-lucru`: ce s-a scris, ca Rust sa-l poata
                                     // salva pe obiectul lui daca omul trece pe altul;
@@ -1486,6 +1485,20 @@ export component EditorDiferente inherits Rectangle {
                                     y: 12px + Math.round(i * (proba-100.preferred-height - proba-1.preferred-height) / 99 / 1px) * 1px;
                                     height: proba-1.preferred-height;
                                     bucati: l.bucati;
+                                }
+                                // cursorul, cand campul nu-si deseneaza glifele
+                                if root.ed-linii.length > 0 && ed.has-focus: Rectangle {
+                                    x: 16px + root.ed-cursor-x;
+                                    y: 12px + root.ed-cursor-y;
+                                    width: 1.5px;
+                                    height: proba-1.preferred-height;
+                                    background: Tema.text;
+                                    opacity: root.ed-clipire ? 1 : 0;
+                                }
+                                Timer {
+                                    interval: 530ms;
+                                    running: root.editeaza-mod && ed.has-focus;
+                                    triggered => { root.ed-clipire = !root.ed-clipire; }
                                 }
                             }
                             Rectangle {
@@ -1524,6 +1537,39 @@ export component EditorDiferente inherits Rectangle {
                             border-radius: 1.5px;
                             background: Tema.bara-stare(m.stare);
                         }
+                    }
+                }
+            }
+            // mesajele despre textul final (etapa 26) intr-o banda proprie, pe
+            // toata latimea, SUB zona codului: inainte stateau in coloana
+            // panoului drept, iar harta diferentelor si legaturile, desenate
+            // pe toata inaltimea, treceau pe sub ele (Mihai, 2026-11-25:
+            // „sa nu se intercaleze cu ce este in side by side"). Fiecare se
+            // inchide cu ×; al serverului pleaca singur la alt obiect sau alt
+            // text, cel de structura cand textul se repara.
+            if root.arata-probleme || root.verificare-text != "" || (root.plasare-text != "" && root.plasare-text != root.plasare-ascunsa): Rectangle {
+                background: Tema.suprafata;
+                Rectangle { y: 0; height: 1px; background: Tema.linie; }
+                VerticalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-top: 6px;
+                    padding-bottom: 6px;
+                    spacing: 4px;
+                    if root.arata-probleme: MesajBanda {
+                        text: root.probleme-structura;
+                        bine: false;
+                        inchide => { root.probleme-ascunse = root.probleme-structura; }
+                    }
+                    if root.verificare-text != "": MesajBanda {
+                        text: root.verificare-text;
+                        bine: root.verificare-ok;
+                        inchide => { root.inchide-verificarea(); }
+                    }
+                    if root.plasare-text != "" && root.plasare-text != root.plasare-ascunsa: MesajBanda {
+                        text: root.plasare-text;
+                        atentie: true;
+                        inchide => { root.plasare-ascunsa = root.plasare-text; }
                     }
                 }
             }

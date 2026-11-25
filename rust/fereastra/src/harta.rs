@@ -460,6 +460,21 @@ pub fn picteaza_bara_la(g: &Grup, p: &Paleta, factor: f32) -> (u32, u32, Vec<[u8
     (w, h, px)
 }
 
+/// Pixelii hartii estompate, amestecati cu `fundal` la `opacitate`:
+/// rezultatul e opac (alfa 255), deci fereastra il copiaza fara amestec la
+/// fiecare cadru. Aceeasi culoare ca imaginea transparenta pusa cu
+/// `opacity` peste fundal.
+pub fn amesteca_pe_fundal(px: &[[u8; 4]], fundal: u32, opacitate: f32) -> Vec<[u8; 4]> {
+    let f = [(fundal >> 16) as u8, (fundal >> 8) as u8, fundal as u8];
+    px.iter()
+        .map(|p| {
+            let a = f32::from(p[3]) / 255.0 * opacitate.clamp(0.0, 1.0);
+            let c = |i: usize| (f32::from(f[i]) * (1.0 - a) + f32::from(p[i]) * a).round() as u8;
+            [c(0), c(1), c(2), 255]
+        })
+        .collect()
+}
+
 /// Instantaneul hartii, toate grupurile intr-o singura imagine de
 /// `latime` x `inaltime` pixeli, estompat: fundalul listei si al editorului
 /// (Mihai, 2026-11-25). Estomparea e o medie pe fereastra glisanta, de trei
@@ -576,6 +591,21 @@ fn estompeaza_coloane(px: &mut [[u8; 4]], w: usize, h: usize, raza: usize) {
 
 #[cfg(test)]
 mod teste {
+    use super::*;
+
+    #[test]
+    fn amestecul_pe_fundal_e_opac_si_pastreaza_culoarea() {
+        let px = [[255, 0, 0, 255], [0, 0, 0, 0], [0, 255, 0, 128]];
+        let r = amesteca_pe_fundal(&px, 0x102030, 0.5);
+        assert!(r.iter().all(|p| p[3] == 255), "opac");
+        // rosu plin la jumatate peste 10 20 30
+        assert_eq!(r[0], [136, 16, 24, 255]);
+        // transparent: ramane fundalul
+        assert_eq!(r[1], [0x10, 0x20, 0x30, 255]);
+        // alfa 128 la 0,5 = un sfert de verde
+        assert_eq!(r[2], [12, 88, 36, 255]);
+    }
+
     /// Fundalul din harta: are marimea ceruta, e estompat (niciun pixel nu
     /// mai e plin acolo unde vecinii lui sunt goi) si nu e gol.
     #[test]
@@ -595,7 +625,6 @@ mod teste {
         assert!(px.iter().all(|c| c[3] < 255), "estompat: nimic plin");
     }
 
-    use super::*;
     use crate::jetoane::{INTUNECAT, LUMINOS};
 
     const S: Scara = SCARI[0];

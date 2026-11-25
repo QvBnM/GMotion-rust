@@ -48,6 +48,8 @@ Optiuni:
   --previzualizare      instantaneul sintetic din instalare, fara server
   --tema <intunecat|luminos>
   --limba <ro|en>
+  --fps                 monitorul de cadre (cadre/s, cel mai lung cadru);
+                        la fel cu variabila GMOTION_FPS=1
   -h, --help            textul asta
 
 Fara optiuni porneste ecranul de conectare. Tema si limba se tin minte
@@ -57,7 +59,8 @@ Tot ce face fereastra se poate face si din `gmotion` (linia de comanda).
 
 /// Optiunile pe care le stie binarul. Un argument care nu e aici si nu e
 /// valoarea uneia dintre ele e o greseala de scriere, si se spune.
-const OPTIUNI: [&str; 7] = [
+const OPTIUNI: [&str; 8] = [
+    "--fps",
     "--sursa",
     "--referinta",
     "--baza",
@@ -86,6 +89,59 @@ fn argumente_necunoscute() -> Vec<String> {
         i += 1;
     }
     rele
+}
+
+/// Monitorul de cadre (`gmotion_app::cadre`): momentele fiecarui cadru vin
+/// din `set_rendering_notifier`; de doua ori pe secunda textul se scrie in
+/// fereastra si in jurnal (`gmotion::cadre`, ca cifrele inainte / dupa sa se
+/// poata lua dintr-o rulare). Intoarce ceasul, care trebuie tinut in viata.
+fn porneste_monitorul_cadre(
+    aplicatie: &Aplicatie,
+    stare: &Rc<RefCell<Stare>>,
+) -> Option<slint::Timer> {
+    let argumente: Vec<String> = std::env::args().collect();
+    let variabila = std::env::var("GMOTION_FPS").ok();
+    if !gmotion_app::cadre::cerut(&argumente, variabila.as_deref()) {
+        return None;
+    }
+    let statistica = Rc::new(RefCell::new(gmotion_app::cadre::StatisticaCadre::default()));
+    let s = statistica.clone();
+    let pus = aplicatie
+        .window()
+        .set_rendering_notifier(move |faza, _| match faza {
+            slint::RenderingState::BeforeRendering => {
+                s.borrow_mut().inainte(std::time::Instant::now())
+            }
+            slint::RenderingState::AfterRendering => s.borrow_mut().dupa(std::time::Instant::now()),
+            _ => {}
+        });
+    if let Err(e) = pus {
+        tracing::warn!(target: "gmotion::cadre", eroare = ?e, "monitorul de cadre nu poate porni");
+        return None;
+    }
+    aplicatie
+        .global::<gmotion_fereastra::Cadre>()
+        .set_arata(true);
+    let a = aplicatie.as_weak();
+    let stare = stare.clone();
+    let ceas = slint::Timer::default();
+    ceas.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(500),
+        move || {
+            let Some(r) = statistica.borrow_mut().incheie(std::time::Instant::now()) else {
+                return;
+            };
+            let limba = stare.borrow().conectare.limba;
+            tracing::info!(target: "gmotion::cadre", pe_secunda = format!("{:.0}", r.pe_secunda), cel_mai_lung_ms = format!("{:.1}", r.cel_mai_lung_ms), mediu_ms = format!("{:.1}", r.mediu_ms), cadre = r.cadre, "cadre");
+            if let Some(a) = a.upgrade() {
+                let g = a.global::<gmotion_fereastra::Cadre>();
+                g.set_text(r.text(limba).into());
+                g.set_lent(r.cel_mai_lung_ms > 1000.0 / 60.0);
+            }
+        },
+    );
+    Some(ceas)
 }
 
 fn main() {
@@ -276,6 +332,8 @@ fn ruleaza() -> Result<(), String> {
     let lista_ui = FereastraLista::din(&aplicatie);
     let editor_ui = EditorDiferente::din(&aplicatie);
     let deploy_ui = FereastraDeploy::din(&aplicatie);
+    // monitorul de cadre: ascuns implicit, `--fps` sau GMOTION_FPS=1
+    let _ceas_cadre = porneste_monitorul_cadre(&aplicatie, &stare);
     // configurarea: un fisier stricat nu opreste fereastra, dar se spune
     let cale_cfg = gmotion_platforma::cai::cale_configurare().ok();
     let cfg = stare::citeste_configurarea(cale_cfg.as_deref());
@@ -532,7 +590,7 @@ fn ruleaza() -> Result<(), String> {
                 },
                 app.lista(),
             );
-            gmotion_fereastra::incarca_fundal_harta(&l_ui);
+            gmotion_fereastra::incarca_fundal_harta(&l_ui, app.lista());
             e_ui.set_fundal_harta(l_ui.get_fundal_harta());
             l_ui.set_mesaj_csv(bara.into());
             l_ui.set_recompara_ruleaza(progres.is_some());
@@ -578,6 +636,13 @@ fn ruleaza() -> Result<(), String> {
                         }
                         None => e_ui.set_verificare_text(Default::default()),
                     }
+                    // blocul lasat de mana in alt loc decat cel sugerat
+                    e_ui.set_plasare_text(
+                        app.plasat_altundeva()
+                            .map(|b| gmotion_fereastra::text_plasat_altundeva(b, limba))
+                            .unwrap_or_default()
+                            .into(),
+                    );
                     gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista(), app.arbore());
                     gmotion_fereastra::incarca_taburi(&e_ui, app.taburi(), |c| {
                         app.are_text_final(c)
@@ -973,7 +1038,7 @@ fn ruleaza() -> Result<(), String> {
         lista_ui.on_previz_redimensionata(move || {
             slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
         });
-        pe_comanda!(lista_ui.on_inchide_detalii(|| Comanda::InchideDetalii));
+        pe_comanda!(lista_ui.on_reseteaza_filtrele(|| Comanda::ResetFiltre));
         pe_comanda!(lista_ui.on_deschide_obiectul(|| Comanda::Deschide));
         pe_comanda!(lista_ui.on_comuta_omis(|| Comanda::ComutaOmis));
         pe_comanda!(lista_ui.on_nota_editata(|baza, id, text| {

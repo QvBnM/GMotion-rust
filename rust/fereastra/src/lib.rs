@@ -990,8 +990,8 @@ pub fn caractere_pe(latime: f32) -> usize {
 }
 
 thread_local! {
-    /// Amprenta randurilor puse ultima data in lista (vezi `incarca_lista`).
-    static AMPRENTA_RANDURI: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+    /// Amprenta fiecarui rand pus ultima data in lista (vezi `incarca_lista`).
+    static AMPRENTE_RANDURI: std::cell::RefCell<Vec<u64>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
 /// Amprenta a tot ce se vede pe randurile listei: ordinea, si pe fiecare
@@ -1000,40 +1000,69 @@ thread_local! {
 /// si cate caractere incap din nume. Doua amprente egale = aceleasi randuri.
 pub fn amprenta_randuri(lista: &model_lista::Lista, limba: texte::Limba, cate: usize) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    let mut pune = |x: u64| h = (h ^ x).wrapping_mul(0x0100_0000_01b3);
-    pune(limba as u64);
-    pune(cate as u64);
-    pune(lista.vizibile().len() as u64);
-    for &i in lista.vizibile() {
-        let o = &lista.obiecte()[i];
-        pune(i as u64);
-        // si obiectul insusi: o recomparare aduce alte obiecte pe aceiasi indici
-        for t in [&o.schema, &o.nume, &o.baza, &o.tip] {
-            for b in t.bytes() {
-                pune(u64::from(b));
-            }
-            pune(0xff);
-        }
-        pune(o.stare as u64);
-        pune(o.modificat.as_deref().map_or(0, str::len) as u64);
-        pune(u64::from(o.revizuit) | u64::from(o.in_plan) << 1 | u64::from(o.omis) << 2);
-        pune(cod_deploy(o) as u64);
-        pune(o.impact.map_or(9, |x| x as u64));
-        pune(o.folosit_de.map_or(u64::MAX, |x| x as u64));
-        match &o.detalii {
-            Some(d) => {
-                pune(d.linii_plus as u64);
-                pune(d.linii_minus as u64);
-                pune(d.difera_in.len() as u64);
-            }
-            None => pune(u64::MAX - 1),
-        }
-        pune(o.scor.map_or(u64::MAX, f64::to_bits));
+    for x in amprente_randuri(lista, limba, cate) {
+        h = (h ^ x).wrapping_mul(0x0100_0000_01b3);
     }
     h
 }
 
+/// Amprenta fiecarui rand vizibil, in ordine (vezi [`amprenta_randuri`]):
+/// doua randuri cu aceeasi amprenta pe aceeasi pozitie arata la fel, deci o
+/// bifa pe un obiect reface un singur rand, nu toata lista.
+pub fn amprente_randuri(lista: &model_lista::Lista, limba: texte::Limba, cate: usize) -> Vec<u64> {
+    lista
+        .vizibile()
+        .iter()
+        .map(|&i| {
+            let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+            let mut pune = |x: u64| h = (h ^ x).wrapping_mul(0x0100_0000_01b3);
+            pune(limba as u64);
+            pune(cate as u64);
+            let o = &lista.obiecte()[i];
+            pune(i as u64);
+            // si obiectul insusi: o recomparare aduce alte obiecte pe aceiasi indici
+            for t in [&o.schema, &o.nume, &o.baza, &o.tip] {
+                for b in t.bytes() {
+                    pune(u64::from(b));
+                }
+                pune(0xff);
+            }
+            pune(o.stare as u64);
+            pune(o.modificat.as_deref().map_or(0, str::len) as u64);
+            pune(u64::from(o.revizuit) | u64::from(o.in_plan) << 1 | u64::from(o.omis) << 2);
+            pune(cod_deploy(o) as u64);
+            pune(o.impact.map_or(9, |x| x as u64));
+            pune(o.folosit_de.map_or(u64::MAX, |x| x as u64));
+            match &o.detalii {
+                Some(d) => {
+                    pune(d.linii_plus as u64);
+                    pune(d.linii_minus as u64);
+                    pune(d.difera_in.len() as u64);
+                }
+                None => pune(u64::MAX - 1),
+            }
+            pune(o.scor.map_or(u64::MAX, f64::to_bits));
+            h
+        })
+        .collect()
+}
+
 fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<RandListaUi> {
+    lista
+        .vizibile()
+        .iter()
+        .enumerate()
+        .map(|(pozitie, &i)| rand_lista_ui(lista, pozitie, i, limba))
+        .collect()
+}
+
+/// Un rand al listei: obiectul `i`, pe pozitia vizibila `pozitie`.
+fn rand_lista_ui(
+    lista: &model_lista::Lista,
+    pozitie: usize,
+    i: usize,
+    limba: texte::Limba,
+) -> RandListaUi {
     use model_lista::Stare;
     let cod = |s: Stare| match s {
         Stare::Modificat => 0,
@@ -1042,11 +1071,8 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
         Stare::Identic => 3,
         Stare::Criptat => 4,
     };
-    lista
-        .vizibile()
-        .iter()
-        .enumerate()
-        .map(|(pozitie, &i)| {
+    {
+        {
             let o = &lista.obiecte()[i];
             let (plus, minus) = match &o.detalii {
                 Some(d) => (
@@ -1086,8 +1112,8 @@ fn randuri_lista_ui(lista: &model_lista::Lista, limba: texte::Limba) -> Vec<Rand
                 // doar data: ora nu ajuta la nimic aici (Mihai, 2026-11-25)
                 modificat: data_scurta(o.modificat.as_deref()).into(),
             }
-        })
-        .collect()
+        }
+    }
 }
 
 /// Umple coloana din stanga a editorului: lista stransa, din acelasi model
@@ -1598,11 +1624,38 @@ pub fn incarca_lista(ui: &FereastraLista, antet: &AntetLista, lista: &model_list
     // randurile se refac doar cand s-a schimbat ceva din ce arata: un clic pe
     // rand (detaliile) le lasa neatinse. Pe 12.000 de obiecte, refacerea lor
     // era cea mai mare parte dintr-o redesenare (2026-11-25).
-    let amprenta = amprenta_randuri(lista, limba_curenta(ui), cate);
-    let refa = AMPRENTA_RANDURI.with(|a| a.replace(Some(amprenta))) != Some(amprenta)
-        || slint::Model::row_count(&ui.get_randuri()) != lista.vizibile().len();
+    // Pe aceeasi lungime se refac doar randurile cu alta amprenta: bifa
+    // „Revizuit" pe un obiect refacea toate cele 28.000 (~15 ms aici, peste
+    // 100 ms pe Windows, „redesenare lenta ms=137" in proba lui Mihai).
+    let limba = limba_curenta(ui);
+    let noi = amprente_randuri(lista, limba, cate);
+    let model = ui.get_randuri();
+    let pe_rand = slint::Model::as_any(&model).downcast_ref::<VecModel<RandListaUi>>();
+    let refa = AMPRENTE_RANDURI.with_borrow_mut(|vechi| {
+        let refa = match pe_rand {
+            Some(m) if slint::Model::row_count(m) == noi.len() && vechi.len() == noi.len() => {
+                for (pozitie, (&i, (a, b))) in lista
+                    .vizibile()
+                    .iter()
+                    .zip(noi.iter().zip(vechi.iter()))
+                    .enumerate()
+                {
+                    if a != b {
+                        let mut r = rand_lista_ui(lista, pozitie, i, limba);
+                        r.nume_scurt =
+                            model_taburi::taie_pe_mijloc(r.nume_scurt.as_str(), cate).into();
+                        slint::Model::set_row_data(m, pozitie, r);
+                    }
+                }
+                false
+            }
+            _ => true,
+        };
+        *vechi = noi;
+        refa
+    });
     let mut randuri = if refa {
-        randuri_lista_ui(lista, limba_curenta(ui))
+        randuri_lista_ui(lista, limba)
     } else {
         Vec::new()
     };
@@ -2420,52 +2473,70 @@ pub fn incarca_harta(ui: &FereastraLista, selectat: Option<usize>) {
 /// Fundalul listei si al editorului: instantaneul hartii pe randurile de
 /// acum, estompat. Se reface doar cand s-a schimbat ceva din ce se vede pe
 /// harta (stari, revizuiri, modul); altfel ramane imaginea de dinainte.
-pub fn incarca_fundal_harta(ui: &FereastraLista) {
-    use slint::Model;
+pub fn incarca_fundal_harta(ui: &FereastraLista, lista: &model_lista::Lista) {
+    use model_lista::Stare;
     type Cheie = (usize, u64, bool);
     thread_local! {
         static ULTIMA: std::cell::RefCell<Option<Cheie>> = const { std::cell::RefCell::new(None) };
     }
-    let randuri = ui.get_randuri();
+    // din modelul Rust, nu din randurile Slint: citirea a 28.000 de
+    // `RandListaUi` (de doua ori) era jumatate din cost (2026-11-25)
+    let cod = |s: Stare| match s {
+        Stare::Modificat => 0,
+        Stare::DoarSursa => 1,
+        Stare::DoarBaza => 2,
+        Stare::Identic => 3,
+        Stare::Criptat => 4,
+    };
+    // toata compararea, nu doar ce trece de filtre: e decor, iar asa nu se
+    // reface la fiecare clic pe un filtru (~25-50 ms pe 28.000 de randuri)
+    let toate: Vec<usize> = (0..lista.obiecte().len()).collect();
+    let vizibile = &toate;
     let mut amprenta: u64 = 1469598103934665603;
-    for r in randuri.iter() {
-        // fara `revizuit`: estompat, nu se vede, iar refacerea costa ~60 ms
-        // la fiecare bifa
-        for b in [r.stare as u64, r.tip.len() as u64] {
+    for &i in vizibile {
+        let o = &lista.obiecte()[i];
+        // fara `revizuit`: estompat, nu se vede, iar refacerea costa la
+        // fiecare bifa
+        for b in [cod(o.stare) as u64, o.tip.len() as u64] {
             amprenta = (amprenta ^ b).wrapping_mul(1099511628211);
         }
     }
     let m = mod_curent(ui);
-    let cheie = (randuri.row_count(), amprenta, m == Mod::Intunecat);
+    let cheie = (vizibile.len(), amprenta, m == Mod::Intunecat);
     if ULTIMA.with_borrow(|u| *u == Some(cheie)) {
         return;
     }
     let mut pe_tip: Vec<(String, Vec<harta::Celula>)> = Vec::new();
-    for (i, r) in randuri.iter().enumerate() {
+    for (rand, &i) in vizibile.iter().enumerate() {
+        let o = &lista.obiecte()[i];
         let c = harta::Celula {
-            rand: i,
-            stare: r.stare,
-            revizuit: r.revizuit,
+            rand,
+            stare: cod(o.stare),
+            revizuit: o.revizuit,
         };
         match pe_tip
             .iter_mut()
-            .find(|(t, _)| t.as_str() == r.tip.as_str())
+            .find(|(t, _)| t.as_str() == o.tip.as_str())
         {
             Some((_, v)) => v.push(c),
-            None => pe_tip.push((r.tip.to_string(), vec![c])),
+            None => pe_tip.push((o.tip.clone(), vec![c])),
         }
     }
     pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
-    let (latime, inaltime) = (1200u32, 760u32);
+    // la jumatate de rezolutie: e estompata si scalata pe tot ecranul oricum,
+    // iar la 1200x760 refacerea (la fiecare schimbare de filtru) tinea firul
+    // ~50 ms pe 12.000 de obiecte (masura_ui, 2026-11-25)
+    let (latime, inaltime) = (600u32, 380u32);
     let (grupuri, _) = harta::aseaza(pe_tip, latime as f32, inaltime as f32);
-    let img = imagine(harta::instantaneu_estompat(
-        &grupuri,
-        m.paleta(),
-        latime,
-        inaltime,
-        5,
-    ));
-    ui.set_fundal_harta(img);
+    let (w, h, px) = harta::instantaneu_estompat(&grupuri, m.paleta(), latime, inaltime, 3);
+    // amestecata aici, o data, cu fundalul ecranului si opacitatea ei: o
+    // imagine cu transparenta, scalata pe tot ecranul, costa la fiecare cadru
+    // de derulare ~9 ms din ~13 (masura_ui, 1920x1080, 2026-11-25); opaca si
+    // desenata `pixelated`, ~1 ms. Fiind estompata, scalarea fara netezire nu
+    // se vede.
+    let opacitate = if m == Mod::Intunecat { 0.30 } else { 0.22 };
+    let px = harta::amesteca_pe_fundal(&px, m.paleta().fundal, opacitate);
+    ui.set_fundal_harta(imagine((w, h, px)));
     ULTIMA.with_borrow_mut(|u| *u = Some(cheie));
 }
 
@@ -2519,6 +2590,20 @@ pub fn leaga_editarea(ui: &EditorDiferente) {
             ui.set_ed_linii(linii_editare_ui(&text));
         }
     });
+}
+
+/// Mesajul din editor dupa un bloc lasat de mana in alt loc decat cel
+/// sugerat (`bloc` de la 0; pe ecran, ca pe pastile, de la 1).
+pub fn text_plasat_altundeva(bloc: usize, limba: texte::Limba) -> String {
+    format!(
+        "{} {} {}",
+        limba.alege("Blocul", "Block"),
+        bloc + 1,
+        limba.alege(
+            "e pus in alt loc decat cel sugerat; de aici golurile hasurate din Before. Ctrl+Z il ia inapoi.",
+            "was placed somewhere else than suggested; hence the hatched gaps in Before. Ctrl+Z takes it back."
+        )
+    )
 }
 
 /// Randurile colorate pentru campul de editare.
@@ -3094,8 +3179,6 @@ mod teste {
         let a = apeluri.clone();
         ui.on_deschide_obiectul(move || a.borrow_mut().push("deschide".into()));
         let a = apeluri.clone();
-        ui.on_inchide_detalii(move || a.borrow_mut().push("inchide".into()));
-        let a = apeluri.clone();
         ui.on_comuta_omis(move || a.borrow_mut().push("omite".into()));
         let a = apeluri.clone();
         ui.on_nota_editata(move |b, id, t| a.borrow_mut().push(format!("nota {b}/{id}={t}")));
@@ -3139,7 +3222,8 @@ mod teste {
         assert_eq!(*apeluri.borrow(), ["clic0", "clic0"]);
         apeluri.borrow_mut().clear();
 
-        // panoul deschis: Esc il inchide, Ctrl+O omite
+        // panoul e mereu deschis (Mihai, 2026-11-25): Esc nu mai cere
+        // nimic, Ctrl+O omite
         ui.set_detalii_deschise(true);
         ui.set_nota_id("dbo.pA".into());
         let tasta = |t: SharedString| {
@@ -3150,22 +3234,31 @@ mod teste {
         };
         tasta(slint::platform::Key::Escape.into());
         cu_ctrl(&ui, "o");
-        assert_eq!(*apeluri.borrow(), ["inchide", "omite"]);
+        assert_eq!(*apeluri.borrow(), ["omite"]);
         apeluri.borrow_mut().clear();
-        ui.set_detalii_deschise(false);
-        tasta(slint::platform::Key::Escape.into());
-        assert!(apeluri.borrow().is_empty(), "Esc fara panou nu face nimic");
-        ui.set_detalii_deschise(true);
 
-        // X-ul din coltul panoului: cautat pe banda de sus a panoului
-        let gasit_x = (1100..1440).step_by(3).any(|x| {
-            (y0 as i32 - 60..y0 as i32 + 10).step_by(3).any(|y| {
-                clic(x as f32, y as f32);
-                let e = apeluri.borrow().last().is_some_and(|a| a == "inchide");
-                e
-            })
-        });
-        assert!(gasit_x, "X-ul inchide panoul: {:?}", apeluri.borrow());
+        // randurile nu se editeaza din lista: un clic oriunde pe rand,
+        // inclusiv pe „Revizuit" si „Deploy", doar il selecteaza
+        let a = apeluri.clone();
+        ui.on_comuta_revizuit(move |i| a.borrow_mut().push(format!("revizuit{i}")));
+        let a = apeluri.clone();
+        ui.on_adauga_in_plan(move || a.borrow_mut().push("plan".into()));
+        let latime = ui
+            .window()
+            .size()
+            .to_logical(ui.window().scale_factor())
+            .width;
+        let latime_tabel = latime - 3.0 - ui.get_latime_detalii();
+        for x in (40..latime_tabel as i32 - 20).step_by(5) {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            clic(x as f32, y0 + 17.0);
+        }
+        let apeluri_rand = apeluri.borrow().clone();
+        assert!(
+            apeluri_rand.iter().all(|a| a == "clic0" || a == "deschide"),
+            "doar selectie (si butonul Deschide): {apeluri_rand:?}"
+        );
+        assert!(apeluri_rand.iter().any(|a| a == "clic0"));
         apeluri.borrow_mut().clear();
 
         // nota: textul tastat ajunge cu obiectul lui
@@ -3186,6 +3279,22 @@ mod teste {
             "{:?}",
             apeluri.borrow()
         );
+    }
+
+    #[test]
+    fn mesajul_de_plasare_spune_blocul_si_revenirea() {
+        let ro = text_plasat_altundeva(2, texte::Limba::Romana);
+        assert!(ro.starts_with("Blocul 3 ") && ro.contains("Ctrl+Z"), "{ro}");
+        let en = text_plasat_altundeva(0, texte::Limba::Engleza);
+        assert!(en.starts_with("Block 1 ") && en.contains("Ctrl+Z"), "{en}");
+    }
+
+    /// Editorul porneste cu `Wrap lines` (Mihai, 2026-11-25), iar modelul
+    /// randurilor chiar e rupt: nicio linie mai lata decat coloanele panoului.
+    #[test]
+    fn editorul_porneste_cu_wrap_pornit() {
+        let ui = fereastra();
+        assert!(ui.get_impacheteaza(), "wrap pornit implicit");
     }
 
     /// Coloana din stanga arata aceleasi randuri ca lista intreaga: daca ar
@@ -5044,6 +5153,9 @@ mod teste {
         let lunga = format!("SELECT {} FROM t", "coloana_cu_nume_lung, ".repeat(20));
         let a = format!("CREATE PROC dbo.p AS\n{lunga} WHERE a = 1");
         let b = format!("CREATE PROC dbo.p AS\n{lunga} WHERE a = 2");
+        // derularea pe orizontala e a modului fara wrap (wrap-ul e pornit
+        // implicit din 2026-11-25)
+        ui.set_impacheteaza(false);
         let model = model_editor::construieste(&a, &b);
         incarca_editor(
             &ui,
@@ -5504,7 +5616,7 @@ mod teste {
     /// bifat fara sa fie — si un rand reciclat de `ListView` arata apoi
     /// starea altui obiect.
     #[test]
-    fn bifa_unui_rand_nu_bifeaza_alt_rand() {
+    fn clicul_pe_rand_nu_bifeaza_nimic_doar_selecteaza_randul_lui() {
         use slint::platform::{PointerEventButton, WindowEvent};
         use slint::LogicalPosition;
         use std::cell::RefCell;
@@ -5556,34 +5668,23 @@ mod teste {
                 gasit
             })
             .expect("primul rand raspunde la clic");
-        // bifa randului al treilea: patrat de 13 px in coloana „Revizuit",
-        // deci se cauta si pe latime si pe inaltimea randului
+        // Din 2026-11-25 lista nu mai bifeaza deloc (Mihai: „nu vreau sa
+        // mearga sa modifici acele campuri din lista"): pe toata latimea
+        // randului al treilea, inclusiv „Revizuit" si „Deploy", clicul
+        // selecteaza randul lui si nu bifeaza nimic — nici alt rand.
         let randul = 2usize;
-        let sus = y0 + 34.0 * randul as f32 - 4.0;
-        let mut gasit = false;
-        for x in (600..1440).step_by(3) {
-            for y in 0..12 {
-                clic(x as f32, sus + y as f32 * 3.0);
-                if !bifate.borrow().is_empty() {
-                    gasit = true;
-                    break;
-                }
-            }
-            if gasit {
-                break;
-            }
+        let y = y0 + 34.0 * randul as f32 + 2.0;
+        for x in (40..960).step_by(4) {
+            clic(x as f32, y);
         }
-        assert!(gasit, "bifa randului al treilea primeste clicul");
-        assert_eq!(
-            *bifate.borrow(),
-            [randul as i32],
-            "bifa trebuie sa spuna randul ei, nu pe cel selectat"
-        );
-        // si nu-si schimba singura desenul: starea vine din model
+        assert!(bifate.borrow().is_empty(), "{:?}", bifate.borrow());
         assert!(
-            !ui.get_randuri().row_data(randul).unwrap().revizuit,
-            "bifa nu se deseneaza bifata inainte sa raspunda modelul"
+            clicuri.borrow().iter().all(|&i| i == randul as i32),
+            "{:?}",
+            clicuri.borrow()
         );
+        assert!(!clicuri.borrow().is_empty());
+        assert!(!ui.get_randuri().row_data(randul).unwrap().revizuit);
     }
 
     /// Generatorul shell-ului (`build_shell.rs`) citeste declaratiile de pe

@@ -35,10 +35,10 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/31-fereastra-unica-si-ux.md` — remedierile din
-proba lui Mihai din 2026-11-25 (`PROMPT-GMotion-UX.md`). Etapa 30 (motorul)
-s-a incheiat in aceeasi zi; ce a schimbat in interfata e mai jos, la
-„Urmatorul pas".
+**Etapa activa:** `etape/32-runda-2-remedieri.md` — a doua proba a lui
+Mihai din 2026-11-25 (`Analiza_GMotion_RUST_2.docx`): Before / After, panoul
+de detalii si editorul, lista needitabila, fluiditatea, jurnalul. Etapa 31 s-a
+inchis in aceeasi zi; A2 (proba pe doua monitoare) a trecut in 32.
 
 **Ce s-a schimbat la etapa 31**, ca sa stii unde sa te uiti:
 

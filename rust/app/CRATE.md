@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: c7dba7e6ea5b2f91 -->
+<!-- api-hash: 96f061233d34710a -->
 
 ## Rol
 
@@ -37,7 +37,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `monitor::{alege_geometria, citeste_sistemul, Dreptunghi, Monitor, MARIME_GANDITA, CEL_MULT}` | unde porneste fereastra: unde a fost lasata data trecuta daca monitorul mai exista, altfel centrata pe monitorul cursorului, cel mult 92% din zona de lucru; `citeste_sistemul` e singura parte Win32 (monitoare, DPI, cursor), goala pe alte sisteme |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul; `model_editor` da un `Ref` la modelul tinut minte pe `(obiect, amprenta textului final, unirea cursorului)`, nu-l reface la fiecare desenare (P1) |
 | `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface; fereastra il da ca `AntetEditor::generatie` |
-| `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `dependente_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul, „Folosit de" (in Modificata) si „Foloseste" (in Martor; la Extra, in Modificata), si nota (`PuneNota`). Dependentele se calculeaza **o data, la construire**, pe fiecare baza: lista le arata pe fiecare rand (etapa 22) |
+| `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `dependente_obiect()`, `nota_obiect()` | panoul de detalii din lista: **mereu deschis** cand e ceva selectat (2026-11-25; `InchideDetalii` nu mai exista); impactul, „Folosit de" (in Modificata) si „Foloseste" (in Martor; la Extra, in Modificata), si nota (`PuneNota`). Dependentele se calculeaza **o data, la construire**, pe fiecare baza: lista le arata pe fiecare rand (etapa 22) |
 | comanda `Plaseaza { bloc, loc }` | un bloc tras si lasat in editor: pe locul sugerat (`loc` `None`, ca „Aplica" dar doar blocul tras) sau unde l-a lasat omul; cu Ctrl+Z (etapa 23) |
 | comenzile `FiltreazaImpact`, `SelecteazaDependenta(schema.nume)` | filtrul pe impact; clic pe un nume din panou il selecteaza in lista (goleste filtrele daca il ascund; daca nu e in lista, selectia ramane) |
 | `Aplicatie::revizuire_de_salvat()` | starea curatata, gata de pus in sesiune |
@@ -56,6 +56,9 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::probleme_text_final()` | ce nu se inchide in textul final al obiectului curent (gol fara text final); editorul il arata (etapa 26) |
 | `stare::Stare::{verifica_pe_server, text_verificare}`, `CheieVerificare` | „Verifica pe server" din editor (etapa 26): textul final in forma de deploy, la baza modificata, pe alt fir; raspunsul se arata doar pentru obiectul si codul trimise |
 | `stare::Stare` | starea binarului `gmotion-ui`, fara Slint (etapa 24): formularul de conectare (`server_schimbat`, `cere_bazele`, `testeaza`, `cauta_servere`, `alege_instantaneul`, `reia`, `ignora_recenta`...), compararea pe fir (`compara`, `anuleaza`, `verifica_compararea -> Progres`, `primeste_compararea`, `compara_offline`, `porneste_previzualizarea`), celelalte fire (`verifica_lucrarile`), sesiunea (`salveaza`, `deconecteaza`; una necitibila se pune deoparte si se spune, F-A15), mesajele (`conectare.eroare_comparare` langa Compara, F-A12; `mesaj_lista` / `text_bara_lista` pe lista, F-A8; `progres_recomparare` pentru bara listei cat ruleaza Recompara, etapa 25), deploy-ul (`porneste_garda`, `scrie_deploy`, `folder_deploy` ales cu dialogul nativ, `director_deploy_curent`, `director_scris`), exportul (`exporta_csv`), textele (`text_pozitie`, `text_salvat`, `text_refuz_in_plan`); plus `recente`, `porneste_detalii`, `director_deploy`, `director_deploy_in(ales, referinta)`, `deschide_in_explorer`, `cale_csv`, `cale_previzualizare`, `citeste_configurarea`, `salveaza_in_configurare`. In `main.rs` raman doar legaturile Slint si desenul |
+| comanda `ResetFiltre` | „Reset filter": filtrele, ordinea si sensul unei comparari noi (Modificate, Similar crescator), cu o selectie |
+| `Aplicatie::plasat_altundeva() -> Option<usize>` | blocul lasat de mana in alt loc decat cel sugerat, cat timp e ultima editare a obiectului deschis; editorul spune asta si ca Ctrl+Z il ia inapoi |
+| `cadre::{StatisticaCadre, RaportCadre, cerut}` | monitorul de cadre (`--fps` / `GMOTION_FPS=1`): cadre/s, cel mai lung si media desenarii, pe ferestre de 500 ms; in fereastra si in jurnal (`gmotion::cadre`) |
 | `stare::{SalvareAmanata, AMANARE_SALVARE}` | salvarea sesiunii grupata: o comanda doar o cere, se scrie o data dupa `AMANARE_SALVARE` de liniste; deconectarea, scripturile scrise si iesirea o fac imediat (2026-11-25) |
 | `stare::rezumat_verificare(r) -> (cod_valid, eroare)` | „Verifica pe server" pentru jurnal: valid doar daca serverul n-a dat eroare nici la sintaxa, nici la compilare |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
@@ -105,7 +108,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 |---|---|
 | Bifa din editor nu se vede in lista | `comuta_revizuit` din `rutare.rs` |
 | `j` / `k` te intorc in lista | `treci` din `rutare.rs` |
-| Panoul de detalii nu se deschide / nu se inchide la clic | `Comanda::ClicPeRand` din `rutare.rs`; in `lista.slint`, `clic-rand` |
+| Panoul de detalii nu arata obiectul clicat | `Comanda::ClicPeRand` din `rutare.rs`; in `lista.slint`, `clic-rand` |
 | Un dosar din arborele editorului se deschide / inchide singur | `Comanda::ComutaNod` din `rutare.rs`; `model_arbore` din `fereastra` |
 | Nota apare pe alt obiect | `nota-id` din `lista.slint` si `incarca_detalii` in `gmotion-fereastra` |
 | Obiectul deschis se schimba dupa un filtru | `Lista::recalculeaza` in `gmotion-fereastra` |

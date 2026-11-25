@@ -36,11 +36,13 @@ pub enum Comanda {
     CautaInArbore(String),
     MutaSelectia(i32),
     Selecteaza(usize),
-    /// Clic pe un rand (sau pe patratul lui de pe harta): il selecteaza si
-    /// deschide panoul de detalii; pe randul deja deschis, inchide panoul.
+    /// Clic pe un rand (sau pe patratul lui de pe harta): il selecteaza.
+    /// Panoul de detalii e mereu deschis pe selectie (Mihai, 2026-11-25:
+    /// „ecranul asta il vreau mereu pornit"); nu mai exista inchidere.
     ClicPeRand(usize),
-    /// Butonul X din panoul de detalii, sau Esc.
-    InchideDetalii,
+    /// „Reset filter": filtrele, ordinea si sensul de la o comparare noua
+    /// (Modificate, Similar crescator), intr-un singur clic.
+    ResetFiltre,
     /// Nota obiectului `(baza, schema.nume)` (text gol = sterge). Obiectul
     /// vine explicit, nu din selectie: campul poate pierde focul dupa ce
     /// selectia s-a mutat deja pe alt rand.
@@ -333,10 +335,11 @@ pub struct Aplicatie {
     taburi: Taburi,
     /// Ce trebuie spus dupa ultima comanda pe taburi; se sterge la urmatoarea.
     mesaj_tab: Option<MesajTab>,
-    /// Panoul de detalii din dreapta listei e deschis.
-    detalii: bool,
     /// Arborele listei (etapa 19): ce baze si dosare sunt inchise.
     arbore: Arbore,
+    /// Ultima plasare de mana in alt loc decat cel sugerat: obiectul, cate
+    /// pasi de Ctrl+Z erau dupa ea, blocul (vezi `plasat_altundeva`).
+    plasat_altundeva: Option<((String, String), usize, usize)>,
 }
 
 /// Un obiect de calculat pe alt fir: cheia lui si cele doua texte.
@@ -506,7 +509,7 @@ impl Aplicatie {
             id_comparare: urmatorul_id_comparare(),
             refuzat_in_plan: false,
             arbore: Arbore::default(),
-            detalii: false,
+            plasat_altundeva: None,
             taburi: Taburi::noi(),
             mesaj_tab: None,
         }
@@ -532,9 +535,18 @@ impl Aplicatie {
         gmotion_core::calc_hash(&t)
     }
 
-    /// Panoul de detalii e deschis (si are un obiect de aratat).
+    /// Blocul (indexul lui, de la 0) lasat de mana in alt loc decat cel
+    /// sugerat, la ultima editare a obiectului deschis. `None` dupa orice
+    /// alta editare, dupa Ctrl+Z sau pe alt obiect.
+    pub fn plasat_altundeva(&self) -> Option<usize> {
+        let (cheie, pas, bloc) = self.plasat_altundeva.as_ref()?;
+        (self.cheia_curenta().as_ref() == Some(cheie) && self.istoric.len() == *pas)
+            .then_some(*bloc)
+    }
+
+    /// Panoul de detalii e deschis: mereu, cand e un obiect selectat.
     pub fn detalii_deschise(&self) -> bool {
-        self.detalii && self.obiect().is_some()
+        self.obiect().is_some()
     }
 
     /// Impactul estimat al deploy-ului obiectului selectat, si cine il
@@ -1008,15 +1020,13 @@ impl Aplicatie {
                 self.dupa_schimbarea_tabului();
                 return true;
             }
-            Comanda::ClicPeRand(p) => {
-                if self.detalii && self.lista.selectat() == Some(p) {
-                    self.detalii = false;
-                } else {
-                    self.lista.selecteaza(p);
-                    self.detalii = self.lista.selectat() == Some(p);
+            Comanda::ClicPeRand(p) => self.lista.selecteaza(p),
+            Comanda::ResetFiltre => {
+                self.lista.vederea_implicita();
+                if self.lista.selectat().is_none() && !self.lista.vizibile().is_empty() {
+                    self.lista.selecteaza(0);
                 }
             }
-            Comanda::InchideDetalii => self.detalii = false,
             Comanda::PuneNota(baza, id, text) => {
                 if self.rand(&baza, &id).is_none() {
                     return false;
@@ -1034,8 +1044,6 @@ impl Aplicatie {
                     if let Some(c) = self.cheia_curenta() {
                         self.taburi.deschide(c);
                     }
-                    // la intoarcere, lista arata obiectul de unde ai plecat
-                    self.detalii = true;
                 }
             }
             Comanda::InapoiLaLista => self.ecran = Ecran::Lista,
@@ -1117,12 +1125,21 @@ impl Aplicatie {
             }
             Comanda::Plaseaza { bloc, loc } => {
                 let uneste = self.uneste_cursorul;
-                return self.schimba_textul(|e, r, a, b| {
+                let altundeva = loc.is_some();
+                let schimbat = self.schimba_textul(|e, r, a, b| {
                     match loc {
                         None => e.aplica_blocuri(r, a, b, uneste, &[bloc]),
                         Some(l) => e.aplica_blocuri_la(r, a, b, uneste, &[bloc], l),
                     };
                 });
+                // lasat in alt loc decat cel sugerat: editorul spune asta si
+                // cum se revine (Mihai, 2026-11-25: „daca pun un bloc unde nu
+                // trebuie, arata ciudat in stanga")
+                self.plasat_altundeva = match (schimbat && altundeva, self.cheia_curenta()) {
+                    (true, Some(c)) => Some((c, self.istoric.len(), bloc)),
+                    _ => None,
+                };
+                return schimbat;
             }
             Comanda::AplicaToate => {
                 let schimbat = self.schimba_textul(|e, r, sursa, _| e.aplica_toate(r, sursa));
@@ -1904,33 +1921,75 @@ mod teste {
         );
     }
 
+    /// Un bloc lasat in alt loc decat cel sugerat: editorul primeste semnal
+    /// (`plasat_altundeva`), iar Ctrl+Z il ia inapoi si semnalul pleaca.
     #[test]
-    fn panoul_de_detalii_se_deschide_la_clic_si_se_inchide_la_al_doilea() {
+    fn blocul_lasat_altundeva_da_semnal_care_pleaca_la_ctrl_z() {
+        let mut a = aplicatie();
+        a.comanda(Comanda::Selecteaza(0));
+        a.comanda(Comanda::Deschide);
+        let baza = a.texte_curente().expect("texte").1;
+        let linii = baza.lines().count();
+        assert_eq!(a.plasat_altundeva(), None);
+        // pe locul sugerat: fara semnal
+        assert!(a.comanda(Comanda::Plaseaza { bloc: 0, loc: None }));
+        assert_eq!(a.plasat_altundeva(), None);
+        assert!(a.comanda(Comanda::Anuleaza));
+        // la capat, in alt loc: semnal, cu blocul
+        assert!(a.comanda(Comanda::Plaseaza {
+            bloc: 0,
+            loc: Some(gmotion_core::Loc::Insereaza(linii)),
+        }));
+        assert_eq!(a.plasat_altundeva(), Some(0));
+        assert!(a.comanda(Comanda::Anuleaza));
+        assert_eq!(a.plasat_altundeva(), None, "Ctrl+Z l-a luat inapoi");
+        assert_eq!(a.texte_curente().expect("texte").1, baza);
+    }
+
+    /// Panoul de detalii e mereu deschis pe selectie (Mihai, 2026-11-25:
+    /// „ecranul asta il vreau mereu pornit"): al doilea clic pe acelasi rand
+    /// nu-l mai inchide, iar j / k il muta odata cu selectia.
+    #[test]
+    fn panoul_de_detalii_e_mereu_deschis_pe_selectie() {
         let mut app = aplicatie();
-        assert!(
-            !app.detalii_deschise(),
-            "la pornire lista e pe toata latimea"
-        );
+        app.comanda(Comanda::Selecteaza(0));
+        assert!(app.detalii_deschise(), "deschis de la pornire");
         app.comanda(Comanda::ClicPeRand(1));
         assert!(app.detalii_deschise());
         assert_eq!(app.lista().selectat(), Some(1));
-        // clic pe alt rand: panoul ramane, arata noul rand
-        app.comanda(Comanda::ClicPeRand(0));
+        app.comanda(Comanda::ClicPeRand(1));
+        assert!(app.detalii_deschise(), "al doilea clic nu inchide");
+        app.comanda(Comanda::MutaSelectia(-1));
         assert!(app.detalii_deschise());
         assert_eq!(app.lista().selectat(), Some(0));
-        // al doilea clic pe acelasi rand: se inchide, selectia ramane
-        app.comanda(Comanda::ClicPeRand(0));
-        assert!(!app.detalii_deschise());
-        assert_eq!(app.lista().selectat(), Some(0));
-        app.comanda(Comanda::ClicPeRand(0));
-        app.comanda(Comanda::InchideDetalii);
-        assert!(!app.detalii_deschise());
-        // j / k nu deschid panoul
-        app.comanda(Comanda::MutaSelectia(1));
-        assert!(!app.detalii_deschise());
-        // un rand care nu exista nu deschide nimic
+        // un rand care nu exista nu schimba selectia
         app.comanda(Comanda::ClicPeRand(99));
-        assert!(!app.detalii_deschise());
+        assert_eq!(app.lista().selectat(), Some(0));
+    }
+
+    /// „Reset filter": filtrele, ordinea si sensul de la o comparare noua,
+    /// intr-un singur clic, cu lista vizibila recalculata si o selectie.
+    #[test]
+    fn reset_filter_readuce_vederea_de_pornire() {
+        use gmotion_fereastra::model_lista::{Ordine, Stare};
+        let mut app = aplicatie().cu_vederea_implicita();
+        let implicite = app.lista().vizibile().len();
+        app.comanda(Comanda::Filtreaza(None));
+        app.comanda(Comanda::Cauta("pA".into()));
+        app.comanda(Comanda::Sorteaza(Ordine::Nume));
+        app.comanda(Comanda::FiltreazaScor(10.0, 90.0));
+        assert_ne!(app.lista().filtru().stare, Some(Stare::Modificat));
+        app.comanda(Comanda::ResetFiltre);
+        assert_eq!(app.lista().filtru().stare, Some(Stare::Modificat));
+        assert_eq!(app.lista().filtru().cautare, "");
+        assert_eq!(
+            (app.lista().filtru().scor_min, app.lista().filtru().scor_max),
+            (0.0, 100.0)
+        );
+        assert_eq!(app.lista().ordine(), Ordine::Scor);
+        assert!(!app.lista().descrescator());
+        assert_eq!(app.lista().vizibile().len(), implicite);
+        assert!(app.lista().selectat().is_some());
     }
 
     #[test]
@@ -2092,8 +2151,7 @@ mod teste {
             vazute.push((app.obiect().unwrap().id(), i.folosit_de, cine));
         }
         vazute.sort();
-        // panoul inchis nu calculeaza impactul; deschis, il arata
-        assert_eq!(app.panou_detalii().impact, None);
+        // panoul e mereu deschis pe selectie: impactul se arata
         app.comanda(Comanda::ClicPeRand(0));
         let p = app.panou_detalii();
         assert!(

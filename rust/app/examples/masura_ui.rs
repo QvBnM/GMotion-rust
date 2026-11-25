@@ -6,13 +6,20 @@
 //!
 //!   cargo run --profile proba -p gmotion-app --example masura_ui -- instantaneu.json
 //!
-//! Instantaneul trebuie sa aiba bazele `Ref` si `C1`.
+//! Instantaneul trebuie sa aiba bazele `Ref` si `C1`; unul de 12.000 de
+//! obiecte: `python3 -I unelte/genereaza-mare.py 12000 mare.json`.
+//!
+//! La final, derularea (2026-11-25, „scroll-ul rapid nu e fluid"): lista
+//! randata in pixeli la 1920x1080, cu rotita, lent si rapid; pentru fiecare,
+//! media, p95 si cel mai lung cadru.
 use std::rc::Rc;
 use std::time::Instant;
 
 use gmotion_app::stare::{Progres, Stare};
 use gmotion_fereastra::{AntetLista, FereastraLista};
-use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType};
+use slint::platform::software_renderer::{
+    MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
+};
 
 struct Platforma(Rc<MinimalSoftwareWindow>);
 impl slint::platform::Platform for Platforma {
@@ -69,7 +76,10 @@ fn main() {
         );
         let l = t.elapsed().as_millis();
         let t = Instant::now();
-        gmotion_fereastra::incarca_fundal_harta(&ui);
+        // MASURA_FARA_FUNDAL=1: fara fundalul hartii, ca sa se vada cat costa
+        if std::env::var("MASURA_FARA_FUNDAL").is_err() {
+            gmotion_fereastra::incarca_fundal_harta(&ui, app.lista());
+        }
         let f = t.elapsed().as_millis();
         let t = Instant::now();
         match app.texte_obiect() {
@@ -106,7 +116,13 @@ fn main() {
             deseneaza(&mut s, &format!("dupa detalii {i}"));
         }
     }
-    // bifa „Revizuit" pe un rand: comanda, salvarea sesiunii, desenarea
+    // toata lista (ca la Mihai: vizibile=28405), apoi bifa „Revizuit" pe un
+    // rand: comanda, salvarea sesiunii, desenarea
+    s.app
+        .as_mut()
+        .unwrap()
+        .comanda(gmotion_app::rutare::Comanda::Filtreaza(None));
+    deseneaza(&mut s, "toata lista");
     for k in 0..3 {
         let t = Instant::now();
         s.app
@@ -138,4 +154,42 @@ fn main() {
         p.pasi.len()
     );
     deseneaza(&mut s, "dupa plan");
+
+    // derularea: fiecare cadru randat in pixeli, ca pe ecran
+    let mut buf = vec![PremultipliedRgbaColor::background(); 1920 * 1080];
+    let mut cadru = || {
+        let t = Instant::now();
+        w.request_redraw();
+        w.draw_if_needed(|r| {
+            r.render(&mut buf, 1920);
+        });
+        t.elapsed().as_secs_f64() * 1000.0
+    };
+    cadru();
+    for (eticheta, pas, cadre) in [("lent", -40.0f32, 60), ("rapid", -400.0, 60)] {
+        let mut ms: Vec<f64> = Vec::new();
+        for i in 0..cadre {
+            // inapoi in sus la jumatate, ca sa nu se opreasca la capat
+            let d = if i < cadre / 2 { pas } else { -pas };
+            let position = slint::LogicalPosition::new(500.0, 600.0);
+            ui.window()
+                .dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+            ui.window()
+                .dispatch_event(slint::platform::WindowEvent::PointerScrolled {
+                    position,
+                    delta_x: 0.0,
+                    delta_y: d,
+                });
+            slint::platform::update_timers_and_animations();
+            ms.push(cadru());
+        }
+        ms.sort_by(|a, b| a.total_cmp(b));
+        let medie = ms.iter().sum::<f64>() / ms.len() as f64;
+        let p95 = ms[(ms.len() * 95 / 100).min(ms.len() - 1)];
+        println!(
+            "derulare {eticheta}: medie {medie:.1} ms, p95 {p95:.1} ms, max {:.1} ms ({} cadre)",
+            ms[ms.len() - 1],
+            ms.len()
+        );
+    }
 }
