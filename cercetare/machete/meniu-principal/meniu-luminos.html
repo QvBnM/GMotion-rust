@@ -1,0 +1,113 @@
+<!doctype html><html lang="ro" class="luminos"><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-400.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-500.ttf);font-weight:500}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-600.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-400.ttf);font-weight:400}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-500.ttf);font-weight:500}
+:root{--fundal:#0d1120;--suprafata:#151a2e;--strat:#1d2440;--cod:#0f1424;--linie:#2a3255;--slaba:#1e2542;--text:#eef1ff;--t2:#a3acd0;--t3:#8a93b8;--accent:#ffb547;--pe-accent:#1a1200;--ok:#3ddc97;--mod-fundal:#312b29;--at:#ffb547}
+:root.luminos{--fundal:#f4f5f8;--suprafata:#ffffff;--strat:#eceef3;--cod:#ffffff;--linie:#e3e6ec;--slaba:#eef0f3;--text:#0f1115;--t2:#4f5561;--t3:#5f6572;--accent:#f5a524;--pe-accent:#1a1200;--ok:#0f6a37;--mod-fundal:#fdf1dc;--at:#8f5b00}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.mono{font-family:GeistMono,monospace}
+header{height:57px;border-bottom:1px solid var(--linie);display:flex;align-items:center;padding:0 24px;gap:14px}
+.logo{font-size:17px;font-weight:600;letter-spacing:-.4px}
+.logo i{display:inline-block;width:6px;height:6px;border-radius:3px;background:var(--accent);margin:0 1px 1px}
+.v{font:11px GeistMono;color:var(--t3);border:1px solid var(--linie);border-radius:4px;padding:1px 6px}
+.sp{flex:1}
+.hbtn{height:30px;border:1px solid var(--linie);border-radius:8px;background:var(--suprafata);color:var(--t2);display:flex;align-items:center;padding:0 11px;gap:7px;font-size:12.5px}
+main{flex:1;display:flex;flex-direction:column;padding:34px 48px 0;min-height:0}
+h1{font-size:23px;font-weight:600;letter-spacing:-.3px}
+.sub{color:var(--t2);font-size:13px;margin-top:7px}
+.grid{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:16px;flex:1;min-height:0;padding-bottom:4px}
+.card{border:1px solid var(--linie);border-radius:12px;background:var(--suprafata);padding:20px 22px 18px;display:flex;flex-direction:column;gap:10px;position:relative}
+.card.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.card.soon{background:var(--fundal);border-style:dashed}
+.card.soon .ram{margin-top:14px;margin-bottom:auto}
+.card.soon .tit b,.card.soon .d,.card.soon .ram i{color:var(--t3)}
+.tit{display:flex;align-items:center;gap:11px}
+.tit .sg{width:28px;height:28px;border-radius:7px;border:1px solid var(--linie);background:var(--strat);display:flex;align-items:center;justify-content:center;font:500 13px GeistMono;color:var(--t2)}
+.card.on .tit .sg{background:var(--accent);border-color:var(--accent);color:var(--pe-accent)}
+.tit b{font-size:16.5px;font-weight:600}
+.et{margin-left:auto;font:500 10.5px GeistMono;letter-spacing:.6px;padding:2px 7px;border-radius:4px;border:1px solid var(--linie);color:var(--t3)}
+.et.acum{border-color:var(--accent);color:var(--accent);background:var(--mod-fundal)}
+.d{color:var(--t2);font-size:13px;line-height:1.55;max-width:510px}
+.ram{margin-top:auto;display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--slaba);padding-top:11px}
+.ram i{font-style:normal;font:12px GeistMono;color:var(--t2);display:flex;gap:9px;align-items:center}
+.ram i:before{content:"";width:4px;height:4px;border-radius:2px;background:var(--t3);flex:none}
+.ram i s{text-decoration:none;color:var(--t3);margin-left:auto;font-size:11px}
+.act{display:flex;align-items:center;gap:10px;margin-top:12px}
+.go{height:38px;border-radius:9px;background:var(--accent);color:var(--pe-accent);font-weight:600;font-size:14px;display:flex;align-items:center;justify-content:center;gap:9px;padding:0 20px}
+.go span{font:11.5px GeistMono;opacity:.72}
+.ult{font-size:12.5px;color:var(--t2)}
+.ult b{font:12.5px GeistMono;font-weight:400;color:var(--text)}
+footer{height:46px;border-top:1px solid var(--linie);display:flex;align-items:center;padding:0 48px;gap:10px;color:var(--t2);font-size:12.5px;margin-top:20px}
+.bif{width:14px;height:14px;border:1px solid var(--t3);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pe-accent)}
+.bif.on{background:var(--accent);border-color:var(--accent)}
+.kbd{font:11px GeistMono;color:var(--t3)}
+</style></head><body>
+<header>
+  <div class="logo">GMotion<i></i></div>
+  <div class="v">v4.0.0</div>
+  <div class="sp"></div>
+  <div class="hbtn">RO / EN</div>
+  <div class="hbtn">Tema</div>
+  <div class="hbtn">Ajutor</div>
+</header>
+<main>
+  <h1>Ce facem?</h1>
+  <div class="sub">Patru directii. Compararea de obiecte merge acum; restul vin pe rand, fiecare cu ramurile ei.</div>
+  <div class="grid">
+
+    <div class="card on">
+      <div class="tit"><div class="sg">1</div><b>Comparare obiecte</b><div class="et acum">ACUM</div></div>
+      <div class="d">Martor fata de Modificata: proceduri, view-uri, functii, triggere si tabele. Lista diferentelor, editorul alaturat, planul de deploy.</div>
+      <div class="act">
+        <div class="go">Deschide <span>Enter</span></div>
+        <div class="ult">ultima: <b>SRV-DEV / ERP_TEST &rarr; ERP_PROD</b>, acum 2 ore</div>
+      </div>
+      <div class="ram">
+        <i>Doua baze, pe servere diferite</i>
+        <i>Instantaneu salvat (.json), fara server</i>
+        <i>O referinta fata de mai multe baze</i>
+      </div>
+    </div>
+
+    <div class="card soon">
+      <div class="tit"><div class="sg">2</div><b>Kit SQL pe baza</b><div class="et">IN CURAND</div></div>
+      <div class="d">Un script de livrare (CREATE / ALTER / DROP / INSERT) citit si impartit in obiecte, apoi pus fata in fata cu baza de destinatie: ce exista deja, ce se aduce nou, ce se schimba.</div>
+      <div class="ram">
+        <i>Un fisier sau un folder de kit<s>soon</s></i>
+        <i>Lista obiectelor din script, cu operatia lor<s>soon</s></i>
+        <i>Datele din INSERT, separat de obiecte<s>soon</s></i>
+      </div>
+    </div>
+
+    <div class="card soon">
+      <div class="tit"><div class="sg">3</div><b>Analiza initiala</b><div class="et">IN CURAND</div></div>
+      <div class="d">Ce s-a personalizat intr-o baza de ERP, inainte de un upgrade sau de o implementare: obiectele proprii fata de standard, tranzactiile folosite, exemple de date de unde pleaca personalizarea.</div>
+      <div class="ram">
+        <i>Personalizari fata de baza standard<s>soon</s></i>
+        <i>Tranzactii si tabele atinse<s>soon</s></i>
+        <i>Navigare prin date, cu exemple<s>soon</s></i>
+      </div>
+    </div>
+
+    <div class="card soon">
+      <div class="tit"><div class="sg">4</div><b>Configurare</b><div class="et">IN CURAND</div></div>
+      <div class="d">Conexiunile tinute minte, tema si limba, cat se asteapta la conectare, unde se scrie jurnalul si cat se pastreaza.</div>
+      <div class="ram">
+        <i>Conexiuni si acreditari<s>soon</s></i>
+        <i>Aspect: tema, limba, scara<s>soon</s></i>
+        <i>Jurnal si fisiere de lucru<s>soon</s></i>
+      </div>
+    </div>
+
+  </div>
+</main>
+<footer>
+  <div class="bif on">&check;</div>
+  <div>Porneste direct in Comparare obiecte</div>
+  <div class="sp"></div>
+  <div class="kbd">1&ndash;4 alege &nbsp;&middot;&nbsp; Enter deschide &nbsp;&middot;&nbsp; Esc inchide</div>
+</footer>
+</body></html>
