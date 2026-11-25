@@ -74,11 +74,15 @@ locala (clona noua, `rustup component add rustfmt clippy`) a scos trei lucruri
 pe care containerul nu le putea vedea, toate reparate in aceeasi zi: poarta de
 pe Windows isi rescria fixture-ul in loc sa-l compare, doua teste de `cli`
 citeau sesiunea criptata ca text, si doua lint-uri de clippy 1.100. Vezi
-„Capcane active". **Ce rama de facut:** Mihai ruleaza, dupa `git pull`,
-recipeul de renormalizare de mai jos (o data, fiindca `.gitattributes` e nou),
-apoi `unelte\verifica.bat` si trebuie sa iasa POARTA VERDE. Si verificarea
-noua **vazuta cazand** o data: `echo stricat>> referinta\rezultate_js.json`,
-poarta, apoi `git checkout -- referinta`.
+„Capcane active". **Probat:** pe masina lui Mihai poarta iese acum POARTA VERDE, cu
+amandoua fixture-urile „neschimbat". Verificarea noua s-a vazut cazand pe date
+adevarate, nu pe o stricare artificiala: a dat ROSIE intai pe fixture-ul JS
+(autocrlf), apoi pe cel Python (modul text din Python), si a trecut pe verde
+abia dupa ce cauza a fost reparata — de fiecare data cu mesajul „regenerarea ar
+schimba ...".
+
+Cine mai are o clona facuta inainte de `.gitattributes` o renormalizeaza o
+data, altfel fixture-urile ii rama cu CRLF pe disc:
 
 ```
 git rm -r --cached .
