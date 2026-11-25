@@ -84,11 +84,13 @@ pub enum Marcaj {
 pub enum Eticheta {
     #[default]
     Niciuna,
-    /// Mai multe blocuri consecutive doar in Martor, care merg in acelasi loc.
+    /// Mai multe blocuri consecutive doar in Before, care merg in acelasi
+    /// loc; sau (`doar_after`) doar in After, care se scot impreuna.
     Grup {
         de_la: usize,
         pana_la: usize,
         impreuna: bool,
+        doar_after: bool,
     },
     Bloc {
         nr: usize,
@@ -124,10 +126,25 @@ pub enum UndeBloc {
 pub fn text_eticheta(e: &Eticheta, l: Limba) -> String {
     match e {
         Eticheta::Niciuna => String::new(),
+        // un grup de blocuri doar in After (un `IF ... BEGIN ... END` adaugat):
+        // pana pe 2026-11-25 primea eticheta celor din Before, cu numerele
+        // lor (0-0) — „blocks 0-0 · BEFORE ONLY" pe un chenar rosu din After
+        Eticheta::Grup {
+            de_la,
+            pana_la,
+            doar_after: true,
+            ..
+        } => format!(
+            "{} {de_la}-{pana_la} · {} → {}",
+            l.alege("blocurile", "blocks"),
+            l.alege("DOAR IN AFTER", "AFTER ONLY"),
+            l.alege("se scot impreuna", "removed together")
+        ),
         Eticheta::Grup {
             de_la,
             pana_la,
             impreuna,
+            ..
         } => {
             let unde = if *impreuna {
                 l.alege("se insereaza impreuna", "inserted together")
@@ -638,7 +655,7 @@ pub fn construieste_cu(text_ref: &str, text_tinta: &str, uneste_cursor: bool) ->
                 .and_then(|b| grup_al_blocului.get(b).copied().flatten())
                 .and_then(|(k, _)| grupuri.get(k));
             match grup {
-                Some(g) if g.len() > 1 => eticheta_grup(g, &plasari, &nr_martor),
+                Some(g) if g.len() > 1 => eticheta_grup(g, &plasari, &nr_martor, &nr_modificata),
                 _ => eticheta_bloc(
                     r.bloc,
                     stare,
@@ -738,12 +755,19 @@ fn eticheta_grup(
     grup: &[usize],
     plasari: &[gmotion_core::plasare::Plasare],
     nr_martor: &[usize],
+    nr_modificata: &[usize],
 ) -> Eticheta {
-    let nr = |b: usize| nr_martor.get(b).copied().unwrap_or(0);
     let (prim, ultim) = (grup[0], grup[grup.len() - 1]);
+    // fara niciun bloc in Before: numerele sunt cele din After
+    let doar_after = grup
+        .iter()
+        .all(|&b| nr_martor.get(b).copied().unwrap_or(0) == 0);
+    let numere = if doar_after { nr_modificata } else { nr_martor };
+    let nr = |b: usize| numere.get(b).copied().unwrap_or(0);
     Eticheta::Grup {
         de_la: nr(prim),
         pana_la: nr(ultim),
+        doar_after,
         impreuna: plasari.iter().any(|p| p.rand == prim),
     }
 }
@@ -1033,6 +1057,29 @@ pub fn diferenta_fiecarui_rand(model: &ModelEditor) -> Vec<Option<usize>> {
 
 #[cfg(test)]
 mod teste {
+    /// Un grup de blocuri doar in After (instructiunile noi dintr-un corp)
+    /// are eticheta lui, cu numerele din After, nu „0-0 · DOAR IN BEFORE".
+    #[test]
+    fn grupul_doar_in_after_are_eticheta_lui() {
+        let a = "CREATE PROCEDURE dbo.uspSoldClient @client INT\nAS\nBEGIN\n    SELECT SUM(valoare) FROM dbo.Facturi WHERE client = @client;\nEND";
+        let b = "CREATE PROCEDURE dbo.uspSoldClient @client INT\nAS\nBEGIN\n    DECLARE @s DECIMAL(18,2);\n    SELECT @s = SUM(f.valoare)\n    FROM dbo.Facturi AS f\n    WHERE f.client = @client AND f.anulata = 0;\n    SELECT ISNULL(@s, 0);\nEND";
+        let m = super::construieste(a, b);
+        let texte: Vec<String> = m
+            .randuri
+            .iter()
+            .map(|r| super::text_eticheta(&r.eticheta, super::Limba::Romana))
+            .filter(|t| !t.is_empty())
+            .collect();
+        assert!(
+            texte.iter().all(|t| !t.contains(" 0-0 ")),
+            "fara numere 0-0: {texte:?}"
+        );
+        assert!(
+            texte.iter().any(|t| t.contains("DOAR IN AFTER")),
+            "grupul din After e numit ca atare: {texte:?}"
+        );
+    }
+
     use super::*;
 
     fn text_st(m: &ModelEditor) -> Vec<String> {
