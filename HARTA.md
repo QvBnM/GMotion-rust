@@ -22,6 +22,10 @@ lipsea.
 | Bloc „modificat" doar printr-un `BEGIN` / `END` lipit; „Aplica" pierde sau dubleaza un `END` | `RE_INCEPUT_INSTRUCTIUNE`, `asteapta_corp` | `rust/core/src/segmentare.rs` |
 | Numar de blocuri diferit de ce arata editorul | segmentare — e exact clasa de bug care a produs toate divergentele din v3.4 | `rust/core/src/segmentare.rs` |
 | Blocuri imperecheate gresit (se vede ca „sters + adaugat" in loc de „modificat") | alinierea prin programare dinamica, `perechi_replace` | `rust/core/src/diff.rs` |
+| Un bloc reordonat iese „modificat", sau „sters + adaugat", in loc de „mutat" | stratul blocurilor identice din `plan_blocuri`, `marcheaza_mutarile` | `rust/core/src/diff.rs` |
+| Segmentarea unui obiect mare dureaza secunde; un obiect intreg intr-un singur bloc | o instructiune care nu se termina (`MERGE` fara `;`): `StareInstructiune`, `MAX_LINII_INSTRUCTIUNE` | `rust/core/src/segmentare.rs` |
+| Un bloc desenat pe alta linie decat e in text; „Aplica" scrie peste alte linii | `Bloc::linii` din segmentare (nu se mai cauta in text) | `rust/core/src/segmentare.rs` |
+| „Difera in" spune „comentarii" pe un obiect cu hash identic | `amprenta_comentarii` + `diferente_ascunse`; e intentionat | `rust/core/src/normalizare.rs`, `rust/module/diff-obiecte/src/comparare.rs` |
 | Rezumat gresit („2 sterse" care nu exista) | `rezumat_rapid` / `rezumat_diff`, sau segmentarea de dedesubt | `rust/core/src/diff.rs` |
 | Diferente in interiorul liniei marcate aiurea | `diff_intra` | `rust/core/src/diff.rs` |
 | Rezultate diferite de `difflib` din Python | portul `SequenceMatcher` (atentie: `autojunk=False`) | `rust/core/src/seqmatch.rs` |

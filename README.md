@@ -60,11 +60,11 @@ explicatia sunt in `referinta/README.md`.
 | `mostenire/` — GMotion v3.4 in Python | inghetat, referinta de paritate |
 | `referinta/` — harness de conformitate + bench | **gata** |
 | `unelte/` — poarta de verificare | **gata** |
-| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 136 teste** |
+| `rust/core` — `gmotion-core`, motorul de comparare | **gata, 166 teste** |
 | `rust/db` — `SursaObiecte`: SQL Server + fixture, descoperire instante | **gata, verificat pe SQL Server real** (52 teste) |
 | `rust/platforma` — configurare, sesiuni, jurnal, registru, rutare | **gata, DPAPI verificat pe Windows** (54 teste) |
-| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 134 teste** |
-| `rust/cli` — binarul headless | **gata, 61 teste** |
+| `rust/module/diff-obiecte` — modulul 1, ca biblioteca | **gata, 147 teste** |
+| `rust/cli` — binarul headless | **gata, 65 teste** |
 | `rust/fereastra` — fereastra nativa, teme, componente | de scris |
 | `rust/app` — binarul cu interfata | de scris |
 | `rust/module/upgrade` — modulul 2 | de scris |
@@ -75,10 +75,13 @@ O componenta e **gata** doar cand are teste, `CRATE.md`, si poarta verde.
 
 ```
 seqmatch.rs     difflib.SequenceMatcher fidel (autojunk=False)
-normalizare.rs  norm, pregateste_afisare, hash, rotunjire bancara, scor
+normalizare.rs  norm, pregateste_afisare, hash, rotunjire bancara, scor,
+                amprentele pentru ce sterge normalizarea (hinturi, comentarii)
 segmentare.rs   split pe instructiuni, cu urmarirea literalelor,
-                comentariilor bloc, parantezelor si stivei CASE/BEGIN/END
-diff.rs         diferente in interiorul blocului, aliniere DP, rezumate
+                comentariilor bloc, parantezelor si stivei CASE/BEGIN/END;
+                fiecare bloc stie liniile pe care sta
+diff.rs         imperecherea blocurilor (ancore, blocuri identice, scor),
+                „mutat", diferente in interiorul blocului, rezumate, masura
 ```
 
 Porteaza **semantica JS**, nu pe cea din `motor.py`. Portul JS e varianta mai

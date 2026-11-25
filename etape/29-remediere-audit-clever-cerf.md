@@ -1,8 +1,8 @@
 # Etapa 29 — remedierea auditului de pe clever-cerf
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/clever-cerf-hjk2qh
-**Deschisa:** 2026-11-23 · **Incheiata:** —
+**Deschisa:** 2026-11-23 · **Incheiata:** 2026-11-24
 
 ## Scop
 
@@ -106,3 +106,9 @@ patru ar fi trimis pe o pista gresita pe cineva care le-ar fi crezut.
 (`SET NOEXEC OFF` in textul trimis la „Verifica pe server") cer un SQL Server.
 Primul e documentat in antetul scripturilor impartite, al doilea e o proba in
 `STARE.md`. Un mecanism de oprire care n-a fost vazut oprind nu se scrie.
+
+**Inchisa cu un criteriu nebifat, deliberat.** „Da"-ul lui Mihai pe capturi si
+probele pe SQL Server / Windows (F-D7, D-17) nu se pot bifa de aici si nu sunt
+lucru ramas de facut: sunt o asteptare. Stau in `STARE.md`, la „urmatorul pas
+concret", si nu tin etapa deschisa — altfel nicio etapa noua nu s-ar putea
+deschide pana la urmatoarea rulare pe Windows.

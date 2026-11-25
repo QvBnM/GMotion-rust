@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-24 · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde (768 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-25 · branch `claude/clever-cerf-hjk2qh`
+**Poarta:** verde (780 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
 > aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
@@ -22,10 +22,10 @@ interfata grafica: binarul `gmotion`.
 
 | Crate | Stare |
 |---|---|
-| `rust/core` | gata, 150 teste, fuzz pe invariante, lexer T-SQL |
+| `rust/core` | gata, 166 teste, fuzz pe invariante, harness de calitate (mutatii pe obiecte reale), lexer T-SQL |
 | `rust/db` | gata, verificat pe SQL Server real (auth SQL si Windows), citire paralela, 57 teste |
 | `rust/platforma` | gata, DPAPI verificat pe Windows, 55 teste |
-| `rust/module/diff-obiecte` | gata, 146 teste; planul de deploy cu garda si revenirea (etapa 12) |
+| `rust/module/diff-obiecte` | gata, 147 teste; planul de deploy cu garda si revenirea (etapa 12) |
 | `rust/cli` | gata, 65 teste, din care 42 pe binarul adevarat; `plan`, `deploy --plan` |
 | `rust/fereastra` | aspectul nou (etapa 13): conectarea, lista cu harta, editorul cu doua panouri, planul de deploy; doua moduri (intunecat / luminos) cu butonul de tema. Lista are acum coloanele Similar si Deploy, filtre pe stare si pe scor, sortare pe fiecare coloana, Export CSV, Ctrl+F |
 | `rust/app` | `gmotion-ui`: conectare → lista ↔ editor → deploy (garda, revenirea, scrierea); **la paritate cu v3.4**, in afara randurilor ramase in `cercetare/lipsuri-portare.md` |
@@ -35,10 +35,28 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/29-remediere-audit-clever-cerf.md` — unirea cu
-`claude/dreamy-ritchie-jdnfct` si remedierea auditului din
-`cercetare/audit-qa-2026-11-23-clever-cerf.md`. Etapa 28 (tabelele, doar
-comparare) s-a incheiat pe 2026-11-22.
+**Etapa activa:** `etape/30-motor-de-comparare.md` — motorul de comparare:
+cost, pozitii, mutari, masura. Etapa 29 (remedierea auditului) s-a incheiat pe
+2026-11-24, cu un criteriu nebifat deliberat: „da"-ul lui Mihai pe capturi si
+probele pe SQL Server, care nu se pot bifa de aici si stau mai jos.
+
+**Ce s-a schimbat in motor la etapa 30** (2026-11-25), pe scurt, fiindca se
+vede in interfata:
+
+- un bloc **reordonat** se raporteaza acum „mutat", nu „sters" + „adaugat" —
+  si mai ales nu „modificat", cum ieseau doua blocuri inversate pe 23 din 25
+  de obiecte reale. In editor, pastila spune „MUTAT, din Martor" /
+  „MUTAT, in Modificata"; culorile sunt cele de pana acum. **Vorba din pastila
+  o confirmi tu** — daca preferi altceva, se schimba in `model_editor.rs`.
+- un obiect care difera **doar intr-un comentariu** apare acum in lista, cu
+  „difera doar in: comentarii", si **intra in planul de deploy** — exact ca la
+  hinturile de blocare (F-M3). Daca nu vrei asta, filtrul se pune in plan, nu
+  in motor; spune.
+- `gmotion compara --detalii` are doua coloane noi: `SCHIMBAT` (cat la suta din
+  obiect e atins, ponderat pe marimea blocurilor — altceva decat „cat seamana"
+  al scorului) si `NOTE` (blocuri mutate, segmente imperecheate pozitional,
+  instructiuni retezate). CSV-ul are „Schimbat %" la sfarsit. **In fereastra nu
+  exista coloana noua**: o coloana cere macheta si „da"-ul tau.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -50,6 +68,21 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-25, de la tine (Mihai), pe etapa 30 (motorul):**
+
+1. **Vorba din pastila blocului mutat**: „MUTAT, din Martor" /
+   „MUTAT, in Modificata". Daca vrei altceva, sau vrei si o culoare proprie
+   (atunci e macheta noua), spune.
+2. **Comentariile in deploy.** Un obiect care difera doar intr-un comentariu
+   intra acum in plan. E ce vrei, sau il filtram la plan?
+3. **Coloana „Schimbat" in lista** din fereastra: o vrei? Daca da, e macheta
+   noua, pe care o desenez si o pui langa captura.
+4. De probat, cand ajungi la o baza reala: un obiect cu instructiuni
+   reordonate trebuie sa arate „N mutate" in lista, iar in editor blocul mutat
+   pe amandoua partile. Pe Linux am probat-o doar pe instantanee.
+
+**Tot ce urmeaza mai jos a ramas de la etapa 29 si inainte, neschimbat.**
 
 **2026-11-24, de la tine (Mihai), ca sa se poata incheia etapa 29:**
 

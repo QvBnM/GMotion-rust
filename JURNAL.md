@@ -1984,3 +1984,168 @@ decat unul absent si declarat.
 **Consecinte.** Scripturile impartite au in antet un `-- ATENTIE` care spune
 limita si cere rulare cu oprire la eroare. Dupa proba lui Mihai se poate trece
 la (a).
+
+---
+
+## 2026-11-25 — Un bloc reordonat se raporteaza „mutat", nu „sters" plus „adaugat"
+
+**Context.** `TipDiferenta` avea patru feluri: egal, modificat, sters,
+adaugat. Reordonarea instructiunilor — refactorul cel mai frecvent — nu intra
+in niciunul. Mai rau: harness-ul nou de calitate a aratat ca doua blocuri
+inversate ies drept **„2 modificate"** pe 23 din 25 de obiecte reale, adica
+„instructiunile astea doua s-au schimbat" despre doua instructiuni neatinse.
+Cauza: `SequenceMatcher` (Ratcliff-Obershelp) nu e un LCS exhaustiv, ci
+recursiv pe cea mai lunga potrivire, deci un bloc care si-a schimbat locul
+peste potrivirea aleasa nu mai e privit niciodata, si imperecherea pe scor il
+lua drept pereche a vecinului.
+
+**Alternative.** (a) un singur rand cu text pe amandoua partile, ca la
+„modificat"; (b) doua randuri, fiecare cu partea lui, legate prin `mutat_cu`;
+(c) nimic nou, doar un semn pe randurile „sters" / „adaugat" existente.
+
+**Motiv.** (b). (a) ar fi spart ordinea pe care se sprijina tot restul —
+randurile cu text in dreapta vin in ordinea blocurilor tintei, iar blocul
+mutat e prin definitie in alta ordine; `aliniere` si `plasare::plasari` numara
+blocurile tintei mergand prin randuri, deci ar fi scris in alt loc decat arata
+ecranul. (c) n-ar fi reparat cauza: blocul tot ar fi fost luat de scor drept
+pereche a altui bloc.
+
+**Consecinte.** Imperecherea are acum trei straturi, in ordinea increderii:
+ancorele lui `SequenceMatcher`, apoi blocurile identice ramase libere (ancore
+daca se pot pastra in ordine, mutari daca s-au incrucisat), si abia la urma
+scorul. „Mutat" cere text normalizat **identic**: un bloc mutat si schimbat
+ramane „sters" plus „adaugat", fiindca altfel motorul ar afirma ceva ce nu poate
+sustine. In editor, un bloc mutat pastreaza culoarea blocului fara pereche si
+schimba doar vorba din pastila — un al cincilea cod de stare ar cere alta
+macheta (CLAUDE.md §10), si vorba o confirma Mihai. Divergenta fata de
+motorul JS e in `DIVERGENTE_DELIBERATE` (cazul `reordonare_blocuri`), nu in
+fixture.
+
+---
+
+## 2026-11-25 — Comentariile primesc amprenta lor, ca hinturile
+
+**Context.** Normalizarea sterge comentariile, deci doua versiuni care difera
+doar intr-un comentariu au acelasi hash, sunt „identice" si nu ajung niciodata
+in lista. Decizia era confirmata (2026-11-17), dar consecinta nu se vedea:
+campul `clasificare.comentarii` nu se putea aprinde aproape niciodata, iar o
+documentatie schimbata intr-o procedura era invizibila.
+
+**Alternative.** (a) normalizarea sa pastreze comentariile — ar face
+„modificat" orice reformatare si ar schimba toate scorurile; (b) o amprenta
+separata, comparata ca diferenta ascunsa, exact mecanismul de la hinturi
+(F-M3); (c) nimic, ramane invizibil.
+
+**Motiv.** (b). Mecanismul exista deja si e probat: verdictul pe **cod** nu se
+schimba, scorurile nu se schimba, fixture-ul de referinta nu se atinge, si
+obiectul apare in lista cu „difera doar in: comentarii".
+
+**Consecinte.** `gmotion_core::amprenta_comentarii`, comparata in
+`diferente_ascunse` langa setari si hinturi. **Un obiect care difera doar
+intr-un comentariu intra acum si in planul de deploy** — ca la hinturi. Daca
+Mihai nu vrea asta, filtrul se pune in plan, nu in motor. Spatiile din
+interiorul comentariului se strang (reindentarea nu conteaza), majusculele nu
+(comentariul e text pentru om).
+
+---
+
+## 2026-11-25 — Pozitia unui bloc vine din segmentare, nu din cautare in text
+
+**Context.** `linii_start_blocuri(cod, &[String])` cauta textul fiecarui bloc
+inapoi in textul original. Blocurile unite (`UNION`, ciclu de cursor) nu sunt
+subsir al originalului — liniile goale dintre parti se pierd — deci cautarea
+dadea `None` si ramura de rezerva punea linia blocului **precedent**: 8 din
+109 obiecte reale aveau un bloc asezat pe linia gresita, iar „Aplica" scria
+peste alte linii (B-1, CRITIC). Reparatia de atunci a adaugat o a doua
+cautare, linie cu linie.
+
+**Alternative.** (a) a treia cautare, mai isteata; (b) segmentarea intoarce
+si pozitiile, pe care oricum le stie cand taie.
+
+**Motiv.** (b). Din texte **nu se poate** afla pozitia — de aia ghicea. Un
+bloc e acum exact liniile lui din original (`Bloc::linii`, invarianta 4e),
+deci pozitia e corecta prin constructie, nu prin potrivire.
+
+**Consecinte.** API public schimbat: `segmenteaza` / `Bloc` / `Segmentare` /
+`linii_start`, iar `linii_start_blocuri` si `cauta_pe_linii` au disparut. A
+disparut si `aliniere::harta_linii`, care reconstruia a doua oara aceeasi
+harta. `diff::compara` intoarce blocurile cu pozitii, deci o aliniere nu mai
+segmenteaza de patru ori acelasi text: `aliniaza` a scazut de la 195 la 149 ms
+pe corpus.
+
+---
+
+## 2026-11-25 — Masura calitatii alinierii, inainte de orice atins de prag
+
+**Context.** Toate testele motorului apara **stabilitatea**: conformitatea
+spune ca rezultatul nu s-a schimbat fata de motorul JS, invariantele ca nu se
+pierde cod, garda de cost ca nu devine lent. Niciunul nu spune ca imperecherea
+e **corecta**. Pragurile (44, 40, 55, 8, 40, 70, 80) sunt mostenite din v3.4
+si nu se pot atinge fara un numar: n-ai cum sa arati ca o schimbare e o
+imbunatatire.
+
+**Alternative.** (a) un corpus adnotat de mana cu alinierea „corecta"; (b)
+mutatii cunoscute aplicate obiectelor reale, si se cere motorului sa raporteze
+exact mutatia.
+
+**Motiv.** (b). (a) cere munca de adnotare care se invecheste la fiecare
+schimbare de segmentare, si adnotarea ar fi facuta de acelasi cap care a scris
+codul. La (b) raspunsul corect vine din **mutatie**, nu din judecata: daca
+sterg un bloc, motorul trebuie sa spuna „1 sters", nimic altceva.
+
+**Consecinte.** `rust/core/tests/calitate.rs`, cu plafon de jos pe rata de
+recuperare, per mutatie. A prins imediat defectul reparat mai sus (doua
+blocuri inversate ieseau „2 modificate"). Plafoanele nu sunt 100 si nu se
+pretinde ca ar trebui: segmentarea e euristica, si pe cateva obiecte o
+stergere muta granita blocului vecin. Rostul plafonului e sa prinda
+**scaderea**.
+
+---
+
+## 2026-11-25 — Garzile de cost ale motorului, pe numere, nu pe timp
+
+**Context.** O instructiune care nu se termina niciodata (`MERGE` fara `;`
+final, `UPDATE` al carui `SET` nu vine) facea doua rele deodata: segmentarea
+renormaliza instructiunea intreaga la fiecare linie, deci patratic (7,0 s pe
+4.000 de linii), si obiectul intreg devenea un singur bloc, deci diff-ul nu
+mai avea nicio valoare. Iar `plasare::plasari` tot n-avea plafonul cerut de
+B-5.
+
+**Alternative.** Pentru cost: (a) plafon pe timp; (b) plafon pe un numar
+deterministic.
+
+**Motiv.** (b), ca in restul fisierului `tests/cost.rs`: un test pe timpi
+trece azi si cade aleator peste o luna. `Segmentare::normalizari` si
+`RaportPlasare::comparatii` exista ca sa poata fi plafonate.
+
+**Consecinte.** Starea instructiunii curente se tine incremental
+(`StareInstructiune`), cu oracolul vechi pastrat in teste ca referinta de
+echivalenta; plus un plafon de 500 de linii peste care instructiunea se
+declara terminata cu forta, raportat prin `instructiuni_retezate` (invarianta
+4d, exceptie deliberata la 4c). `UPDATE` fara `SET` pe 4.000 de linii: 7.020
+ms -> 9,2 ms. `plasari` are plafon de 200.000 de comparatii, cu
+`RaportPlasare::degradate`. Amandoua plafoanele au fost vazute **cazand**.
+Nota: plafonul singur ar fi marginit costul, iar starea incrementala singura
+l-ar fi facut liniar — amandoua sunt necesare, si de aia proba trebuie sa
+strice amandoua ca sa vada testul rosu.
+
+---
+
+## 2026-11-25 — Scorul spune cat seamana; „schimbat" spune cat s-a schimbat
+
+**Context.** `scor_similaritate` e Ratcliff-Obershelp pe tot obiectul: o
+instructiune schimbata din patruzeci da ~98, orice ar fi schimbat in ea. Pe un
+obiect reordonat, scorul spunea „78% similar" despre un text **neatins**.
+
+**Alternative.** (a) se inlocuieste scorul; (b) un camp nou, langa el.
+
+**Motiv.** (b). Scorul e in fixture-ul de referinta, in CSV, in filtrele
+listei si in capul lui Mihai; inlocuit, ar fi schimbat in liniste ce vede
+utilizatorul. `Masura::schimbat` e un numar nou, descompus pe feluri de bloc,
+deci nu trebuie crezut pe cuvant.
+
+**Consecinte.** `gmotion_core::masoara` / `rezumat_si_masura_rapide`,
+`Rand::schimbat` in modul, coloanele `SCHIMBAT` si `NOTE` la
+`gmotion compara --detalii`, si in `--json`. Un bloc mutat se socoteste
+**neschimbat** la `schimbat` (textul e acelasi), si se vede in `mutate`. In
+fereastra nu exista coloana noua: o coloana cere macheta, deci o decide Mihai.
