@@ -18,7 +18,6 @@ use gmotion_modul_diff_obiecte as modul;
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
-use slint::ComponentHandle;
 
 struct Platforma(Rc<MinimalSoftwareWindow>);
 impl slint::platform::Platform for Platforma {

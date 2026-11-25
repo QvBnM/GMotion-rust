@@ -187,7 +187,9 @@ component CapPanou inherits Rectangle {
     }
 }
 
-export component EditorDiferente inherits Window {
+export component EditorDiferente inherits Rectangle {
+    // tastele vin aici cand ecranul devine vizibil (shell-ul cheama focus)
+    forward-focus: taste;
     // sub atat, cele doua panouri de cod nu mai au ce arata (C-S6)
     min-width: 900px;
     min-height: 560px;
@@ -206,12 +208,10 @@ export component EditorDiferente inherits Window {
     // care se deseneaza peste el (etapa 25)
     callback text-editat(string);
     in property <[LinieUi]> ed-linii;
-    title: "gmotion — " + root.obiect-nume; // text-permis: marca
+    out property <string> titlu: "gmotion — " + root.obiect-nume; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
     background: Tema.fundal;
-    default-font-family: Tema.font-ui;
-    default-font-size: 13px;
 
     // obiectul
     in property <string> obiect-schema;
@@ -436,6 +436,22 @@ export component EditorDiferente inherits Window {
     public function focus-taste() {
         taste.focus();
     }
+    // ecranul devine vizibil (shell-ul): tastele pe editor, dar nu peste
+    // campul de editare deschis; nimic ramas pe jumatate de pe ecranul de
+    // dinainte (o tragere, o previzualizare la hover)
+    public function intra() {
+        root.renunta-la-tragere();
+        root.previzualizare-diferenta = -1;
+        root.detalii-hover = "";
+        if (!root.editeaza-mod) { taste.focus(); }
+    }
+    // o tragere neterminata se uita: fantoma, locul aprins, randul
+    function renunta-la-tragere() {
+        root.trage-diferenta = -1;
+        root.trage-bloc = -1;
+        root.trage-rand = -1;
+        root.trage-x = 0px;
+    }
     function porneste-editarea() {
         root.editeaza-mod = true;
         root.editeaza-textul-final();
@@ -484,6 +500,7 @@ export component EditorDiferente inherits Window {
             if (e.modifiers.shift && e.text == Key.LeftArrow) { root.deruleaza(-120px); return accept; }
             if (e.text == Key.Home) { root.derulare-x = 0px; return accept; }
             // Esc: intai renunta la alegerea locului, apoi inapoi la lista
+            if (e.text == Key.Escape && root.trage-diferenta >= 0) { root.renunta-la-tragere(); return accept; }
             if (e.text == Key.Escape && root.alege-activ) { root.alege-diferenta = -1; root.alege-bloc = -1; return accept; }
             if (e.text == Key.Escape) { root.inapoi-lista(); return accept; }
             return reject;
@@ -978,6 +995,12 @@ export component EditorDiferente inherits Window {
                                         // n-are ce sa traga)
                                         if r.diferenta >= 0 && r.stare != 0 && r.stare != 3 && !root.ascunde-diferentele: TouchArea {
                                             mouse-cursor: self.pressed ? grabbing : grab;
+                                            // mouse-ul a iesit din fereastra cu butonul apasat,
+                                            // sau randul s-a redesenat sub el: nu vine niciun
+                                            // `up`, iar fantoma ramanea agatata (2026-11-25)
+                                            changed pressed => {
+                                                if (!self.pressed) { root.renunta-la-tragere(); }
+                                            }
                                             moved => {
                                                 // se considera tragere abia dupa cativa
                                                 // pixeli: altfel un clic obisnuit aprinde
@@ -1667,9 +1690,14 @@ export component EditorDiferente inherits Window {
                                     root.comuta-nod(n.cheie);
                                 }
                             }
+                            // textul de hover pleaca odata cu mouse-ul; pana pe
+                            // 2026-11-25 ramanea pe ultimul obiect atins
+                            property <string> text-hover: r.schema + "." + r.nume + " · " + r.baza + "\n" + r.tip + " · " + r.plus + " " + r.minus + " · " + r.scor-text + " · " + r.difera-in;
                             changed has-hover => {
                                 if (self.has-hover && n.fel == 2) {
-                                    root.detalii-hover = r.schema + "." + r.nume + " · " + r.baza + "\n" + r.tip + " · " + r.plus + " " + r.minus + " · " + r.scor-text + " · " + r.difera-in;
+                                    root.detalii-hover = self.text-hover;
+                                } else if (!self.has-hover && root.detalii-hover == self.text-hover) {
+                                    root.detalii-hover = "";
                                 }
                             }
                         }

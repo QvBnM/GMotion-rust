@@ -26,7 +26,8 @@ use gmotion_fereastra::model_lista::{FiltruRevizuire, Stare as StareObiect};
 use gmotion_fereastra::{
     aplica_tema, goleste_previzualizarea, incarca_conectare, incarca_deploy, incarca_editarea,
     incarca_editor, incarca_jurnal, incarca_lista, incarca_previzualizare, AntetEditor, AntetLista,
-    EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista, Mod, StareEditare,
+    Aplicatie, AreAplicatie, EditorDiferente, FereastraConectare, FereastraDeploy, FereastraLista,
+    Mod, StareEditare,
 };
 use gmotion_modul_diff_obiecte as modul;
 use slint::ComponentHandle;
@@ -124,7 +125,49 @@ fn argument(nume: &str) -> Option<String> {
 /// sesiune: ecranul, numele callback-ului si argumentele (taiate la 200 de
 /// caractere; parola nu se scrie niciodata). Cele foarte dese (mouse peste
 /// harta) merg la `trace`, ca sa nu ingroape restul.
+/// Ultima actiune a utilizatorului, pentru ceasul de garda: daca interfata
+/// ingheata, jurnalul spune dupa ce.
+static ULTIMA_ACTIUNE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+/// Cand a batut ultima data ceasul firului de interfata (ms de la pornire).
+static BATAIE_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Ceasul de garda: un fir care se uita daca firul interfetei mai bate. Pe
+/// Windows o fereastra care nu raspunde ~5 s e omorata de sistem
+/// (-805306369, 2026-11-25) si jurnalul nu spunea nimic; acum spune cat a
+/// stat si dupa ce actiune.
+fn porneste_garda(pornire: Instant) {
+    use std::sync::atomic::Ordering;
+    let _ = std::thread::Builder::new()
+        .name("garda-interfata".into())
+        .spawn(move || {
+            let mut raportat = false;
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                let acum = pornire.elapsed().as_millis() as u64;
+                let ultima = BATAIE_MS.load(Ordering::Relaxed);
+                let stat = acum.saturating_sub(ultima);
+                if stat > PRAG_INGHETARE_MS && !raportat {
+                    let dupa = ULTIMA_ACTIUNE
+                        .lock()
+                        .map(|a| a.clone())
+                        .unwrap_or_default();
+                    tracing::error!(target: "gmotion::app", ms = stat, dupa = %dupa, "interfata nu raspunde");
+                    raportat = true;
+                } else if stat <= PRAG_INGHETARE_MS && raportat {
+                    tracing::warn!(target: "gmotion::app", "interfata raspunde din nou");
+                    raportat = false;
+                }
+            }
+        });
+}
+
+/// De la cat timp fara bataie se considera ca interfata a inghetat.
+const PRAG_INGHETARE_MS: u64 = 2000;
+
 fn actiune(ecran: &str, nume: &str, argumente: &str, des: bool) {
+    if let Ok(mut u) = ULTIMA_ACTIUNE.lock() {
+        *u = format!("{ecran}.{nume}");
+    }
     let a: String = argumente.chars().take(200).collect();
     if des {
         tracing::trace!(target: "gmotion::actiuni", ecran, nume, argumente = %a, "actiune");
@@ -133,37 +176,50 @@ fn actiune(ecran: &str, nume: &str, argumente: &str, des: bool) {
     }
 }
 
-fn arata<T: ComponentHandle>(nou: &T, celelalte: [&slint::Window; 3]) {
-    // fiecare ecran e o fereastra separata: cea noua preia pozitia, marimea
-    // si starea (maximizata / tot ecranul) celei de dinainte, altfel pe
-    // Windows „Deschide" parea ca porneste alta aplicatie, in alt loc
-    let w = nou.window();
-    if !w.is_visible() {
-        tracing::debug!(target: "gmotion::app", marime = ?w.size(), pozitie = ?w.position(), "arat alt ecran");
-        if let Some(veche) = celelalte.iter().find(|v| v.is_visible()) {
-            // geometria preluata, ca o fereastra care sare sa se vada in jurnal
-            tracing::debug!(
-                target: "gmotion::app",
-                marime = ?veche.size(),
-                pozitie = ?veche.position(),
-                maximizata = veche.is_maximized(),
-                tot_ecranul = veche.is_fullscreen(),
-                "preiau geometria ferestrei de dinainte"
-            );
-            if veche.is_fullscreen() {
-                w.set_fullscreen(true);
-            } else if veche.is_maximized() {
-                w.set_maximized(true);
-            } else {
-                w.set_maximized(false);
-                w.set_size(veche.size());
-                w.set_position(veche.position());
-            }
-        }
+/// Pune fereastra pe monitorul cursorului, centrata, sau unde a fost lasata
+/// data trecuta daca monitorul acela mai exista. Inainte de `show`: Slint o
+/// creeaza direct acolo, fara sa sara.
+fn pune_geometria(a: &Aplicatie, cfg: &gmotion_platforma::Configurare) {
+    use gmotion_app::monitor::{alege_geometria, citeste_sistemul, Dreptunghi};
+    let salvata = match cfg.fereastra.as_slice() {
+        [x, y, l, i] if *l > 0 && *i > 0 => Some(Dreptunghi {
+            x: *x,
+            y: *y,
+            latime: *l as u32,
+            inaltime: *i as u32,
+        }),
+        _ => None,
+    };
+    let (monitoare, cursor) = citeste_sistemul();
+    let ales = alege_geometria(salvata, &monitoare, cursor);
+    tracing::info!(target: "gmotion::app", monitoare = monitoare.len(), reluata = salvata.is_some(), geometrie = ?ales, "pozitia ferestrei la pornire");
+    if let Some(g) = ales {
+        a.window()
+            .set_size(slint::PhysicalSize::new(g.latime, g.inaltime));
+        a.window()
+            .set_position(slint::PhysicalPosition::new(g.x, g.y));
     }
-    let _ = nou.show();
-    for w in celelalte {
-        let _ = w.hide();
+    if cfg.fereastra_maximizata {
+        a.window().set_maximized(true);
+    }
+}
+
+/// Cat dureaza trecerea de la un ecran la altul: destul cat sa se vada ca
+/// ecranul se schimba pe loc, nu atat cat sa astepti dupa el.
+const DURATA_TRANZITIE_MS: i64 = 180;
+
+/// Face vizibil ecranul `ecran` din fereastra unica. Fereastra nu se mai
+/// inchide si nu se mai redeschide: ramane pe acelasi monitor, in aceeasi
+/// pozitie, iar ecranele trec unul in altul (opacitate, `durata-tranzitie`).
+/// Pana la 2026-11-25 fiecare ecran era o fereastra separata, si „Deschide"
+/// o muta unde voia sistemul.
+fn arata(a: &Aplicatie, ecran: i32) {
+    if a.get_ecran() != ecran {
+        tracing::debug!(target: "gmotion::app", din = a.get_ecran(), in_ = ecran, "schimb ecranul");
+        a.set_ecran(ecran);
+    }
+    if !a.window().is_visible() {
+        let _ = a.show();
     }
 }
 
@@ -213,11 +269,13 @@ fn ruleaza() -> Result<(), String> {
 
     let stare = Rc::new(RefCell::new(Stare::noua(conectare, sesiuni)));
 
-    let conectare_ui = FereastraConectare::new().map_err(|e| e.to_string())?;
+    // o singura fereastra; ecranele sunt in ea (vezi `arata`)
+    let aplicatie = Aplicatie::new().map_err(|e| e.to_string())?;
+    let conectare_ui = FereastraConectare::din(&aplicatie);
     gmotion_fereastra::leaga_scara(&conectare_ui);
-    let lista_ui = FereastraLista::new().map_err(|e| e.to_string())?;
-    let editor_ui = EditorDiferente::new().map_err(|e| e.to_string())?;
-    let deploy_ui = FereastraDeploy::new().map_err(|e| e.to_string())?;
+    let lista_ui = FereastraLista::din(&aplicatie);
+    let editor_ui = EditorDiferente::din(&aplicatie);
+    let deploy_ui = FereastraDeploy::din(&aplicatie);
     // configurarea: un fisier stricat nu opreste fereastra, dar se spune
     let cale_cfg = gmotion_platforma::cai::cale_configurare().ok();
     let cfg = stare::citeste_configurarea(cale_cfg.as_deref());
@@ -226,6 +284,27 @@ fn ruleaza() -> Result<(), String> {
     stare.borrow_mut().uneste_implicit = cfg.uneste_cursor;
     // plierea liniilor identice: ce s-a ales ultima data (implicit, tot codul)
     editor_ui.set_pliaza_identicul(cfg.pliaza_identicul);
+    pune_geometria(&aplicatie, &cfg);
+    // la inchidere se tine minte unde a ramas fereastra
+    {
+        let a = aplicatie.as_weak();
+        let cale_cfg = cale_cfg.clone();
+        aplicatie.window().on_close_requested(move || {
+            if let (Some(a), Some(cale)) = (a.upgrade(), cale_cfg.as_ref()) {
+                let w = a.window();
+                let (p, m) = (w.position(), w.size());
+                let maximizata = w.is_maximized();
+                tracing::info!(target: "gmotion::app", x = p.x, y = p.y, latime = m.width, inaltime = m.height, maximizata, "inchid; tin minte locul ferestrei");
+                stare::salveaza_in_configurare(cale, "fereastra", |c| {
+                    if !maximizata {
+                        c.fereastra = vec![p.x, p.y, m.width as i32, m.height as i32];
+                    }
+                    c.fereastra_maximizata = maximizata;
+                });
+            }
+            slint::CloseRequestResponse::HideWindow
+        });
+    }
 
     // modul (intunecat / luminos), acelasi pe toate ecranele: argumentul,
     // altfel ce s-a ales ultima data cu butonul de tema, altfel implicitul
@@ -377,11 +456,7 @@ fn ruleaza() -> Result<(), String> {
             c_ui.set_text_despre(despre.as_str().into());
             l_ui.set_text_despre(despre.into());
             if s.app.is_none() {
-                // ATENTIE la ordine: intai se arata fereastra noua, abia apoi
-                // se ascund celelalte. Slint inchide bucla cand nu mai e
-                // nicio fereastra vizibila, deci „ascunde tot, apoi arata"
-                // inchide aplicatia pe loc.
-                arata(&c_ui, [l_ui.window(), e_ui.window(), d_ui.window()]);
+                arata(c_ui.aplicatie(), FereastraConectare::ECRAN);
                 // „Aceeasi conexiune": ce s-a schimbat la martor ajunge si la
                 // modificata, inainte sa se deseneze
                 s.conectare.sincronizeaza();
@@ -518,7 +593,7 @@ fn ruleaza() -> Result<(), String> {
                         },
                     );
                 }
-                arata(&e_ui, [l_ui.window(), d_ui.window(), c_ui.window()]);
+                arata(e_ui.aplicatie(), EditorDiferente::ECRAN);
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
                 // dupa o scriere reusita, directorul scris; inainte, cel in
@@ -539,9 +614,9 @@ fn ruleaza() -> Result<(), String> {
                     );
                     incarca_deploy(&d_ui, &e);
                 }
-                arata(&d_ui, [l_ui.window(), e_ui.window(), c_ui.window()]);
+                arata(d_ui.aplicatie(), FereastraDeploy::ECRAN);
             } else {
-                arata(&l_ui, [e_ui.window(), d_ui.window(), c_ui.window()]);
+                arata(l_ui.aplicatie(), FereastraLista::ECRAN);
             }
         }
     };
@@ -1230,6 +1305,8 @@ fn ruleaza() -> Result<(), String> {
     // ceasul care aduce progresul compararii de pe celalalt fir. Bate tot
     // timpul, dar nu face nimic cat nu ruleaza nimic.
     let ceas = slint::Timer::default();
+    let pornit = Instant::now();
+    porneste_garda(pornit);
     {
         let s = stare.clone();
         let d = deseneaza.clone();
@@ -1237,6 +1314,10 @@ fn ruleaza() -> Result<(), String> {
             slint::TimerMode::Repeated,
             std::time::Duration::from_millis(120),
             move || {
+                BATAIE_MS.store(
+                    pornit.elapsed().as_millis() as u64,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
                 // celelalte lucruri de pe alte fire, apoi compararea
                 let s_a_schimbat = s.borrow_mut().verifica_lucrarile();
                 if s_a_schimbat {
@@ -1276,6 +1357,15 @@ fn ruleaza() -> Result<(), String> {
     }
 
     deseneaza();
+    // primul ecran apare pe loc; de aici incolo ecranele trec unul in altul
+    {
+        let a = aplicatie.as_weak();
+        slint::Timer::single_shot(std::time::Duration::from_millis(400), move || {
+            if let Some(a) = a.upgrade() {
+                a.set_durata_tranzitie(DURATA_TRANZITIE_MS);
+            }
+        });
+    }
     slint::run_event_loop().map_err(|e| e.to_string())?;
     Ok(())
 }

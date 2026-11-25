@@ -7,6 +7,7 @@
 
 pub mod deploy;
 pub mod fir;
+pub mod monitor;
 pub mod pornire;
 pub mod rutare;
 pub mod stare;

@@ -23,18 +23,35 @@ pub mod texte;
 
 slint::include_modules!();
 
+/// Orice are in spate fereastra unica: `Aplicatie` insasi si fiecare ecran
+/// din ea (`FereastraLista`, ...). Functiile care pun tema, limba sau scara
+/// iau asta, ca sa mearga cu oricare.
+pub trait AreAplicatie {
+    fn aplicatie(&self) -> &Aplicatie;
+}
+
+impl AreAplicatie for Aplicatie {
+    fn aplicatie(&self) -> &Aplicatie {
+        self
+    }
+}
+
+// Tipurile per ecran, generate de `build.rs` (vezi `build_shell.rs`).
+include!(concat!(env!("OUT_DIR"), "/ecrane.rs"));
+
+#[cfg(test)]
+#[path = "../build_shell.rs"]
+#[allow(dead_code)]
+mod build_shell;
+
 pub use jetoane::Mod;
 use model_editor::{Bucata, Marcaj, ModelEditor, RandAfisat, Sintaxa, Stare};
 use slint::{Color, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, SharedString, VecModel};
 
 /// Pune textele limbii alese in globalul `Texte`. Se cheama inainte de orice
 /// afisare si din nou la fiecare schimbare de limba, ca `aplica_tema`.
-pub fn aplica_limba<'a, T>(ui: &'a T, l: texte::Limba)
-where
-    T: slint::ComponentHandle,
-    Texte<'a>: slint::Global<'a, T>,
-{
-    let g = ui.global::<Texte>();
+pub fn aplica_limba(ui: &impl AreAplicatie, l: texte::Limba) {
+    let g = slint::ComponentHandle::global::<Texte>(ui.aplicatie());
     macro_rules! pune {
         ($($camp:ident $set:ident),* $(,)?) => {
             // destructurare fara `..`: un camp din `Texte` lipsa din lista
@@ -248,12 +265,8 @@ macro_rules! cu_jetoanele {
 /// afisare si din nou la fiecare comutare de mod: in `.slint` culorile nu au
 /// valori implicite, tocmai ca sa nu existe o a doua lista de culori pe care
 /// nu o verifica nimeni.
-pub fn aplica_tema<'a, T>(ui: &'a T, m: Mod)
-where
-    T: slint::ComponentHandle,
-    Tema<'a>: slint::Global<'a, T>,
-{
-    let t = ui.global::<Tema>();
+pub fn aplica_tema(ui: &impl AreAplicatie, m: Mod) {
+    let t = slint::ComponentHandle::global::<Tema>(ui.aplicatie());
     let p = m.paleta();
     t.set_font_ui(jetoane::FONT_UI.into());
     t.set_font_mono(jetoane::FONT_MONO.into());
@@ -290,21 +303,14 @@ fn pe_loc<T: Clone + PartialEq + 'static>(vechi: ModelRc<T>, noi: Vec<T>) -> Opt
 }
 
 /// Limba pusa in `Texte` de ultimul [`aplica_limba`]; inainte de el, romana.
-pub fn limba_curenta<'a, T>(ui: &'a T) -> texte::Limba
-where
-    T: slint::ComponentHandle,
-    Texte<'a>: slint::Global<'a, T>,
-{
-    texte::Limba::din_nume(&ui.global::<Texte>().get_cod_limba()).unwrap_or_default()
+pub fn limba_curenta(ui: &impl AreAplicatie) -> texte::Limba {
+    texte::Limba::din_nume(&slint::ComponentHandle::global::<Texte>(ui.aplicatie()).get_cod_limba())
+        .unwrap_or_default()
 }
 
 /// Modul pus in `Tema` de ultimul [`aplica_tema`].
-pub fn mod_curent<'a, T>(ui: &'a T) -> Mod
-where
-    T: slint::ComponentHandle,
-    Tema<'a>: slint::Global<'a, T>,
-{
-    if ui.global::<Tema>().get_intunecat() {
+pub fn mod_curent(ui: &impl AreAplicatie) -> Mod {
+    if slint::ComponentHandle::global::<Tema>(ui.aplicatie()).get_intunecat() {
         Mod::Intunecat
     } else {
         Mod::Luminos
@@ -2037,21 +2043,24 @@ pub fn incarca_jurnal(ui: &FereastraConectare, linii: &[String]) {
     ui.set_jurnal(ModelRc::new(VecModel::from(v)));
 }
 
-/// Leaga scara unica de fereastra de conectare (etapa 17, `scara.rs`): la
-/// fiecare redimensionare se recalculeaza, dupa ce Slint a terminat
-/// evenimentul curent (schimbata in mijlocul lui, ar redimensiona fereastra
-/// din interiorul propriei redimensionari).
+/// Ecranul de conectare se strange pe o fereastra scunda (`scund`). Pana pe
+/// 2026-11-25 aici se punea si o scara proprie, trimitand ferestrei un
+/// `ScaleFactorChanged` peste cel al sistemului; la mutarea pe un monitor
+/// cu alta marire, cele doua se bateau si fereastra ingheta (Windows a
+/// inchis-o cu -805306369). Acum marirea e doar cea a sistemului.
 pub fn leaga_scara(ui: &FereastraConectare) {
-    let scara = std::rc::Rc::new(scara::ScaraFereastra::noua());
     let slaba = ui.as_weak();
     let aplica = move || {
-        let s = scara.clone();
         let slaba = slaba.clone();
+        // amanat: `changed width` vine din mijlocul unei desenari
         slint::Timer::single_shot(std::time::Duration::ZERO, move || {
             if let Some(ui) = slaba.upgrade() {
-                s.aplica(ui.window());
-                let logic = ui.window().size().to_logical(ui.window().scale_factor());
-                ui.set_scund(logic.height < 820.0);
+                let w = ui.window();
+                let logic = w.size().to_logical(w.scale_factor());
+                let scund = logic.height < 820.0;
+                if ui.get_scund() != scund {
+                    ui.set_scund(scund);
+                }
             }
         });
     };
@@ -2503,25 +2512,31 @@ mod teste {
     }
 
     /// Apasa o tasta in fereastra, ca un utilizator (apasat si eliberat).
-    fn apasa<T: ComponentHandle>(ui: &T, tasta: &str) {
+    fn apasa<T: AreAplicatie>(ui: &T, tasta: &str) {
         use slint::platform::WindowEvent;
         let t: SharedString = tasta.into();
-        ui.window()
+        ui.aplicatie()
+            .window()
             .dispatch_event(WindowEvent::KeyPressed { text: t.clone() });
-        ui.window()
+        ui.aplicatie()
+            .window()
             .dispatch_event(WindowEvent::KeyReleased { text: t });
     }
 
     /// O tasta cu Ctrl tinut apasat.
-    fn cu_ctrl<T: ComponentHandle>(ui: &T, t: &str) {
+    fn cu_ctrl<T: AreAplicatie>(ui: &T, t: &str) {
         use slint::platform::{Key, WindowEvent};
-        ui.window().dispatch_event(WindowEvent::KeyPressed {
-            text: Key::Control.into(),
-        });
+        ui.aplicatie()
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed {
+                text: Key::Control.into(),
+            });
         apasa(ui, t);
-        ui.window().dispatch_event(WindowEvent::KeyReleased {
-            text: Key::Control.into(),
-        });
+        ui.aplicatie()
+            .window()
+            .dispatch_event(WindowEvent::KeyReleased {
+                text: Key::Control.into(),
+            });
     }
 
     /// Tastele editorului ajung la callback-urile lor: aceleasi pe care le
@@ -3200,6 +3215,137 @@ mod teste {
         // blocul care inlocuieste aprinde tot blocul tinta, nu un rand
         let antet = tinte[0];
         assert!(antet.1 - antet.0 > 1, "{antet:?}");
+    }
+
+    /// 2026-11-25: fantoma unui bloc tras ramanea agatata pe ecran cand
+    /// mouse-ul iesea din fereastra cu butonul apasat (nu mai vine niciun
+    /// `up`). Acum pleaca odata cu apasarea.
+    #[test]
+    fn fantoma_de_tragere_pleaca_daca_mouse_ul_iese_din_fereastra() {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        use slint::LogicalPosition;
+        let ui = fereastra();
+        ui.window().set_size(slint::PhysicalSize::new(1440, 900));
+        ui.set_pliaza_identicul(true);
+        incarca_editor(&ui, &antet_de_proba(), &model_de_proba());
+        ui.show().expect("fereastra se arata");
+        let muta = |x: f32, y: f32| {
+            ui.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(x, y),
+            });
+        };
+        // un loc din care se poate trage: se cauta ca un om
+        let mut prins = None;
+        'cauta: for y in (60..500).step_by(6) {
+            for x in (340..800).step_by(20) {
+                let p = LogicalPosition::new(x as f32, y as f32);
+                muta(p.x, p.y);
+                ui.window().dispatch_event(WindowEvent::PointerPressed {
+                    position: p,
+                    button: PointerEventButton::Left,
+                });
+                muta(p.x + 300.0, p.y);
+                if ui.get_trage_diferenta() >= 0 {
+                    prins = Some(p);
+                    break 'cauta;
+                }
+                ui.window().dispatch_event(WindowEvent::PointerReleased {
+                    position: LogicalPosition::new(p.x + 300.0, p.y),
+                    button: PointerEventButton::Left,
+                });
+            }
+        }
+        assert!(prins.is_some(), "un bloc care se poate trage");
+        assert!(ui.get_trage_bloc() >= 0);
+        // mouse-ul iese din fereastra cu butonul inca apasat
+        ui.window().dispatch_event(WindowEvent::PointerExited);
+        slint::platform::update_timers_and_animations();
+        assert_eq!(ui.get_trage_diferenta(), -1, "fantoma a plecat");
+        assert_eq!(ui.get_trage_bloc(), -1);
+        let _ = ui.hide();
+    }
+
+    /// 2026-11-25: un ecran nu mai e o fereastra. Toate sunt in aceeasi
+    /// `Aplicatie`; `show` pe un ecran il face vizibil fara sa ascunda
+    /// fereastra, iar `hide` pe un ecran ascuns nu inchide nimic.
+    #[test]
+    fn toate_ecranele_sunt_in_aceeasi_fereastra() {
+        let ui = fereastra();
+        let a = ui.aplicatie();
+        let lista = FereastraLista::din(a);
+        let conectare = FereastraConectare::din(a);
+        let deploy = FereastraDeploy::din(a);
+        assert!(std::ptr::eq(ui.window(), lista.window()));
+        assert!(std::ptr::eq(ui.window(), deploy.window()));
+        lista.show().expect("se arata");
+        assert_eq!(a.get_ecran(), FereastraLista::ECRAN);
+        assert!(a.window().is_visible());
+        // ascunderea unui ecran care nu e cel vizibil nu inchide fereastra
+        conectare.hide().expect("nimic");
+        assert!(a.window().is_visible(), "fereastra ramane deschisa");
+        ui.show().expect("se arata");
+        assert_eq!(a.get_ecran(), EditorDiferente::ECRAN);
+        // proprietatile fiecarui ecran sunt ale lui, cu acelasi nume
+        lista.set_text_ajutor("lista".into());
+        conectare.set_text_ajutor("conectare".into());
+        assert_eq!(lista.get_text_ajutor(), "lista");
+        assert_eq!(conectare.get_text_ajutor(), "conectare");
+        let _ = ui.hide();
+    }
+
+    /// Mutarea pe un monitor cu alta marire (DPI), de multe ori la rand:
+    /// fereastra se linisteste dupa fiecare (nicio bucla de redesenare, nicio
+    /// redimensionare ceruta din interior). Pe Windows, bucla se termina cu
+    /// „Not Responding" si -805306369 (2026-11-25).
+    #[test]
+    fn schimbarea_de_marire_intre_monitoare_nu_intra_in_bucla() {
+        use slint::platform::WindowEvent;
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w.clone())));
+        let a = Aplicatie::new().expect("fereastra");
+        aplica_tema(&a, Mod::Intunecat);
+        aplica_limba(&a, texte::Limba::default());
+        let c = FereastraConectare::din(&a);
+        leaga_scara(&c);
+        a.show().expect("se arata");
+        let mut buf = vec![slint::platform::software_renderer::Rgb565Pixel::default(); 2600 * 1500];
+        for ecran in [0, 1, 2, 3, 0] {
+            a.set_ecran(ecran);
+            for (k, factor) in [1.0f32, 1.5, 1.25, 2.0, 1.0, 1.75, 1.0, 1.5, 1.0, 1.25]
+                .into_iter()
+                .enumerate()
+            {
+                let fizic = slint::PhysicalSize::new(1300 + 50 * k as u32, 800 + 30 * k as u32);
+                a.window().dispatch_event(WindowEvent::ScaleFactorChanged {
+                    scale_factor: factor,
+                });
+                a.window().dispatch_event(WindowEvent::Resized {
+                    size: fizic.to_logical(factor),
+                });
+                // se linisteste: dupa cateva cadre nu mai cere desenare
+                let mut cadre = 0;
+                loop {
+                    slint::platform::update_timers_and_animations();
+                    let desenat = w.draw_if_needed(|r| {
+                        r.render(&mut buf, 2600);
+                    });
+                    if !desenat && !w.has_active_animations() {
+                        break;
+                    }
+                    cadre += 1;
+                    assert!(
+                        cadre < 20,
+                        "ecranul {ecran} nu se linisteste la factorul {factor}"
+                    );
+                }
+                assert_eq!(
+                    a.window().scale_factor(),
+                    factor,
+                    "factorul e al sistemului, neatins"
+                );
+            }
+        }
+        let _ = a.hide();
     }
 
     /// Etapa 21, cu mouse-ul: peste sageata din canal apare previzualizarea
@@ -5236,5 +5382,70 @@ mod teste {
             !ui.get_randuri().row_data(randul).unwrap().revizuit,
             "bifa nu se deseneaza bifata inainte sa raspunda modelul"
         );
+    }
+
+    /// Generatorul shell-ului (`build_shell.rs`) citeste declaratiile de pe
+    /// radacina unui ecran, nu si pe cele din componentele interioare.
+    #[test]
+    fn generatorul_shell_citeste_radacina_ecranului() {
+        use build_shell::{declaratii, tip_rust, Declaratie};
+        let sursa = r#"component Alt inherits Rectangle {
+    in property <int> nu-e-al-ecranului;
+}
+export component Ecran inherits Rectangle {
+    in property <[RandUi]> randuri;
+    out property <bool> arata: root.x > 0
+        && true;
+    in-out property <string> text: "a";
+    callback ales(int, string /* nume */);
+    pure callback masoara(string) -> length;
+    public function mergi-la(i: int) {
+        root.text = "b";
+    }
+    Rectangle {
+        in property <int> nici-asta;
+    }
+}
+"#;
+        let d = declaratii(sursa, "Ecran");
+        assert_eq!(
+            d,
+            vec![
+                Declaratie::Proprietate("in".into(), "[RandUi]".into(), "randuri".into()),
+                Declaratie::Proprietate("out".into(), "bool".into(), "arata".into()),
+                Declaratie::Proprietate("in-out".into(), "string".into(), "text".into()),
+                Declaratie::Apel(
+                    "ales".into(),
+                    vec!["int".into(), "string".into()],
+                    String::new()
+                ),
+                Declaratie::Apel("masoara".into(), vec!["string".into()], "length".into()),
+                Declaratie::Functie(
+                    "mergi-la".into(),
+                    vec![("i".into(), "int".into())],
+                    String::new()
+                ),
+            ]
+        );
+        assert_eq!(tip_rust("[RandUi]"), "slint::ModelRc<RandUi>");
+        assert_eq!(tip_rust("[string]"), "slint::ModelRc<slint::SharedString>");
+        assert_eq!(tip_rust("length"), "f32");
+        assert_eq!(tip_rust("duration"), "i64");
+    }
+
+    /// Fiecare ecran real are declaratii gasite de generator: un ecran fara
+    /// ele ar insemna ca s-a schimbat antetul si shell-ul l-ar pierde.
+    #[test]
+    fn generatorul_gaseste_declaratiile_fiecarui_ecran() {
+        for e in build_shell::ECRANE.iter() {
+            let sursa = std::fs::read_to_string(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("ui")
+                    .join(e.fisier),
+            )
+            .expect("ecranul se citeste");
+            let d = build_shell::declaratii(&sursa, e.componenta);
+            assert!(d.len() > 10, "{}: {}", e.componenta, d.len());
+        }
     }
 }

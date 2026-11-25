@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 0b8dbe5a976dabbe -->
+<!-- api-hash: ec5e8e1af51bd85d -->
 
 ## Rol
 
@@ -34,6 +34,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `Aplicatie::calcule_previzualizare()` | de cate ori s-a calculat o previzualizare: proba ca hover-ul repetat vine din cache |
 | `Aplicatie::id_obiect()` | cheia obiectului deschis, `baza/schema.nume`: pleaca spre fereastra si se intoarce cu textul scris de mana |
 | `Ecran` | `Lista`, `Editor` sau `Deploy` |
+| `monitor::{alege_geometria, citeste_sistemul, Dreptunghi, Monitor, MARIME_GANDITA, CEL_MULT}` | unde porneste fereastra: unde a fost lasata data trecuta daca monitorul mai exista, altfel centrata pe monitorul cursorului, cel mult 92% din zona de lucru; `citeste_sistemul` e singura parte Win32 (monitoare, DPI, cursor), goala pe alte sisteme |
 | `Aplicatie::model_editor()`, `texte_obiect()`, `asigura_detalii(de_la, pana_la)` | ce are nevoie desenul; `model_editor` da un `Ref` la modelul tinut minte pe `(obiect, amprenta textului final, unirea cursorului)`, nu-l reface la fiecare desenare (P1) |
 | `Aplicatie::refaceri_model()` | de cate ori s-a construit modelul editorului: masura inghetarilor, si singurul fel in care se poate proba ca desenarea nu-l reface; fereastra il da ca `AntetEditor::generatie` |
 | `Aplicatie::detalii_deschise()`, `panou_detalii() -> PanouDetalii` (`pentru_fereastra`), `impact_obiect()`, `dependente_obiect()`, `nota_obiect()` | panoul de detalii din lista: deschis la `ClicPeRand`, inchis la al doilea clic / `InchideDetalii`; impactul, „Folosit de" (in Modificata) si „Foloseste" (in Martor; la Extra, in Modificata), si nota (`PuneNota`). Dependentele se calculeaza **o data, la construire**, pe fiecare baza: lista le arata pe fiecare rand (etapa 22) |

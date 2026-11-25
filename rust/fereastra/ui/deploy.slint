@@ -62,8 +62,8 @@ component Oprire inherits HorizontalLayout {
     }
 }
 
-export component FereastraDeploy inherits Window {
-    title: "gmotion — deploy"; // text-permis: marca
+export component FereastraDeploy inherits Rectangle {
+    out property <string> titlu: "gmotion — deploy"; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
     // sub atat, lista pasilor si panoul „Inainte de scriere" nu mai incap
@@ -71,8 +71,6 @@ export component FereastraDeploy inherits Window {
     min-width: 900px;
     min-height: 560px;
     background: Tema.fundal;
-    default-font-family: Tema.font-ui;
-    default-font-size: 13px;
 
     in property <string> referinta;
     in property <string> tinta;

@@ -14,7 +14,7 @@ use gmotion_fereastra::{aplica_tema, incarca_editor, model_editor, AntetEditor, 
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
-use slint::{ComponentHandle, Model};
+use slint::Model;
 
 struct Platforma(Rc<MinimalSoftwareWindow>);
 impl slint::platform::Platform for Platforma {

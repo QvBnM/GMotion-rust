@@ -15,7 +15,6 @@ use gmotion_fereastra::{aplica_tema, incarca_conectare, incarca_jurnal, Fereastr
 use slint::platform::software_renderer::{
     MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
 };
-use slint::ComponentHandle;
 
 struct Platforma(Rc<MinimalSoftwareWindow>);
 impl slint::platform::Platform for Platforma {

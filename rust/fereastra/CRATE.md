@@ -1,6 +1,6 @@
 # gmotion-fereastra
 
-<!-- api-hash: 10313bc0ccf8a236 -->
+<!-- api-hash: 02d3c65649985398 -->
 
 ## Rol
 
@@ -28,11 +28,13 @@ etapa care a atins-o: 28 (tabelele in comparare).
 
 | Element | Ce face |
 |---|---|
+| `Aplicatie` (Slint, generata de `build.rs` din `build_shell.rs`), `AreAplicatie` | **fereastra unica** (2026-11-25): toate ecranele stau in ea, iar `ecran` (0 conectare, 1 lista, 2 editor, 3 deploy) spune care se vede; trecerea dintre ecrane e o tranzitie de opacitate (`durata-tranzitie`), nu o fereastra noua. `AreAplicatie` e ce iau `aplica_tema`, `aplica_limba`, `limba_curenta`, `mod_curent` |
+| `FereastraConectare`, `FereastraLista`, `EditorDiferente`, `FereastraDeploy` (generate) | cate un ecran din `Aplicatie`, cu aceleasi metode ca o componenta Slint (`set_*`, `get_*`, `on_*`, `invoke_*`, `as_weak`, `window`, `show`, `hide`, `global`); `din(&aplicatie)` il ia din fereastra comuna, `new()` face o fereastra noua cu doar el vizibil (teste, capturi), `ECRAN` e numarul lui; `hide` pe un ecran care nu se vede nu face nimic |
 | `model_conectare::Conectare` | ecranul de conectare: campuri, validari (`ce_lipseste`, `ce_lipseste_pentru_baze`), stari, comparari recente; `verifica_certificatul` e alegerea care ajunge in conexiune, `text_certificat()` doar o descrie; `aceeasi_instanta()` (15 F) recunoaste acelasi server sub alte nume; `StareConexiune::SeCauta` = cautarea in retea ruleaza |
 | `model_conectare::{Parte, Acreditari, Auth, StareConexiune, Recenta, ServerGasit}` | modelul lui; `Acreditari` **nu are `Debug` derivat**; `Parte::{comuta_baza, baze_alese, e_aleasa}` tin bifele cand se compara mai multe baze; `Recenta::server` nu se deseneaza, dar e jumatatea cheii de sesiune |
 | `FereastraConectare` (Slint), `incarca_conectare(ui, c)` | ecranul de conectare (etapa 17, `cercetare/machete/conectare-noua/`): doua carduri simetrice (martor, modificata), fiecare cu conexiunea sus si lista bazelor cu cerc dedesubt; bifa „Aceeasi conexiune"; Compara la mijloc; tabul Sesiuni; Setari (certificatul) |
 | `model_conectare::Conectare::{aceeasi_conexiune, pune_aceeasi_conexiune, sincronizeaza, alege_baza_modificata, e_baza_martorului, reia}` | bifa „Aceeasi conexiune": `sincronizeaza` copiaza conexiunea martorului in modificata (se cheama inainte de fiecare desenare; nu goleste alegerea cat bazele nu sunt citite); `reia(recenta)` pune serverul si ambele baze ale unei comparari recente; la modificata se alege **o singura** baza, iar baza martorului nu, cand conexiunea e aceeasi |
-| `scara::{scara, ScaraFereastra, REFERINTA, MINIM, MAXIM, SISTEM_MARIT}`, `leaga_scara(ui)` | scara unica a conectarii: `min(latime/1440, inaltime/900)` intre 0,85 si 1,3; cu sistemul marit la 125%+ minimul e 1; se pune pe fereastra ca factor de scala (sistem x scara) la fiecare redimensionare |
+| `scara::{scara, REFERINTA, MINIM, MAXIM, SISTEM_MARIT}`, `leaga_scara(ui)` | `scara` ramane doar pentru capturi; `leaga_scara` pune `scund` (conectarea se strange sub 820 px logici). **Nu se mai pune nicio scara peste cea a sistemului** (2026-11-25: se batea cu marirea monitorului si fereastra ingheta la mutare) |
 | `incarca_jurnal(ui, linii)`, `linie_jurnal(l)`, `LINII_JURNAL` | banda de jurnal de jos: ultimele linii, cu nivelul ca culoare |
 | `model_lista::Lista` | lista: filtre (stare, baza, tip, revizuire, scor), cautare, sortare pe orice coloana, contoare, selectie, detalii la cerere |
 | `model_lista::{Obiect, Stare, Detalii, Ordine, Filtru, Deploy, FiltruRevizuire, Impact}` | modelul listei; cheia unui rand e `(baza, schema.nume)`; `Obiect::{folosit_de, impact}` vin din `diff-obiecte::impact` (fereastra doar le arata, sorteaza si filtreaza: `Ordine::{FolositDe, Impact}`, `Lista::filtreaza_impact`); `Obiect::modificat` si `Ordine::Modificat`: coloana „Ultima modificare", recentele intai (etapa 25) |
@@ -140,9 +142,10 @@ in Slint, pentru exemple si probe.
    exemplele care fac capturi dintr-o comparare adevarata.
 11. **Indicii diferentelor sunt in coordonatele listei afisate**, nu ale
    modelului: plierea scoate randuri, iar navigarea deruleaza lista.
-12. **Scara conectarii nu se bate cu marirea din sistem.** `ScaraFereastra`
-   tine minte factorul pus de ea; altul inseamna ca l-a schimbat sistemul
-   (alt monitor, alta marire), iar scara se recalculeaza de la el.
+12. **Factorul de scala al ferestrei e doar al sistemului.** Nimic din
+   fereastra nu trimite `ScaleFactorChanged`; testul
+   `schimbarea_de_marire_intre_monitoare_nu_intra_in_bucla` muta fereastra
+   prin zece factori pe fiecare ecran si cere sa se linisteasca.
 13. **Cu „Aceeasi conexiune", modificata nu are conexiune a ei.** Ce se vede
    e o copie a martorului, refacuta de `sincronizeaza` inainte de fiecare
    desenare; restul aplicatiei vede tot doua parti complete.

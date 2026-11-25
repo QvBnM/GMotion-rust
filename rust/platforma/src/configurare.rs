@@ -42,6 +42,12 @@ pub struct Configurare {
     /// Editorul pliaza sirurile lungi de linii identice. Implicit nu: se vede
     /// tot codul (Mihai, 2026-11-20); il schimba comutatorul din editor.
     pub pliaza_identicul: bool,
+    /// Unde a fost lasata fereastra la ultima inchidere, in pixeli fizici ai
+    /// desktopului: `[x, y, latime, inaltime]`, sau gol. La pornire se reia
+    /// doar daca monitorul acela mai exista.
+    pub fereastra: Vec<i32>,
+    /// Fereastra era maximizata la ultima inchidere.
+    pub fereastra_maximizata: bool,
 }
 
 impl Default for Configurare {
@@ -58,6 +64,8 @@ impl Default for Configurare {
             tema: String::new(),
             limba: String::new(),
             pliaza_identicul: false,
+            fereastra: Vec::new(),
+            fereastra_maximizata: false,
         }
     }
 }
