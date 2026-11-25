@@ -325,6 +325,17 @@ fn main() {
     e_ui.set_impacheteaza(true);
     pas(&mut s, "wrap pornit", None);
     pas(&mut s, "ctrl+w", Some(Comanda::InchideTabActiv));
+    // inapoi in lista (ultimul tab inchis): ce reface main.rs pe ecranul
+    // listei, care din editor nu se mai reface (etapa 33)
+    while s.app.as_ref().unwrap().ecran() == gmotion_app::rutare::Ecran::Editor {
+        s.app.as_mut().unwrap().comanda(Comanda::InchideTabActiv);
+    }
+    ui.aplicatie().set_ecran(FereastraLista::ECRAN);
+    deseneaza(&mut s, "inapoi in lista");
+    println!("inapoi in lista: desenare {:.1} ms", randeaza());
+    s.app.as_mut().unwrap().comanda(Comanda::ClicPeRand(5));
+    deseneaza(&mut s, "clic pe rand in lista");
+    println!("clic pe rand in lista: desenare {:.1} ms", randeaza());
     let t = Instant::now();
     s.salveaza(None);
     println!(
