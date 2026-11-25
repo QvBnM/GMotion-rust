@@ -14,6 +14,10 @@ lipsea.
 
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
+| Derularea sacadeaza / monitorul `--fps` arata cadre lungi | ceva desenat pe tot ecranul la fiecare cadru (fundalul hartii), sau randuri refacute in masa | `rust/fereastra/src/lib.rs` (`incarca_fundal_harta`, `incarca_lista`); masura: `rust/app/examples/masura_ui.rs` |
+| Cifrele monitorului de cadre par absurde | statistica pe ferestre de 500 ms | `rust/app/src/cadre.rs` |
+| `sesiune salvata` de multe ori pe secunda | salvarea nu mai trece prin `SalvareAmanata` | `rust/app/src/main.rs`, `rust/app/src/stare.rs` |
+| Verificarea pe server spune „bine" desi serverul a dat eroare | `rezumat_verificare` / `text_verificare` | `rust/app/src/stare.rs` |
 | O modificare reala apare „identic" | o regula de normalizare a lovit intr-un string sau comentariu: granitele din lexer | `rust/core/src/lexer.rs`, `rust/core/src/normalizare.rs` |
 | Doua obiecte identice apar ca „modificate" | normalizarea nu curata ceva (spatii, comentarii, paranteze, majuscule) | `rust/core/src/normalizare.rs` |
 | Scorul de similaritate pare absurd | `scor_similaritate` sau rotunjirea bancara | `rust/core/src/normalizare.rs` |

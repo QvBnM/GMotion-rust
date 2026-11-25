@@ -2326,3 +2326,103 @@ de obiecte. Acum pe lot (`pune_stari_multe`), ~10 ms. Tot aici, `plan` cauta
 liniar in obiectele din plan pentru fiecare rand (cu „Toate in plan", 144 de
 milioane de comparatii); acum printr-un set. `masura_ui` acopera si bifa si
 „Toate in plan".
+
+---
+
+## 2026-11-25 — Before / After in loc de Martor / Modificata
+
+**Context.** A doua proba a lui Mihai: „Witness e un Before, Modified e un
+After. Ideea e sa urmaresc un deploy, sa vad ce modificari s-au adus extra."
+Explicatiile vechi („de unde vine codul bun" / „unde ajunge") induceau in
+eroare.
+
+**Alternative.** (a) „Inainte" / „Dupa" in romana si „Before" / „After" in
+engleza; (b) „Before" / „After" in ambele limbi, ca nume proprii ale celor
+doua parti.
+
+**Motiv.** (b), cum a cerut: etichete scurte, aceleasi pe ecran si in ce
+spune omul despre ele. Explicatia la hover pe orice eticheta de rol
+(`sfat_before` / `sfat_after`). Regula din `CLAUDE.md` schimbata odata.
+`cli` isi pastreaza deocamdata textele (alt registru, teste pe binar).
+
+---
+
+## 2026-11-25 — Alegerile facute fara intrebare la runda 2
+
+Cererea spunea sa nu se intrebe; varianta conservatoare, aici pe scurt:
+
+- **„Ecranul asta il vreau mereu pornit"** (captura 7, conturul rosu era pe
+  panoul de detalii): panoul de detalii e mereu deschis cand e ceva selectat;
+  X-ul, Esc si al doilea clic nu-l mai inchid. Lista ramane ecranul de dupa
+  comparare, ca pana acum.
+- **„Nu vreau sa mearga sa modifici acele campuri din lista"** (captura 3,
+  bifa Revizuit): bifa si semnul de deploy din lista doar se afiseaza; clicul
+  pe ele selecteaza randul. Se schimba din panou, din editor sau cu Ctrl+R /
+  Ctrl+I, ca pana acum.
+- **Impactul**: cerc verde (scazut), triunghi chihlimbar cu „!" (mediu),
+  octogon rosu cu „!" (ridicat) — forma si culoarea cresc impreuna, ca la
+  indicatoarele de risc; legenda la hover pe capul coloanei. Deploy-ul isi
+  pastreaza semnele (cerc gol / plin / bifa / punct / linie / cerc taiat), cu
+  legenda pe capul coloanei la fel; si Revizuit (bifa / punct).
+- **„Reset filter"**: aceeasi vedere ca la o comparare noua (Modificate,
+  Similar crescator, fara alte filtre), cu o selectie.
+- **Panoul de detalii**: un rand de nume, un rand de context (tip ·
+  similaritate · linii), trei pastile mici (stare, impact cu motivele la
+  hover, deploy), butoanele, doua file pentru dependente (cinci randuri,
+  derulare si bara proprii, numele rupte, nu taiate), nota pe un rand; codul
+  ia restul. Codul previzualizarii la 12 px (intreg la 100/125/150%).
+- **Editorul**: wrap pornit implicit (nu se tine minte intre porniri); textul
+  editabil intr-o singura randare (campul nu-si mai deseneaza glifele peste
+  randurile colorate, cursorul il desenam noi); editorul ramane la 12,5 px, ca
+  sa nu se mute pasul liniilor de care depind suprapunerea si wrap-ul.
+- **„Liniile rosii"** erau un bug: bara groasa a diferentei curente se desena
+  si pe liniile ei deja identice (bloc aplicat), in rosu, culoarea implicita.
+  Acum culoarea blocului sau accentul, cu sfat si intrare in legenda.
+- **Blocul pus altundeva**: o banda chihlimbar sub cod spune ce bloc e pus in
+  alt loc decat cel sugerat, de ce apar golurile hasurate si ca Ctrl+Z il ia
+  inapoi. Alinierea insasi nu s-a schimbat (e a motorului).
+- **Mesajele editorului** (verificarea pe server, structura, plasarea) stau
+  intr-o banda proprie pe toata latimea, sub zona codului: harta din dreapta
+  si legaturile nu mai trec pe sub ele.
+- **Butonul ×** e o componenta comuna (`ButonInchide`): cruce desenata, nu
+  glifa „×" (alt font pe Windows, mai jos, taiata de chenar).
+- **Fundalul hartii** se face din toata compararea (nu din ce trece de
+  filtre), la jumatate de rezolutie, opac si `pixelated`. Arata la fel
+  (estompat), costa mult mai putin.
+
+---
+
+## 2026-11-25 — Fluiditatea: masurat, apoi reparat
+
+**Context.** „Ecranele nu se simt fluide la scroll rapid" si
+`redesenare lenta ms=137` pe un clic, la 11.938 de obiecte.
+
+**Masura.** `masura_ui` extins: lista randata in pixeli la 1920x1080
+(software-renderer, ca pe Windows), derulata cu rotita lent si rapid;
+instantaneul de 12.000 din `unelte/genereaza-mare.py`. Container Linux,
+profilul `proba`:
+
+| | inainte | dupa |
+|---|---|---|
+| cadru de derulare, lent (medie / max) | 12,7 / 13,0 ms | 6,3 / 10,8 ms |
+| cadru de derulare, rapid (medie / max) | 13,3 / 13,4 ms | 6,1 / 6,6 ms |
+| redesenarea dupa bifa Revizuit, toata lista | 15-19 ms | 1 ms |
+| planul de deploy cu toate (6.558 de pasi) | 1.148 ms | 34-42 ms |
+| schimbarea filtrului pe toata lista | 47-60 ms | 11 ms |
+| salvarea sesiunii | la fiecare clic | o data, dupa 1,2 s de liniste |
+
+Cauzele: fundalul hartii (imagine cu transparenta scalata pe tot ecranul) era
+~9 din cei ~13 ms ai unui cadru; bifa refacea toate randurile; planul cauta
+fara majuscule parcurgand toata baza pentru fiecare obiect absent; fundalul se
+refacea la fiecare filtru, citind 28.000 de randuri Slint de doua ori.
+
+In aplicatia adevarata, sub Xvfb, cu monitorul de cadre (`--fps`), pe 12.000:
+derularea rapida a listei 132-151 cadre/s, cel mai lung cadru 10-19 ms; a
+arborelui din editor 130-150 cadre/s, cel mai lung 13-15 ms; nicio linie
+„redesenare lenta" / „comanda lenta" in tot fluxul.
+
+**Monitorul de cadre.** `set_rendering_notifier` intoarce `Unsupported` pe
+software-renderer cu winit. Monitorul tine deci fereastra in desenare
+continua cat e aprins (`animation-tick()`) si masoara intervalul dintre
+cadre; ascuns, nu costa nimic. Alternativa (Slint `SLINT_DEBUG_PERFORMANCE`)
+numara doar cadrele, fara durata lor.

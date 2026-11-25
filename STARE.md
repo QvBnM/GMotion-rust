@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-25 · commit `5686467` · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde aici (801 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust); de confirmat pe Windows cu clippy-ul lui Mihai
+**Actualizat:** 2026-11-25 · commit `739d789` · branch `claude/clever-cerf-hjk2qh`
+**Poarta:** verde aici (814 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust)
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
 > aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
@@ -64,6 +64,38 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-25, etapa 32 — de probat de Mihai pe Windows** (`unelte\porneste.bat`,
+pe baza reala de ~12.000 de obiecte; cu monitorul de cadre:
+`unelte\porneste.bat --fps`):
+
+1. Conectare: panourile se cheama **Before** / **After**; hover pe titlu
+   spune care e starea de dinainte si care cea de dupa. La fel pe eticheta
+   din antet (lista, editor, deploy) si pe capetele panourilor din editor.
+2. Compara → lista: Modificate, Similar crescator; **panoul de detalii e
+   deschis** pe primul obiect si ramane deschis (clic pe alt rand il muta).
+   Clic pe bifa „Revizuit" sau pe cercul „Deploy" din lista: doar selecteaza
+   randul. „Reset filter" (dupa ce schimbi filtre) readuce Modificate /
+   Similar crescator, cu numarul actualizat.
+3. Impactul: cerc verde / triunghi chihlimbar / octogon rosu; hover pe capul
+   coloanelor Impact, Revizuit, Deploy = legenda. Meniul „Any operation" are
+   toate optiunile in cadru.
+4. Panoul: codul are restul inaltimii; „Used by" / „Uses" sunt file, lista
+   aleasa intreaga (cinci randuri, bara de derulare, nume rupte, nu taiate).
+5. Editor: „Wrap lines ✓" de la inceput; „editable" → textul e la fel de
+   clar ca la vizualizare (fara dublura); „Actions → Check on the server" pe
+   un text gresit: eroarea, linia si mesajul intr-o banda **sub** cod, care
+   nu acopera nimic; jurnalul scrie `cod_valid=false` cu eroarea.
+6. Trage un bloc din Before intr-un loc ales de tine: banda chihlimbar spune
+   ca e pus altundeva si ca Ctrl+Z il ia inapoi. Bara groasa din stanga =
+   diferenta curenta (hover), nu mai e rosie pe liniile identice.
+7. × (mesaje, taburi, planul de deploy): hover = fundal, apasat = mai inchis.
+8. Derulare rapida pe lista si in editor cu `--fps`: cifra din monitor
+   (cadre/s, cel mai lung cadru). In jurnal, cautam `redesenare lenta` si
+   `comanda lenta`: nu trebuie sa apara. Bifa „Revizuit" de 20 de ori
+   repede: o singura linie `sesiune salvata`, dupa ~1 s. Trimite-mi
+   fisierul de jurnal (Ajutor → Despre arata calea).
+9. A2 din etapa 31, neschimbat: mutarea intre monitoare, fara inghetare.
 
 **2026-11-25, etapa 31 — de probat de Mihai pe Windows** (`unelte\porneste.bat`):
 
@@ -365,9 +397,21 @@ Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
   campul de cautare). Clicurile si mutarile de mouse da. Tastele se probeaza
   cu testele headless din `fereastra` (`dispatch_event`), nu cu capturi.
 - **Randurile listei se refac doar cand se schimba amprenta lor**
-  (`amprenta_randuri`). Un camp nou pe `RandListaUi` care se poate schimba
-  fara sa se schimbe obiectul trebuie pus si in amprenta, altfel ramane vechi
-  pe ecran.
+  (`amprente_randuri`, una pe rand, din 2026-11-25). Un camp nou pe
+  `RandListaUi` care se poate schimba fara sa se schimbe obiectul trebuie pus
+  si in amprenta, altfel ramane vechi pe ecran.
+- **`set_rendering_notifier` nu merge** cu software-renderer pe winit
+  (`Unsupported`). Monitorul de cadre (`--fps`) masoara intervalul dintre
+  cadre intr-o desenare continua; cu el aprins, CPU-ul nu mai sta in repaus —
+  e unealta de proba, nu se lasa pornit.
+- **Un decor pe tot ecranul se plateste la fiecare cadru.** O imagine cu
+  transparenta scalata sub lista costa ~9 ms din ~13 pe cadru de derulare.
+  Ce se pune sub zone care se deruleaza: opac, amestecat dinainte, si masurat
+  cu `masura_ui` (care randeaza in pixeli; inainte de 2026-11-25 nu randa).
+- **Tintele wasm32 / windows-msvc** lipsesc dintr-un container nou:
+  `rustup target add wasm32-unknown-unknown x86_64-pc-windows-msvc`, altfel
+  poarta le sare (si o spune). Pentru capturi sub Xvfb mai trebuie
+  `libxkbcommon-x11-0` si `pip install python-xlib`.
 
 - **Poarta de aici nu e poarta lui Mihai.** Containerul are clippy 1.97,
   masina lui 1.100: doua lint-uri cadeau doar la el, pe cod care trecea aici.
