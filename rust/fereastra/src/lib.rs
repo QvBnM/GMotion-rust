@@ -361,15 +361,35 @@ fn cod_sintaxa(s: Sintaxa) -> i32 {
 }
 
 fn bucati_ui(b: &[Bucata]) -> ModelRc<BucataUi> {
-    ModelRc::new(VecModel::from(
-        b.iter()
-            .map(|x| BucataUi {
-                text: SharedString::from(x.text.as_str()),
-                sintaxa: cod_sintaxa(x.sintaxa),
-                schimbat: x.schimbat,
-            })
-            .collect::<Vec<_>>(),
-    ))
+    ModelRc::new(VecModel::from(bucati_unite(b)))
+}
+
+/// Bucatile alaturate cu aceeasi culoare si aceeasi evidentiere devin una:
+/// fiecare bucata e un `Rectangle` + `Text` in fiecare rand afisat, iar
+/// desenarea editorului e proportionala cu numarul lor (etapa 33: ~25 ms
+/// aici, ~100 ms pe Windows la schimbarea obiectului). Textul si culorile
+/// raman aceleasi; fontul e monospatiat, deci si latimile.
+fn bucati_unite(b: &[Bucata]) -> Vec<BucataUi> {
+    let mut out: Vec<(String, i32, bool)> = Vec::new();
+    for x in b {
+        let sintaxa = cod_sintaxa(x.sintaxa);
+        // spatiile n-au culoare: merg cu bucata de dinainte, daca nici una
+        // nu e evidentiata
+        let spatiu = !x.schimbat && x.text.chars().all(|c| c == ' ' || c == '\t');
+        match out.last_mut() {
+            Some((text, s, ch)) if (*s == sintaxa || spatiu) && *ch == x.schimbat => {
+                text.push_str(&x.text)
+            }
+            _ => out.push((x.text.clone(), sintaxa, x.schimbat)),
+        }
+    }
+    out.into_iter()
+        .map(|(text, sintaxa, schimbat)| BucataUi {
+            text: text.into(),
+            sintaxa,
+            schimbat,
+        })
+        .collect()
 }
 
 /// Latimea estimata a unui caracter mono de 12,5 px, in pixeli logici (Slint
@@ -3402,6 +3422,37 @@ mod teste {
 
     /// Editorul porneste cu `Wrap lines` (Mihai, 2026-11-25), iar modelul
     /// randurilor chiar e rupt: nicio linie mai lata decat coloanele panoului.
+    /// Etapa 33: bucatile alaturate de aceeasi culoare se unesc (desenarea
+    /// e proportionala cu numarul lor); textul ramane acelasi.
+    #[test]
+    fn bucatile_de_aceeasi_culoare_se_unesc() {
+        use model_editor::{Bucata, Sintaxa};
+        let b = |t: &str, s: Sintaxa, ch: bool| Bucata {
+            text: t.into(),
+            sintaxa: s,
+            schimbat: ch,
+        };
+        let v = vec![
+            b("SELECT", Sintaxa::CuvantCheie, false),
+            b(" ", Sintaxa::Text, false),
+            b("a", Sintaxa::Text, false),
+            b(",", Sintaxa::Text, false),
+            b(" ", Sintaxa::Text, false),
+            b("b", Sintaxa::Text, true),
+            b(" ", Sintaxa::Text, false),
+            b("FROM", Sintaxa::CuvantCheie, false),
+        ];
+        let u = bucati_unite(&v);
+        let texte: Vec<&str> = u.iter().map(|x| x.text.as_str()).collect();
+        assert_eq!(texte, ["SELECT ", "a, ", "b", " ", "FROM"]);
+        assert_eq!(
+            u.iter().map(|x| x.text.as_str()).collect::<String>(),
+            v.iter().map(|x| x.text.as_str()).collect::<String>(),
+            "acelasi text"
+        );
+        assert!(u[2].schimbat && !u[1].schimbat);
+    }
+
     #[test]
     fn editorul_porneste_cu_wrap_pornit() {
         let ui = fereastra();
