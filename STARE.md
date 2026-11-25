@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-25 · commit `739d789` · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde aici (814 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust)
+**Actualizat:** 2026-11-25 · commit `da2f02a` + etapa 33 · branch `claude/clever-cerf-hjk2qh`
+**Poarta:** verde aici (peste 825 de teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust)
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
 > aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
@@ -35,10 +35,11 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/32-runda-2-remedieri.md` — a doua proba a lui
-Mihai din 2026-11-25 (`Analiza_GMotion_RUST_2.docx`): Before / After, panoul
-de detalii si editorul, lista needitabila, fluiditatea, jurnalul. Etapa 31 s-a
-inchis in aceeasi zi; A2 (proba pe doua monitoare) a trecut in 32.
+**Etapa activa:** `etape/33-taburi-pozitie-cadre.md` — rularea lui Mihai
+din 2026-11-25 15:32-15:39: tab nou din Object Explorer fara sa se piarda cel
+deschis, pozitia pastrata la transpunere, monitorul de cadre care nu mai
+deseneaza el insusi, salvarea pe alt fir, serverele filtrabile. Etapa 32 s-a
+inchis; A2 (doua monitoare) si proba fluxului au trecut in 33.
 
 **Ce s-a schimbat la etapa 31**, ca sa stii unde sa te uiti:
 
@@ -64,6 +65,32 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-25, etapa 33 — de probat de Mihai pe Windows**
+(`unelte\porneste.bat --fps`, baza reala de ~12.000):
+
+1. Deschide un obiect. In Object Explorer (stanga) da un clic pe alt obiect:
+   randul se alege, nu se deschide; apar „Deschide" si „+ Tab nou". „+ Tab
+   nou" il deschide in tab nou, iar tabul de dinainte ramane. Dublu clic =
+   tab nou. Acelasi obiect inca o data: se activeaza tabul lui, nu apare al
+   doilea.
+2. In lista: „+" langa „Deschide" pe fiecare rand (pe ecrane inguste doar
+   „+ Tab nou" din panou). Inchide aplicatia si reporneste: taburile, ordinea
+   lor si tabul activ revin.
+3. Side-by-side: deruleaza la mijloc, transpune un bloc (sageata), Aplica,
+   Ctrl+Z, trage un bloc: vederea nu mai sare in capul paginii.
+4. Lasa aplicatia 30 s fara sa atingi nimic (fara focus in vreun camp de
+   text): in jurnal nu trebuie sa apara nicio linie `gmotion::cadre`. Cand
+   lucrezi, linia spune `cadre`, `p99_ms`, `peste_16_7`, `cel_mai_lung_ms`.
+   Trimite-mi jurnalul: cifrele `peste_16_7` la clic in Object Explorer, pe
+   taburi si la Ctrl+W decid daca mai e nevoie de lucru pe desenarea
+   editorului.
+5. „Cauta servere": 15 servere intr-o lista de 5 randuri, cu derulare;
+   scrie in camp si lista se filtreaza.
+6. Compara de doua ori la rand: daca a doua citire revine la ~9 / ~6 s,
+   incetinirea era cache-ul serverului (codul de citire n-a mai fost atins).
+7. A2: mutarea intre monitoare, fara inghetare.
+
 
 **2026-11-25, etapa 32 — de probat de Mihai pe Windows** (`unelte\porneste.bat`,
 pe baza reala de ~12.000 de obiecte; cu monitorul de cadre:
@@ -386,6 +413,23 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Monitorul de cadre sta pe filtrul de evenimente winit** al ferestrei
+  (`on_winit_window_event`, functia `unstable-winit-030`, deci `slint` e
+  fixat `~1.19` in `app`). Filtrul e unul singur pe fereastra: un al doilea
+  `on_winit_window_event` il inlocuieste pe al monitorului.
+- **Pe ecranul editorului, redesenarea nu reface ecranul listei** (randuri,
+  previzualizare, panou). Orice drum care schimba ecranul trebuie sa treaca
+  printr-o comanda (deci printr-o redesenare), altfel lista ramane in urma.
+- **Coloana din editor si nodurile arborelui** se refac dupa amprente
+  (`AMPRENTE_COLOANA`), ca lista: un camp nou pe rand sau pe nod trebuie sa
+  intre in `amprente_randuri` / `amprenta_noduri`.
+- **Salvarea amanata ruleaza pe alt fir.** Una explicita (`salveaza`) o
+  asteapta pe cea in curs; la iesire `termina_salvarea`. Doua scrieri
+  simultane pe acelasi fisier nu au voie sa existe.
+- **Desenarea editorului e partea care ramane** (~12 ms o pictare completa,
+  ~22 ms la schimbarea obiectului, 1920x1080, in container). `masura_ui` o
+  masoara separat de Rust.
 
 - **Ecranele nu mai sunt ferestre** (etapa 31). O proprietate sau un
   callback nou pe radacina unui ecran ajunge in Rust prin generatorul din

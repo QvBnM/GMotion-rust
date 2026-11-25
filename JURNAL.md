@@ -2426,3 +2426,87 @@ software-renderer cu winit. Monitorul tine deci fereastra in desenare
 continua cat e aprins (`animation-tick()`) si masoara intervalul dintre
 cadre; ascuns, nu costa nimic. Alternativa (Slint `SLINT_DEBUG_PERFORMANCE`)
 numara doar cadrele, fara durata lor.
+
+---
+
+## 2026-11-25 — Etapa 33: monitorul de cadre, taburile, pozitia, salvarea
+
+**Monitorul de cadre din winit, nu din `animation-tick()`.** Monitorul vechi
+tinea fereastra in desenare continua (~70 cadre/s in repaus, tot jurnalul lui
+Mihai din 15:32 era al lui). Acum: filtrul de evenimente winit al ferestrei
+(`on_winit_window_event`) vede fiecare eveniment si fiecare
+`RedrawRequested`; durata unui cadru = lucrul evenimentelor de la cadrul
+dinainte + desenarea. Cere functia `unstable-winit-030` a lui `slint` (nu o
+dependinta noua: e acelasi crate, cu `winit` re-exportat), deci versiunea e
+fixata `~1.19` in `app`. Alternative cantarite: `set_rendering_notifier`
+(`Unsupported` pe software-renderer cu winit), alt renderer (femtovg / skia:
+OpenGL / GPU pe masina lui Mihai, risc mai mare decat masura), o platforma
+proprie peste winit (mult cod pentru o masuratoare). Raportul: cadre, p99,
+cate peste 16,7 ms, maxim, o data pe secunda si doar daca s-a desenat ceva;
+cadrul provocat de textul monitorului nu se numara.
+
+**Object Explorer: un clic doar alege.** „Deschide" (tabul curent, ca pana
+acum) si „+ Tab nou" stau pe randul ales / de sub mouse; dublu clic = tab
+nou. Varianta conservatoare fata de „clic = deschide in previzualizare", care
+pierdea tabul deschis din greseala. In lista: „+" langa „Deschide" (primul
+care cedeaza locul pe ecrane inguste) si „+ Tab nou" in panou. „Tab nou" nu
+mai trece prin previzualizare (`Comanda::DeschideInTabNou`), deci nu o mai
+inlocuieste. Sesiunea tine si `taburi_previzualizare`, `taburi_activ`; o
+sesiune veche (doar `taburi`) se citeste ca inainte.
+
+**Pozitia in side-by-side.** Randurile refacute pe acelasi obiect
+(transpunere, Aplica, Anuleaza, Plaseaza, wrap) pastreaza derularea
+verticala (`derulare-y`, legata de `content-y`); diferenta curenta se
+marcheaza fara derulare. Alt obiect porneste ca inainte, de la diferenta lui.
+
+**Salvarea pe alt fir.** Cea amanata (1,2 s) citeste, uneste si scrie pe alt
+fir (`Stare::salveaza_in_fundal`); cele explicite (deconectare, scripturi
+scrise, inchidere) raman pe loc si asteapta una in curs. Rezultatul se uneste
+in trei cai cu ce s-a schimbat intre timp in fereastra. Cauza cadrelor de
+27-45 ms nu era scrierea, ci `preia_starea` chemat la fiecare salvare, care
+arunca modelul editorului: acum doar cand discul aduce ceva nou (marcaje din
+`cli`).
+
+**Redesenarea pe ecranul editorului** nu mai reface ecranul listei (randuri,
+previzualizare, panou de detalii) si nici toata coloana din stanga: amprente
+pe rand si pe arbore, ca la lista. In container, pe 12.000: Rust-ul unui clic
+in editor 15-25 ms -> 2-4 ms. Ramane desenarea editorului (software-renderer,
+1920x1080): ~12 ms o pictare completa, ~22 ms la schimbarea obiectului; sub
+16,7 ms cere alt renderer sau mai putine elemente pe rand. Se decide cu
+cifrele monitorului de pe Windows.
+
+**Cifre**, container Linux, profilul `proba`, instantaneul de 12.000
+(`genereaza-mare.py`), aplicatia sub Xvfb la 1920x1080 cu acelasi flux
+(Deschide, 5 obiecte din Object Explorer, tab nou, taburi), apoi `masura_ui`
+fara fereastra:
+
+| | inainte (`da2f02a`) | dupa |
+|---|---|---|
+| cadre in repaus, cu `--fps` | continuu (~70-130/s) | 0 in 31 s |
+| Rust-ul unui clic in Object Explorer (`redesenare ms`) | 15-25 ms | 3-7 ms |
+| din care coloana din stanga | 9-16 ms | 0,6-1,6 ms |
+| din care ecranul listei, invizibil | 2-8 ms | 0 |
+| `masura_ui`: Rust la schimbarea obiectului / tab / Ctrl+W | — | 2-4 ms |
+| `masura_ui`: desenarea editorului, aceeasi schimbare | — | 21-27 ms |
+| `masura_ui`: o pictare completa fara schimbari | — | 12-15 ms |
+| `comuta_wrap` la pornire | 2 (+1 la redimensionare) | 0 |
+| `WARN redesenare lenta` in flux | 0 aici, 3 la Mihai | 0 |
+
+Pe masina lui Mihai, `redesenare lenta ms=119-121` era in proportie aceeasi
+parte de Rust (coloana pe 28.405 de randuri + ecranul listei).
+
+**`comuta_wrap` la pornire** era `changed coloane-wrap` (latimea panoului la
+aranjare / maximizare), scris in jurnal ca actiune si cu randurile refacute de
+fiecare data. Acum `latime-wrap-schimbata`: nu e actiune, se grupeaza la
+120 ms si reface doar cu editorul pe ecran.
+
+**Citirea mai lenta** (15:36: Before 14,0 s / After 10,3 s; 13:29: 9,3 / 6,5
+s): intre build-ul de la 13:29 (`60ef8d9`) si `da2f02a` codul de citire e
+neschimbat (`rust/db` neatins; in `app` doar numele etapelor). Cauza e la
+server (cache rece, incarcare, cele doua citiri paralele pe aceeasi
+instanta). Proba: doua comparari la rand; a doua, cu cache-ul cald, trebuie
+sa revina la ~9 / ~6 s.
+
+**Serverele gasite**: lista se filtreaza dupa textul din camp (fara
+majuscule); campul gol sau exact un server gasit le arata pe toate (dupa
+alegere poti alege altul); cel mult 5 randuri, cu derulare.

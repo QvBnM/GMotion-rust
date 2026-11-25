@@ -15,7 +15,12 @@ lipsea.
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
 | Derularea sacadeaza / monitorul `--fps` arata cadre lungi | ceva desenat pe tot ecranul la fiecare cadru (fundalul hartii), sau randuri refacute in masa | `rust/fereastra/src/lib.rs` (`incarca_fundal_harta`, `incarca_lista`); masura: `rust/app/examples/masura_ui.rs` |
-| Cifrele monitorului de cadre par absurde | statistica pe ferestre de 500 ms | `rust/app/src/cadre.rs` |
+| Cifrele monitorului de cadre par absurde | statistica pe ferestre de o secunda; momentele vin din filtrul winit | `rust/app/src/cadre.rs`, `porneste_monitorul_cadre` in `rust/app/src/main.rs` |
+| Cadre desenate in repaus | ceva cu `animation-tick()` sau un `Timer` care schimba o proprietate cat se vede | `rust/fereastra/ui/*.slint` (`Rotitor`, cursorul campului de editare) |
+| Clic in editor lent (`redesenare lenta`) | coloana / arborele refacute in masa, sau ecranul listei refacut din editor | `incarca_coloana_lista` in `rust/fereastra/src/lib.rs`, redesenarea din `rust/app/src/main.rs` (`redesenare pe bucati` la `debug`) |
+| Un obiect ales din Object Explorer inlocuieste tabul deschis | clicul deschide in previzualizare in loc sa aleaga randul | `rust/fereastra/ui/editor.slint` (`ales-explorer`), `Comanda::DeschideInTabNou` in `rust/app/src/rutare.rs` |
+| Vederea sare dupa transpunere / Aplica / Ctrl+Z | `incarca_editor` reface randurile si `mergi_la` deruleaza | `incarca_editor` / `incarca_editarea` (`pastreaza-derularea`) in `rust/fereastra/src/lib.rs` |
+| Cadru lung la salvarea sesiunii | unirea cu discul pusa inapoi in aplicatie (arunca modelul editorului) | `primeste_salvarea` in `rust/app/src/stare.rs` |
 | `sesiune salvata` de multe ori pe secunda | salvarea nu mai trece prin `SalvareAmanata` | `rust/app/src/main.rs`, `rust/app/src/stare.rs` |
 | Verificarea pe server spune „bine" desi serverul a dat eroare | `rezumat_verificare` / `text_verificare` | `rust/app/src/stare.rs` |
 | O modificare reala apare „identic" | o regula de normalizare a lovit intr-un string sau comentariu: granitele din lexer | `rust/core/src/lexer.rs`, `rust/core/src/normalizare.rs` |

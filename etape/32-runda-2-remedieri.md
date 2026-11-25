@@ -1,8 +1,8 @@
 # Etapa 32 — runda 2 de remedieri din proba lui Mihai
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/clever-cerf-hjk2qh
-**Deschisa:** 2026-11-25 · **Incheiata:** —
+**Deschisa:** 2026-11-25 · **Incheiata:** 2026-11-25
 
 ## Scop
 
@@ -41,10 +41,11 @@ cifrele, iar jurnalul spune adevarul.
 - [x] **E** jurnal: salvarea sesiunii grupata (test), `in_lista` / `diferite`
       in loc de `obiecte` (test), `cod_valid=false` cu eroarea la verificarea
       cazuta (test), etapele compararii in romana, cu Before / After
-- [ ] **A2** (din etapa 31) mutarea intre monitoare: proba lui Mihai
+- [ ] **A2** (din etapa 31) mutarea intre monitoare: proba lui Mihai —
+      *trecut in etapa 33*
 - [ ] fluxul cap-coada pe baza reala de ~12.000 (conectare → comparare →
       lista → editor → verificare pe server → deploy): proba lui Mihai, plus
-      „da"-ul pe capturi
+      „da"-ul pe capturi — *rularea din 15:32 a facut-o; ce a scos e etapa 33*
 - [x] capturi in `cercetare/capturi/etapa-32/`, ambele teme, 1366x768 si
       1920x1080, pentru fiecare ecran atins
 - [x] poarta verde: `unelte/verifica.sh` (cu wasm32 si windows-msvc)
@@ -74,6 +75,10 @@ cifrele, iar jurnalul spune adevarul.
   condusa cu mouse-ul (`conduce_x.py`).
 
 ## Ce a iesit altfel decat planul
+
+- **Inchisa cu D si A2 neprobate**: rularea lui Mihai din 15:32-15:39 a
+  aratat ca monitorul de cadre insusi desena continuu, deci cifrele lui nu
+  puteau bifa D. Monitorul refacut, A2 si proba fluxului au trecut in etapa 33.
 
 - **„Ecranul asta il vreau mereu pornit" era panoul de detalii**, nu lista
   (conturul rosu din captura 7). Facut asa; lista era deja ecranul de dupa
