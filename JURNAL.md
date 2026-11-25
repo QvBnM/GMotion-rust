@@ -2149,3 +2149,36 @@ deci nu trebuie crezut pe cuvant.
 `gmotion compara --detalii`, si in `--json`. Un bloc mutat se socoteste
 **neschimbat** la `schimbat` (textul e acelasi), si se vede in `mutate`. In
 fereastra nu exista coloana noua: o coloana cere macheta, deci o decide Mihai.
+
+---
+
+## 2026-11-25 — Poarta nu se mai crede pe cuvant pe Windows
+
+**Context.** Prima rulare a portii pe masina lui Mihai, dupa o clona noua.
+Trei lucruri pe care containerul de dezvoltare nu putea vedea: (1)
+`verifica.bat` rula generatoarele de referinta direct, deci **rescria**
+fixture-ul pe care regula 2 il declara intangibil — iar `verifica.sh` fusese
+reparat pe 2026-11-23 si cel de Windows rama in urma; (2) doua teste de `cli`
+citeau fisierul de sesiune cu `read_to_string`, dar pe Windows e criptat cu
+DPAPI; (3) clippy 1.100 are doua lint-uri pe care clippy 1.97 din container
+nu le are.
+
+**Alternative pentru fixture.** (a) `.bat` compara, ca `.sh`; (b) `.bat`
+cheama `verifica.sh` prin Git Bash si nu mai exista a doua poarta.
+
+**Motiv.** (a) acum, fiindca (b) ar face poarta de pe Windows sa depinda de
+Git Bash instalat, exact ce nota „paritatea portii pe `cmd`" evita. Dar (b)
+rama candidatul corect: doua porti sunt doua pareri, adica bug-ul v3.4 in
+unelte. Pana atunci, o schimbare in pasii comuni se face in amandoua.
+
+**Si o cauza pe care n-o banuiam.** Fixture-ul ieseai „schimbat" fara ca
+motorul JS sa difere: `core.autocrlf` il scria cu CRLF la checkout,
+generatorul cu LF, iar `git diff` nu arata nimic fiindca normalizeaza. De aici
+`.gitattributes`, cu `referinta/` si `mostenire/` marcate `-text`. Fara el,
+orice comparatie octet cu octet pe Windows e rosie pe veci, deci urmatoarea
+reactie ar fi fost sa se regenereze fixture-ul „ca sa treaca poarta" — chiar
+mecanismul din regula 2.
+
+**Consecinte.** Capcanele din `STARE.md`: poarta de aici nu e poarta lui
+Mihai (versiune de clippy, tinte lipsa), fixture-urile nu trec prin autocrlf,
+un test nu citeste sesiunea ca text.

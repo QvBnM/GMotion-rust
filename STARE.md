@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-25 · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde (780 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-25 · commit `a0f4fc2` · branch `claude/clever-cerf-hjk2qh`
+**Poarta:** verde aici si pe Windows (780 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
 > aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
@@ -68,6 +68,22 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-25, dupa prima rulare a portii pe masina lui Mihai.** Instalarea
+locala (clona noua, `rustup component add rustfmt clippy`) a scos trei lucruri
+pe care containerul nu le putea vedea, toate reparate in aceeasi zi: poarta de
+pe Windows isi rescria fixture-ul in loc sa-l compare, doua teste de `cli`
+citeau sesiunea criptata ca text, si doua lint-uri de clippy 1.100. Vezi
+„Capcane active". **Ce rama de facut:** Mihai ruleaza, dupa `git pull`,
+recipeul de renormalizare de mai jos (o data, fiindca `.gitattributes` e nou),
+apoi `unelte\verifica.bat` si trebuie sa iasa POARTA VERDE. Si verificarea
+noua **vazuta cazand** o data: `echo stricat>> referinta\rezultate_js.json`,
+poarta, apoi `git checkout -- referinta`.
+
+```
+git rm -r --cached .
+git reset --hard
+```
 
 **2026-11-25, de la tine (Mihai), pe etapa 30 (motorul):**
 
@@ -315,6 +331,24 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Poarta de aici nu e poarta lui Mihai.** Containerul are clippy 1.97,
+  masina lui 1.100: doua lint-uri cadeau doar la el, pe cod care trecea aici.
+  Cand vrei sa stii ce vede el, `cargo +1.100 clippy --all-targets`, si fara
+  `-D warnings` la prima rulare, altfel primul crate cazut ascunde restul.
+  Tintele `wasm32` si `windows-msvc` lipsesc si ele aici: poarta le sare si o
+  spune in iesire — se citeste, nu se presupune verde.
+- **Fixture-urile nu trec prin autocrlf (din 2026-11-25).** `referinta/` si
+  `mostenire/` sunt `-text` in `.gitattributes`, fiindca poarta le compara
+  octet cu octet. Fara asta, pe Windows poarta e rosie pe veci, iar
+  `git diff` nu arata nimic, fiindca normalizeaza terminatoarele. Daca cineva
+  pune o regula noua in `.gitattributes`, ultima linie care se potriveste
+  castiga: exceptiile stau la sfarsit, nu la inceput.
+- **Un test care citeste un fisier de sesiune nu-l citeste ca text.** Pe
+  Windows e criptat cu DPAPI, deci `read_to_string` cade cu „stream did not
+  contain valid UTF-8" — in test, pe o cale care in produs merge. Se trece
+  prin `protejare::deprotejeaza`, ca aplicatia (`cauta_sesiunea` din
+  `cli/tests/cli.rs`).
 
 - **Latimea tabelului nu se citeste din layout.** O proprietate care citeste
   latimea propriului parinte face bucla de legaturi in Slint („Recursion
