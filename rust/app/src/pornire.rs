@@ -288,6 +288,7 @@ pub fn compara_offline(sursa: &str, tinta: &str, l: Limba) -> Result<Comparata, 
             .alege("comparare offline", "offline comparison")
             .to_string(),
         referinta: l.alege("Lipit (martor)", "Pasted (witness)").to_string(),
+        dependente: None,
     })
 }
 
@@ -305,6 +306,30 @@ pub struct Comparata {
     /// "", sesiunea se salveaza sub cheia "", directorul de deploy devine
     /// „_<data>" (F-A3 din auditul QA).
     pub referinta: String,
+    /// Legaturile dintre obiecte, calculate pe firul compararii; `None` =
+    /// le calculeaza `Aplicatie` (offline: un singur obiect).
+    pub dependente: Option<DependenteCalculate>,
+}
+
+/// Legaturile dintre obiecte („Folosit de", impactul), pe fiecare baza
+/// comparata si pe martor. Pe 12.000 de obiecte costa ~0,5 s (mai mult pe
+/// o masina mai inceata): calculate pe firul ferestrei, o inghetau la
+/// deschiderea listei (Mihai, 2026-11-25). Se calculeaza pe firul compararii.
+pub struct DependenteCalculate {
+    pub tinte: std::collections::BTreeMap<String, modul::Dependente>,
+    pub martor: modul::Dependente,
+}
+
+impl DependenteCalculate {
+    pub fn calculeaza(sursa: &modul::Baza, tinte: &[(String, modul::Baza)]) -> Self {
+        DependenteCalculate {
+            tinte: tinte
+                .iter()
+                .map(|(n, b)| (n.clone(), modul::impact::dependente(b)))
+                .collect(),
+            martor: modul::impact::dependente(sursa),
+        }
+    }
 }
 
 impl Comparata {
@@ -403,12 +428,15 @@ pub fn compara_cu(
     // CPU pana la capat (P8)
     let comparare = modul::compara_cu_oprire(&x.referinta, &x.sursa, &x.tinte, |_| {}, continua)
         .ok_or_else(|| ANULAT.to_string())?;
+    // tot pe firul asta, nu pe al ferestrei
+    let dependente = Some(DependenteCalculate::calculeaza(&x.sursa, &x.tinte));
     Ok(Comparata {
         randuri: comparare.randuri,
         sursa: x.sursa,
         tinte: x.tinte,
         server: x.server,
         referinta: x.referinta,
+        dependente,
     })
 }
 

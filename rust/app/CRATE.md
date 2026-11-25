@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 7ce5c893a03a2349 -->
+<!-- api-hash: c6e2fd6569c7b749 -->
 
 ## Rol
 
@@ -66,6 +66,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `pornire::deschide(c, parte)` | sursa adevarata (server sau instantaneu) din ce s-a ales pe ecran |
 | `pornire::citeste_bazele(c, parte)` | bazele si starea de afisat — „conectat" doar daca chiar a citit |
 | `fir::Rulare` (`porneste`, `verifica`, `anuleaza`, `text`, `timp`, `fractie`, `etape`), `fir::{nume_etapa, durata}` | compararea pe alt fir, cu progres si Anuleaza; `etape` = citirea martorului, a fiecarei modificate si compararea, fiecare cu durata ei, pe roluri (fara nume de baze) |
+| `Aplicatie::noua_cu(..., dependente)`, `pornire::DependenteCalculate`, `Comparata::dependente` | legaturile dintre obiecte se calculeaza pe firul compararii, nu pe al ferestrei (pe 12.000 de obiecte o inghetau); `noua` le calculeaza singura, pentru teste si offline |
 | `Aplicatie::cu_vederea_implicita()` | o comparare noua porneste pe modificate, cele mai diferite primele |
 | `fir::Lucru<T>` (`porneste(f)`, `verifica`, `timp`) | orice alt lucru lung pe alt fir: citirea bazelor, „Testeaza conexiunea", cautarea de servere, garda de deploy (P4) |
 | `pornire::testeaza(c, parte)` | Testeaza conexiunea: ce raspunde serverul, fara parola in mesaj |

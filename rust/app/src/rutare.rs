@@ -375,14 +375,29 @@ impl Aplicatie {
         tinte: Vec<(String, Baza)>,
         revizuire: Revizuire,
     ) -> Self {
+        Self::noua_cu(randuri, sursa, tinte, revizuire, None)
+    }
+
+    /// Ca [`Aplicatie::noua`], cu legaturile dintre obiecte deja calculate
+    /// (pe firul compararii, nu pe al ferestrei); `None` = le calculeaza aici.
+    pub fn noua_cu(
+        randuri: Vec<Rand>,
+        sursa: Baza,
+        tinte: Vec<(String, Baza)>,
+        revizuire: Revizuire,
+        gata: Option<crate::pornire::DependenteCalculate>,
+    ) -> Self {
         // Legaturile dintre obiecte, o data per baza: lista le arata pe
         // fiecare rand (coloanele „Folosit de" si „Impact"), deci nu se mai
         // pot calcula lenes, la deschiderea panoului.
-        let dependente: std::collections::BTreeMap<String, DependenteBaza> = tinte
-            .iter()
-            .map(|(n, b)| (n.clone(), std::rc::Rc::new(modul::impact::dependente(b))))
+        let gata =
+            gata.unwrap_or_else(|| crate::pornire::DependenteCalculate::calculeaza(&sursa, &tinte));
+        let dependente: std::collections::BTreeMap<String, DependenteBaza> = gata
+            .tinte
+            .into_iter()
+            .map(|(n, d)| (n, std::rc::Rc::new(d)))
             .collect();
-        let dependente_martor = std::rc::Rc::new(modul::impact::dependente(&sursa));
+        let dependente_martor = std::rc::Rc::new(gata.martor);
         let cati = |baza: &str, id: &str| -> usize {
             dependente
                 .get(baza)
@@ -433,11 +448,15 @@ impl Aplicatie {
         // categoria „Identice" ar arata mereu 0, iar cautarea n-ar gasi un
         // obiect care exista si e la fel.
         let mut obiecte = obiecte;
+        // printr-un set, nu cautat in toate randurile pentru fiecare obiect:
+        // O(n²) pe firul ferestrei, ~2,4 s la 12.000 de obiecte (2026-11-25)
+        let cu_rand: std::collections::HashSet<(&str, &str)> = randuri
+            .iter()
+            .map(|r| (r.baza.as_str(), r.obiect.as_str()))
+            .collect();
         for (nume_baza, tinta) in &tinte {
             for (id, o) in &sursa {
-                let are_rand = randuri
-                    .iter()
-                    .any(|r| &r.baza == nume_baza && &r.obiect == id);
+                let are_rand = cu_rand.contains(&(nume_baza.as_str(), id.as_str()));
                 if are_rand || !tinta.contains_key(id) {
                     continue;
                 }
@@ -1670,6 +1689,43 @@ mod teste {
 
     /// Etapa 19: nodurile arborelui din editor se inchid / deschid prin
     /// comanda, iar obiectul selectat isi deschide singur dosarul.
+    /// Dependentele calculate pe firul compararii dau aceeasi lista ca cele
+    /// calculate aici (2026-11-25: s-au mutat de pe firul ferestrei).
+    #[test]
+    fn dependentele_gata_calculate_dau_aceeasi_lista() {
+        // instantaneul de previzualizare are dependente (dbo.Clienti e
+        // folosit de trei obiecte)
+        let mut c = gmotion_fereastra::model_conectare::Conectare::noua();
+        c.instantaneu = Some(format!(
+            "{}/../../referinta/instantanee/previzualizare.json",
+            env!("CARGO_MANIFEST_DIR")
+        ));
+        c.sursa.baza = "CharismaERP_Client1".into();
+        c.baza.comuta_baza("CharismaERP_Client2_Prod");
+        let r = crate::pornire::compara(&c).expect("compararea merge");
+        assert!(r.dependente.is_some(), "calculate pe firul compararii");
+        let b = Aplicatie::noua_cu(
+            r.randuri.clone(),
+            r.sursa.clone(),
+            r.tinte.clone(),
+            Revizuire::noua(),
+            r.dependente,
+        );
+        let a = Aplicatie::noua(r.randuri, r.sursa, r.tinte, Revizuire::noua());
+        let f = |x: &Aplicatie| -> Vec<(String, Option<usize>)> {
+            x.lista()
+                .obiecte()
+                .iter()
+                .map(|o| (o.id(), o.folosit_de))
+                .collect()
+        };
+        assert_eq!(f(&a), f(&b));
+        assert!(
+            f(&a).iter().any(|(_, n)| n.unwrap_or(0) > 0),
+            "are dependente"
+        );
+    }
+
     /// O comparare noua porneste pe modificate, cea mai mica similaritate
     /// intai (2026-11-25); aplicatia de test are si identice si doar-in-martor.
     #[test]

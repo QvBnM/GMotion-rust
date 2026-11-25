@@ -290,7 +290,7 @@ impl Stare {
         };
         self.server = r.server;
         self.referinta = referinta;
-        let mut app = Aplicatie::noua(r.randuri, r.sursa, r.tinte, revizuire)
+        let mut app = Aplicatie::noua_cu(r.randuri, r.sursa, r.tinte, revizuire, r.dependente)
             .cu_editari(editari)
             .cu_taburi(taburi);
         app = match &vederea {
@@ -501,14 +501,14 @@ impl Stare {
         }
         // detaliile de pe alt fir: cate au venit, pe obiectul lor
         if let (Some(rx), Some(app)) = (self.detalii.as_ref(), self.app.as_mut()) {
-            let mut venite = 0usize;
+            // un singur lot pe bataie: pus cate unul, fiecare reconstruia
+            // indexul peste toata lista (O(n²): 7,6 s pe firul ferestrei la
+            // 12.000 de obiecte, „interfata nu raspunde", Mihai 2026-11-25)
+            let mut lot = Vec::new();
             let mut gata = false;
             loop {
                 match rx.try_recv() {
-                    Ok((cheie, d)) => {
-                        app.pune_detalii(&cheie, d);
-                        venite += 1;
-                    }
+                    Ok(x) => lot.push(x),
                     Err(std::sync::mpsc::TryRecvError::Empty) => break,
                     Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                         gata = true;
@@ -520,7 +520,8 @@ impl Stare {
                 tracing::debug!(target: "gmotion::app", "detaliile listei sunt calculate");
                 self.detalii = None;
             }
-            if venite > 0 {
+            if !lot.is_empty() {
+                app.pune_detalii_multe(lot);
                 app.detalii_sosite();
                 s_a_schimbat = true;
             }
