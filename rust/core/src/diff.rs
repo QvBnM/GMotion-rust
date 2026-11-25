@@ -498,6 +498,42 @@ fn emite(
     }
 }
 
+/// Cuvintele care, singure sau cate doua, fac un bloc „banal": nu spune nimic
+/// despre unde se afla in obiect, deci nu poate ancora alinierea.
+const CUVINTE_BANALE: &[&str] = &[
+    "begin",
+    "end",
+    "as",
+    "go",
+    "else",
+    "return",
+    "try",
+    "catch",
+    "tran",
+    "transaction",
+    "commit",
+    "rollback",
+    "break",
+    "continue",
+];
+
+/// Blocul (dupa cheia lui, [`cheie_bloc`]) e antetul unui obiect:
+/// `CREATE ...` sau `ALTER ...`.
+fn e_antet(cheie: &str) -> bool {
+    cheie.starts_with("create:") || cheie.starts_with("other:alter ")
+}
+
+/// Blocul e doar cuvinte de structura (`END`, `BEGIN`, `AS`, `END TRY`,
+/// `COMMIT TRAN`...), fara majuscule si fara `;`: nu poate fi ancora.
+pub fn e_bloc_banal(bloc: &str) -> bool {
+    let n = crate::normalizare::norm(bloc).to_lowercase();
+    let cuvinte: Vec<&str> = n
+        .split(|c: char| c.is_whitespace() || c == ';')
+        .filter(|w| !w.is_empty())
+        .collect();
+    !cuvinte.is_empty() && cuvinte.len() <= 2 && cuvinte.iter().all(|w| CUVINTE_BANALE.contains(w))
+}
+
 /// Imperecherea blocurilor, fara sa se uite in interiorul lor.
 ///
 /// Trei straturi, in ordinea increderii:
@@ -520,7 +556,29 @@ fn plan_blocuri(
     let mut fixe: Vec<(usize, usize)> = Vec::new();
     let mut luat_i = vec![false; n];
     let mut luat_j = vec![false; m];
-    for op in SequenceMatcher::new(kv, kn).opcodes() {
+    // Un bloc banal (`END`, `BEGIN`, `AS`, `GO`...) nu poate fi ancora: in
+    // primul strat primeste o cheie unica, deci nu se potriveste cu nimic, iar
+    // perechea lui o gaseste stratul 2, in golul dintre ancorele adevarate.
+    // Altfel `SequenceMatcher` (ca `difflib` din v3.4) lua prima potrivire de
+    // lungime 1 si lega `END`-ul unui `IF` din Before de `END`-ul final din
+    // After: tot ce era intre ele iesea „doar intr-o parte", cu golul in
+    // fata (BO_Reconcile, Mihai 2026-11-25). Divergenta deliberata fata de
+    // v3.4, in `JURNAL.md`.
+    let ancora = |chei: &[String], texte: &[String], p: char| -> Vec<String> {
+        chei.iter()
+            .zip(texte)
+            .enumerate()
+            .map(|(k, (c, t))| {
+                if e_bloc_banal(t) {
+                    format!("\u{0}{p}{k}")
+                } else {
+                    c.clone()
+                }
+            })
+            .collect()
+    };
+    let (av, an) = (ancora(kv, sv, 'v'), ancora(kn, sn, 'n'));
+    for op in SequenceMatcher::new(&av, &an).opcodes() {
         if op.tag == Tag::Equal {
             for k in 0..(op.i2 - op.i1) {
                 fixe.push((op.i1 + k, op.j1 + k));
@@ -546,9 +604,35 @@ fn plan_blocuri(
     // identic nu are ce cauta intr-o pereche „modificat" — iar daca nu poate
     // fi ancora, ramane „sters" plus „adaugat" si `marcheaza_mutarile` le
     // uneste la final in `Mutat`.
-    let liberi_i: Vec<usize> = (0..n).filter(|&k| !luat_i[k]).collect();
-    let liberi_j: Vec<usize> = (0..m).filter(|&k| !luat_j[k]).collect();
-    let identice = perechi_identice(kv, kn, &liberi_i, &liberi_j);
+    // Intai in acelasi gol, apoi peste tot ce a ramas: lacom peste tot, un
+    // `END` din mijlocul martorului lua singurul `END` al tintei, iar `END`-ul
+    // final, din acelasi gol cu el, ramanea „sters" (etapa 34).
+    let mut identice: Vec<(usize, usize)> = Vec::new();
+    let mut liber_i: Vec<bool> = luat_i.iter().map(|l| !l).collect();
+    let mut liber_j: Vec<bool> = luat_j.iter().map(|l| !l).collect();
+    for (gi, gj) in &goluri {
+        let li: Vec<usize> = gi.clone().filter(|&k| liber_i[k]).collect();
+        let lj: Vec<usize> = gj.clone().filter(|&k| liber_j[k]).collect();
+        // cele banale de la capatul golului: `END`-urile se inchid din afara
+        // spre inauntru, deci ultimul cu ultimul
+        let (banale_i, rest_i): (Vec<usize>, Vec<usize>) =
+            li.iter().partition(|&&k| e_bloc_banal(&sv[k]));
+        let (banale_j, rest_j): (Vec<usize>, Vec<usize>) =
+            lj.iter().partition(|&&k| e_bloc_banal(&sn[k]));
+        let inv = |v: &[usize]| v.iter().rev().copied().collect::<Vec<usize>>();
+        for (a, b) in perechi_identice(kv, kn, &rest_i, &rest_j)
+            .into_iter()
+            .chain(perechi_identice(kv, kn, &inv(&banale_i), &inv(&banale_j)))
+        {
+            liber_i[a] = false;
+            liber_j[b] = false;
+            identice.push((a, b));
+        }
+    }
+    let liberi_i: Vec<usize> = (0..n).filter(|&k| liber_i[k]).collect();
+    let liberi_j: Vec<usize> = (0..m).filter(|&k| liber_j[k]).collect();
+    identice.extend(perechi_identice(kv, kn, &liberi_i, &liberi_j));
+    identice.sort_unstable();
     let mut identice_luate_i = vec![false; n];
     let mut identice_luate_j = vec![false; m];
     for &(a, b) in &identice {
@@ -573,6 +657,12 @@ fn plan_blocuri(
     }
     let ancore_noi: Vec<Vec<(usize, usize)>> = in_gol.iter().map(|p| ancore_in_ordine(p)).collect();
 
+    // antetul obiectului: primul `CREATE` / `ALTER` din fiecare text (nu un
+    // `CREATE TABLE #t` din corp)
+    let (antet_v, antet_n) = (
+        kv.iter().position(|c| e_antet(c)),
+        kn.iter().position(|c| e_antet(c)),
+    );
     let mut plan: Vec<RandPlan> = Vec::new();
     for (k, (gi, gj)) in goluri.iter().enumerate() {
         let ancore = &ancore_noi[k];
@@ -589,8 +679,26 @@ fn plan_blocuri(
             .chain(std::iter::once((gi.end, gj.end)))
             .collect();
         for (&(ia, ja), &(ib, jb)) in margini.iter().zip(capete.iter()) {
-            let libere_i: Vec<usize> = (ia..ib).filter(|&k| !identice_luate_i[k]).collect();
-            let libere_j: Vec<usize> = (ja..jb).filter(|&k| !identice_luate_j[k]).collect();
+            let mut libere_i: Vec<usize> = (ia..ib).filter(|&k| !identice_luate_i[k]).collect();
+            let mut libere_j: Vec<usize> = (ja..jb).filter(|&k| !identice_luate_j[k]).collect();
+            // Antetul obiectului (`CREATE` / `ALTER ...`) e perechea antetului
+            // de pe partea cealalta, oricat de diferit: o vedere care a
+            // devenit tabel iesea „doar in Before" sus si „doar in After" jos,
+            // cu golul fiecaruia in dreptul celuilalt (EUTransactionType,
+            // Mihai 2026-11-25). Ca pereche stau alaturi, iar „Aplica"
+            // inlocuieste antetul cu antetul.
+            if let (Some(&a), Some(&b)) = (libere_i.first(), libere_j.first()) {
+                if Some(a) == antet_v && Some(b) == antet_n {
+                    let tip = if kv[a] == kn[b] {
+                        TipDiferenta::Egal
+                    } else {
+                        TipDiferenta::Modificat
+                    };
+                    perechi.push((a, b, tip));
+                    libere_i.remove(0);
+                    libere_j.remove(0);
+                }
+            }
             if libere_i.is_empty() || libere_j.is_empty() {
                 continue;
             }
@@ -966,6 +1074,16 @@ mod teste {
 
     fn tipuri(r: &[RandDiff]) -> Vec<&'static str> {
         r.iter().map(|x| x.tip.eticheta()).collect()
+    }
+
+    /// Ce e „banal" (nu poate ancora alinierea); alinierea pe obiectul real
+    /// e in `tests/aliniere_reala.rs`.
+    #[test]
+    fn blocurile_banale() {
+        assert!(e_bloc_banal("END") && e_bloc_banal("end try") && e_bloc_banal("COMMIT TRAN;"));
+        assert!(e_bloc_banal("as") && e_bloc_banal("  BEGIN  "));
+        assert!(!e_bloc_banal("select * from #m") && !e_bloc_banal("return @x"));
+        assert!(!e_bloc_banal("") && !e_bloc_banal("end end end"));
     }
 
     #[test]

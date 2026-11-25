@@ -1,6 +1,6 @@
 # gmotion-core
 
-<!-- api-hash: 40f19d93fe02124d -->
+<!-- api-hash: 47895b48d3d5380b -->
 
 ## Rol
 
@@ -102,6 +102,7 @@ mai e privit niciodata, si scorul il lua drept pereche a altui bloc.
 |---|---|
 | `aliniaza_cu(a, b, uneste_cursor)`, `diff_aliniat_cu`, `are_cursor(cod)` | varianta cu unirea ciclului de cursor (v3.4): blocul de cursor se ia intreg, de la DECLARE pana la DEALLOCATE |
 | `aliniaza(stanga, dreapta) -> Aliniere` | diff-ul asezat pe linii, cu umplutura si cu liniile dintre blocuri; ce deseneaza editorul |
+| `diff::e_bloc_banal(bloc)` | blocul e doar cuvinte de structura (`END`, `BEGIN`, `AS`, `GO`, `END TRY`...): nu poate ancora alinierea; se imperecheaza doar in golurile dintre ancore, de la capat (etapa 34) |
 | `diff_aliniat_cu_raport(a, b, uneste_cursor)` | ca `diff_aliniat_cu`, plus cate segmente `replace` au ramas pe imperechere pozitionala |
 | `compune(aliniere, stanga, dreapta, aplica)` | textul din dreapta cu blocurile alese luate din stanga: fiecare la pozitia lui din diff, fara plasare |
 | `aplica_blocuri(stanga, dreapta, uneste_cursor, blocuri) -> String` | **„Aplica bloc"**: blocurile alese, aduse acolo unde spune plasarea (inlocuire sau inserare in gol, cu grupul). Singura cale prin care editorul, tragerea, modul ghidat si `cli` scriu un bloc |
@@ -190,6 +191,11 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
    comentariile din string-uri (JS si v3.4 aveau bug-ul). Divergentele sunt
    listate in `tests/conformitate.rs` (`DIVERGENTE_DELIBERATE`), nu ascunse
    prin regenerarea fixture-ului.
+1a. **Alinierea nu se ancoreaza pe blocuri banale** (`END`, `BEGIN`, `AS`...)
+   si **antetul obiectului e perechea antetului** (primul `CREATE` / `ALTER`
+   din fiecare text), oricat de diferite ar fi. Abatere deliberata fata de
+   v3.4 (2026-11-25, `JURNAL.md`); obiectele reale care au aratat-o sunt in
+   `tests/aliniere_reala.rs`.
 1b. **Doua texte cu aceeasi forma normalizata sunt identice; orice alta
    diferenta e diferenta.** Decizia „identic" nu foloseste scorul (rotunjit).
    `cheie_bloc` egala inseamna text normalizat egal (128 de biti de SHA-256).
