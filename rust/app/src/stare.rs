@@ -78,12 +78,89 @@ pub struct Stare {
     /// „Verifica pe server" (etapa 26), pe alt fir: pentru ce cheie de obiect
     /// si ce cod s-a trimis.
     pub verificare: Option<(CheieVerificare, Lucru<gmotion_db::VerificareServer>)>,
+    /// Salvarea sesiunii care ruleaza pe alt fir (etapa 33: pe firul
+    /// ferestrei fiecare salvare dadea un cadru de 27-45 ms), cu ce s-a
+    /// trimis, ca rezultatul sa se uneasca cu ce s-a schimbat intre timp.
+    salvare: Option<(DateSalvare, Lucru<SesiuneScrisa>)>,
+    /// S-a cerut o salvare cat alta era in curs: se face dupa ea.
+    salvare_din_nou: Option<Option<StareColoana>>,
     /// Ultimul raspuns al serverului; se arata cat timp obiectul si codul
     /// sunt aceleasi.
     pub rezultat_verificare: Option<(
         CheieVerificare,
         Result<gmotion_db::VerificareServer, String>,
     )>,
+}
+
+/// Tot ce trebuie ca sesiunea sa se scrie pe alt fir, luat de pe firul
+/// ferestrei intr-o clipa (clone).
+#[derive(Clone)]
+pub struct DateSalvare {
+    sesiuni: gmotion_platforma::Sesiuni,
+    server: String,
+    referinta: String,
+    auth: &'static str,
+    baze: Vec<String>,
+    revizuire: modul::Revizuire,
+    editari: modul::Editari,
+    /// `salvate_ultima`: baza unirii in trei cai cu ce e pe disc.
+    baza: (modul::Revizuire, modul::Editari),
+    taburi: gmotion_fereastra::model_taburi::Taburi,
+    coloana: Option<StareColoana>,
+}
+
+/// Ce a ajuns pe disc: revizuirea si textele unite, si cand.
+pub struct SesiuneScrisa {
+    revizuire: modul::Revizuire,
+    editari: modul::Editari,
+    acum: String,
+}
+
+/// Citeste sesiunea de pe disc, o uneste in trei cai cu ce e in fereastra si
+/// o scrie. Fara Slint si fara `Stare`: ruleaza si pe alt fir.
+fn scrie_sesiunea(d: DateSalvare) -> Result<SesiuneScrisa, String> {
+    let mut sesiune = d
+        .sesiuni
+        .incarca(&d.server, &d.referinta)
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| {
+            gmotion_platforma::Sesiune::noua(
+                d.server.clone(),
+                d.auth,
+                d.referinta.clone(),
+                String::new(),
+            )
+        });
+    // unire in trei cai cu ce e acum pe disc: ce a scris `gmotion` din
+    // linia de comanda cat fereastra era deschisa nu se pierde (A-5)
+    let (baza_rev, baza_ed) = &d.baza;
+    let revizuire = modul::Revizuire::uneste(
+        baza_rev,
+        &d.revizuire,
+        &modul::Revizuire::din_sesiune(&sesiune),
+    );
+    let editari =
+        modul::Editari::uneste(baza_ed, &d.editari, &modul::Editari::din_sesiune(&sesiune));
+    revizuire.in_sesiune(&mut sesiune);
+    editari.in_sesiune(&mut sesiune);
+    crate::rutare::taburi_in_sesiune(&d.taburi, &mut sesiune);
+    if let Some(c) = d.coloana {
+        c.in_sesiune(&mut sesiune);
+    }
+    // se adauga, nu se inlocuiesc: sesiunea tine munca facuta pe toate
+    // bazele comparate vreodata cu referinta asta (C3)
+    sesiune.adauga_baze(&d.baze);
+    // „Compararile salvate" sorteaza si afiseaza dupa campul asta, iar
+    // fereastra nu-l scria niciodata (A-6 din auditul 2026-11-23)
+    let acum = gmotion_platforma::timp::acum();
+    sesiune.salvata = acum.clone();
+    d.sesiuni.salveaza(&sesiune).map_err(|e| e.to_string())?;
+    Ok(SesiuneScrisa {
+        revizuire,
+        editari,
+        acum,
+    })
 }
 
 /// Ce s-a verificat pe server: obiectul (`baza`, `schema.nume`) si codul trimis.
@@ -124,6 +201,8 @@ impl Stare {
             folder_deploy: None,
             verificare: None,
             rezultat_verificare: None,
+            salvare: None,
+            salvare_din_nou: None,
         }
     }
 
@@ -158,10 +237,71 @@ impl Stare {
     /// Salveaza progresul (revizuirea, textele finale, taburile, coloana) in
     /// sesiunea referintei. Nimic de salvat inainte de prima comparare.
     pub fn salveaza(&mut self, coloana: Option<StareColoana>) {
-        let referinta = self.referinta.clone();
-        // bazele comparate chiar acum, toate, nu doar prima bifata
-        let baze = self.baze();
-        let server = self.server.clone();
+        // una in curs pe alt fir: intai ea, ca doua scrieri sa nu se
+        // suprapuna pe acelasi fisier
+        if let Some((trimis, l)) = self.salvare.take() {
+            let r = l.asteapta(self.conectare.limba);
+            self.primeste_salvarea(trimis, r);
+        }
+        self.salvare_din_nou = None;
+        let Some(date) = self.date_salvare(coloana) else {
+            return;
+        };
+        let r = scrie_sesiunea(date.clone());
+        self.primeste_salvarea(date, r);
+    }
+
+    /// Ca [`Stare::salveaza`], dar citirea, unirea si scrierea fisierului se
+    /// fac pe alt fir; rezultatul il aduce [`Stare::verifica_salvarea`]. O
+    /// cerere venita cat alta e in curs se face dupa ea, o singura data.
+    pub fn salveaza_in_fundal(&mut self, coloana: Option<StareColoana>) {
+        if self.salvare.is_some() {
+            self.salvare_din_nou = Some(coloana);
+            return;
+        }
+        let Some(date) = self.date_salvare(coloana) else {
+            return;
+        };
+        let trimis = date.clone();
+        self.salvare = Some((trimis, Lucru::porneste(move || scrie_sesiunea(date))));
+    }
+
+    /// Salvarea din fundal s-a terminat? `true` daca s-a schimbat ceva de
+    /// desenat (ora salvarii, sau marcaje venite din linia de comanda).
+    pub fn verifica_salvarea(&mut self) -> bool {
+        let limba = self.conectare.limba;
+        let Some(r) = self.salvare.as_mut().and_then(|(_, l)| l.verifica(limba)) else {
+            return false;
+        };
+        let Some((trimis, _)) = self.salvare.take() else {
+            return false;
+        };
+        self.primeste_salvarea(trimis, r);
+        if let Some(c) = self.salvare_din_nou.take() {
+            self.salveaza_in_fundal(c);
+        }
+        true
+    }
+
+    /// O salvare ruleaza acum pe alt fir.
+    pub fn salvare_in_curs(&self) -> bool {
+        self.salvare.is_some()
+    }
+
+    /// La inchidere: salvarea din fundal se asteapta (altfel firul ar muri
+    /// cu procesul), iar una ceruta intre timp se face pe loc.
+    pub fn termina_salvarea(&mut self) {
+        if let Some((trimis, l)) = self.salvare.take() {
+            let r = l.asteapta(self.conectare.limba);
+            self.primeste_salvarea(trimis, r);
+        }
+        if let Some(c) = self.salvare_din_nou.take() {
+            self.salveaza(c);
+        }
+    }
+
+    /// Ce trebuie salvat, luat de pe firul ferestrei. `None` fara comparare.
+    fn date_salvare(&mut self, coloana: Option<StareColoana>) -> Option<DateSalvare> {
         let auth = if self.conectare.instantaneu.is_some() {
             "instantaneu"
         } else if self.conectare.sursa.auth_windows {
@@ -169,57 +309,57 @@ impl Stare {
         } else {
             "SQL"
         };
-        let Some(revizuire) = self.app.as_mut().map(|a| a.revizuire_de_salvat().clone()) else {
-            return;
-        };
-        let editari = self
-            .app
-            .as_mut()
-            .map(|a| a.editari_de_salvat().clone())
-            .unwrap_or_default();
-        let mut sesiune = self
-            .sesiuni
-            .incarca(&server, &referinta)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| {
-                gmotion_platforma::Sesiune::noua(server, auth, referinta.clone(), String::new())
-            });
-        // unire in trei cai cu ce e acum pe disc: ce a scris `gmotion` din
-        // linia de comanda cat fereastra era deschisa nu se pierde (A-5)
-        let (baza_rev, baza_ed) = self.salvate_ultima.clone();
-        let revizuire = modul::Revizuire::uneste(
-            &baza_rev,
-            &revizuire,
-            &modul::Revizuire::din_sesiune(&sesiune),
-        );
-        let editari =
-            modul::Editari::uneste(&baza_ed, &editari, &modul::Editari::din_sesiune(&sesiune));
-        revizuire.in_sesiune(&mut sesiune);
-        editari.in_sesiune(&mut sesiune);
-        if let Some(a) = self.app.as_mut() {
-            a.preia_starea(revizuire.clone(), editari.clone());
-        }
-        self.salvate_ultima = (revizuire, editari);
-        if let Some(a) = self.app.as_ref() {
-            crate::rutare::taburi_in_sesiune(a.taburi(), &mut sesiune);
-        }
-        if let Some(c) = coloana {
-            c.in_sesiune(&mut sesiune);
-        }
-        // se adauga, nu se inlocuiesc: sesiunea tine munca facuta pe
-        // toate bazele comparate vreodata cu referinta asta (C3)
-        sesiune.adauga_baze(&baze);
-        // „Compararile salvate" sorteaza si afiseaza dupa campul asta, iar
-        // fereastra nu-l scria niciodata: o comparare facuta numai de aici
-        // aparea cu data goala, ultima in lista (A-6 din auditul 2026-11-23)
-        let acum = gmotion_platforma::timp::acum();
-        sesiune.salvata = acum.clone();
-        match self.sesiuni.salveaza(&sesiune) {
-            Ok(_) => {
+        let baze = self.baze();
+        let app = self.app.as_mut()?;
+        let revizuire = app.revizuire_de_salvat().clone();
+        let editari = app.editari_de_salvat().clone();
+        Some(DateSalvare {
+            sesiuni: self.sesiuni.clone(),
+            server: self.server.clone(),
+            referinta: self.referinta.clone(),
+            auth,
+            baze,
+            revizuire,
+            editari,
+            baza: self.salvate_ultima.clone(),
+            taburi: app.taburi().clone(),
+            coloana,
+        })
+    }
+
+    /// Rezultatul unei salvari (pe loc sau din fundal). Unirea cu discul se
+    /// pune in aplicatie doar daca aduce ceva nou (marcaje scrise din linia
+    /// de comanda): pana pe 2026-11-25 se punea mereu, iar asta arunca
+    /// modelul editorului la fiecare salvare. Ce s-a schimbat in fereastra
+    /// cat a rulat salvarea nu se pierde: unirea se face in trei cai, cu ce
+    /// s-a trimis ca baza.
+    fn primeste_salvarea(&mut self, trimis: DateSalvare, r: Result<SesiuneScrisa, String>) {
+        match r {
+            Ok(scrisa) => {
+                if let Some(a) = self.app.as_mut() {
+                    let disc_nou =
+                        scrisa.revizuire != trimis.revizuire || scrisa.editari != trimis.editari;
+                    if disc_nou {
+                        let rev = modul::Revizuire::uneste(
+                            &trimis.revizuire,
+                            &a.revizuire_de_salvat().clone(),
+                            &scrisa.revizuire,
+                        );
+                        let ed = modul::Editari::uneste(
+                            &trimis.editari,
+                            &a.editari_de_salvat().clone(),
+                            &scrisa.editari,
+                        );
+                        a.preia_starea(rev, ed);
+                    }
+                }
                 // ora, nu data: „ultima data la 14:52". Ceasul din
                 // `platforma::timp` e UTC, si se spune (A-16)
-                self.salvat_la = format!("{} UTC", acum.split(' ').nth(1).unwrap_or(&acum));
+                self.salvat_la = format!(
+                    "{} UTC",
+                    scrisa.acum.split(' ').nth(1).unwrap_or(&scrisa.acum)
+                );
+                self.salvate_ultima = (scrisa.revizuire, scrisa.editari);
             }
             Err(e) => {
                 tracing::warn!(target: "gmotion::app", eroare = %e, "progresul nu s-a salvat");
@@ -1377,6 +1517,58 @@ mod teste {
         assert_eq!(s.referinta, "Ref");
         assert!(s.detalii.is_some(), "detaliile pornesc pe alt fir");
         assert!(s.rulare.is_none());
+        std::fs::remove_dir_all(&d).ok();
+    }
+
+    /// Etapa 33, D: salvarea amanata se scrie pe alt fir. Ce se schimba in
+    /// fereastra cat ruleaza nu se pierde; o cerere venita intre timp se face
+    /// dupa, o data; inchiderea asteapta firul.
+    #[test]
+    fn salvarea_din_fundal_nu_pierde_ce_s_a_facut_intre_timp() {
+        let (mut s, d) = stare("fundal");
+        let r = comparata(&s);
+        s.primeste_compararea(r);
+        let app = s.app.as_mut().unwrap();
+        app.comanda(Comanda::Selecteaza(0));
+        app.comanda(Comanda::ComutaRevizuit);
+        s.salveaza_in_fundal(None);
+        assert!(s.salvare_in_curs());
+        // intre timp, alt obiect revizuit si inca o cerere
+        let app = s.app.as_mut().unwrap();
+        app.comanda(Comanda::Selecteaza(1));
+        app.comanda(Comanda::ComutaRevizuit);
+        s.salveaza_in_fundal(None);
+        let mut runde = 0;
+        while s.salvare_in_curs() || s.salvare_din_nou.is_some() {
+            s.verifica_salvarea();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            runde += 1;
+            assert!(runde < 2000, "salvarea nu s-a terminat");
+        }
+        assert!(!s.salvat_la.is_empty(), "salvarea spune ora");
+        let app = s.app.as_ref().unwrap();
+        let revizuite = |a: &Aplicatie| {
+            (0..2)
+                .filter(|&p| a.lista().obiect(p).is_some_and(|o| o.revizuit))
+                .count()
+        };
+        assert_eq!(revizuite(app), 2, "nimic pierdut in fereastra");
+        // pe disc: amandoua (a doua cerere s-a facut dupa prima)
+        let r = comparata(&s);
+        s.app = None;
+        s.primeste_compararea(r);
+        assert_eq!(revizuite(s.app.as_ref().unwrap()), 2, "amandoua pe disc");
+        // inchiderea cu una in curs: o asteapta
+        let app = s.app.as_mut().unwrap();
+        app.comanda(Comanda::Selecteaza(0));
+        app.comanda(Comanda::ComutaRevizuit);
+        s.salveaza_in_fundal(None);
+        s.termina_salvarea();
+        assert!(!s.salvare_in_curs());
+        let r = comparata(&s);
+        s.app = None;
+        s.primeste_compararea(r);
+        assert_eq!(revizuite(s.app.as_ref().unwrap()), 1);
         std::fs::remove_dir_all(&d).ok();
     }
 

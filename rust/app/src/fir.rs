@@ -69,6 +69,19 @@ impl<T: Send + 'static> Lucru<T> {
         }
     }
 
+    /// Asteapta sfarsitul, blocand firul: doar unde trebuie oricum asteptat
+    /// (o salvare explicita care nu are voie sa se suprapuna cu una in curs).
+    pub fn asteapta(self, l: gmotion_core::Limba) -> Result<T, String> {
+        self.vesti.recv().unwrap_or_else(|_| {
+            Err(l
+                .alege(
+                    "lucrul s-a oprit pe neasteptate",
+                    "the task stopped unexpectedly",
+                )
+                .to_string())
+        })
+    }
+
     /// Cat a trecut, ca „0:12".
     pub fn timp(&self) -> String {
         let s = self.pornit_la.elapsed().as_secs();

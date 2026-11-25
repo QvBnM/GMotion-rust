@@ -146,6 +146,7 @@ fn slug_sesiune_exact(server: &str, referinta: &str) -> String {
 /// Sesiunile unui modul. Un `Sesiuni` e legat de **un** modul: platforma da
 /// fiecarui modul instanta lui, deci un modul nu poate ajunge la sesiunile
 /// altuia nici din greseala.
+#[derive(Debug, Clone)]
 pub struct Sesiuni {
     modul: String,
     director: PathBuf,

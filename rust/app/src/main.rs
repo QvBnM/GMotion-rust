@@ -753,7 +753,10 @@ fn ruleaza() -> Result<(), String> {
     let salveaza = {
         let stare = stare.clone();
         let e_ui = editor_ui.as_weak();
-        move || {
+        // `fundal`: fisierul se citeste, se uneste si se scrie pe alt fir
+        // (salvarea amanata, etapa 33); altfel pe loc (deconectare,
+        // scripturi scrise, inchidere: dupa ele nu mai e cine sa astepte)
+        move |fundal: bool| {
             // coloana listei din editor (etapa 16): starea ei e in fereastra
             let coloana = e_ui.upgrade().map(|u| gmotion_app::rutare::StareColoana {
                 latime: u.get_latime_lista_aleasa(),
@@ -761,7 +764,11 @@ fn ruleaza() -> Result<(), String> {
                 dreapta: u.get_lista_dreapta(),
                 banda: u.get_lista_banda(),
             });
-            stare.borrow_mut().salveaza(coloana);
+            if fundal {
+                stare.borrow_mut().salveaza_in_fundal(coloana);
+            } else {
+                stare.borrow_mut().salveaza(coloana);
+            }
         }
     };
 
@@ -774,12 +781,12 @@ fn ruleaza() -> Result<(), String> {
         let salveaza = salveaza.clone();
         let amanata = amanata.clone();
         let ceas = ceas_salvare.clone();
-        Rc::new(move || {
+        Rc::new(move |fundal: bool| {
             ceas.stop();
             let mut a = amanata.get();
             a.facuta();
             amanata.set(a);
-            salveaza();
+            salveaza(fundal);
         })
     };
     let cere_salvarea = {
@@ -801,13 +808,16 @@ fn ruleaza() -> Result<(), String> {
                         .get()
                         .e_timpul(std::time::Instant::now(), stare::AMANARE_SALVARE)
                     {
-                        salveaza_acum();
+                        salveaza_acum(true);
                     }
                 },
             );
         }
     };
-    let salveaza = salveaza_acum.clone();
+    let salveaza = {
+        let s = salveaza_acum.clone();
+        Rc::new(move || s(false))
+    };
 
     let comanda = {
         let stare = stare.clone();
@@ -1479,7 +1489,9 @@ fn ruleaza() -> Result<(), String> {
                 );
                 // celelalte lucruri de pe alte fire, apoi compararea
                 let s_a_schimbat = s.borrow_mut().verifica_lucrarile();
-                if s_a_schimbat {
+                // salvarea din fundal: ora „salvat la", sau marcaje din `cli`
+                let salvata = s.borrow_mut().verifica_salvarea();
+                if s_a_schimbat || salvata {
                     d();
                 }
                 let progres = s.borrow_mut().verifica_compararea();
@@ -1530,5 +1542,7 @@ fn ruleaza() -> Result<(), String> {
     if amanata.get().in_asteptare() {
         salveaza();
     }
+    // si cea care inca se scrie pe alt fir
+    stare.borrow_mut().termina_salvarea();
     Ok(())
 }
