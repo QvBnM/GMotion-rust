@@ -81,6 +81,11 @@ cerere rezolvate sau lasate cu motiv in `cercetare/lipsuri-portare.md`.
   teste. Ramane deschisa pentru proba lui Mihai pe Windows (A2) si „da"-ul
   pe capturi.
 
+- **2026-11-25 (3)** Prima proba a lui Mihai pe noul cod: ceasul de garda a
+  prins doua inghetari de peste 2 s dupa comparare (11.938 de obiecte).
+  Reproduse cu `masura_ui` pe 12.000 sintetice: detaliile O(n²) (7,6 s) si
+  dependentele pe firul ferestrei (0,7 s). Reparate; vezi `JURNAL.md`.
+
 ## Ce a iesit altfel decat planul
 
 - **Blocajul nu s-a putut reproduce aici.** Pe Linux, sub Xvfb, aceeasi

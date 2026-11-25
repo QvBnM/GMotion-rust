@@ -2299,3 +2299,22 @@ se noteze aici. Pe scurt, fiecare:
   sfaturi, pe randuri si pe bara de progres.
 - **Python-xlib** s-a folosit doar in sesiune, ca sa se conduca aplicatia sub
   Xvfb pentru capturi; nu e dependinta a proiectului.
+
+---
+
+## 2026-11-25 — Nimic de ordinul listei pe firul ferestrei; dependentele pe firul compararii
+
+**Context.** Ceasul de garda (adaugat in aceeasi zi) a prins, la prima proba
+a lui Mihai pe 11.938 de obiecte, doua inghetari de peste 2 s dupa
+comparare. Masurat local pe 12.000 de obiecte (`masura_ui`): sosirea
+detaliilor tinea firul 7,6 s (fiecare detaliu reconstruia indexul peste toata
+lista: O(n²)), iar primirea compararii 0,7 s (dependentele, plus o cautare
+liniara in randuri pentru fiecare obiect identic).
+
+**Alternative.** (a) Toate trei pe fire separate; (b) reparate pe loc:
+detaliile intr-un singur lot pe bataie, cautarea printr-un set, dependentele
+calculate pe firul compararii (care exista deja) si trimise cu rezultatul.
+
+**Motiv.** (b): aceeasi logica, aceleasi rezultate (test de echivalenta),
+fara un fir nou de sincronizat. Firul ferestrei sta acum ~70 ms o data la
+deschiderea listei si sub 10 ms pe bataie cat sosesc detaliile.
