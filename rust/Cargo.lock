@@ -1697,7 +1697,6 @@ name = "gmotion-platforma"
 version = "0.1.0"
 dependencies = [
  "gmotion-core",
- "gmotion-db",
  "serde",
  "serde_json",
  "thiserror 2.0.21",

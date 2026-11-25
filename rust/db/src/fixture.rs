@@ -207,7 +207,9 @@ pub fn text_din_octeti(o: &[u8]) -> Result<String, String> {
             return Err("UTF-16 cu un numar impar de octeti".into());
         }
         let unitati: Vec<u16> = o
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .map(|p| {
                 if le {
                     u16::from_le_bytes([p[0], p[1]])

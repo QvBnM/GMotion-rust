@@ -85,6 +85,11 @@ impl<'a, T: Eq + Hash> SequenceMatcher<'a, T> {
     /// `autojunk` oprit, exact cel mai lung subsir comun: difflib alege dintre
     /// ele pe cel cu `i` minim, apoi `j` minim, iar automatul tine minte cea
     /// mai mica pozitie de final a fiecarei stari.
+    // indexarea explicita e necesara: `i` nu e doar accesul la element, intra
+    // in pozitia returnata (`besti = i + 1 - potrivit`). Lintul a aparut in
+    // clippy 1.100, deci nu se vede pe toolchain-ul mai vechi din containerul
+    // de dezvoltare — iese doar pe masina lui Mihai.
+    #[allow(clippy::needless_range_loop)]
     fn potrivire_prin_automat(
         &self,
         alo: usize,
