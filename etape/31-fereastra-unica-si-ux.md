@@ -16,39 +16,41 @@ cerere rezolvate sau lasate cu motiv in `cercetare/lipsuri-portare.md`.
 
 ## Criterii de terminare
 
-- [ ] **A1** porneste pe monitorul cursorului, centrata, cel mult cat zona de
+- [x] **A1** porneste pe monitorul cursorului, centrata, cel mult cat zona de
       lucru; reia locul de data trecuta daca monitorul mai exista (test pe
       `monitor::alege_geometria`)
 - [ ] **A2** mutarea intre monitoare cu alta marire nu mai intra in bucla
       (fara scara proprie peste sistem; test cu zece factori pe fiecare ecran);
-      ceas de garda care scrie in jurnal daca interfata nu raspunde
-- [ ] **A3** fantoma de tragere, previzualizarea la hover si textul de hover
+      ceas de garda care scrie in jurnal daca interfata nu raspunde.
+      *Testul headless trece (10 factori x 5 ecrane); bifa cere proba lui
+      Mihai pe doua monitoare reale, 10 mutari, fara inghetare.*
+- [x] **A3** fantoma de tragere, previzualizarea la hover si textul de hover
       din coloana editorului pleaca odata cu mouse-ul (test cu mouse-ul iesit
       din fereastra)
-- [ ] **A4** clic pe rand fara „redesenare lenta" pe previzualizare
-- [ ] **B** conectare: lupa curata; animatie cat se cauta / se citesc bazele;
+- [x] **A4** clic pe rand fara „redesenare lenta" pe previzualizare
+- [x] **B** conectare: lupa curata; animatie cat se cauta / se citesc bazele;
       buton explicit „Adu bazele"; bara de derulare mereu vizibila; doar
       ultima sesiune + legatura spre Sesiuni; Martor / Modificata pe ambele
       panouri si mai departe (lista, editor, deploy)
-- [ ] **C** o singura fereastra (`Aplicatie`), ecranele cu tranzitie; cat
+- [x] **C** o singura fereastra (`Aplicatie`), ecranele cu tranzitie; cat
       ruleaza compararea, restul e blocat, cu progres pe etape
-- [ ] **D** lista: implicit Modificate + Similar crescator; fara coloana
+- [x] **D** lista: implicit Modificate + Similar crescator; fara coloana
       Linii; buton Deschide pe rand, fara dublu clic; nume fara `dbo.`, taiat
       pe mijloc, intreg la hover; tip prescurtat; data fara ora; Impact si
       Deploy ca puncte colorate cu text la hover (si celelalte pastile);
       fundalul hartii, estompat, sub lista
-- [ ] **E** panoul de detalii: doar blocurile diferite, rupte pe latime si
+- [x] **E** panoul de detalii: doar blocurile diferite, rupte pe latime si
       mai mici; rezumatul de linii (adaugate / sterse / modificate / mutate);
       „Foloseste" / „Folosit de" ca text selectabil, fara navigare
-- [ ] **F** jurnal: etapele compararii cu durata; fara server / baza /
+- [x] **F** jurnal: etapele compararii cu durata; fara server / baza /
       utilizator in jurnalul din fereastra; certificatul neverificat o data pe
       sesiune
-- [ ] **G** `cercetare/lipsuri-portare.md` la zi
-- [ ] capturi in `cercetare/capturi/` pentru fiecare ecran atins, ambele
+- [x] **G** `cercetare/lipsuri-portare.md` la zi
+- [x] capturi in `cercetare/capturi/` pentru fiecare ecran atins, ambele
       teme, 1366x768 si 1920x1080
-- [ ] poarta verde: `unelte/verifica.sh` (cu windows-msvc)
-- [ ] `STARE.md` actualizat
-- [ ] `JURNAL.md` completat cu deciziile
+- [x] poarta verde: `unelte/verifica.sh` (cu windows-msvc)
+- [x] `STARE.md` actualizat
+- [x] `JURNAL.md` completat cu deciziile
 
 ## Pasi
 
@@ -70,6 +72,24 @@ cerere rezolvate sau lasate cu motiv in `cercetare/lipsuri-portare.md`.
   schimbarea monitorului); scoasa. Ceas de garda adaugat, ca o inghetare
   viitoare sa lase urma in jurnal.
 
+- **2026-11-25 (2)** Lista, panoul de detalii, conectarea, jurnalul, dupa
+  cerere; deciziile luate fara intrebare sunt in `JURNAL.md` (o intrare cu
+  toate). Probat cap-coada in aplicatia adevarata, sub Xvfb, condusa cu
+  mouse-ul: conectare → Adu bazele → Compara (acoperit, cu etape) → lista →
+  detalii → sfaturi → Deschide → editor → In plan → Deploy, intr-o singura
+  fereastra; capturile in `cercetare/capturi/etapa-31/`. Poarta verde, 800+
+  teste. Ramane deschisa pentru proba lui Mihai pe Windows (A2) si „da"-ul
+  pe capturi.
+
 ## Ce a iesit altfel decat planul
 
-—
+- **Blocajul nu s-a putut reproduce aici.** Pe Linux, sub Xvfb, aceeasi
+  tragere de bloc si schimbarile de marire nu ingheata. Reparatia e pe cauza
+  cea mai probabila (scara proprie peste a sistemului), iar ceasul de garda
+  face ca o inghetare viitoare sa lase urma in jurnal.
+- **Punctul E era panoul listei, nu editorul.** „Codul in partea de jos",
+  „Uses" si rezumatul de linii sunt toate in panoul de detalii al listei
+  (captura 11 din proba); editorul a primit doar etichetele de rol, fundalul
+  si bara de derulare a arborelui.
+- **Tastele nu ajung prin XTest sub Xvfb**, deci capturile s-au facut doar
+  cu clicuri; tastele raman pe testele headless.
