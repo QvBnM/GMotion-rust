@@ -1,34 +1,58 @@
 [
- {
-  "obiect": "dbo.ambele_goale",
-  "baza": "Tinta",
-  "camp": "rand",
-  "python": null,
-  "rust": "criptat",
-  "motiv": "definitie goala in ambele baze: SQL Server da definitie goala (NULL) doar obiectelor WITH ENCRYPTION; v4 nu le compara si nu le deployeaza"
- },
- {
-  "obiect": "dbo.gol_vs_plin",
-  "baza": "Tinta",
-  "camp": "categorie",
-  "python": "diferit",
-  "rust": "criptat",
-  "motiv": "definitie goala intr-o baza = obiect criptat; v3.4 l-ar fi deployat peste"
- },
- {
-  "obiect": "dbo.hint_lock_cosmetic",
-  "baza": "Tinta",
-  "camp": "rand",
-  "python": null,
-  "rust": "diferit",
-  "motiv": "difera doar in hinturi de blocare (WITH (NOLOCK)): raman zgomot la comparare, dar obiectul nu mai iese identic, ca o reparatie de concurenta sa se poata deploia (F-M3, decizia lui Mihai, 2026-11-19)"
- },
- {
-  "obiect": "dbo.mihai_offline_while_begin",
-  "baza": "Tinta",
-  "camp": "rezumat",
-  "python": "2 modificate, 1 adaugate, 1 sterse",
-  "rust": "1 modificate, 2 adaugate, 2 sterse",
-  "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
- }
+  {
+    "obiect": "dbo.ambele_goale",
+    "baza": "Tinta",
+    "camp": "rand",
+    "python": null,
+    "rust": "criptat",
+    "motiv": "definitie goala in ambele baze: SQL Server da definitie goala (NULL) doar obiectelor WITH ENCRYPTION; v4 nu le compara si nu le deployeaza"
+  },
+  {
+    "obiect": "dbo.gol_vs_plin",
+    "baza": "Tinta",
+    "camp": "categorie",
+    "python": "diferit",
+    "rust": "criptat",
+    "motiv": "definitie goala intr-o baza = obiect criptat; v3.4 l-ar fi deployat peste"
+  },
+  {
+    "obiect": "dbo.hint_lock_cosmetic",
+    "baza": "Tinta",
+    "camp": "rand",
+    "python": null,
+    "rust": "diferit",
+    "motiv": "difera doar in hinturi de blocare (WITH (NOLOCK)): raman zgomot la comparare, dar obiectul nu mai iese identic, ca o reparatie de concurenta sa se poata deploia (F-M3, decizia lui Mihai, 2026-11-19)"
+  },
+  {
+    "obiect": "dbo.mihai_offline_while_begin",
+    "baza": "Tinta",
+    "camp": "rezumat",
+    "python": "2 modificate, 1 adaugate, 1 sterse",
+    "rust": "1 modificate, 2 adaugate, 2 sterse",
+    "motiv": "v3.4 numara pentru lista imperecherea pozitionala din segmentele replace, dar pentru editor pe cea pe scor, deci se contrazice singur pe acelasi obiect; GMotion numara o singura data, la fel ca editorul (F-M4, etapa 20 pachetul A). Verificat cu `gmotion diferente`: lista si editorul dau aceleasi numere"
+  },
+  {
+    "obiect": "dbo.comentariu_linie_dupa_cod",
+    "baza": "Tinta",
+    "camp": "rand",
+    "python": null,
+    "rust": "diferit",
+    "motiv": "difera doar intr-un comentariu (`-- comentariu vechi` / `-- nou`): normalizarea le sterge, deci codul e identic, dar amprenta comentariilor le deosebeste si obiectul nu mai iese identic — acelasi mecanism ca hinturile de blocare (etapa 30, decizie in JURNAL.md). In lista scrie `difera doar in: comentarii`"
+  },
+  {
+    "obiect": "dbo.comentariu_bloc_multiline",
+    "baza": "Tinta",
+    "camp": "rand",
+    "python": null,
+    "rust": "diferit",
+    "motiv": "la fel: tinta a pierdut un comentariu bloc intreg. Codul e identic, amprenta comentariilor nu (etapa 30)"
+  },
+  {
+    "obiect": "dbo.reordonare_blocuri",
+    "baza": "Tinta",
+    "camp": "rezumat",
+    "python": "1 adaugate, 1 sterse",
+    "rust": "1 mutate",
+    "motiv": "blocul reordonat se raporteaza `mutat`, nu `adaugat` + `sters`: v3.4 si motorul JS n-au notiunea si dau doua diferente fara nicio legatura vizibila intre ele, desi textul n-a fost atins (etapa 30, decizie in JURNAL.md)"
+  }
 ]
