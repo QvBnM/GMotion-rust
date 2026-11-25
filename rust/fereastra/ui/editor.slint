@@ -273,9 +273,14 @@ export component EditorDiferente inherits Rectangle {
     // pornit implicit (Mihai, 2026-11-25: „vreau sa vina by default cu Wrap Lines")
     in-out property <bool> impacheteaza: true;
     out property <int> coloane-wrap: Math.floor((root.panou - 60px - (root.alaturat ? 0px : 44px)) / 7.52px);
+    // comutatorul apasat de om (buton, Ctrl+L)
     callback comuta-wrap(bool);
+    // latimea panoului s-a schimbat (aranjarea la pornire, maximizare,
+    // redimensionare): nu e o actiune a omului; Rust le grupeaza si reface
+    // randurile o singura data, doar daca editorul se vede (etapa 33)
+    callback latime-wrap-schimbata();
     changed coloane-wrap => {
-        if (root.impacheteaza) { root.comuta-wrap(true); }
+        if (root.impacheteaza) { root.latime-wrap-schimbata(); }
     }
     in property <string> stare-obiecte;      // „obiectul 4 din 212 nerevizuite"
     // editarea (vezi `incarca_editarea`)

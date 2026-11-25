@@ -1462,11 +1462,33 @@ fn ruleaza() -> Result<(), String> {
         });
         // wrap (etapa 19): se redeseneaza cu liniile rupte la latimea panoului
         let d = deseneaza.clone();
-        // amanat: `comuta-wrap` vine si din `changed coloane-wrap`, adica din
-        // mijlocul unei redesenari (cand Rust citeste latimea)
+        // amanat: o redesenare nu porneste din mijlocul alteia
         editor_ui.on_comuta_wrap(move |pornit| {
             actiune("editor", "comuta_wrap", &format!("{:?}", (&pornit,)), false);
             slint::Timer::single_shot(std::time::Duration::ZERO, d.clone());
+        });
+        // latimea panoului (nu omul): la pornire si la maximizare veneau doua-
+        // trei pe rand, fiecare cu randurile refacute (`comuta_wrap` de doua
+        // ori la pornire, cadru de 118 ms dupa comparare). Grupate la 120 ms
+        // si doar cu editorul pe ecran: altfel il reface oricum intrarea in el
+        let d = deseneaza.clone();
+        let st = stare.clone();
+        let ceas_wrap = Rc::new(slint::Timer::default());
+        editor_ui.on_latime_wrap_schimbata(move || {
+            let (d, st) = (d.clone(), st.clone());
+            ceas_wrap.start(
+                slint::TimerMode::SingleShot,
+                std::time::Duration::from_millis(120),
+                move || {
+                    let in_editor = st
+                        .try_borrow()
+                        .is_ok_and(|s| s.app.as_ref().is_some_and(|a| a.ecran() == Ecran::Editor));
+                    tracing::debug!(target: "gmotion::app", in_editor, "latimea de wrap s-a schimbat");
+                    if in_editor {
+                        d();
+                    }
+                },
+            );
         });
         limba_si_tema!(editor_ui, "editor");
     }
