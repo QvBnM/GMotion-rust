@@ -1,8 +1,8 @@
 # Etapa 30 — motorul de comparare: cost, pozitii, mutari, masura
 
-**Stare:** ACTIVA
+**Stare:** INCHEIATA
 **Branch:** claude/clever-cerf-hjk2qh
-**Deschisa:** 2026-11-24 · **Incheiata:** —
+**Deschisa:** 2026-11-24 · **Incheiata:** 2026-11-25
 
 ## Scop
 

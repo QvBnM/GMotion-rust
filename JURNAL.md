@@ -2182,3 +2182,68 @@ mecanismul din regula 2.
 **Consecinte.** Capcanele din `STARE.md`: poarta de aici nu e poarta lui
 Mihai (versiune de clippy, tinte lipsa), fixture-urile nu trec prin autocrlf,
 un test nu citeste sesiunea ca text.
+
+---
+
+## 2026-11-25 — O singura fereastra; ecranele sunt in ea, generate de `build.rs`
+
+**Context.** Fiecare ecran (conectare, lista, editor, deploy) era o fereastra
+Slint separata; trecerea dintre ele arata una si o ascundea pe cealalta.
+Pe Windows asta se vedea ca o fereastra care se inchide si se redeschide,
+uneori pe alt monitor sau in alt loc (proba lui Mihai, 2026-11-25).
+
+**Alternative.** (a) Ferestre separate, cu geometria copiata mai atent si
+animatiile DWM oprite: tot doua ferestre, tot bara de activitati care clipeste.
+(b) O fereastra cu ecranele ca elemente, si toate proprietatile ecranelor
+mutate in globaluri: sute de randuri rescrise de mana in `.slint` si Rust.
+(c) O fereastra `Aplicatie` generata: `build.rs` citeste declaratiile publice
+de pe radacina fiecarui ecran si le leaga in shell (`lista-x <=> lista.x`),
+plus cate un tip Rust per ecran (`FereastraLista`, ...) cu aceleasi metode
+ca inainte.
+
+**Motiv.** (c). Codul existent (5000+ randuri care cheama `set_*` / `on_*`
+pe ecrane) ramane neatins; ecranele raman in fisierele lor, deci depanarea
+ramane tintita pe ecran. Generatorul are teste (`build_shell.rs`, inclus si
+in testele lui `lib.rs`).
+
+**Consecinte.** Un ecran nu mai are `title` sau fonturi implicite (sunt ale
+shell-ului); expune `titlu`. Un ecran care vrea alt focus la intrare decat
+`forward-focus` declara `public function intra()`. Tema si limba sunt
+globaluri comune, puse o data.
+
+---
+
+## 2026-11-25 — Fara scara proprie peste marirea sistemului
+
+**Context.** Etapa 17 punea pe conectare o scara (`min(latime/1440,
+inaltime/900)`) trimitand ferestrei un `ScaleFactorChanged` facut de noi. Pe
+Windows, la mutarea intre monitoare cu alta marire, sistemul si scara noastra
+isi schimbau factorul unul altuia; aplicatia a inghetat si Windows a omorat-o
+(-805306369 = proces care nu raspunde).
+
+**Alternative.** (a) O garda de reintrare pe scara; (b) scara facuta in
+`.slint` (un multiplicator pe toate dimensiunile); (c) doar marirea sistemului.
+
+**Motiv.** (c), varianta conservatoare: nimic din aplicatie nu mai schimba
+factorul de scala. (b) ar insemna atins fiecare dimensiune din patru ecrane.
+
+**Consecinte.** Pe un monitor mare la 100%, conectarea arata la marimea ei
+de 1440x900, centrata (corpul era deja limitat la 1760 px). Testul
+`schimbarea_de_marire_intre_monitoare_nu_intra_in_bucla` cere ca factorul sa
+ramana al sistemului.
+
+---
+
+## 2026-11-25 — Pozitia la pornire prin Win32 direct, fara dependinta noua
+
+**Context.** Fereastra pornea unde voia sistemul, la 1440x900 logici: pe un
+laptop la 150% iesea din ecran (captura 1 din proba).
+
+**Alternative.** (a) `windows-sys`; (b) API-ul `unstable-winit-030` din
+Slint, legat de versiunea exacta; (c) patru functii `user32` / `shcore`
+declarate de mana, ca DPAPI din `platforma`.
+
+**Motiv.** (c): zero dependinte noi, totul intr-un fisier
+(`app/src/monitor.rs`), iar decizia (unde, cat de mare) e o functie pura,
+testata pe Linux. Locul se tine in configurare la inchidere si se reia doar
+daca monitorul lui mai exista.
