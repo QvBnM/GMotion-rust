@@ -2213,6 +2213,8 @@ const MESAJE_ASCUNSE: &[&str] = &[
     "redesenare",
     "redesenare lenta",
     "comanda lenta",
+    // monitorul de cadre (`--fps`): de doua ori pe secunda; in fisier ramane
+    "cadre",
 ];
 
 /// O linie din jurnal, cum se arata in fereastra: fara zgomot si fara
@@ -5763,6 +5765,11 @@ export component Ecran inherits Rectangle {
             None
         );
         assert_eq!(linie_jurnal_vizibila("[TRACE] redesenare ms=3"), None);
+        assert_eq!(
+            linie_jurnal_vizibila("[INFO] cadre pe_secunda=90 cel_mai_lung_ms=16.4"),
+            None,
+            "monitorul de cadre nu umple jurnalul din fereastra"
+        );
         let (n, t) = linie_jurnal_vizibila(
             r#"[WARN] certificatul serverului NU se verifica server=TS2409\MIHAIG"#,
         )

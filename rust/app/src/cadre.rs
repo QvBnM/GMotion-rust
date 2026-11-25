@@ -7,7 +7,11 @@
 //! desenat, se ia intervalul dintre cadre drept durata desenarii (la o
 //! fereastra in repaus intervalul e de secunde), sau o fereastra goala da
 //! impartire la zero. De-aia calculul e aici, pur, cu teste; `main.rs` doar
-//! ii da momentele din `set_rendering_notifier`.
+//! ii da momentele. Pe software-renderer cu winit nu exista notificare la
+//! desenare (`set_rendering_notifier` = Unsupported), deci monitorul tine
+//! fereastra in desenare continua (`animation-tick()`) si fiecare cadru
+//! anunta Rust-ul: `dupa` + `inainte` pe acelasi moment, iar durata unui
+//! cadru e intervalul pana la urmatorul.
 
 use std::time::{Duration, Instant};
 

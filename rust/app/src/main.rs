@@ -92,7 +92,7 @@ fn argumente_necunoscute() -> Vec<String> {
 }
 
 /// Monitorul de cadre (`gmotion_app::cadre`): momentele fiecarui cadru vin
-/// din `set_rendering_notifier`; de doua ori pe secunda textul se scrie in
+/// din `Cadre.cadru` (desenare continua cat e aprins); de doua ori pe secunda textul se scrie in
 /// fereastra si in jurnal (`gmotion::cadre`, ca cifrele inainte / dupa sa se
 /// poata lua dintr-o rulare). Intoarce ceasul, care trebuie tinut in viata.
 fn porneste_monitorul_cadre(
@@ -105,20 +105,19 @@ fn porneste_monitorul_cadre(
         return None;
     }
     let statistica = Rc::new(RefCell::new(gmotion_app::cadre::StatisticaCadre::default()));
+    // fiecare cadru desenat cheama `cadru` (vezi `MonitorCadre`): intervalul
+    // dintre doua apeluri e durata cadrului, cu tot ce a facut firul
+    // ferestrei intre ele (evenimente, Rust, desenarea).
+    // `set_rendering_notifier` nu merge cu software-renderer pe winit.
     let s = statistica.clone();
-    let pus = aplicatie
-        .window()
-        .set_rendering_notifier(move |faza, _| match faza {
-            slint::RenderingState::BeforeRendering => {
-                s.borrow_mut().inainte(std::time::Instant::now())
-            }
-            slint::RenderingState::AfterRendering => s.borrow_mut().dupa(std::time::Instant::now()),
-            _ => {}
+    aplicatie
+        .global::<gmotion_fereastra::Cadre>()
+        .on_cadru(move || {
+            let acum = std::time::Instant::now();
+            let mut s = s.borrow_mut();
+            s.dupa(acum);
+            s.inainte(acum);
         });
-    if let Err(e) = pus {
-        tracing::warn!(target: "gmotion::cadre", eroare = ?e, "monitorul de cadre nu poate porni");
-        return None;
-    }
     aplicatie
         .global::<gmotion_fereastra::Cadre>()
         .set_arata(true);

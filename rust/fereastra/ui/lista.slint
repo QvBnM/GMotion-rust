@@ -666,7 +666,12 @@ component Filtru inherits Rectangle {
 component TextDependente inherits Rectangle {
     in property <string> text;
     in property <int> numar;
-    height: root.numar == 0 ? 24px : Math.min(5 * 17px, camp.preferred-height) + 10px;
+    // inaltimea exacta a unei linii, masurata: cu 17 px presupusi se vedea
+    // si jumatate din a sasea linie, taiata de chenar
+    property <length> linie: (proba-5.preferred-height - proba-1.preferred-height) / 4;
+    proba-1 := Text { visible: false; text: "X"; font-family: Tema.font-mono; font-size: 12px; } // text-permis: proba de masurare
+    proba-5 := Text { visible: false; text: "X\nX\nX\nX\nX"; font-family: Tema.font-mono; font-size: 12px; } // text-permis: proba de masurare, nu text pentru om
+    height: root.numar == 0 ? 24px : Math.min(proba-1.preferred-height + 4 * root.linie, camp.preferred-height) + 10px;
     border-radius: 6px;
     border-width: root.numar == 0 ? 0px : 1px;
     border-color: camp.has-focus ? Tema.accent : Tema.linie-slaba;
