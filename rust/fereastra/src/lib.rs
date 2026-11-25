@@ -992,6 +992,36 @@ pub fn caractere_pe(latime: f32) -> usize {
 thread_local! {
     /// Amprenta fiecarui rand pus ultima data in lista (vezi `incarca_lista`).
     static AMPRENTE_RANDURI: std::cell::RefCell<Vec<u64>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// La fel pentru coloana editorului (Object Explorer): amprenta fiecarui
+    /// rand si a arborelui puse ultima data (vezi `incarca_coloana_lista`).
+    static AMPRENTE_COLOANA: std::cell::RefCell<(Vec<u64>, u64)> = const { std::cell::RefCell::new((Vec::new(), 0)) };
+}
+
+/// Amprenta nodurilor arborelui: ordinea vizibilelor, obiectele de pe ele
+/// (baza, tip, nume), ce e deschis / cautat, limba. Bifele nu intra: nodurile
+/// nu le arata (le arata randurile).
+pub fn amprenta_noduri(
+    lista: &model_lista::Lista,
+    arbore: &model_arbore::Arbore,
+    limba: texte::Limba,
+) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut pune = |x: u64| h = (h ^ x).wrapping_mul(0x0100_0000_01b3);
+    pune(limba as u64);
+    for b in format!("{arbore:?}").bytes() {
+        pune(u64::from(b));
+    }
+    for &i in lista.vizibile() {
+        pune(i as u64);
+        let o = &lista.obiecte()[i];
+        for t in [&o.schema, &o.nume, &o.baza, &o.tip] {
+            for b in t.bytes() {
+                pune(u64::from(b));
+            }
+            pune(0xff);
+        }
+    }
+    h
 }
 
 /// Amprenta a tot ce se vede pe randurile listei: ordinea, si pe fiecare
@@ -1169,21 +1199,70 @@ pub fn incarca_coloana_lista(
     // Numele incape in latimea coloanei: ce ramane dupa indentarea
     // obiectului (2 niveluri), cerc, litera si +/-
     let caractere = ((ui.get_latime_lista() - 140.0) / 7.3).max(8.0) as usize;
-    let randuri: Vec<RandListaUi> = randuri_lista_ui(lista, limba)
-        .into_iter()
-        .map(|mut r| {
-            r.nume_scurt = model_taburi::taie_pe_mijloc(&r.nume, caractere).into();
-            r
-        })
-        .collect();
-    if let Some(m) = pe_loc(ui.get_randuri_lista(), randuri) {
-        ui.set_randuri_lista(m);
+    // Etapa 33: pana acum se refaceau la fiecare clic toate randurile si
+    // toate nodurile (9-16 ms la 12.000 de obiecte aici, de cateva ori mai
+    // mult pe Windows: „redesenare lenta ms=119" la `alege_randul`). Ca in
+    // lista: amprente, si se refac doar randurile schimbate; nodurile, doar
+    // cand s-a schimbat arborele.
+    let rand = |pozitie: usize, i: usize| {
+        let mut r = rand_lista_ui(lista, pozitie, i, limba);
+        r.nume_scurt = model_taburi::taie_pe_mijloc(&r.nume, caractere).into();
+        r
+    };
+    let noi = amprente_randuri(lista, limba, caractere);
+    let noduri_noi = amprenta_noduri(lista, arbore, limba);
+    let model = ui.get_randuri_lista();
+    let pe_rand = slint::Model::as_any(&model).downcast_ref::<VecModel<RandListaUi>>();
+    let refa_noduri = AMPRENTE_COLOANA.with_borrow_mut(|(vechi, noduri_vechi)| {
+        match pe_rand {
+            Some(m) if slint::Model::row_count(m) == noi.len() && vechi.len() == noi.len() => {
+                for (pozitie, (&i, (a, b))) in lista
+                    .vizibile()
+                    .iter()
+                    .zip(noi.iter().zip(vechi.iter()))
+                    .enumerate()
+                {
+                    if a != b {
+                        slint::Model::set_row_data(m, pozitie, rand(pozitie, i));
+                    }
+                }
+            }
+            _ => {
+                let randuri: Vec<RandListaUi> = lista
+                    .vizibile()
+                    .iter()
+                    .enumerate()
+                    .map(|(pozitie, &i)| rand(pozitie, i))
+                    .collect();
+                ui.set_randuri_lista(ModelRc::new(VecModel::from(randuri)));
+            }
+        }
+        *vechi = noi;
+        let refa =
+            *noduri_vechi != noduri_noi || slint::Model::row_count(&ui.get_noduri_lista()) == 0;
+        *noduri_vechi = noduri_noi;
+        refa
+    });
+    use slint::Model as _;
+    let selectat = lista.selectat();
+    if refa_noduri {
+        let (noduri, nod_selectat) = noduri_ui(arbore, lista, limba);
+        if let Some(m) = pe_loc(ui.get_noduri_lista(), noduri) {
+            ui.set_noduri_lista(m);
+        }
+        ui.set_nod_selectat_lista(nod_selectat);
+    } else {
+        // nodurile sunt aceleasi: doar al catelea e selectat
+        let noduri = ui.get_noduri_lista();
+        let nod_selectat = (0..noduri.row_count())
+            .find(|&k| {
+                noduri
+                    .row_data(k)
+                    .is_some_and(|n| n.pozitie >= 0 && Some(n.pozitie as usize) == selectat)
+            })
+            .map_or(-1, |k| k as i32);
+        ui.set_nod_selectat_lista(nod_selectat);
     }
-    let (noduri, nod_selectat) = noduri_ui(arbore, lista, limba);
-    if let Some(m) = pe_loc(ui.get_noduri_lista(), noduri) {
-        ui.set_noduri_lista(m);
-    }
-    ui.set_nod_selectat_lista(nod_selectat);
     ui.set_banda_text(
         lista
             .contoare_stari()
@@ -2213,6 +2292,8 @@ const MESAJE_ASCUNSE: &[&str] = &[
     "redesenare",
     "redesenare lenta",
     "comanda lenta",
+    "redesenare pe bucati",
+    "latimea de wrap s-a schimbat",
     // monitorul de cadre (`--fps`): de doua ori pe secunda; in fisier ramane
     "cadre",
 ];
@@ -3297,6 +3378,50 @@ mod teste {
     fn editorul_porneste_cu_wrap_pornit() {
         let ui = fereastra();
         assert!(ui.get_impacheteaza(), "wrap pornit implicit");
+    }
+
+    /// Etapa 33, C: un clic in editor (alt obiect selectat) nu reface
+    /// coloana: acelasi model de randuri si de noduri, doar selectia se
+    /// muta. O bifa reface doar randul ei; un filtru reface nodurile.
+    #[test]
+    fn coloana_se_reface_doar_unde_s_a_schimbat_ceva() {
+        let ui = fereastra();
+        aplica_limba(&ui, texte::Limba::default());
+        let mut lista = lista_de_proba();
+        let arbore = model_arbore::Arbore::default();
+        lista.selecteaza(0);
+        incarca_coloana_lista(&ui, &lista, &arbore);
+        let randuri = ui.get_randuri_lista();
+        let noduri = ui.get_noduri_lista();
+        let rand1 = randuri.row_data(1).unwrap();
+        // alt obiect selectat: nimic refacut
+        lista.selecteaza(1);
+        incarca_coloana_lista(&ui, &lista, &arbore);
+        assert!(ui.get_noduri_lista() == noduri, "nodurile raman");
+        assert!(ui.get_randuri_lista() == randuri, "randurile raman");
+        let sel = ui.get_nod_selectat_lista();
+        assert_eq!(
+            ui.get_noduri_lista()
+                .row_data(sel as usize)
+                .unwrap()
+                .pozitie,
+            1
+        );
+        // bifa pe randul 1: doar el se schimba
+        lista.comuta_revizuit(1);
+        incarca_coloana_lista(&ui, &lista, &arbore);
+        assert!(ui.get_randuri_lista() == randuri);
+        assert_ne!(
+            ui.get_randuri_lista().row_data(1).unwrap(),
+            rand1,
+            "randul bifat e nou"
+        );
+        assert!(ui.get_noduri_lista() == noduri, "bifa nu atinge nodurile");
+        // un filtru schimba vizibilele: randuri si noduri noi
+        lista.cauta("zzz-nimic");
+        incarca_coloana_lista(&ui, &lista, &arbore);
+        assert_eq!(ui.get_randuri_lista().row_count(), 0);
+        assert!(ui.get_noduri_lista().row_count() <= 1);
     }
 
     /// Coloana din stanga arata aceleasi randuri ca lista intreaga: daca ar

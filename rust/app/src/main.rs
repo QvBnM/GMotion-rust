@@ -599,34 +599,48 @@ fn ruleaza() -> Result<(), String> {
             };
             let server = s.server.clone();
             let app = s.app.as_mut().expect("verificat mai sus");
+            // timpii pe bucati (debug): o redesenare lenta spune unde a stat
+            let mut bucati = gmotion_app::cadre::Bucati::porneste();
             // restul vin de pe firul de detalii; obiectul selectat le are pe loc
             if let Some(p) = app.lista().selectat() {
                 app.asigura_detalii(p, p + 1);
             }
-            incarca_lista(
-                &l_ui,
-                &AntetLista {
-                    sursa_baza: &referinta,
-                    tinta_baza: &baza,
-                    servere: &server,
-                    in_plan: app.lista().in_plan().len(),
-                },
-                app.lista(),
-            );
+            // ecranul listei (randurile, previzualizarea, panoul de detalii)
+            // nu se vede din editor: acolo se refacea degeaba la fiecare clic
+            // (2-8 ms aici, etapa 33). Iesirea din editor e tot o comanda,
+            // deci il reface atunci, la zi.
+            let lista_pe_ecran = app.ecran() != Ecran::Editor;
+            if lista_pe_ecran {
+                incarca_lista(
+                    &l_ui,
+                    &AntetLista {
+                        sursa_baza: &referinta,
+                        tinta_baza: &baza,
+                        servere: &server,
+                        in_plan: app.lista().in_plan().len(),
+                    },
+                    app.lista(),
+                );
+            }
+            bucati.marcheaza("lista");
             gmotion_fereastra::incarca_fundal_harta(&l_ui, app.lista());
             e_ui.set_fundal_harta(l_ui.get_fundal_harta());
+            bucati.marcheaza("harta");
             l_ui.set_mesaj_csv(bara.into());
             l_ui.set_recompara_ruleaza(progres.is_some());
             if let Some((text, fractie)) = progres {
                 l_ui.set_recompara_text(text.into());
                 l_ui.set_recompara_fractie(fractie);
             }
-            match app.texte_obiect() {
-                Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
-                None => goleste_previzualizarea(&l_ui),
+            if lista_pe_ecran {
+                match app.texte_obiect() {
+                    Some((a, b, setari)) => incarca_previzualizare(&l_ui, a, b, &setari),
+                    None => goleste_previzualizarea(&l_ui),
+                }
+                let mut panou = app.panou_detalii();
+                gmotion_fereastra::incarca_detalii(&l_ui, &panou.pentru_fereastra(limba));
             }
-            let mut panou = app.panou_detalii();
-            gmotion_fereastra::incarca_detalii(&l_ui, &panou.pentru_fereastra(limba));
+            bucati.marcheaza("previzualizare_si_panou");
             if app.ecran() == Ecran::Editor {
                 let pozitie = s.text_pozitie(limba);
                 let salvat = s.text_salvat(limba);
@@ -666,7 +680,9 @@ fn ruleaza() -> Result<(), String> {
                             .unwrap_or_default()
                             .into(),
                     );
+                    bucati.marcheaza("editor");
                     gmotion_fereastra::incarca_coloana_lista(&e_ui, app.lista(), app.arbore());
+                    bucati.marcheaza("coloana");
                     gmotion_fereastra::incarca_taburi(&e_ui, app.taburi(), |c| {
                         app.are_text_final(c)
                     });
@@ -692,8 +708,10 @@ fn ruleaza() -> Result<(), String> {
                             probleme: &probleme,
                         },
                     );
+                    bucati.marcheaza("editare");
                 }
                 arata(e_ui.aplicatie(), EditorDiferente::ECRAN);
+                bucati.scrie();
             } else if app.ecran() == Ecran::Deploy {
                 let sursa = app.sursa().clone();
                 // dupa o scriere reusita, directorul scris; inainte, cel in
