@@ -2424,9 +2424,10 @@ pub fn incarca_conectare(ui: &FereastraConectare, c: &model_conectare::Conectare
         stare: p.stare.text_in(limba_curenta(ui)).into(),
         fel_stare: fel(&p.stare),
         se_cauta: matches!(p.stare, StareConexiune::SeCauta),
+        servere_total: p.servere_gasite.len() as i32,
         servere_gasite: ModelRc::new(VecModel::from(
-            p.servere_gasite
-                .iter()
+            p.servere_filtrate()
+                .into_iter()
                 .map(|s| ServerGasitUi {
                     nume: s.nume.as_str().into(),
                     cluster: s.cluster,
@@ -5042,8 +5043,10 @@ mod teste {
             "parola nu ajunge in fereastra"
         );
         assert_eq!(ui.get_sursa().fel_stare, 2);
-        // ce a gasit cautarea in retea ajunge in lista de sub camp
-        assert_eq!(ui.get_sursa().servere_gasite.row_count(), 2);
+        // ce a gasit cautarea in retea ajunge in lista de sub camp, filtrata
+        // de ce scrie in camp („SRV-DEV" -> doar SRV-DEV\SQL2019, etapa 33)
+        assert_eq!(ui.get_sursa().servere_total, 2);
+        assert_eq!(ui.get_sursa().servere_gasite.row_count(), 1);
         assert_eq!(ui.get_baza().servere_gasite.row_count(), 0);
         assert_eq!(ui.get_baza().baza, "CharismaProd");
     }

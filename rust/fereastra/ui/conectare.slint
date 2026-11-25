@@ -38,6 +38,8 @@ export struct ParteUi {
     fel-stare: int,
     // instantele gasite in retea, de ales cu un clic
     servere-gasite: [ServerGasitUi],
+    // cate s-au gasit in total (`servere-gasite` e doar ce trece de filtru)
+    servere-total: int,
     // cautarea in retea ruleaza (lupa devine rotitor)
     se-cauta: bool,
 }
@@ -511,28 +513,51 @@ component PanouParte inherits Card {
                         la-cautare => { root.cauta-servere(); }
                     }
                 }
-                // ce a gasit cautarea in retea; un clic pune serverul in camp
-                if p.servere-gasite.length > 0: Rectangle {
-                    height: gasite.preferred-height;
-                    border-radius: 8px;
-                    border-width: 1px;
-                    border-color: Tema.linie;
-                    background: Tema.suprafata;
-                    gasite := VerticalLayout {
-                        padding: 4px;
-                        for s in p.servere-gasite: Rectangle {
-                            height: 28px;
-                            border-radius: 6px;
-                            background: zs.has-hover ? Tema.strat : transparent;
-                            HorizontalLayout {
-                                padding-left: 10px;
-                                padding-right: 8px;
-                                spacing: 6px;
-                                Text { text: s.nume; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-                                if s.implicita: EticServer { text: Texte.server-implicit; }
-                                if s.cluster: EticServer { text: Texte.server-cluster; culoare: Tema.mod-text; }
+                // ce a gasit cautarea in retea; un clic pune serverul in camp.
+                // Etapa 33: cu 15 gasite lista impingea formularul afara din
+                // ecran. Acum: cel mult 5 randuri, cu derulare, filtrata de
+                // ce scrii in camp, si cate se vad din cate s-au gasit.
+                if p.servere-total > 0: VerticalLayout {
+                    spacing: 4px;
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Text { text: p.servere-gasite.length + " / " + p.servere-total; font-family: Tema.font-mono; font-size: 11.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                        Text { text: Texte.servere-filtru; font-family: Tema.font-ui; font-size: 11.5px; color: Tema.text-tert; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                    }
+                    if p.servere-gasite.length > 0: Rectangle {
+                        height: Math.min(p.servere-gasite.length, 5) * 28px + 8px;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Tema.linie;
+                        background: Tema.suprafata;
+                        clip: true;
+                        gasite := ListView {
+                            x: 4px;
+                            y: 4px;
+                            width: parent.width - 8px;
+                            height: parent.height - 8px;
+                            for s in p.servere-gasite: Rectangle {
+                                height: 28px;
+                                border-radius: 6px;
+                                background: zs.has-hover ? Tema.strat : transparent;
+                                HorizontalLayout {
+                                    padding-left: 10px;
+                                    padding-right: 14px;
+                                    spacing: 6px;
+                                    Text { text: s.nume; font-family: Tema.font-mono; font-size: 12.5px; color: Tema.text; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                                    if s.implicita: EticServer { text: Texte.server-implicit; }
+                                    if s.cluster: EticServer { text: Texte.server-cluster; culoare: Tema.mod-text; }
+                                }
+                                zs := TouchArea { clicked => { root.server-ales(s.nume); } }
                             }
-                            zs := TouchArea { clicked => { root.server-ales(s.nume); } }
+                        }
+                        if p.servere-gasite.length > 5: BaraDerulare {
+                            x: parent.width - self.width - 2px;
+                            y: 4px;
+                            height: parent.height - 8px;
+                            pozitie <=> gasite.content-y;
+                            continut: gasite.content-height;
+                            vizibil: gasite.visible-height;
                         }
                     }
                 }

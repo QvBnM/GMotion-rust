@@ -137,6 +137,23 @@ pub struct Parte {
 }
 
 impl Parte {
+    /// Serverele gasite care se potrivesc cu ce scrie in campul de server
+    /// (etapa 33: cu 15 gasite, lista trebuie sa se poata filtra). Fara
+    /// diferenta intre litere mari si mici. Campul gol, sau exact numele unui
+    /// server gasit (tocmai ales din lista), le arata pe toate: dupa alegere
+    /// omul trebuie sa poata alege altul.
+    pub fn servere_filtrate(&self) -> Vec<&ServerGasit> {
+        let t = self.server.trim().to_lowercase();
+        let ales = self
+            .servere_gasite
+            .iter()
+            .any(|s| s.nume.to_lowercase() == t);
+        self.servere_gasite
+            .iter()
+            .filter(|s| t.is_empty() || ales || s.nume.to_lowercase().contains(&t))
+            .collect()
+    }
+
     /// Bazele cu care se compara efectiv: cele bifate, sau cea aleasa.
     pub fn baze_alese(&self) -> Vec<String> {
         if self.alese.is_empty() {
@@ -887,5 +904,37 @@ mod teste {
             StareConexiune::SeCauta.text_in(Limba::Engleza),
             "searching the network for servers…"
         );
+    }
+
+    #[test]
+    fn serverele_gasite_se_filtreaza_dupa_camp() {
+        let mut p = Parte {
+            servere_gasite: [
+                "TS2409\\MIHAIG",
+                "TS2409\\SQL2019",
+                "SRV-PROD",
+                "srv-test\\A",
+            ]
+            .into_iter()
+            .map(ServerGasit::nou)
+            .collect(),
+            ..Default::default()
+        };
+        let nume = |p: &Parte| -> Vec<String> {
+            p.servere_filtrate()
+                .iter()
+                .map(|s| s.nume.clone())
+                .collect()
+        };
+        assert_eq!(nume(&p).len(), 4, "campul gol: toate");
+        p.server = "ts2409".into();
+        assert_eq!(nume(&p), vec!["TS2409\\MIHAIG", "TS2409\\SQL2019"]);
+        p.server = "SRV".into();
+        assert_eq!(nume(&p), vec!["SRV-PROD", "srv-test\\A"]);
+        p.server = "nimic".into();
+        assert!(nume(&p).is_empty());
+        // tocmai ales din lista: toate, ca sa se poata alege altul
+        p.server = "srv-prod".into();
+        assert_eq!(nume(&p).len(), 4);
     }
 }

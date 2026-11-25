@@ -3,6 +3,10 @@
 //!
 //!   cargo run --release -p gmotion-fereastra --example captura_conectare -- iesire.png \
 //!       [--tema intunecat|luminos] [--limba ro|en] [--alta] [--latime N --inaltime N] [--sistem 1.5]
+//!       [--servere N [--filtru TEXT]]
+//!
+//! `--servere N`: N servere gasite in retea sub campul martorului (etapa 33:
+//! 15 la Mihai); `--filtru` e textul din campul de server.
 //!
 //! `--latime` / `--inaltime` sunt pixeli de ecran; `--sistem` e marirea din
 //! Windows. Scara se pune ca in aplicatie (`scara.rs`).
@@ -79,8 +83,32 @@ fn main() {
         c.pune_aceeasi_conexiune(true);
         c.alege_baza_modificata("CharismaProd");
     }
-    // sa nu se foloseasca `ServerGasit`: in macheta lista e inchisa
-    let _ = ServerGasit::nou("");
+    // in macheta lista e inchisa; `--servere N` o deschide cu N servere
+    let servere = a
+        .iter()
+        .position(|x| x == "--servere")
+        .and_then(|i| a.get(i + 1))
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    if servere > 0 {
+        c.sursa.servere_gasite = (0..servere)
+            .map(|i| match i % 3 {
+                0 => ServerGasit::nou(format!("TS24{:02}\\MIHAIG", i)),
+                1 => ServerGasit::nou(format!("TS24{:02}\\SQL2019", i)),
+                _ => ServerGasit {
+                    nume: format!("SRV-{:02}", i),
+                    implicita: true,
+                    cluster: i % 2 == 0,
+                },
+            })
+            .collect();
+        c.sursa.server = a
+            .iter()
+            .position(|x| x == "--filtru")
+            .and_then(|i| a.get(i + 1))
+            .cloned()
+            .unwrap_or_else(|| c.sursa.servere_gasite[0].nume.clone());
+    }
     c.recente = vec![
         Recenta {
             sursa: "CharismaDev".into(),
