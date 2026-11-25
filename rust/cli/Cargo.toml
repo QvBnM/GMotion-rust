@@ -23,3 +23,6 @@ tracing = "0.1"
 [dev-dependencies]
 serde_json = "1"
 gmotion-core = { path = "../core" }
+# Testele citesc fisierul de sesiune, iar pe Windows el e criptat cu DPAPI:
+# se trece prin `protejare`, nu prin `read_to_string`.
+gmotion-platforma = { path = "../platforma" }

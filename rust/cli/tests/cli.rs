@@ -1135,9 +1135,8 @@ fn deploy_ul_din_cli_tine_minte_obiectele_deployate() {
     );
 }
 
-/// Singurul fisier de sesiune din directorul de date al testului, ca JSON.
-/// Pe Linux sesiunea se scrie in clar, cu un antet care spune asta.
-fn cauta_sesiunea(date: &Path) -> String {
+/// Calea singurului fisier de sesiune din directorul de date al testului.
+fn cale_sesiune(date: &Path) -> PathBuf {
     fn cauta(dir: &Path, gasite: &mut Vec<PathBuf>) {
         let Ok(intrari) = std::fs::read_dir(dir) else {
             return;
@@ -1154,12 +1153,25 @@ fn cauta_sesiunea(date: &Path) -> String {
     let mut gasite = Vec::new();
     cauta(date, &mut gasite);
     assert_eq!(gasite.len(), 1, "o singura sesiune salvata: {gasite:?}");
-    let text = std::fs::read_to_string(&gasite[0]).unwrap();
-    let (antet, json) = text
-        .split_once('\0')
-        .expect("sesiunea are antetul care spune cum e scrisa");
-    assert_eq!(antet, "GMOTION-CLAR", "pe Linux sesiunea se scrie in clar");
-    json.to_string()
+    gasite.remove(0)
+}
+
+/// Sesiunea testului ca JSON. Pe Windows fisierul e criptat cu DPAPI, deci
+/// **nu** se poate citi ca text: se trece prin `protejare`, la fel ca
+/// aplicatia. Un `read_to_string` aici cade pe Windows cu „stream did not
+/// contain valid UTF-8", si cade in test, nu in produs.
+fn cauta_sesiunea(date: &Path) -> String {
+    let cale = cale_sesiune(date);
+    let brut = std::fs::read(&cale).unwrap();
+    if !gmotion_platforma::protejare::e_criptat() {
+        assert!(
+            brut.starts_with(gmotion_platforma::protejare::MARCAJ_CLAR),
+            "fara criptare, fisierul trebuie sa spuna in clar ca e in clar"
+        );
+    }
+    let clar = gmotion_platforma::protejare::deprotejeaza(&brut)
+        .expect("sesiunea scrisa de acest binar se poate citi pe aceeasi masina");
+    String::from_utf8(clar).expect("sesiunea e JSON UTF-8")
 }
 
 /// `impact` pe binarul adevarat: cine foloseste obiectul vine din codul bazei
@@ -1550,21 +1562,9 @@ fn sesiunea_care_nu_se_citeste_opreste_deploy_ul() {
         Some(&date),
     );
     assert!(o.status.success(), "{}", err(&o));
-    let _ = cauta_sesiunea(&date);
-    fn sesiuni(dir: &Path, gasite: &mut Vec<PathBuf>) {
-        for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-            let cale = e.path();
-            if cale.is_dir() {
-                sesiuni(&cale, gasite);
-            } else if cale.extension().is_some_and(|x| x == "dat") {
-                gasite.push(cale);
-            }
-        }
-    }
-    let mut gasite = Vec::new();
-    sesiuni(&date, &mut gasite);
-    let text = std::fs::read(&gasite[0]).unwrap();
-    std::fs::write(&gasite[0], &text[..text.len() / 2]).unwrap();
+    let cale = cale_sesiune(&date);
+    let text = std::fs::read(&cale).unwrap();
+    std::fs::write(&cale, &text[..text.len() / 2]).unwrap();
 
     let iesire = d.join("out");
     let iesire_s = iesire.to_str().unwrap();
