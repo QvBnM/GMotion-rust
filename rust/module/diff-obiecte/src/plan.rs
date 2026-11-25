@@ -131,10 +131,6 @@ impl fmt::Display for Schimbare {
 }
 
 /// Obiectele unei baze tinta, dupa nume.
-fn baza_tinta<'a>(altele: &'a [(String, Baza)], nume: &str) -> Option<&'a Baza> {
-    altele.iter().find(|(b, _)| b == nume).map(|(_, o)| o)
-}
-
 /// Obiectul din baza, cautat intai exact, apoi **fara sa conteze
 /// majusculele** — daca varianta e singura.
 ///
@@ -144,16 +140,48 @@ fn baza_tinta<'a>(altele: &'a [(String, Baza)], nume: &str) -> Option<&'a Baza> 
 /// revenirea il stergea, iar codul lui vechi nu ajungea in niciun script
 /// (C8 din auditul QA). Cu mai multe variante nu se ghiceste: se cade pe
 /// cautarea exacta.
-fn gaseste<'a>(b: &'a Baza, nume: &str) -> Option<&'a ObiectPregatit> {
-    if let Some(o) = b.get(nume) {
-        return Some(o);
+///
+/// Cautarea fara majuscule trece printr-un index facut o data pe baza: pana
+/// pe 2026-11-25 se parcurgea toata baza pentru fiecare obiect care lipsea
+/// din ea, iar planul cu „Toate in plan" pe 12.000 de obiecte tinea firul
+/// ferestrei 1,1 s.
+struct Cautare<'a> {
+    baza: &'a Baza,
+    /// numele cu litere mici -> numele exact, `None` daca sunt mai multe
+    mici: std::collections::HashMap<String, Option<&'a str>>,
+}
+
+impl<'a> Cautare<'a> {
+    fn noua(baza: &'a Baza) -> Self {
+        let mut mici: std::collections::HashMap<String, Option<&'a str>> =
+            std::collections::HashMap::with_capacity(baza.len());
+        for n in baza.keys() {
+            mici.entry(n.to_ascii_lowercase())
+                .and_modify(|v| *v = None)
+                .or_insert(Some(n.as_str()));
+        }
+        Cautare { baza, mici }
     }
-    let mut potriviri = b
+
+    fn gaseste(&self, nume: &str) -> Option<&'a ObiectPregatit> {
+        if let Some(o) = self.baza.get(nume) {
+            return Some(o);
+        }
+        let exact = (*self.mici.get(&nume.to_ascii_lowercase())?)?;
+        self.baza.get(exact)
+    }
+}
+
+/// Cautarile pe fiecare baza tinta, facute o data.
+fn cautari(altele: &[(String, Baza)]) -> Vec<(&str, Cautare<'_>)> {
+    altele
         .iter()
-        .filter(|(n, _)| n.eq_ignore_ascii_case(nume))
-        .map(|(_, o)| o);
-    let una = potriviri.next()?;
-    potriviri.next().map_or(Some(una), |_| None)
+        .map(|(n, b)| (n.as_str(), Cautare::noua(b)))
+        .collect()
+}
+
+fn in_baza<'a, 'b>(c: &'b [(&str, Cautare<'a>)], baza: &str) -> Option<&'b Cautare<'a>> {
+    c.iter().find(|(n, _)| *n == baza).map(|(_, c)| c)
 }
 
 impl Plan {
@@ -171,6 +199,7 @@ impl Plan {
     ) -> Plan {
         let mut pasi = Vec::new();
         let mut sarite = 0usize;
+        let cauta = cautari(altele);
         for r in c.randuri.iter().filter(|r| alege(r)) {
             // tabelele doar se compara (etapa 28, Mihai): nu intra in deploy
             if matches!(r.categorie, Categorie::Extra | Categorie::Criptat)
@@ -188,7 +217,7 @@ impl Plan {
                 sarite += 1;
                 continue;
             }
-            let in_tinta = baza_tinta(altele, &r.baza).and_then(|b| gaseste(b, &r.obiect));
+            let in_tinta = in_baza(&cauta, &r.baza).and_then(|b| b.gaseste(&r.obiect));
             let tinta = in_tinta.map(amprenta_exacta);
             let tip_tinta = in_tinta
                 .map(|t| t.tip.trim().to_string())
@@ -219,8 +248,8 @@ impl Plan {
     /// care lipseste din `altele` e tratata ca goala: tot ce era in ea a
     /// „disparut", deci garda opreste.
     pub fn verifica(&self, referinta: &Baza, altele: &[(String, Baza)]) -> Vec<Schimbare> {
-        let gol = Baza::new();
         let mut schimbari = Vec::new();
+        let cauta = cautari(altele);
         for p in &self.pasi {
             let acum_ref = referinta.get(&p.obiect).map(amprenta_exacta);
             if let Some(fel) = fel_schimbare(Some(&p.referinta), acum_ref.as_ref()) {
@@ -231,8 +260,9 @@ impl Plan {
                     fel,
                 });
             }
-            let tinta = baza_tinta(altele, &p.baza).unwrap_or(&gol);
-            let acum_tinta = gaseste(tinta, &p.obiect).map(amprenta_exacta);
+            let acum_tinta = in_baza(&cauta, &p.baza)
+                .and_then(|b| b.gaseste(&p.obiect))
+                .map(amprenta_exacta);
             if let Some(fel) = fel_schimbare(p.tinta.as_ref(), acum_tinta.as_ref()) {
                 schimbari.push(Schimbare {
                     baza: p.baza.clone(),
@@ -408,11 +438,10 @@ impl Plan {
         referinta: &Baza,
         altele: &[(String, Baza)],
     ) -> BTreeMap<String, Vec<PasRevenire>> {
-        let gol = Baza::new();
         let mut pe_baza: BTreeMap<String, Vec<PasRevenire>> = BTreeMap::new();
+        let cauta = cautari(altele);
         for p in &self.pasi {
-            let tinta = baza_tinta(altele, &p.baza).unwrap_or(&gol);
-            let pas = match gaseste(tinta, &p.obiect) {
+            let pas = match in_baza(&cauta, &p.baza).and_then(|b| b.gaseste(&p.obiect)) {
                 Some(o) => PasRevenire::Reface(DeDeployat {
                     obiect: p.obiect.clone(),
                     tip: o.tip.clone(),
@@ -800,6 +829,29 @@ mod teste {
         });
         a[0].1 = pregateste(&[cu_spatii, ob("pC", "CREATE PROCEDURE dbo.pC AS SELECT 3")]);
         assert_eq!(p.verifica(&r, &a).len(), 1, "QUOTED_IDENTIFIER");
+    }
+
+    /// Cautarea prin index da exact ce dadea parcurgerea: exact intai,
+    /// apoi fara majuscule doar daca varianta e singura.
+    #[test]
+    fn cautarea_fara_majuscule_prin_index() {
+        let b = pregateste(&[
+            ob("GetX", "CREATE PROC dbo.GetX AS SELECT 1"),
+            ob("Dublu", "CREATE PROC dbo.Dublu AS SELECT 1"),
+            ob("DUBLU", "CREATE PROC dbo.DUBLU AS SELECT 2"),
+        ]);
+        let c = Cautare::noua(&b);
+        assert!(c.gaseste("dbo.GetX").is_some());
+        assert_eq!(
+            c.gaseste("dbo.getx").map(|o| o.definitie.as_str()),
+            Some("CREATE PROC dbo.GetX AS SELECT 1")
+        );
+        assert!(
+            c.gaseste("dbo.dublu").is_none(),
+            "doua variante: nu se ghiceste"
+        );
+        assert!(c.gaseste("dbo.DUBLU").is_some(), "exact: da");
+        assert!(c.gaseste("dbo.lipsa").is_none());
     }
 
     #[test]
