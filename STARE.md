@@ -6,8 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-25 · commit `a0f4fc2` · branch `claude/clever-cerf-hjk2qh`
-**Poarta:** verde aici si pe Windows (780 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust pe instantaneu sintetic si pe fixture real)
+**Actualizat:** 2026-11-25 · commit `5686467` · branch `claude/clever-cerf-hjk2qh`
+**Poarta:** verde aici (798 teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust); de confirmat pe Windows cu clippy-ul lui Mihai
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
 > aici pe 2026-11-24; nu mai e nimic de luat de acolo si nu se mai lucreaza pe
@@ -35,28 +35,24 @@ cd rust && cargo build --release -p gmotion-cli
 ./rust/target/release/gmotion --help
 ```
 
-**Etapa activa:** `etape/30-motor-de-comparare.md` — motorul de comparare:
-cost, pozitii, mutari, masura. Etapa 29 (remedierea auditului) s-a incheiat pe
-2026-11-24, cu un criteriu nebifat deliberat: „da"-ul lui Mihai pe capturi si
-probele pe SQL Server, care nu se pot bifa de aici si stau mai jos.
+**Etapa activa:** `etape/31-fereastra-unica-si-ux.md` — remedierile din
+proba lui Mihai din 2026-11-25 (`PROMPT-GMotion-UX.md`). Etapa 30 (motorul)
+s-a incheiat in aceeasi zi; ce a schimbat in interfata e mai jos, la
+„Urmatorul pas".
 
-**Ce s-a schimbat in motor la etapa 30** (2026-11-25), pe scurt, fiindca se
-vede in interfata:
+**Ce s-a schimbat la etapa 31**, ca sa stii unde sa te uiti:
 
-- un bloc **reordonat** se raporteaza acum „mutat", nu „sters" + „adaugat" —
-  si mai ales nu „modificat", cum ieseau doua blocuri inversate pe 23 din 25
-  de obiecte reale. In editor, pastila spune „MUTAT, din Martor" /
-  „MUTAT, in Modificata"; culorile sunt cele de pana acum. **Vorba din pastila
-  o confirmi tu** — daca preferi altceva, se schimba in `model_editor.rs`.
-- un obiect care difera **doar intr-un comentariu** apare acum in lista, cu
-  „difera doar in: comentarii", si **intra in planul de deploy** — exact ca la
-  hinturile de blocare (F-M3). Daca nu vrei asta, filtrul se pune in plan, nu
-  in motor; spune.
-- `gmotion compara --detalii` are doua coloane noi: `SCHIMBAT` (cat la suta din
-  obiect e atins, ponderat pe marimea blocurilor — altceva decat „cat seamana"
-  al scorului) si `NOTE` (blocuri mutate, segmente imperecheate pozitional,
-  instructiuni retezate). CSV-ul are „Schimbat %" la sfarsit. **In fereastra nu
-  exista coloana noua**: o coloana cere macheta si „da"-ul tau.
+- **O singura fereastra.** Ecranele (conectare, lista, editor, deploy) sunt
+  in `Aplicatie`, generata de `rust/fereastra/build.rs` din declaratiile lor
+  (`build_shell.rs`). Un ecran nu mai e o fereastra: `FereastraLista` & co
+  sunt tipuri Rust generate cu aceleasi metode. Un `title` / `default-font`
+  pe un ecran nu mai compileaza — sunt ale shell-ului.
+- **Fara scara proprie** peste marirea sistemului (cauza probabila a
+  inghetarii la mutarea intre monitoare). Pozitia la pornire: `app/src/monitor.rs`.
+- **Ceas de garda**: daca firul interfetei nu bate 2 s, jurnalul scrie
+  `interfata nu raspunde ms=… dupa=<ultima actiune>`. O inghetare noua lasa
+  acum urma.
+- Lista, panoul de detalii, conectarea, jurnalul: vezi jurnalul etapei.
 
 ```
 unelte\porneste.bat                  # Windows: compileaza, ecranul de conectare
@@ -68,6 +64,29 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 ---
 
 ## Urmatorul pas concret
+
+**2026-11-25, etapa 31 — de probat de Mihai pe Windows** (`unelte\porneste.bat`):
+
+1. Porneste: fereastra apare pe monitorul cu cursorul, centrata, intreaga.
+   Inchide-o pe al doilea monitor si reporneste: trebuie sa revina acolo.
+2. Muta fereastra intre monitoare (cu mariri diferite) de 10 ori, si pe
+   conectare, si pe lista, si in editor: nu ingheata. Daca ingheata, in
+   jurnal trebuie sa apara `interfata nu raspunde ... dupa=...`: trimite-mi
+   fisierul.
+3. Conectare: lupa (fara suprapunere, puncte care pulseaza cat cauta),
+   „Adu bazele de date" pe ambele parti, bara de derulare vizibila, eticheta
+   cu baza aleasa langa Martor / Modificata, o singura sesiune + „Toate
+   sesiunile".
+4. Compara: totul acoperit, cu etapele si durata lor; la final lista apare in
+   aceeasi fereastra, fara inchis / redeschis.
+5. Lista: Modificate, Similar crescator; „Deschide" pe rand (dublu clic nu mai
+   deschide); nume fara `dbo.`, taiat pe mijloc, intreg la hover; Tip scurt;
+   data fara ora; Impact / Deploy ca semne, cu explicatia la hover.
+6. Panoul de detalii: Linii (+ − ~ ⇅, cu hover), Foloseste / Folosit de ca
+   text de copiat (clic nu mai sare nicaieri), jos doar diferentele.
+7. Jurnalul de pe conectare: fara server / baza / utilizator, fara fiecare
+   clic, certificatul o singura data.
+
 
 **2026-11-25, dupa prima rulare a portii pe masina lui Mihai.** Instalarea
 locala (clona noua, `rustup component add rustfmt clippy`) a scos trei lucruri
@@ -335,6 +354,20 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Ecranele nu mai sunt ferestre** (etapa 31). O proprietate sau un
+  callback nou pe radacina unui ecran ajunge in Rust prin generatorul din
+  `rust/fereastra/build_shell.rs`, care citeste doar declaratiile cu exact 4
+  spatii de indentare (`in property`, `out property`, `in-out property`,
+  `callback`, `public function`). Pe alt format nu se vede in Rust si
+  compilarea cade la apel, cu „no method named ...".
+- **Sub Xvfb, tastele trimise cu XTest nu ajung in aplicatie** (nici in
+  campul de cautare). Clicurile si mutarile de mouse da. Tastele se probeaza
+  cu testele headless din `fereastra` (`dispatch_event`), nu cu capturi.
+- **Randurile listei se refac doar cand se schimba amprenta lor**
+  (`amprenta_randuri`). Un camp nou pe `RandListaUi` care se poate schimba
+  fara sa se schimbe obiectul trebuie pus si in amprenta, altfel ramane vechi
+  pe ecran.
 
 - **Poarta de aici nu e poarta lui Mihai.** Containerul are clippy 1.97,
   masina lui 1.100: doua lint-uri cadeau doar la el, pe cod care trecea aici.

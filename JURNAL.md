@@ -2247,3 +2247,55 @@ declarate de mana, ca DPAPI din `platforma`.
 (`app/src/monitor.rs`), iar decizia (unde, cat de mare) e o functie pura,
 testata pe Linux. Locul se tine in configurare la inchidere si se reia doar
 daca monitorul lui mai exista.
+
+---
+
+## 2026-11-25 — Alegerile facute fara intrebare la remedierile din proba lui Mihai
+
+Cererea spunea sa nu se intrebe, ci sa se aleaga varianta conservatoare si sa
+se noteze aici. Pe scurt, fiecare:
+
+- **Lista porneste pe Modificate, Similar crescator** doar la o comparare noua;
+  o recomparare isi pastreaza filtrele (`preia_vederea`), ca sa nu piarda ce a
+  ales omul. Offline (doua texte lipite) porneste pe tot: un singur obiect
+  identic ar fi lasat lista goala.
+- **Coloana „Linii" s-a scos**; in locul ei, butonul „Deschide" pe rand,
+  mereu vizibil. Dublul clic **nu** mai deschide obiectul in lista (in coloana
+  editorului si pe taburi ramane, acolo fixeaza un tab).
+- **Tipul prescurtat** e codul din `sys.objects` (`P`, `V`, `FN`, `IF`, `TF`,
+  `TR`), cu exceptia tabelei: `TB`, nu `U`. Numele intreg e in sfat.
+- **Impactul** e desenat ca trei bare (1 verde, 2 chihlimbar, 3 rosii);
+  **deploy-ul** ca semn: cerc gol (neintrodus), cerc plin (in plan), bifa
+  (trimis), punct in cerc (versiune noua), linie (omis), cerc taiat (Extra).
+  Cuvantul si ce inseamna, in sfat.
+- **Sfatul la hover** apare dupa 450 ms si pleaca singur dupa 7 s, la
+  schimbarea ecranului si cand mouse-ul pleaca. Unul pe fereastra.
+- **„Foloseste" / „Folosit de"** sunt text selectabil (Ctrl+C), toate numele;
+  un clic nu mai deschide nimic. Comanda `SelecteazaDependenta` ramane in
+  `rutare` (testata, accesibila din cod), doar fara buton.
+- **Previzualizarea din panou** arata doar blocurile diferite, fara linii de
+  context, la 11 px, rupte pe latimea panoului; partea de sus a panoului se
+  deruleaza pe ecrane scunde, ca diferentele sa aiba mereu ~200 px.
+- **Rezumatul de linii** numara pe linii (nu pe instructiuni), pe aceeasi
+  aliniere ca editorul: adaugate, sterse, modificate (puse fata in fata, cu
+  text diferit), mutate (o data, din Martor).
+- **„Adu bazele de date"** e un buton explicit si pe instantaneu; „Testeaza"
+  doar testeaza. Lista goala nu mai incarca nimic la clic.
+- **Pe conectare se vede o singura sesiune**: a perechii alese, altfel a
+  martorului ales, altfel cea mai noua; restul in tabul Sesiuni (legatura).
+- **Cat ruleaza compararea**, restul ecranului e acoperit (nici tabul
+  Sesiuni, nici setarile, nici tastele, in afara de Esc = Opreste).
+- **Jurnalul din fereastra** arata doar tintele `gmotion`, fara campurile cu
+  server, baza, utilizator, cai si argumentele actiunilor, si fara zgomotul
+  fiecarui clic; fisierul de jurnal ramane complet. Avertismentul de
+  certificat: o data pe sesiune; cel al lui `tiberius` (acelasi lucru, la
+  fiecare conexiune) nu mai trece de filtru (`tiberius=error`).
+- **Fundalul din harta**: instantaneul hartii, estompat, la 30% (intunecat) /
+  22% (luminos), sub lista si sub editor. Pe putine obiecte abia se vede —
+  harta insasi e mica atunci.
+- **Panoul de detalii nu se anima la deschidere**: latimea lui reface
+  rupturile liniilor din previzualizare, iar o animatie le-ar reface la
+  fiecare cadru. Tranzitiile sunt intre ecrane (opacitate, 180 ms), pe
+  sfaturi, pe randuri si pe bara de progres.
+- **Python-xlib** s-a folosit doar in sesiune, ca sa se conduca aplicatia sub
+  Xvfb pentru capturi; nu e dependinta a proiectului.

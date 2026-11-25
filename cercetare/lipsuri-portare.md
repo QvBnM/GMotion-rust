@@ -100,6 +100,19 @@ Nou fata de v3.4, in CLI si (din etapa 13) in fereastra: planul cu
 amprente, garda „baza n-a mai fost atinsa", scriptul de revenire, ordinea pe
 dependente. Doar in CLI: garda de versiune, setarile `SET` refacute.
 
+## 5b. Facute in etapa 31 (proba lui Mihai, 2026-11-25)
+
+Sesiunile arata ce arata v3.4: serverul, si cat s-a lucrat (revizuite, omise,
+editate), nu doar revizuitele. Panoul de detalii are rezumatul de linii si
+dependentele ca text de copiat; jurnalul din fereastra spune etapele
+compararii cu durata lor.
+
+Ramase, cu motiv:
+
+| Functie v3.4 | Unde in v3.4 | Rust | Nota |
+|---|---|---|---|
+| Progresul sesiunii in procente din total („42% rezolvate, 10% deploy") | `ui.py:2245` | doar numere | sesiunea salvata nu tine numarul total de obiecte; procentul cere un camp nou in sesiune, deci o versiune noua a formatului (`Sesiune::versiune`) — de facut cu o etapa care atinge sesiunile |
+
 ## 6. Sesiuni, setari, fereastra
 
 | Functie v3.4 | Unde | Rust | Nota |
