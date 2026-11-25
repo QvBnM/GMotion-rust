@@ -1081,6 +1081,8 @@ fn ruleaza() -> Result<(), String> {
         });
         pe_comanda!(lista_ui.on_reseteaza_filtrele(|| Comanda::ResetFiltre));
         pe_comanda!(lista_ui.on_deschide_obiectul(|| Comanda::Deschide));
+        // „+" pe rand / „+ Tab nou" in panou (etapa 33); -1 = selectia
+        pe_comanda!(lista_ui.on_deschide_in_tab_nou(|i| Comanda::DeschideInTabNou(indice(i))));
         pe_comanda!(lista_ui.on_comuta_omis(|| Comanda::ComutaOmis));
         pe_comanda!(lista_ui.on_nota_editata(|baza, id, text| {
             Comanda::PuneNota(baza.to_string(), id.to_string(), text.to_string())
@@ -1297,24 +1299,17 @@ fn ruleaza() -> Result<(), String> {
         pe_comanda!(editor_ui.on_comuta_revizuit(|| Comanda::ComutaRevizuit));
         // clic in coloana din stanga: schimba obiectul pe loc, fara sa pleci
         // din editor (pachetul B)
+        // „Deschide" pe un rand din Object Explorer: in tabul curent (de
+        // previzualizare), ca pana acum. Un clic simplu doar alege randul, in
+        // `.slint` (etapa 33): tabul deschis nu se mai pierde din greseala
         let c = comanda.clone();
-        let dc = RefCell::new(DubluClic::default());
         editor_ui.on_alege_randul(move |i| {
             actiune("editor", "alege_randul", &format!("{:?}", (&i,)), false);
             c(Comanda::Selecteaza(i.max(0) as usize));
-            // dublu clic in coloana: obiectul ramane intr-un tab al lui
-            if dc.borrow_mut().apasat(i, Instant::now()) {
-                tracing::debug!(target: "gmotion::actiuni", rand = i, "dublu clic in coloana");
-                c(Comanda::FixeazaSelectia);
-            }
         });
         // ---- taburile (etapa 16); regulile sunt in `rutare` / `model_taburi`
-        let c = comanda.clone();
-        editor_ui.on_fixeaza_randul(move |i| {
-            actiune("editor", "fixeaza_randul", &format!("{:?}", (&i,)), false);
-            c(Comanda::Selecteaza(indice(i).unwrap_or(0)));
-            c(Comanda::FixeazaSelectia);
-        });
+        // „+ Tab nou" / dublu clic: tab nou, fara sa atinga tabul deschis
+        pe_comanda!(editor_ui.on_fixeaza_randul(|i| Comanda::DeschideInTabNou(indice(i))));
         let c = comanda.clone();
         let dc = RefCell::new(DubluClic::default());
         editor_ui.on_activeaza_tab(move |cod| {

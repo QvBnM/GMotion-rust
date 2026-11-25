@@ -44,6 +44,15 @@ struct Fixat {
     folosit: u64,
 }
 
+/// Taburile, cum se tin in sesiune: ordinea, previzualizarea si tabul
+/// activ (`None` = previzualizarea).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SesiuneTaburi {
+    pub fixate: Vec<Cheie>,
+    pub previzualizare: Option<Cheie>,
+    pub activ: Option<usize>,
+}
+
 /// Starea taburilor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Taburi {
@@ -257,6 +266,34 @@ impl Taburi {
         self.fixate.iter().map(|f| f.cheie.clone()).collect()
     }
 
+    /// Tot ce trebuie ca taburile sa revina la fel (etapa 33): fixatele in
+    /// ordine, obiectul din previzualizare si tabul activ.
+    pub fn de_salvat_complet(&self) -> SesiuneTaburi {
+        SesiuneTaburi {
+            fixate: self.de_salvat(),
+            previzualizare: self.previzualizare.clone(),
+            activ: match self.activ {
+                Activ::Previzualizare => None,
+                Activ::Fixat(i) => Some(i),
+            },
+        }
+    }
+
+    /// Inversul lui [`Taburi::de_salvat_complet`]. Un tab activ care nu mai
+    /// exista (sesiune stricata, obiect disparut) cade pe primul fixat.
+    pub fn din_sesiune_complet(s: SesiuneTaburi) -> Self {
+        let mut t = Taburi::din_sesiune(s.fixate);
+        if let Some(p) = s.previzualizare.filter(|p| !t.e_fixat(p)) {
+            t.previzualizare = Some(p);
+        }
+        match s.activ {
+            Some(i) if i < t.fixate.len() => t.activeaza(Activ::Fixat(i)),
+            None if t.previzualizare.is_some() => t.activ = Activ::Previzualizare,
+            _ => {}
+        }
+        t
+    }
+
     /// Taburile fixate din sesiune; cele peste `MAX_FIXATE` se ignora.
     pub fn din_sesiune(fixate: Vec<Cheie>) -> Self {
         let mut t = Taburi::noi();
@@ -306,6 +343,65 @@ mod teste {
 
     fn lista(n: &[&str]) -> Vec<Cheie> {
         n.iter().map(|x| k(x)).collect()
+    }
+
+    /// Etapa 33, A: „Open in new tab" pe alt obiect nu atinge tabul deschis
+    /// (nici previzualizarea, nici fixatele); pe un obiect deja deschis nu
+    /// face al doilea tab, ci il activeaza pe al lui.
+    #[test]
+    fn tab_nou_nu_pierde_tabul_deschis_si_nu_dubleaza() {
+        let mut t = Taburi::noi();
+        t.deschide(k("a"));
+        t.fixeaza(k("b"), |_| false).unwrap();
+        assert_eq!(t.previzualizare(), Some(&k("a")), "a ramane deschis");
+        assert_eq!(t.fixate(), vec![&k("b")]);
+        assert_eq!(t.activ(), Activ::Fixat(0));
+        t.fixeaza(k("c"), |_| false).unwrap();
+        // b din nou: se activeaza tabul lui, nu apare al doilea
+        t.fixeaza(k("b"), |_| false).unwrap();
+        assert_eq!(t.fixate(), vec![&k("b"), &k("c")]);
+        assert_eq!(t.activ(), Activ::Fixat(0));
+        // a (din previzualizare) intr-un tab nou: se muta, nu se dubleaza
+        t.fixeaza(k("a"), |_| false).unwrap();
+        assert_eq!(t.previzualizare(), None);
+        assert_eq!(t.fixate(), vec![&k("b"), &k("c"), &k("a")]);
+    }
+
+    /// Etapa 33, A: tabul activ, ordinea si previzualizarea revin din sesiune;
+    /// o sesiune veche (doar fixatele) sau stricata nu cade.
+    #[test]
+    fn sesiunea_tine_ordinea_tabul_activ_si_previzualizarea() {
+        let mut t = Taburi::noi();
+        t.fixeaza(k("x"), |_| false).unwrap();
+        t.fixeaza(k("y"), |_| false).unwrap();
+        t.fixeaza(k("z"), |_| false).unwrap();
+        t.deschide(k("p"));
+        t.activeaza(Activ::Fixat(1));
+        let s = t.de_salvat_complet();
+        let r = Taburi::din_sesiune_complet(s.clone());
+        assert_eq!(r.fixate(), vec![&k("x"), &k("y"), &k("z")]);
+        assert_eq!(r.previzualizare(), Some(&k("p")));
+        assert_eq!(r.activ(), Activ::Fixat(1));
+        assert_eq!(r.cheie_activa(), Some(&k("y")));
+        // activa previzualizarea
+        t.activeaza(Activ::Previzualizare);
+        let r = Taburi::din_sesiune_complet(t.de_salvat_complet());
+        assert_eq!(r.cheie_activa(), Some(&k("p")));
+        // sesiune veche: doar fixatele, activ primul
+        let r = Taburi::din_sesiune_complet(SesiuneTaburi {
+            fixate: lista(&["x", "y"]),
+            ..Default::default()
+        });
+        assert_eq!(r.activ(), Activ::Fixat(0));
+        // indice in afara: ramane pe primul; previzualizarea fixata deja se ignora
+        let r = Taburi::din_sesiune_complet(SesiuneTaburi {
+            fixate: lista(&["x"]),
+            previzualizare: Some(k("x")),
+            activ: Some(7),
+        });
+        assert_eq!(r.fixate(), vec![&k("x")]);
+        assert_eq!(r.previzualizare(), None);
+        assert_eq!(r.activ(), Activ::Fixat(0));
     }
 
     #[test]

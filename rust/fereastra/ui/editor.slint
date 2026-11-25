@@ -361,6 +361,9 @@ export component EditorDiferente inherits Rectangle {
     in property <[NodUi]> noduri-lista;
     // randul selectat in arbore: coloana se deruleaza la el (in `lista-ingusta`)
     in property <int> nod-selectat-lista: -1;
+    // randul ales cu un clic in Object Explorer (etapa 33): nu se deschide,
+    // doar arata „Deschide" / „+ Tab nou"; -1 = niciunul
+    in-out property <int> ales-explorer: -1;
     callback comuta-nod(string);
     property <RandListaUi> rand-gol;
     in property <string> rezumat-lista;
@@ -1687,7 +1690,7 @@ export component EditorDiferente inherits Rectangle {
                         property <bool> sel: n.fel == 2 && n.pozitie == root.selectat-lista;
                         height: 28px;
                         border-radius: 6px;
-                        background: sel ? Tema.strat : (zr.has-hover ? Tema.fundal : transparent);
+                        background: sel ? Tema.strat : (zr.has-hover || (n.fel == 2 && n.pozitie == root.ales-explorer) ? Tema.fundal : transparent);
                         if sel: Rectangle { x: 0; width: 3px; height: 20px; border-radius: 1.5px; background: Tema.accent; }
                         HorizontalLayout {
                             padding-left: 6px + n.nivel * 14px;
@@ -1730,28 +1733,20 @@ export component EditorDiferente inherits Rectangle {
                             if n.fel == 2: Text { text: r.plus; font-family: Tema.font-mono; font-size: 11px; color: Tema.add-text; vertical-alignment: center; }
                             if n.fel == 2: Text { text: r.minus; font-family: Tema.font-mono; font-size: 11px; color: Tema.del-text; vertical-alignment: center; }
                         }
-                        // „+": deschide obiectul intr-un tab nou (ca dublu clicul,
-                        // care nu se vede); apare la mouse
-                        if n.fel == 2 && zr.has-hover: Rectangle {
-                            x: parent.width - self.width - 6px;
-                            y: (parent.height - self.height) / 2;
-                            width: 22px;
-                            height: 22px;
-                            border-radius: 6px;
-                            background: zplus.has-hover ? Tema.accent : Tema.suprafata;
-                            border-width: 1px;
-                            border-color: Tema.accent;
-                            Text { text: "+"; font-size: 14px; color: zplus.has-hover ? Tema.pe-accent : Tema.accent-text; }
-                            zplus := TouchArea { clicked => { root.fixeaza-randul(n.pozitie); } }
-                        }
                         zr := TouchArea {
-                            // baza / dosar: se deschide sau se inchide; obiectul se
-                            // alege (dublul clic, tab nou, il numara Rust-ul)
+                            // baza / dosar: se deschide sau se inchide; obiectul
+                            // doar se alege (etapa 33), dublu clic = tab nou
                             clicked => {
                                 if (n.fel == 2) {
-                                    root.alege-randul(n.pozitie);
+                                    root.ales-explorer = n.pozitie;
                                 } else {
                                     root.comuta-nod(n.cheie);
+                                }
+                            }
+                            double-clicked => {
+                                if (n.fel == 2) {
+                                    root.ales-explorer = -1;
+                                    root.fixeaza-randul(n.pozitie);
                                 }
                             }
                             // textul de hover pleaca odata cu mouse-ul; pana pe
@@ -1762,6 +1757,40 @@ export component EditorDiferente inherits Rectangle {
                                     root.detalii-hover = self.text-hover;
                                 } else if (!self.has-hover && root.detalii-hover == self.text-hover) {
                                     root.detalii-hover = "";
+                                }
+                            }
+                            // butoanele stau in zona randului: un clic pe ele e
+                            // al lor, iar hover-ul randului nu se pierde cand
+                            // mouse-ul trece pe ele
+                            // Etapa 33: un clic doar alege randul (tabul deschis nu se
+                            // pierde); alesul si cel de sub mouse arata cele doua
+                            // actiuni, explicit: „Deschide" (in tabul curent, ca
+                            // pana acum) si „+ Tab nou". Dublu clic = tab nou.
+                            if n.fel == 2 && (zr.has-hover || n.pozitie == root.ales-explorer): HorizontalLayout {
+                                // latimea, explicit: altfel layout-ul ia toata latimea
+                                // randului si butoanele pleaca spre stanga
+                                width: tdes.preferred-width + ttab.preferred-width + 32px;
+                                x: zr.width - self.width - 6px;
+                                y: (zr.height - 22px) / 2;
+                                height: 22px;
+                                spacing: 4px;
+                                Rectangle {
+                                    width: tdes.preferred-width + 14px;
+                                    border-radius: 6px;
+                                    border-width: 1px;
+                                    border-color: Tema.accent;
+                                    background: zdes.has-hover ? Tema.accent : Tema.suprafata;
+                                    tdes := Text { text: Texte.deschide-scurt; font-family: Tema.font-ui; font-size: 11px; font-weight: 600; color: zdes.has-hover ? Tema.pe-accent : Tema.accent-text; }
+                                    zdes := TouchArea { mouse-cursor: pointer; clicked => { root.ales-explorer = -1; root.alege-randul(n.pozitie); } }
+                                }
+                                Rectangle {
+                                    width: ttab.preferred-width + 14px;
+                                    border-radius: 6px;
+                                    border-width: 1px;
+                                    border-color: Tema.accent;
+                                    background: ztab.has-hover ? Tema.accent : Tema.suprafata;
+                                    ttab := Text { text: Texte.tab-nou; font-family: Tema.font-ui; font-size: 11px; font-weight: 600; color: ztab.has-hover ? Tema.pe-accent : Tema.accent-text; }
+                                    ztab := ZonaSfat { mouse-cursor: pointer; sfat: Texte.deschide-tab-nou; clicked => { root.ales-explorer = -1; root.fixeaza-randul(n.pozitie); } }
                                 }
                             }
                         }

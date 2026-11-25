@@ -48,6 +48,11 @@ pub enum Comanda {
     /// selectia s-a mutat deja pe alt rand.
     PuneNota(String, String, String),
     Deschide,
+    /// „Open in new tab" (etapa 33), din lista sau din Object Explorer:
+    /// obiectul de pe randul dat (`None` = cel selectat) intra intr-un tab al
+    /// lui; tabul deschis acum (previzualizarea sau un fixat) ramane neatins.
+    /// Un obiect deja deschis isi activeaza tabul, nu se dubleaza.
+    DeschideInTabNou(Option<usize>),
     // ---- taburile editorului (etapa 16; regulile in `model_taburi`)
     /// Fixeaza obiectul selectat intr-un tab (dublu clic in coloana listei).
     FixeazaSelectia,
@@ -188,24 +193,51 @@ impl StareColoana {
     }
 }
 
-/// Taburile fixate, in sesiune (cheia `taburi`), ca lista de (baza, obiect).
+/// Taburile, in sesiune: fixatele (cheia `taburi`, ca lista de (baza,
+/// obiect), ca inainte), plus `taburi_previzualizare` si `taburi_activ`
+/// (etapa 33: ordinea, obiectul din fiecare si tabul activ revin la fel).
 pub fn taburi_in_sesiune(t: &Taburi, s: &mut gmotion_platforma::Sesiune) {
-    let v = t.de_salvat();
-    if v.is_empty() {
-        s.date.remove("taburi");
-    } else if let Ok(j) = serde_json::to_value(v) {
-        s.date.insert("taburi".to_string(), j);
+    let c = t.de_salvat_complet();
+    for k in ["taburi", "taburi_previzualizare", "taburi_activ"] {
+        s.date.remove(k);
+    }
+    if !c.fixate.is_empty() {
+        if let Ok(j) = serde_json::to_value(&c.fixate) {
+            s.date.insert("taburi".to_string(), j);
+        }
+    }
+    if let Some(p) = c.previzualizare.and_then(|p| serde_json::to_value(p).ok()) {
+        s.date.insert("taburi_previzualizare".to_string(), p);
+    }
+    if let Some(i) = c.activ {
+        s.date
+            .insert("taburi_activ".to_string(), serde_json::Value::from(i));
     }
 }
 
-/// Taburile fixate salvate; o valoare stricata inseamna fara taburi.
+/// Taburile salvate; o valoare stricata inseamna fara ea (fara taburi, fara
+/// previzualizare, activ primul fixat). O sesiune de dinainte de etapa 33
+/// are doar `taburi`.
 pub fn taburi_din_sesiune(s: &gmotion_platforma::Sesiune) -> Taburi {
-    let v: Vec<Cheie> = s
+    let fixate: Vec<Cheie> = s
         .date
         .get("taburi")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
-    Taburi::din_sesiune(v)
+    let previzualizare: Option<Cheie> = s
+        .date
+        .get("taburi_previzualizare")
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
+    let activ = s
+        .date
+        .get("taburi_activ")
+        .and_then(|v| v.as_u64())
+        .and_then(|i| usize::try_from(i).ok());
+    Taburi::din_sesiune_complet(gmotion_fereastra::model_taburi::SesiuneTaburi {
+        fixate,
+        previzualizare,
+        activ,
+    })
 }
 
 /// Modul ghidat: diferentele, una cate una, cu o alegere pentru fiecare.
@@ -1045,6 +1077,51 @@ impl Aplicatie {
                         self.taburi.deschide(c);
                     }
                 }
+            }
+            Comanda::DeschideInTabNou(p) => {
+                let inainte = self.lista.selectat();
+                if let Some(p) = p {
+                    if self.lista.obiect(p).is_none() {
+                        return false;
+                    }
+                    // doar selectia: `Selecteaza` din editor ar pune obiectul
+                    // intai in previzualizare, peste cel de acolo
+                    self.lista.selecteaza(p);
+                }
+                let Some(c) = self.cheia_curenta() else {
+                    return false;
+                };
+                if self.texte(&c.0, &c.1).is_none() {
+                    if let Some(i) = inainte {
+                        self.lista.selecteaza(i);
+                    }
+                    self.mesaj_tab = Some(MesajTab::FaraEditor);
+                    return false;
+                }
+                let editate = self.chei_editate();
+                let aratat = self.taburi.cheie_activa().cloned();
+                match self.taburi.fixeaza(c.clone(), |k| editate.contains(k)) {
+                    Ok(_) => {
+                        // alt obiect pe ecran: diferenta, ghidatul si Ctrl+Z
+                        // sunt ale lui, ca la `Deschide`
+                        if self.ecran != Ecran::Editor || aratat.as_ref() != Some(&c) {
+                            self.diferenta = 0;
+                            self.ghidat = None;
+                            self.istoric.clear();
+                            self.ecran = Ecran::Editor;
+                        }
+                        self.dupa_schimbarea_tabului();
+                    }
+                    Err(Refuz::ToateEditate) => {
+                        // tabul nu s-a putut deschide: selectia ramane pe
+                        // obiectul aratat
+                        if let Some(i) = inainte {
+                            self.lista.selecteaza(i);
+                        }
+                        self.mesaj_tab = Some(MesajTab::ToateEditate);
+                    }
+                }
+                return true;
             }
             Comanda::InapoiLaLista => self.ecran = Ecran::Lista,
             // din editor, obiectul urmator se deschide direct: altfel ar
@@ -3382,6 +3459,82 @@ mod teste {
         // ultimul tab inchis: inapoi in lista
         a.comanda(Comanda::InchideTabActiv);
         assert_eq!(a.ecran(), Ecran::Lista);
+    }
+
+    fn pozitie(a: &Aplicatie, nume: &str) -> usize {
+        (0..a.lista().vizibile().len())
+            .find(|&p| a.lista().obiect(p).unwrap().nume == nume)
+            .expect("obiectul e in lista")
+    }
+
+    /// Etapa 33, A: din editor, „Open in new tab" pe alt obiect din Object
+    /// Explorer nu pierde tabul deschis; „Open" ramane ca inainte (in tabul
+    /// curent); un obiect deja deschis nu se dubleaza. Din lista, la fel.
+    #[test]
+    fn tab_nou_din_explorer_si_din_lista_nu_pierde_tabul_deschis() {
+        let mut a = aplicatie();
+        let pa = pozitie(&a, "pA");
+        a.comanda(Comanda::Selecteaza(pa));
+        a.comanda(Comanda::Deschide);
+        assert_eq!(a.obiect().unwrap().nume, "pA");
+        let pb = pozitie(&a, "pB");
+        assert!(a.comanda(Comanda::DeschideInTabNou(Some(pb))));
+        assert_eq!(a.obiect().unwrap().nume, "pB", "tabul nou e activ");
+        assert_eq!(
+            a.taburi().previzualizare().map(|c| c.1.as_str()),
+            Some("dbo.pA"),
+            "tabul deschis inainte e intact"
+        );
+        assert_eq!(a.taburi().fixate().len(), 1);
+        // acelasi obiect inca o data: nu se dubleaza
+        a.comanda(Comanda::ActiveazaTab(None));
+        assert_eq!(a.obiect().unwrap().nume, "pA");
+        a.comanda(Comanda::DeschideInTabNou(Some(pb)));
+        assert_eq!(a.taburi().fixate().len(), 1);
+        assert_eq!(a.obiect().unwrap().nume, "pB");
+        // „Open" (in tabul curent) din explorer: previzualizarea, ca acum
+        a.comanda(Comanda::Selecteaza(pa));
+        assert_eq!(a.obiect().unwrap().nume, "pA");
+        assert_eq!(a.taburi().fixate().len(), 1, "pB ramane in tabul lui");
+        // din lista: tab nou direct din ecranul listei
+        a.comanda(Comanda::InapoiLaLista);
+        let pd = pozitie(&a, "pDoarSursa");
+        a.comanda(Comanda::DeschideInTabNou(Some(pd)));
+        assert_eq!(a.ecran(), Ecran::Editor);
+        assert_eq!(a.obiect().unwrap().nume, "pDoarSursa");
+        assert_eq!(a.taburi().fixate().len(), 2);
+        assert_eq!(
+            a.taburi().previzualizare().map(|c| c.1.as_str()),
+            Some("dbo.pA")
+        );
+    }
+
+    /// Etapa 33, A: tabul activ, ordinea si previzualizarea trec prin
+    /// sesiune.
+    #[test]
+    fn tabul_activ_si_previzualizarea_trec_prin_sesiune() {
+        let mut a = aplicatie();
+        let pa = pozitie(&a, "pA");
+        let pb = pozitie(&a, "pB");
+        let pd = pozitie(&a, "pDoarSursa");
+        a.comanda(Comanda::DeschideInTabNou(Some(pb)));
+        a.comanda(Comanda::DeschideInTabNou(Some(pd)));
+        a.comanda(Comanda::Selecteaza(pa));
+        a.comanda(Comanda::ActiveazaTab(Some(0)));
+        let mut s = gmotion_platforma::Sesiune::noua("SRV", "SQL", "Ref", "acum");
+        taburi_in_sesiune(a.taburi(), &mut s);
+        let t = taburi_din_sesiune(&s);
+        assert_eq!(t.de_salvat_complet(), a.taburi().de_salvat_complet());
+        assert_eq!(t.cheie_activa().map(|c| c.1.as_str()), Some("dbo.pB"));
+        assert_eq!(t.previzualizare().map(|c| c.1.as_str()), Some("dbo.pA"));
+        // o sesiune stricata nu cade
+        s.date
+            .insert("taburi_activ".into(), serde_json::json!("stricat"));
+        s.date
+            .insert("taburi_previzualizare".into(), serde_json::json!(3));
+        let t = taburi_din_sesiune(&s);
+        assert_eq!(t.fixate().len(), 2);
+        assert_eq!(t.previzualizare(), None);
     }
 
     #[test]
