@@ -1,0 +1,131 @@
+<!doctype html><html lang="ro" class=""><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-400.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-500.ttf);font-weight:500}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-600.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-400.ttf);font-weight:400}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-500.ttf);font-weight:500}
+:root{--fundal:#0d1120;--suprafata:#151a2e;--strat:#1d2440;--cod:#090d19;--linie:#2a3255;--slaba:#1e2542;--text:#eef1ff;--t2:#a3acd0;--t3:#8a93b8;--accent:#ffb547;--pe-accent:#1a1200;--ok:#3ddc97;--mod-fundal:#312b29}
+:root.luminos{--fundal:#f4f5f8;--suprafata:#ffffff;--strat:#eceef3;--cod:#edeff4;--linie:#e3e6ec;--slaba:#eef0f3;--text:#0f1115;--t2:#4f5561;--t3:#5f6572;--accent:#f5a524;--pe-accent:#1a1200;--ok:#0f6a37;--mod-fundal:#fdf1dc}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;display:flex;overflow:hidden}
+
+/* ---- stanga: ce facem ---- */
+.stanga{width:832px;display:flex;flex-direction:column;padding:40px 44px 0 56px;border-right:1px solid var(--linie)}
+.mic{font:11px GeistMono;letter-spacing:1.2px;color:var(--t3);text-transform:uppercase}
+.intrari{margin-top:22px;display:flex;flex-direction:column;gap:6px}
+.e{display:grid;grid-template-columns:58px 1fr auto;align-items:center;gap:20px;height:174px;padding:0 16px 0 12px;border-top:1px solid var(--slaba);border-radius:10px}
+.e:first-child{border-top:none}
+.e.on{background:var(--mod-fundal);box-shadow:inset 3px 0 0 var(--accent)}
+/* pastila iconitei, taiata in doua: stanga = before, dreapta = after */
+.ic{position:relative;width:52px;height:52px;border:1px solid var(--linie);border-radius:11px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:var(--t2)}
+.ic:before{content:"";position:absolute;left:0;top:0;bottom:0;width:50%;background:var(--strat)}
+.ic:after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--linie)}
+.e.on .ic{border-color:var(--accent);color:var(--accent)}
+.e.on .ic:before{background:var(--accent);opacity:.17}
+.e.on .ic:after{background:var(--accent);opacity:.5}
+.ic svg{position:relative;z-index:1}
+.tx{min-width:0;display:flex;flex-direction:column;gap:4px}
+.tx b{font-size:16.5px;font-weight:600;letter-spacing:-.1px}
+.tx p{color:var(--t2);font-size:12.6px;line-height:1.45}
+.e.soon .tx b,.e.soon .tx p{color:var(--t3)}
+.e.soon .ic{opacity:.62;border-style:dashed}
+.dr{display:flex;align-items:center;gap:14px}
+.k{font:11px GeistMono;color:var(--t3);border:1px solid var(--linie);border-radius:5px;padding:1px 6px}
+.et{font:500 10.5px GeistMono;letter-spacing:.6px;padding:2px 7px;border-radius:4px;border:1px solid var(--linie);color:var(--t3)}
+.go{height:34px;border-radius:8px;background:var(--accent);color:var(--pe-accent);font-weight:600;font-size:13.5px;display:flex;align-items:center;padding:0 16px;gap:9px}
+.go span{font:11px GeistMono;opacity:.7}
+.jos{height:56px;margin-top:auto;flex:none;display:flex;align-items:center;gap:10px;color:var(--t2);font-size:12.5px;border-top:1px solid var(--linie);margin-top:8px}
+.bif{width:14px;height:14px;border:1px solid var(--t3);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--pe-accent)}
+.bif.on{background:var(--accent);border-color:var(--accent)}
+.sp{flex:1}
+.kbd{font:11px GeistMono;color:var(--t3)}
+
+/* ---- dreapta: GMotion ---- */
+.dreapta{width:608px;background:var(--cod);display:flex;flex-direction:column;padding:40px 48px 28px}
+.marca{font-size:40px;font-weight:600;letter-spacing:-1.6px;line-height:1}
+.marca i{display:inline-block;width:11px;height:11px;border-radius:6px;background:var(--accent);margin-left:3px;vertical-align:baseline}
+.sub{margin-top:10px;color:var(--t2);font-size:13px;line-height:1.55;max-width:420px}
+.ver{margin-top:14px;display:flex;gap:8px;align-items:center}
+.pil{font:11px GeistMono;color:var(--t3);border:1px solid var(--linie);border-radius:5px;padding:2px 7px}
+.sec{margin-top:34px;display:flex;align-items:baseline;gap:10px}
+.sec b{font:11px GeistMono;letter-spacing:1.2px;color:var(--t3);text-transform:uppercase;font-weight:400}
+.sec s{text-decoration:none;color:var(--t3);font-size:11.5px;margin-left:auto}
+.rec{margin-top:12px;border:1px solid var(--linie);border-radius:10px;background:var(--suprafata);overflow:hidden}
+.rr{display:grid;grid-template-columns:1fr 86px 64px;align-items:center;height:42px;padding:0 14px;border-bottom:1px solid var(--slaba);font:12px GeistMono;color:var(--t2)}
+.rr:last-child{border:none}
+.rr em{font-style:normal;color:var(--text)}
+.rr .n{text-align:right;color:var(--accent)}
+.rr .c{text-align:right;color:var(--t3);font-size:11.5px}
+.stat{margin-top:auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.s1{border:1px solid var(--linie);border-radius:10px;padding:12px 14px;background:var(--suprafata)}
+.s1 u{text-decoration:none;display:block;font:11px GeistMono;color:var(--t3);letter-spacing:.6px}
+.s1 b{display:block;margin-top:5px;font-size:14.5px;font-weight:600;white-space:nowrap}
+.s1 b small{font-weight:400;font-size:11.5px;color:var(--t2);margin-left:5px}
+.cmd{margin-top:12px;border:1px solid var(--linie);border-radius:10px;background:var(--suprafata);padding:13px 15px;font:12px/1.75 GeistMono;color:var(--text)}
+.cmd .pr{color:var(--accent);margin-right:7px}
+.cmd em{font-style:normal;color:var(--t3)}
+.cmd .out{color:var(--t2)}
+.pct{width:7px;height:7px;border-radius:4px;background:var(--ok);display:inline-block;margin-right:7px}
+</style></head><body>
+
+<div class="stanga">
+  <div class="mic">Ce facem</div>
+  <div class="intrari">
+
+    <div class="e on">
+      <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2.5" y="4" width="8" height="16" rx="1.5"/><rect x="13.5" y="4" width="8" height="16" rx="1.5"/><path d="M4.6 8.3h3.8M4.6 12h3.8M4.6 15.7h2.2"/><path d="M15.6 8.3h3.8M15.6 12h3.8M15.6 15.7h2.2"/></svg></div>
+      <div class="tx"><b>Comparare obiecte</b><p>Before fata de After: proceduri, view-uri, functii, triggere, tabele. Lista, editorul alaturat, planul de deploy.</p></div>
+      <div class="dr"><div class="go">Deschide <span>Enter</span></div></div>
+    </div>
+
+    <div class="e soon">
+      <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.6h7.4L15 7.2v5.1"/><path d="M4 3.6v16.8h5"/><path d="M11.2 3.8v3.6H15"/><ellipse cx="17.6" cy="15.1" rx="4.2" ry="1.7"/><path d="M13.4 15.1v4.3c0 .94 1.88 1.7 4.2 1.7s4.2-.76 4.2-1.7v-4.3"/></svg></div>
+      <div class="tx"><b>Kit SQL pe baza</b><p>Un script de livrare citit si impartit in obiecte, pus fata in fata cu destinatia: ce exista, ce aducem, ce se schimba.</p></div>
+      <div class="dr"><div class="et">IN CURAND</div><div class="k">2</div></div>
+    </div>
+
+    <div class="e soon">
+      <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="10.4" cy="5.4" rx="6.4" ry="2.4"/><path d="M4 5.4v12.2c0 1.33 2.87 2.4 6.4 2.4 1.05 0 2.04-.09 2.92-.26"/><path d="M4 11.5c0 1.33 2.87 2.4 6.4 2.4"/><circle cx="17.2" cy="15.4" r="3.5"/><path d="m19.9 18.1 2.1 2.1"/></svg></div>
+      <div class="tx"><b>Analiza initiala</b><p>Ce s-a personalizat intr-o baza de ERP inainte de upgrade: obiecte proprii, tranzactii folosite, exemple de date.</p></div>
+      <div class="dr"><div class="et">IN CURAND</div><div class="k">3</div></div>
+    </div>
+
+    <div class="e soon">
+      <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.4 6.8h17.2M3.4 12h17.2M3.4 17.2h17.2"/><circle cx="8.6" cy="6.8" r="2.1" fill="var(--cod)"/><circle cx="15.4" cy="12" r="2.1" fill="var(--cod)"/><circle cx="7.2" cy="17.2" r="2.1" fill="var(--cod)"/></svg></div>
+      <div class="tx"><b>Configurare</b><p>Conexiuni tinute minte, tema si limba, timpul de asteptare, unde se scrie jurnalul si cat se pastreaza.</p></div>
+      <div class="dr"><div class="et">IN CURAND</div><div class="k">4</div></div>
+    </div>
+
+  </div>
+  <div class="jos">
+    <div class="bif on">&check;</div><div>Porneste direct in Comparare obiecte</div>
+    <div class="sp"></div>
+    <div class="kbd">1&ndash;4 alege &nbsp;&middot;&nbsp; Enter deschide</div>
+  </div>
+</div>
+
+<div class="dreapta">
+  <div class="marca">GMotion<i></i></div>
+  <div class="sub">Comparare si livrare de obiecte SQL Server. Un singur motor, aceleasi rezultate in fereastra si in linia de comanda.</div>
+  <div class="ver"><div class="pil">v4.0.0</div><div class="pil">Windows x64</div><div class="pil">825 de teste</div></div>
+
+  <div class="sec"><b>Reia o comparare</b><s>toate</s></div>
+  <div class="rec">
+    <div class="rr"><div><em>ERP_TEST</em> &rarr; <em>ERP_PROD</em></div><div class="n">11.938</div><div class="c">2 ore</div></div>
+    <div class="rr"><div><em>ERP_DEV</em> &rarr; <em>ERP_TEST</em></div><div class="n">342</div><div class="c">ieri</div></div>
+    <div class="rr"><div>instantaneu <em>baza-11-24.json</em></div><div class="n">28</div><div class="c">luni</div></div>
+  </div>
+
+  <div class="sec"><b>Acelasi lucru din linie de comanda</b></div>
+  <div class="cmd">
+    <div><span class="pr">&gt;</span> gmotion compara <em>--server</em> SRV-DEV <em>--referinta</em> ERP_TEST <em>--baza</em> ERP_PROD</div>
+    <div class="out">11.938 diferite din 28.405 &middot; raport scris in compara-11-25.json</div>
+  </div>
+
+  <div class="stat">
+    <div class="s1"><u>SERVER</u><b><span class="pct"></span>SRV-DEV<small>raspunde</small></b></div>
+    <div class="s1"><u>JURNAL</u><b>azi<small>14 intrari</small></b></div>
+    <div class="s1"><u>ULTIMUL DEPLOY</u><b>luni<small>42 obiecte</small></b></div>
+  </div>
+</div>
+</body></html>

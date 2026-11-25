@@ -9,9 +9,30 @@ Propunere, **neaprobata inca**. Desenata dupa raspunsurile lui Mihai din
 | `meniu-luminos.html` | aceeasi, tema luminoasa |
 | `meniu-lista.html` | varianta **lista** (patru randuri pe toata inaltimea), intunecata |
 | `meniu-lista-luminos.html` | aceeasi, tema luminoasa |
+| `meniu-split.html` | varianta **split**: stanga lucrul, dreapta GMotion; intunecata |
+| `meniu-split-luminos.html` | aceeasi, tema luminoasa |
 | `*.png` | capturile machetelor (deviceScaleFactor 2) |
 
-Doua variante de aspect, acelasi continut. De ales una (Mihai).
+Trei variante de aspect, acelasi continut. De ales una (Mihai).
+
+## Varianta split, de ce arata asa
+
+Primele doua variante semanau cu un program de instalare: titlu mare,
+patru casete de prezentare, text care explica produsul cuiva care nu-l
+cunoaste. Ecranul de pornire al unei unelte nu prezinta produsul, il
+porneste. Modelul e ecranul de intampinare din IDE-uri (JetBrains: actiuni
+intr-un panou, ce ai lucrat ultima data in celalalt; Zed: pagina de pornire
+minima, care dispare cand ai deschis ceva).
+
+- **Stanga**: cele patru directii, cate un rand cu iconita si o linie de
+  explicatie. Doar prima e apasabila; restul `IN CURAND`, punctate.
+- **Dreapta**: numele si ce e GMotion, apoi lucruri **folositoare**:
+  compararile recente de reluat cu un clic, comanda echivalenta din `cli`
+  (regula §3: nimic nu exista doar in spatele unui buton), starea serverului
+  si a jurnalului.
+- **Iconitele sunt taiate pe verticala in doua**: jumatatea din stanga
+  plina, cea din dreapta goala, despartite de o linie. E acelasi semn peste
+  tot, si inseamna Before / After — subiectul intregii aplicatii.
 
 Se citesc ca specificatie, nu se ruleaza in aplicatie. Culorile si fonturile
 sunt aceleasi jetoane ca in `conectare-noua/`.
