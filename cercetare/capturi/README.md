@@ -50,3 +50,25 @@ putea vedea pe 3 din 4 ecrane).
 
 `editor-1024x768-intunecat.png` arata insulele de jos pe **doua randuri**:
 asezate pe unul singur, jumatate din butoane ieseau din ecran (V3).
+
+
+## Etapa 31 (`etapa-31/`): aplicatia adevarata, sub Xvfb
+
+Nu din exemplele `captura*`, ci din `gmotion-ui` pornit sub Xvfb si condus
+cu mouse-ul (`etapa-31/conduce_x.py`, cu `python-xlib`): conectare cu
+instantaneul de previzualizare → „Adu bazele" pe ambele parti → Compara →
+lista → panoul de detalii → sfaturile la hover → Deschide (editor) → In plan
+→ Deploy. Toate in aceeasi fereastra. Fiecare ecran la 1366x768 si
+1920x1080 (fereastra X redimensionata), in ambele teme:
+`<ecran>-<tema>-<latime>x<inaltime>.png`. `comparare-in-curs-*` e prinsa
+in timpul compararii (suprapunerea care blocheaza restul).
+
+**Tastele trimise prin XTest nu ajung in aplicatie sub Xvfb**: drumul e
+facut doar din clicuri; tastele sunt probate de testele din `fereastra`.
+
+```
+Xvfb :99 -screen 0 1920x1080x24 &
+DISPLAY=:99 rust/target/proba/gmotion-ui --sursa referinta/instantanee/previzualizare.json --tema luminos &
+DISPLAY=:99 python3 cercetare/capturi/etapa-31/conduce_x.py marime 1366 768 clic 368 344
+DISPLAY=:99 import -window root -crop 1366x768+0+0 captura.png
+```
