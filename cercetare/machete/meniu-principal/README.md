@@ -11,9 +11,22 @@ Propunere, **neaprobata inca**. Desenata dupa raspunsurile lui Mihai din
 | `meniu-lista-luminos.html` | aceeasi, tema luminoasa |
 | `meniu-split.html` | varianta **split**: stanga lucrul, dreapta GMotion; intunecata |
 | `meniu-split-luminos.html` | aceeasi, tema luminoasa |
+| `meniu-bara.html` | varianta **bara laterala**: fara ecran de meniu; intunecata |
+| `meniu-bara-luminos.html` | aceeasi, tema luminoasa |
 | `*.png` | capturile machetelor (deviceScaleFactor 2) |
 
-Trei variante de aspect, acelasi continut. De ales una (Mihai).
+Patru variante. Primele trei sunt un ecran de meniu, a patra scoate meniul
+cu totul. De ales una (Mihai).
+
+## Varianta bara laterala, de ce e altfel
+
+Celelalte trei pun un ecran intre tine si lucru: il vezi o data, apesi, si
+nu-l mai vezi pana la repornire. Aici nu exista ecran de meniu. Cele patru
+directii stau intr-o bara ingusta, vizibila tot timpul, iar fereastra
+porneste direct in conectare, ca azi. Se vede mereu unde esti, se trece
+dintr-o directie in alta dintr-un clic, si nu se plateste niciun clic in
+plus la pornire. `Comparare obiecte` e aprinsa; celelalte au un cerc gol
+in loc de `IN CURAND`, fiindca intr-o bara eticheta ar fi zgomot.
 
 ## Varianta split, de ce arata asa
 

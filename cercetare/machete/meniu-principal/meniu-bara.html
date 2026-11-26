@@ -1,0 +1,142 @@
+<!doctype html><html lang="ro" class=""><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-400.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-500.ttf);font-weight:500}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-600.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-400.ttf);font-weight:400}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-500.ttf);font-weight:500}
+:root{--fundal:#0d1120;--suprafata:#151a2e;--strat:#1d2440;--cod:#090d19;--linie:#2a3255;--slaba:#1e2542;--text:#eef1ff;--t2:#a3acd0;--t3:#8a93b8;--accent:#ffb547;--pe-accent:#1a1200;--ok:#3ddc97;--mod-fundal:#312b29}
+:root.luminos{--fundal:#f4f5f8;--suprafata:#ffffff;--strat:#eceef3;--cod:#edeff4;--linie:#e3e6ec;--slaba:#eef0f3;--text:#0f1115;--t2:#4f5561;--t3:#5f6572;--accent:#f5a524;--pe-accent:#1a1200;--ok:#0f6a37;--mod-fundal:#fdf1dc}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;display:flex;overflow:hidden}
+
+/* ---- bara din stanga, mereu vizibila ---- */
+.bara{width:252px;background:var(--cod);border-right:1px solid var(--linie);display:flex;flex-direction:column;padding:18px 14px 14px}
+.marca{display:flex;align-items:center;gap:8px;padding:0 8px 16px;border-bottom:1px solid var(--slaba)}
+.marca b{font-size:17px;font-weight:600;letter-spacing:-.4px}
+.marca i{width:6px;height:6px;border-radius:3px;background:var(--accent);display:inline-block;margin-bottom:1px}
+.marca span{font:10.5px GeistMono;color:var(--t3);margin-left:auto;border:1px solid var(--linie);border-radius:4px;padding:1px 5px}
+.gr{font:10.5px GeistMono;letter-spacing:1.1px;color:var(--t3);padding:16px 8px 8px}
+.n{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:11px;height:42px;padding:0 8px;border-radius:8px;color:var(--t2)}
+.n.on{background:var(--mod-fundal);color:var(--text);box-shadow:inset 2px 0 0 var(--accent)}
+.n.soon{color:var(--t3)}
+.n b{font-weight:500;font-size:13.5px}
+.n .k{font:10.5px GeistMono;color:var(--t3)}
+.n .pt{width:5px;height:5px;border-radius:3px;border:1px solid var(--t3)}
+/* iconita taiata in doua: stanga plina = Before, dreapta goala = After */
+.ic{position:relative;width:30px;height:30px;border:1px solid var(--linie);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:inherit}
+.ic:before{content:"";position:absolute;left:0;top:0;bottom:0;width:50%;background:var(--strat)}
+.ic:after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--linie)}
+.n.on .ic{border-color:var(--accent);color:var(--accent)}
+.n.on .ic:before{background:var(--accent);opacity:.18}
+.n.soon .ic{border-style:dashed;opacity:.7}
+.ic svg{position:relative;z-index:1}
+.jos{margin-top:auto;border-top:1px solid var(--slaba);padding-top:10px}
+.jos .n{height:36px}
+.stare{margin-top:10px;padding:9px 10px;border:1px solid var(--linie);border-radius:8px;background:var(--suprafata);font:11px GeistMono;color:var(--t2);line-height:1.7}
+.stare em{font-style:normal;color:var(--text)}
+.pct{width:6px;height:6px;border-radius:3px;background:var(--ok);display:inline-block;margin-right:6px}
+
+/* ---- zona de lucru ---- */
+.lucru{flex:1;display:flex;flex-direction:column;min-width:0}
+.antet{height:58px;border-bottom:1px solid var(--linie);display:flex;align-items:center;gap:12px;padding:0 24px}
+.antet b{font-size:15px;font-weight:600}
+.antet .cale{font:11.5px GeistMono;color:var(--t3)}
+.sp{flex:1}
+.hbtn{height:30px;border:1px solid var(--linie);border-radius:8px;background:var(--suprafata);color:var(--t2);display:flex;align-items:center;padding:0 11px;font-size:12.5px}
+.zona{flex:1;padding:24px 28px;display:flex;flex-direction:column;gap:16px;min-height:0}
+.perechi{display:grid;grid-template-columns:1fr 44px 1fr;align-items:stretch;gap:0}
+.card{border:1px solid var(--linie);border-radius:12px;background:var(--suprafata);padding:16px 18px;display:flex;flex-direction:column;gap:11px}
+.ct{display:flex;align-items:center;gap:9px}
+.rol{font:500 10.5px GeistMono;letter-spacing:.7px;padding:2px 7px;border-radius:4px;border:1px solid var(--linie);color:var(--t2)}
+.rol.b{border-color:var(--accent);color:var(--accent)}
+.ct b{font-size:14.5px;font-weight:600}
+.camp{height:34px;border:1px solid var(--linie);border-radius:8px;background:var(--fundal);display:flex;align-items:center;padding:0 11px;font:12.5px GeistMono;color:var(--text)}
+.camp span{color:var(--t3);margin-left:auto;font-size:11px}
+.doua{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.et{font-size:11.5px;color:var(--t2)}
+.sageata{display:flex;align-items:center;justify-content:center;color:var(--t3);font:15px GeistMono}
+.rand2{display:flex;align-items:center;gap:14px}
+.cmp{height:42px;border-radius:9px;background:var(--accent);color:var(--pe-accent);font-weight:600;font-size:14px;display:flex;align-items:center;padding:0 22px;gap:9px}
+.cmp span{font:11px GeistMono;opacity:.72}
+.nota{font-size:12.5px;color:var(--t2)}
+.sec{font:10.5px GeistMono;letter-spacing:1.1px;color:var(--t3);margin-top:4px}
+.rec{border:1px solid var(--linie);border-radius:10px;background:var(--suprafata);overflow:hidden;flex:1;min-height:0}
+.rr{display:grid;grid-template-columns:1fr 110px 90px 70px;align-items:center;height:40px;padding:0 14px;border-bottom:1px solid var(--slaba);font:12px GeistMono;color:var(--t2)}
+.rr:last-child{border:none}
+.rr em{font-style:normal;color:var(--text)}
+.rr .n2{text-align:right;color:var(--accent)}
+.rr .c{text-align:right;color:var(--t3);font-size:11.5px}
+.jrn{flex:none;height:112px;border:1px solid var(--linie);border-radius:10px;background:var(--cod);padding:10px 14px;font:11.5px/1.85 GeistMono;color:var(--t2);min-height:0;overflow:hidden}
+.jrn .t{color:var(--t3);margin-right:9px}.jrn .ok{color:var(--ok)}
+</style></head><body>
+
+<div class="bara">
+  <div class="marca"><b>GMotion</b><i></i><span>v4.0.0</span></div>
+
+  <div class="gr">LUCRU</div>
+  <div class="n on">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="4" width="8" height="16" rx="1.5"/><rect x="13.5" y="4" width="8" height="16" rx="1.5"/><path d="M4.8 8.4h3.4M4.8 12h3.4M4.8 15.6h2"/><path d="M15.8 8.4h3.4M15.8 12h3.4M15.8 15.6h2"/></svg></div>
+    <b>Comparare obiecte</b><div class="k">1</div>
+  </div>
+  <div class="n soon">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.6h7.4L15 7.2v5.1M4 3.6v16.8h5M11.2 3.8v3.6H15"/><ellipse cx="17.6" cy="15.1" rx="4.2" ry="1.7"/><path d="M13.4 15.1v4.3c0 .94 1.88 1.7 4.2 1.7s4.2-.76 4.2-1.7v-4.3"/></svg></div>
+    <b>Kit SQL pe baza</b><div class="pt"></div>
+  </div>
+  <div class="n soon">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="10.4" cy="5.4" rx="6.4" ry="2.4"/><path d="M4 5.4v12.2c0 1.33 2.87 2.4 6.4 2.4 1.05 0 2.04-.09 2.92-.26M4 11.5c0 1.33 2.87 2.4 6.4 2.4"/><circle cx="17.2" cy="15.4" r="3.5"/><path d="m19.9 18.1 2.1 2.1"/></svg></div>
+    <b>Analiza initiala</b><div class="pt"></div>
+  </div>
+
+  <div class="gr">APLICATIE</div>
+  <div class="n soon">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3.4 6.8h17.2M3.4 12h17.2M3.4 17.2h17.2"/><circle cx="8.6" cy="6.8" r="2.1" fill="var(--cod)"/><circle cx="15.4" cy="12" r="2.1" fill="var(--cod)"/><circle cx="7.2" cy="17.2" r="2.1" fill="var(--cod)"/></svg></div>
+    <b>Configurare</b><div class="pt"></div>
+  </div>
+
+  <div class="jos">
+    <div class="n"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 3.8v16.4"/><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4"/></svg></div><b>Tema</b><div class="k">T</div></div>
+    <div class="n"><div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6.6h9M8.5 4.4v2.2"/><path d="M11 6.6c-.6 4.4-3.4 7.4-7 9"/><path d="M6.2 11.4c1.2 2.4 3.4 4 6.8 4.6"/><path d="m13.2 20 3.6-9 3.6 9M14.7 16.9h4.2"/></svg></div><b>RO / EN</b><div class="k">L</div></div>
+    <div class="stare"><span class="pct"></span><em>SRV-DEV</em> raspunde<br>jurnal: <em>14</em> intrari azi</div>
+  </div>
+</div>
+
+<div class="lucru">
+  <div class="antet">
+    <b>Comparare obiecte</b>
+    <div class="cale">&rsaquo; conectare</div>
+    <div class="sp"></div>
+    <div class="hbtn">Deschide un instantaneu</div>
+    <div class="hbtn">Ajutor</div>
+  </div>
+  <div class="zona">
+    <div class="perechi">
+      <div class="card">
+        <div class="ct"><div class="rol b">BEFORE</div><b>starea de dinainte</b></div>
+        <div class="doua"><div><div class="et">Server</div><div class="camp">SRV-DEV<span>SQL</span></div></div><div><div class="et">Baza</div><div class="camp">ERP_TEST</div></div></div>
+      </div>
+      <div class="sageata">&rarr;</div>
+      <div class="card">
+        <div class="ct"><div class="rol">AFTER</div><b>starea de dupa</b></div>
+        <div class="doua"><div><div class="et">Server</div><div class="camp">SRV-PROD<span>Win</span></div></div><div><div class="et">Baza</div><div class="camp">ERP_PROD</div></div></div>
+      </div>
+    </div>
+    <div class="rand2">
+      <div class="cmp">Compara <span>Ctrl+Enter</span></div>
+      <div class="nota">Se citeste, nu se scrie nimic. 28.405 de obiecte la ultima citire.</div>
+    </div>
+    <div class="sec">RELUATE</div>
+    <div class="rec">
+      <div class="rr"><div><em>ERP_TEST</em> &rarr; <em>ERP_PROD</em></div><div>SRV-DEV</div><div class="n2">11.938</div><div class="c">2 ore</div></div>
+      <div class="rr"><div><em>ERP_DEV</em> &rarr; <em>ERP_TEST</em></div><div>SRV-DEV</div><div class="n2">342</div><div class="c">ieri</div></div>
+      <div class="rr"><div>instantaneu <em>baza-11-24.json</em></div><div>fisier</div><div class="n2">28</div><div class="c">luni</div></div>
+      <div class="rr"><div><em>ERP_TEST</em> &rarr; <em>ERP_UAT</em></div><div>SRV-DEV</div><div class="n2">1.204</div><div class="c">21 nov</div></div>
+      <div class="rr"><div><em>ERP_VANILLA</em> &rarr; <em>ERP_PROD</em></div><div>fisier</div><div class="n2">89</div><div class="c">18 nov</div></div>
+    </div>
+    <div class="jrn">
+      <div><span class="t">17:04:02</span>certificat acceptat pentru conexiunea de citire</div>
+      <div><span class="t">17:04:02</span>citesc obiectele <span class="ok">28.405 gasite</span></div>
+      <div><span class="t">17:04:09</span>comparare incheiata in 6,4 s</div>
+    </div>
+  </div>
+</div>
+</body></html>
