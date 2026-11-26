@@ -196,6 +196,10 @@ texte in romana sau engleza, dupa comutatorul din fereastra.
    din fiecare text), oricat de diferite ar fi. Abatere deliberata fata de
    v3.4 (2026-11-25, `JURNAL.md`); obiectele reale care au aratat-o sunt in
    `tests/aliniere_reala.rs`.
+1c. **Un comentariu lipit de o instructiune (fara linie goala intre ele) e
+   al ei**: intra in blocul ei, deci se aplica si se muta odata cu ea
+   (2026-11-26). Comentariile identice dintr-un bloc modificat stau pe
+   acelasi rand; umplutura dintre blocuri se aliniaza dupa continut.
 1b. **Doua texte cu aceeasi forma normalizata sunt identice; orice alta
    diferenta e diferenta.** Decizia „identic" nu foloseste scorul (rotunjit).
    `cheie_bloc` egala inseamna text normalizat egal (128 de biti de SHA-256).

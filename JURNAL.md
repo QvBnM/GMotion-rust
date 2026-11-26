@@ -2573,3 +2573,25 @@ placa video.
 secunda) nu mai reface tot ecranul de conectare (listele de baze, jurnalul,
 ajutorul, „Despre"), ci doar progresul: cadrele de ~26 ms din timpul
 compararii erau ale ei. Jurnalul si etapele se pun pe loc, nu ca model nou.
+
+---
+
+## 2026-11-26 — Comentariile: ale instructiunii lipite de ele, perechi, la locul lor
+
+**Context.** Stock_StockProcessDispatchAfterProcess_UpdateItemCost (Mihai):
+„codul nu este impartit cum trebuie pe blocuri". Blocurile motorului erau
+corecte; comentariile nu: (1) `-- detail --` / `-- header --` identice
+dintr-un bloc modificat ieseau o data doar in stanga si o data doar in
+dreapta; (2) `/* Situatia de lucrari interna */`, deasupra unui `UPDATE`
+doar din Before, era un bloc doar de comentariu, aruncat, deci umplutura
+aratata ca neschimbata — iar „Aplica" aducea `UPDATE`-ul fara el; (3) liniile
+de umplutura dintre blocuri se puneau alaturi dupa pozitie.
+
+**Decizia.** (1) In `perechi_linii`, o linie ignorata (comentariu, linie
+goala) din dreapta isi ia geamanul din stanga de pe locul unde ar ajunge.
+(2) In segmentare, comentariile lipite de o instructiune (fara linie goala
+intre ele) intra in blocul ei — un comentariu dupa o linie goala si inainte
+de una ramane umplutura, iar antetul obiectului ramane cum era. (3) Umplutura
+se aliniaza cu `SequenceMatcher` pe liniile fara spatii la capete. Paritatea
+(`conformitate.rs`, `paritate.py`, `calitate.rs`) nu s-a schimbat pe cazurile
+existente; obiectul e fixture in `rust/core/tests/date/`.
