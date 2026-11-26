@@ -2543,3 +2543,55 @@ pe blocul randului. Paritatea cu v3.4 (`paritate.py`, `conformitate.rs`,
 `calitate.rs`) nu s-a schimbat: nicio divergenta noua pe cazurile existente,
 deci fixture-ul nu s-a regenerat. Cele doua obiecte reale au intrat ca
 fixture in `rust/core/tests/date/`.
+
+---
+
+## 2026-11-25 — Cadrele de pe Windows: ce e Rust, ce e desenare, `--gpu`
+
+**Masurat** (`masura_ui`, 1920x1080, randat in pixeli, 12.000 de obiecte):
+Rust-ul e 3-8 ms pe orice actiune; desenarea face restul — editorul 24-27 ms
+la orice schimbare de obiect / tab / Aplica (o pictare completa fara nicio
+schimbare: ~14 ms), lista 11-24 ms. Pe masina lui Mihai desenarea e de 2-3
+ori mai lenta decat aici, de unde cele 66-106 ms la `alege_randul` /
+deschidere. `callgrind` pe desenarea editorului: ~2/3 text (modelarea cu
+parley si rasterizarea glifelor), restul dreptunghiuri. Unirea bucatilor de
+aceeasi culoare castiga 1-2 ms — o pastram, dar nu e solutia.
+
+**Decizia.** Cu desenarea software, un editor plin de text la 1920x1080 nu
+coboara sub 16,7 ms pe Windows. Se adauga desenarea pe placa video ca
+**optiune**: `--gpu` / `GMOTION_GPU=1` (functia `renderer-femtovg` a lui
+`slint`, nu un crate nou ales de noi; aduce `femtovg` si `glutin`). Implicitul
+ramane software, fiindca merge si pe RDP fara placa video (decizia din
+etapa 1); daca OpenGL nu porneste, aplicatia scrie in jurnal si deseneaza
+software. Alternative cantarite: `renderer-skia` (mai greu de compilat pe
+Windows, cere C++), `vello` (wgpu, prea nou), un editor cu mai putine elemente
+pe rand (castig estimat sub 30%, nu de 5 ori). Daca pe masina lui Mihai
+`--gpu` da cadre sub 16,7 ms, se discuta daca devine implicit cand exista
+placa video.
+
+**Si, in aceeasi trecere:** cat ruleaza compararea, bataia ceasului (8 pe
+secunda) nu mai reface tot ecranul de conectare (listele de baze, jurnalul,
+ajutorul, „Despre"), ci doar progresul: cadrele de ~26 ms din timpul
+compararii erau ale ei. Jurnalul si etapele se pun pe loc, nu ca model nou.
+
+---
+
+## 2026-11-26 — Comentariile: ale instructiunii lipite de ele, perechi, la locul lor
+
+**Context.** Stock_StockProcessDispatchAfterProcess_UpdateItemCost (Mihai):
+„codul nu este impartit cum trebuie pe blocuri". Blocurile motorului erau
+corecte; comentariile nu: (1) `-- detail --` / `-- header --` identice
+dintr-un bloc modificat ieseau o data doar in stanga si o data doar in
+dreapta; (2) `/* Situatia de lucrari interna */`, deasupra unui `UPDATE`
+doar din Before, era un bloc doar de comentariu, aruncat, deci umplutura
+aratata ca neschimbata — iar „Aplica" aducea `UPDATE`-ul fara el; (3) liniile
+de umplutura dintre blocuri se puneau alaturi dupa pozitie.
+
+**Decizia.** (1) In `perechi_linii`, o linie ignorata (comentariu, linie
+goala) din dreapta isi ia geamanul din stanga de pe locul unde ar ajunge.
+(2) In segmentare, comentariile lipite de o instructiune (fara linie goala
+intre ele) intra in blocul ei — un comentariu dupa o linie goala si inainte
+de una ramane umplutura, iar antetul obiectului ramane cum era. (3) Umplutura
+se aliniaza cu `SequenceMatcher` pe liniile fara spatii la capete. Paritatea
+(`conformitate.rs`, `paritate.py`, `calitate.rs`) nu s-a schimbat pe cazurile
+existente; obiectul e fixture in `rust/core/tests/date/`.

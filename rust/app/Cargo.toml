@@ -23,7 +23,7 @@ tracing = "0.1"
 # dialogul nativ de fisiere si foldere (JURNAL.md, 2026-11-22); fara
 # `wayland`: pe Linux merge prin portalul XDG, pe Windows e dialogul obisnuit
 rfd = { version = "0.18", default-features = false, features = ["xdg-portal"] }
-slint = { version = "~1.19", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "software-renderer-systemfonts", "unstable-winit-030"] }
+slint = { version = "~1.19", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software", "software-renderer-systemfonts", "unstable-winit-030", "renderer-femtovg"] }
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png"] }

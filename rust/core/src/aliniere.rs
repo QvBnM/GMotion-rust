@@ -121,6 +121,38 @@ fn linii_ignorate(bloc: &str) -> Vec<bool> {
     out
 }
 
+/// Liniile de umplutura dintre doua blocuri (`[s.0, s.1)` in stanga,
+/// `[d.0, d.1)` in dreapta), puse alaturi: cele identice (fara spatiile de la
+/// capete) pereche, in ordine; in rest, una langa alta cat ajung, apoi cele
+/// ramase singure.
+fn perechi_umplutura(
+    st: &[&str],
+    s: (usize, usize),
+    dr: &[&str],
+    d: (usize, usize),
+) -> Vec<(Option<usize>, Option<usize>)> {
+    use crate::seqmatch::{SequenceMatcher, Tag};
+    let (s1, d1) = (s.1.max(s.0), d.1.max(d.0));
+    let chei = |v: &[&str], a: usize, b: usize| -> Vec<String> {
+        (a..b)
+            .map(|k| v.get(k).copied().unwrap_or("").trim().to_string())
+            .collect()
+    };
+    let (ka, kb) = (chei(st, s.0, s1), chei(dr, d.0, d1));
+    let mut out = Vec::new();
+    for op in SequenceMatcher::new(&ka, &kb).opcodes() {
+        let (n, m) = (op.i2 - op.i1, op.j2 - op.j1);
+        let lung = if op.tag == Tag::Equal { n } else { n.max(m) };
+        for k in 0..lung {
+            out.push((
+                (k < n).then_some(s.0 + op.i1 + k),
+                (k < m).then_some(d.0 + op.j1 + k),
+            ));
+        }
+    }
+    out
+}
+
 /// Imperecherea liniilor dintr-un segment `replace`, pe scor, fara
 /// incrucisari. Acelasi mecanism ca la blocuri (`diff::perechi_replace`), un
 /// nivel mai jos.
@@ -278,7 +310,31 @@ fn perechi_linii(bloc_st: &str, bloc_dr: &str) -> Vec<(Option<usize>, Option<usi
             }
         };
     reaseaza(&mut out, &ign_st, true);
-    reaseaza(&mut out, &ign_dr, false);
+    // In dreapta, o linie ignorata (comentariu, linie goala) isi cauta intai
+    // geamanul din stanga in locul unde ar ajunge: `-- detail --` langa
+    // `-- detail --`. Pana pe 2026-11-26 se puneau separat, deci aceleasi
+    // comentarii apareau o data doar in stanga si o data doar in dreapta
+    // (Stock_StockProcessDispatchAfterProcess_UpdateItemCost, Mihai).
+    for i in (0..ign_dr.len()).filter(|&i| ign_dr[i]) {
+        let poz = out
+            .iter()
+            .position(|r| r.1.is_some_and(|x| x > i))
+            .unwrap_or(out.len());
+        let mut k = poz;
+        while k > 0 && out[k - 1].1.is_none() {
+            k -= 1;
+        }
+        let geaman = (k..poz).find(|&j| {
+            out[j].2
+                && out[j]
+                    .0
+                    .is_some_and(|li| linii_st[li].trim() == linii_dr[i].trim())
+        });
+        match geaman {
+            Some(j) => out[j].1 = Some(i),
+            None => out.insert(poz, (None, Some(i), true)),
+        }
+    }
     out
 }
 
@@ -305,14 +361,20 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
     let (mut ultim_st, mut ultim_dr) = (0usize, 0usize);
 
     let completeaza = |randuri: &mut Vec<RandAliniat>, s: (usize, usize), d: (usize, usize)| {
-        let n = s.1.saturating_sub(s.0).max(d.1.saturating_sub(d.0));
-        for i in 0..n {
-            let linie = |k: usize, original: &[&str]| Linie {
-                nr: k + 1,
-                text: original.get(k).copied().unwrap_or("").to_string(),
-            };
-            let ls = (s.0 + i < s.1).then_some(s.0 + i);
-            let ld = (d.0 + i < d.1).then_some(d.0 + i);
+        // Liniile dintre blocuri (comentarii, linii goale) se pun alaturi dupa
+        // continut, nu dupa pozitie: un comentariu care exista doar intr-o
+        // parte sta singur pe randul lui, iar cele identice raman pereche
+        // (etapa 34; pana atunci, un comentariu in plus intr-o parte decala
+        // toate cele de dupa el).
+        let linie = |k: usize, original: &[&str]| Linie {
+            nr: k + 1,
+            text: original.get(k).copied().unwrap_or("").to_string(),
+        };
+        let perechi = perechi_umplutura(&original_st, s, &original_dr, d);
+        for (k, &(ls, ld)) in perechi.iter().enumerate() {
+            // fara linie in dreapta: locul e inaintea urmatoarei linii din
+            // dreapta a golului
+            let urmatoarea = perechi[k..].iter().find_map(|p| p.1).unwrap_or(d.1);
             randuri.push(RandAliniat {
                 stanga: ls.map(|k| linie(k, &original_st)),
                 dreapta: ld.map(|k| linie(k, &original_dr)),
@@ -323,7 +385,7 @@ pub fn aliniaza_cu(text_stanga: &str, text_dreapta: &str, uneste_cursor: bool) -
                 linie_in_bloc_stanga: None,
                 linie_in_bloc_dreapta: None,
                 ignorata: false,
-                poz_dreapta: ld.unwrap_or(d.1),
+                poz_dreapta: ld.unwrap_or(urmatoarea),
             });
         }
     };

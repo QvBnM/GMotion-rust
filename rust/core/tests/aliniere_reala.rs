@@ -74,3 +74,77 @@ fn eutransactiontype_antetele_sunt_pereche() {
         "nimic doar in After: {tipuri:?}"
     );
 }
+
+/// Stock_StockProcessDispatchAfterProcess_UpdateItemCost (Mihai,
+/// 2026-11-26): comentariile au locul lor.
+/// - in blocurile modificate, `-- detail --` / `-- header --` identice stau
+///   pe acelasi rand (ieseau o data doar in stanga, o data doar in dreapta);
+/// - comentariul lipit de o instructiune e al ei: `/* Situatia de lucrari
+///   interna */` intra in blocul `update r` doar din Before (era umplutura,
+///   aratata ca neschimbata, iar „Aplica" nu-l aducea);
+/// - antetul de documentatie doar din After sta singur, fara sa decaleze
+///   liniile de dupa.
+#[test]
+fn updateitemcost_comentariile_au_locul_lor() {
+    let a = pregateste_afisare(include_str!("date/updateitemcost_before.sql"));
+    let b = pregateste_afisare(include_str!("date/updateitemcost_after.sql"));
+    let al = gmotion_core::aliniaza(&a, &b);
+    let r = &al.randuri;
+    let text = |l: &Option<gmotion_core::Linie>| l.as_ref().map(|x| x.text.trim().to_string());
+    // nicio linie `-- detail --` / `-- header --` singura intr-un bloc
+    // modificat
+    for x in r.iter().filter(|x| x.tip == TipDiferenta::Modificat) {
+        for c in ["-- detail --", "-- header --", "/* Bon de consum */"] {
+            let st = text(&x.stanga).as_deref() == Some(c);
+            let dr = text(&x.dreapta).as_deref() == Some(c);
+            assert!(st == dr, "{c} pe un singur rand: {x:?}");
+        }
+    }
+    // comentariul de sectiune e in blocul doar din Before
+    let sectiune = r
+        .iter()
+        .find(|x| text(&x.stanga).as_deref() == Some("/* Situatia de lucrari interna */"))
+        .expect("comentariul e in aliniere");
+    assert_eq!(sectiune.tip, TipDiferenta::Sters, "{sectiune:?}");
+    assert!(
+        sectiune.bloc.is_some() && sectiune.primul_din_bloc,
+        "{sectiune:?}"
+    );
+    // antetul doar din After: randuri doar in dreapta, inainte de CREATE
+    let create = r
+        .iter()
+        .position(|x| text(&x.dreapta).is_some_and(|t| t.starts_with("CREATE PROCEDURE")))
+        .expect("CREATE");
+    assert!(
+        r[..create].iter().all(|x| x.stanga.is_none()),
+        "antetul din After e singur"
+    );
+    assert!(
+        text(&r[create].stanga).is_some_and(|t| t.starts_with("create PROCEDURE")),
+        "CREATE langa create"
+    );
+}
+
+/// Liniile dintre blocuri se pun alaturi dupa continut: un comentariu in plus
+/// intr-o parte nu mai decaleaza comentariile identice de dupa el.
+#[test]
+fn umplutura_se_aliniaza_dupa_continut() {
+    let a = "SELECT 1 FROM t\n\n-- a\n-- b\n\nSELECT 2 FROM t";
+    let b = "SELECT 1 FROM t\n\n-- nou\n-- a\n-- b\n\nSELECT 2 FROM t";
+    let al = gmotion_core::aliniaza(a, b);
+    let pe_acelasi_rand = |c: &str| {
+        al.randuri.iter().any(|x| {
+            x.stanga.as_ref().is_some_and(|l| l.text == c)
+                && x.dreapta.as_ref().is_some_and(|l| l.text == c)
+        })
+    };
+    assert!(
+        pe_acelasi_rand("-- a") && pe_acelasi_rand("-- b"),
+        "{:?}",
+        al.randuri
+    );
+    assert!(al
+        .randuri
+        .iter()
+        .any(|x| x.stanga.is_none() && x.dreapta.as_ref().is_some_and(|l| l.text == "-- nou")));
+}

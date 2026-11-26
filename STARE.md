@@ -90,6 +90,12 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 6. Compara de doua ori la rand: daca a doua citire revine la ~9 / ~6 s,
    incetinirea era cache-ul serverului (codul de citire n-a mai fost atins).
 7. A2: mutarea intre monitoare, fara inghetare.
+8. Cadrele, cu placa video: acelasi flux (deschidere, clicuri in Object
+   Explorer, taburi, inchiderea ultimului tab) o data cu
+   `unelte\porneste.bat --fps` si o data cu `unelte\porneste.bat --fps --gpu`.
+   In jurnal: `desenez pe placa video` (sau `placa video nu porneste`), si
+   `peste_16_7` pe fiecare. Trimite-mi ambele jurnale: ele decid daca `--gpu`
+   devine implicit.
 
 
 **2026-11-25, etapa 32 — de probat de Mihai pe Windows** (`unelte\porneste.bat`,

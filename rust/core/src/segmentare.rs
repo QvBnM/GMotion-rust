@@ -611,6 +611,8 @@ pub fn segmenteaza(cod: &str, uneste_cursor: bool) -> Segmentare {
         i > 0 && poz < seg[i - 1].sfarsit && poz > seg[i - 1].start
     };
     let mut poz_linie = 0usize;
+    // blocul curent n-are pana acum decat comentarii (si linii goale)
+    let mut doar_comentarii = false;
 
     for (nr, linie) in linii_cod.iter().copied().enumerate() {
         // BOM-ul de la inceputul fisierului nu e cod: lasat aici, prima linie
@@ -675,8 +677,16 @@ pub fn segmenteaza(cod: &str, uneste_cursor: bool) -> Segmentare {
         let lipita = incepe && (corp_asteptat || cte_asteptat || continuare);
 
         if incepe && !lipita {
+            // Comentariile lipite de instructiune (fara linie goala intre ele)
+            // sunt ale ei: `/* Situatia de lucrari interna */` deasupra unui
+            // `UPDATE` intra in blocul lui, deci se aplica si se muta odata cu
+            // el. Pana pe 2026-11-26 ramaneau un bloc doar de comentarii,
+            // aruncat la final, iar comentariul nu mai apartinea de nimic
+            // (Mihai: blocurile nu erau impartite cum trebuie). Antetul
+            // obiectului ramane cum era.
+            let ale_instructiunii = !in_antet && doar_comentarii && !curent.is_empty();
             in_antet = false;
-            if !curent.is_empty() {
+            if !curent.is_empty() && !ale_instructiunii {
                 blocuri.push(Bloc {
                     text: text_din(&curent),
                     linii: std::mem::take(&mut curent),
@@ -700,6 +710,11 @@ pub fn segmenteaza(cod: &str, uneste_cursor: bool) -> Segmentare {
                 antet_fara_as = false;
             }
         }
+        doar_comentarii = if curent.is_empty() {
+            curata.trim().is_empty()
+        } else {
+            doar_comentarii && curata.trim().is_empty()
+        };
         curent.push(nr);
         normalizari += stare.adauga(linie);
         actualizeaza_stiva(curata, &mut stiva_case);

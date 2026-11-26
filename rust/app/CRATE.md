@@ -1,6 +1,6 @@
 # gmotion-app
 
-<!-- api-hash: 11cb400fa0437b56 -->
+<!-- api-hash: c7e610b740705406 -->
 
 ## Rol
 
@@ -58,7 +58,7 @@ Binarul (`main.rs`) doar deseneaza si trimite comenzi.
 | `stare::Stare` | starea binarului `gmotion-ui`, fara Slint (etapa 24): formularul de conectare (`server_schimbat`, `cere_bazele`, `testeaza`, `cauta_servere`, `alege_instantaneul`, `reia`, `ignora_recenta`...), compararea pe fir (`compara`, `anuleaza`, `verifica_compararea -> Progres`, `primeste_compararea`, `compara_offline`, `porneste_previzualizarea`), celelalte fire (`verifica_lucrarile`), sesiunea (`salveaza` pe loc, `salveaza_in_fundal` + `verifica_salvarea` / `salvare_in_curs` / `termina_salvarea` pe alt fir, etapa 33; `deconecteaza`; una necitibila se pune deoparte si se spune, F-A15), mesajele (`conectare.eroare_comparare` langa Compara, F-A12; `mesaj_lista` / `text_bara_lista` pe lista, F-A8; `progres_recomparare` pentru bara listei cat ruleaza Recompara, etapa 25), deploy-ul (`porneste_garda`, `scrie_deploy`, `folder_deploy` ales cu dialogul nativ, `director_deploy_curent`, `director_scris`), exportul (`exporta_csv`), textele (`text_pozitie`, `text_salvat`, `text_refuz_in_plan`); plus `recente`, `porneste_detalii`, `director_deploy`, `director_deploy_in(ales, referinta)`, `deschide_in_explorer`, `cale_csv`, `cale_previzualizare`, `citeste_configurarea`, `salveaza_in_configurare`. In `main.rs` raman doar legaturile Slint si desenul |
 | comanda `ResetFiltre` | „Reset filter": filtrele, ordinea si sensul unei comparari noi (Modificate, Similar crescator), cu o selectie |
 | `Aplicatie::plasat_altundeva() -> Option<usize>` | blocul lasat de mana in alt loc decat cel sugerat, cat timp e ultima editare a obiectului deschis; editorul spune asta si ca Ctrl+Z il ia inapoi |
-| `cadre::{StatisticaCadre, RaportCadre, PRAG_CADRU, Bucati, cerut}` | monitorul de cadre (`--fps` / `GMOTION_FPS=1`): cadrele vin din winit (evenimente + `RedrawRequested`), nu dintr-o desenare continua; pe ferestre de o secunda: cadre, p99, cate peste 16,7 ms, maxim, media; nimic in repaus (etapa 33). `Bucati`: timpii redesenarii pe bucati, la `debug` |
+| `cadre::{StatisticaCadre, RaportCadre, PRAG_CADRU, Bucati, cerut, gpu_cerut}` | monitorul de cadre (`--fps` / `GMOTION_FPS=1`): cadrele vin din winit (evenimente + `RedrawRequested`), nu dintr-o desenare continua; pe ferestre de o secunda: cadre, p99, cate peste 16,7 ms, maxim, media; nimic in repaus (etapa 33). `Bucati`: timpii redesenarii pe bucati, la `debug`; `gpu_cerut`: `--gpu` / `GMOTION_GPU=1`, desenarea pe placa video (femtovg), cu intoarcere la cea software |
 | `stare::{SalvareAmanata, AMANARE_SALVARE}` | salvarea sesiunii grupata: o comanda doar o cere, se scrie o data dupa `AMANARE_SALVARE` de liniste; deconectarea, scripturile scrise si iesirea o fac imediat (2026-11-25) |
 | `stare::rezumat_verificare(r) -> (cod_valid, eroare)` | „Verifica pe server" pentru jurnal: valid doar daca serverul n-a dat eroare nici la sintaxa, nici la compilare |
 | `Aplicatie::refuzat_in_plan()` | ultimul „In plan" a fost refuzat (obiect fara cod de deploiat); ecranul spune de ce (F-A18) |
