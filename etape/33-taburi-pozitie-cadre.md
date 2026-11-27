@@ -91,10 +91,10 @@ ferestrei.
   culoare se unesc; `--gpu` (desenarea pe placa video) ca optiune, de masurat
   pe Windows. Masurat: Rust 3-8 ms peste tot, restul e desenarea (`JURNAL.md`).
 
-- **2026-11-27** Aspect, la cererea lui Mihai: zona de sus a listei pe o
-  banda ridicata, inchisa de o linie si o umbra; fundalul cu unde si sigla
-  (stins) in locul hartii estompate, doar sub zona de sus si in editor.
-  Ecranul de pornire animat e doar proba, pastrat in `cercetare/fundal-unde/`.
+- **2026-11-27** Aspect, la cererea lui Mihai: fara fundal decorativ (harta
+  estompata si undele au iesit); banda de sus ridicata, cu linie si umbra, pe
+  toate ecranele, si zonele de continut delimitate (`Zona`). Ecranul de
+  pornire animat e doar proba, pastrat in `cercetare/fundal-unde/`.
 
 ## Ce a iesit altfel decat planul
 

@@ -10,7 +10,7 @@
 // clicul pe harta, din `src/harta.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Semn, Chevron, Jumatate, RandUi, Ajutor, Despre, CampText, ZonaSfat, Sfat, BaraDerulare } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Zona, UmbraZona, UmbraJos, Semn, Chevron, Jumatate, RandUi, Ajutor, Despre, CampText, ZonaSfat, Sfat, BaraDerulare } from "comune.slint";
 
 export struct RandListaUi {
     // coloana din editor (etapa 16): un rand cu `antet` nevid e capul unui
@@ -1083,29 +1083,6 @@ export component FereastraLista inherits Rectangle {
         }
     }
 
-    // fundalul: undele si sigla, stinse (cercetare/fundal-unde, Mihai,
-    // 2026-11-27). Imaginea e opaca si amestecata deja cu fundalul temei, iar
-    // se deseneaza la marimea ei, centrata si taiata, fara scalare: copiere
-    // simpla la fiecare cadru, fara amestec si fara netezire. Marginile ei se
-    // topesc in fundal, deci pe un ecran mai mare decat ea nu se vede cusatura.
-    in property <image> fundal-decor;
-    // doar sub zona de sus: antetul, starile, cautarea si filtrele raman pe
-    // fundalul neutru, despartite de lista printr-o linie (Mihai, 2026-11-27)
-    Rectangle {
-        x: 0;
-        y: root.y-separator + separator-sus.height;
-        width: root.width;
-        height: Math.max(0px, root.height - self.y);
-        clip: true;
-        Image {
-            width: parent.width;
-            height: parent.height;
-            source: root.fundal-decor;
-            image-fit: preserve;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-    }
     // zona de sus: o banda ridicata (`suprafata`), inchisa jos de o linie
     // plina si de o umbra scurta peste lista, ca sa se desparta clar de ea
     // (Mihai, 2026-11-27). Banda e fixa: nu se redeseneaza la derulare.
@@ -1117,13 +1094,7 @@ export component FereastraLista inherits Rectangle {
         height: root.y-separator;
         background: Tema.suprafata;
     }
-    Rectangle {
-        x: 0;
-        y: root.y-separator + separator-sus.height;
-        width: root.width;
-        height: 10px;
-        background: @linear-gradient(180deg, Tema.intunecat ? #00000066 : #0f11151f 0%, #00000000 100%);
-    }
+    UmbraJos { x: 0; y: root.y-separator + separator-sus.height; width: root.width; }
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
@@ -1166,7 +1137,7 @@ export component FereastraLista inherits Rectangle {
         VerticalLayout {
             // ---- antetul: semnul si bazele; tema si limba in dreapta
             Antet {
-                fond: Tema.suprafata;
+                umbra: false;
                 sursa: root.sursa-baza;
                 tinta: root.tinta-baza;
                 VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
@@ -1484,156 +1455,161 @@ export component FereastraLista inherits Rectangle {
                 padding-top: 10px;
                 spacing: 3px;
 
-                coloana-tabel := VerticalLayout {
+                // tabelul intr-o zona delimitata, cu margine si umbra
+                // (Mihai, 2026-11-27)
+                Zona {
                     horizontal-stretch: 1;
-                    // capul tabelului
-                    Rectangle {
-                        height: 30px;
-                        HorizontalLayout {
-                            padding-left: 10px;
-                            padding-right: 10px;
-                            Text { width: Coloane.stare; text: ""; }
-                            CapColoana {
-                                titlu: Texte.obiect-cap + root.rezumat-lista;
-                                coloana: Sortare.nume;
-                                clic-margine => { root.clic-margine-coloana(Sortare.nume); }
-                                latime: 0px;
-                                sortata: root.coloana-sortata == Sortare.nume;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.nume); }
+                    coloana-tabel := VerticalLayout {
+                        horizontal-stretch: 1;
+                        // capul tabelului
+                        Rectangle {
+                            height: 30px;
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                Text { width: Coloane.stare; text: ""; }
+                                CapColoana {
+                                    titlu: Texte.obiect-cap + root.rezumat-lista;
+                                    coloana: Sortare.nume;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.nume); }
+                                    latime: 0px;
+                                    sortata: root.coloana-sortata == Sortare.nume;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.nume); }
+                                }
+                                if root.mai-multe-baze: CapColoana {
+                                    titlu: Texte.modificata;
+                                    coloana: Sortare.baza;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.baza); }
+                                    latime: Coloane.baza;
+                                    sortata: root.coloana-sortata == Sortare.baza;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.baza); }
+                                }
+                                CapColoana {
+                                    titlu: Texte.tip;
+                                    coloana: Sortare.tip;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.tip); }
+                                    latime: Coloane.tip;
+                                    sortata: root.coloana-sortata == Sortare.tip;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.tip); }
+                                }
+                                // coloana butonului Deschide: fara titlu, nu se sorteaza
+                                Rectangle { width: Coloane.linii + (root.arata-tab-nou ? Coloane.tab-nou : 0px); }
+                                if root.arata-scor: CapColoana {
+                                    titlu: Texte.similar;
+                                    coloana: Sortare.scor;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.scor); }
+                                    latime: Coloane.scor;
+                                    sortata: root.coloana-sortata == Sortare.scor;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.scor); }
+                                }
+                                if root.arata-difera: CapColoana {
+                                    titlu: Texte.difera-in;
+                                    coloana: Sortare.difera;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.difera); }
+                                    latime: Coloane.difera;
+                                    sortata: root.coloana-sortata == Sortare.difera;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.difera); }
+                                }
+                                if root.arata-folosit: CapColoana {
+                                    titlu: Texte.coloana-folosit-de;
+                                    coloana: Sortare.folosit;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.folosit); }
+                                    latime: Coloane.folosit;
+                                    sortata: root.coloana-sortata == Sortare.folosit;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.folosit); }
+                                }
+                                if root.arata-impact: CapColoana {
+                                    titlu: Texte.coloana-impact;
+                                    sfat: Texte.legenda-impact;
+                                    coloana: Sortare.impact;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.impact); }
+                                    latime: Coloane.impact;
+                                    sortata: root.coloana-sortata == Sortare.impact;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.impact); }
+                                }
+                                if root.arata-modificat: CapColoana {
+                                    titlu: Texte.coloana-modificat;
+                                    coloana: Sortare.modificat;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.modificat); }
+                                    latime: Coloane.modificat;
+                                    sortata: root.coloana-sortata == Sortare.modificat;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.modificat); }
+                                }
+                                CapColoana {
+                                    titlu: Texte.revizuit;
+                                    sfat: Texte.legenda-revizuit;
+                                    coloana: Sortare.revizuit;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.revizuit); }
+                                    latime: Coloane.revizuit;
+                                    sortata: root.coloana-sortata == Sortare.revizuit;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.revizuit); }
+                                }
+                                CapColoana {
+                                    titlu: Texte.deploy;
+                                    sfat: Texte.legenda-deploy;
+                                    coloana: Sortare.deploy;
+                                    clic-margine => { root.clic-margine-coloana(Sortare.deploy); }
+                                    latime: Coloane.deploy;
+                                    sortata: root.coloana-sortata == Sortare.deploy;
+                                    descrescator: root.sens-descrescator;
+                                    apasat => { root.sorteaza-coloana(Sortare.deploy); }
+                                }
                             }
-                            if root.mai-multe-baze: CapColoana {
-                                titlu: Texte.modificata;
-                                coloana: Sortare.baza;
-                                clic-margine => { root.clic-margine-coloana(Sortare.baza); }
-                                latime: Coloane.baza;
-                                sortata: root.coloana-sortata == Sortare.baza;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.baza); }
-                            }
-                            CapColoana {
-                                titlu: Texte.tip;
-                                coloana: Sortare.tip;
-                                clic-margine => { root.clic-margine-coloana(Sortare.tip); }
-                                latime: Coloane.tip;
-                                sortata: root.coloana-sortata == Sortare.tip;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.tip); }
-                            }
-                            // coloana butonului Deschide: fara titlu, nu se sorteaza
-                            Rectangle { width: Coloane.linii + (root.arata-tab-nou ? Coloane.tab-nou : 0px); }
-                            if root.arata-scor: CapColoana {
-                                titlu: Texte.similar;
-                                coloana: Sortare.scor;
-                                clic-margine => { root.clic-margine-coloana(Sortare.scor); }
-                                latime: Coloane.scor;
-                                sortata: root.coloana-sortata == Sortare.scor;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.scor); }
-                            }
-                            if root.arata-difera: CapColoana {
-                                titlu: Texte.difera-in;
-                                coloana: Sortare.difera;
-                                clic-margine => { root.clic-margine-coloana(Sortare.difera); }
-                                latime: Coloane.difera;
-                                sortata: root.coloana-sortata == Sortare.difera;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.difera); }
-                            }
-                            if root.arata-folosit: CapColoana {
-                                titlu: Texte.coloana-folosit-de;
-                                coloana: Sortare.folosit;
-                                clic-margine => { root.clic-margine-coloana(Sortare.folosit); }
-                                latime: Coloane.folosit;
-                                sortata: root.coloana-sortata == Sortare.folosit;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.folosit); }
-                            }
-                            if root.arata-impact: CapColoana {
-                                titlu: Texte.coloana-impact;
-                                sfat: Texte.legenda-impact;
-                                coloana: Sortare.impact;
-                                clic-margine => { root.clic-margine-coloana(Sortare.impact); }
-                                latime: Coloane.impact;
-                                sortata: root.coloana-sortata == Sortare.impact;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.impact); }
-                            }
-                            if root.arata-modificat: CapColoana {
-                                titlu: Texte.coloana-modificat;
-                                coloana: Sortare.modificat;
-                                clic-margine => { root.clic-margine-coloana(Sortare.modificat); }
-                                latime: Coloane.modificat;
-                                sortata: root.coloana-sortata == Sortare.modificat;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.modificat); }
-                            }
-                            CapColoana {
-                                titlu: Texte.revizuit;
-                                sfat: Texte.legenda-revizuit;
-                                coloana: Sortare.revizuit;
-                                clic-margine => { root.clic-margine-coloana(Sortare.revizuit); }
-                                latime: Coloane.revizuit;
-                                sortata: root.coloana-sortata == Sortare.revizuit;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.revizuit); }
-                            }
-                            CapColoana {
-                                titlu: Texte.deploy;
-                                sfat: Texte.legenda-deploy;
-                                coloana: Sortare.deploy;
-                                clic-margine => { root.clic-margine-coloana(Sortare.deploy); }
-                                latime: Coloane.deploy;
-                                sortata: root.coloana-sortata == Sortare.deploy;
-                                descrescator: root.sens-descrescator;
-                                apasat => { root.sorteaza-coloana(Sortare.deploy); }
+                            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+                        }
+                        Rectangle {
+                        vertical-stretch: 1;
+                        tabel := ListView {
+                            for r[i] in root.randuri: RandTabel {
+                                r: r;
+                                cu-baza: root.mai-multe-baze;
+                                arata-linii: root.arata-linii;
+                                arata-tab-nou: root.arata-tab-nou;
+                                arata-scor: root.arata-scor;
+                                arata-difera: root.arata-difera;
+                                arata-folosit: root.arata-folosit;
+                                arata-impact: root.arata-impact;
+                                arata-modificat: root.arata-modificat;
+                                selectat: i == root.selectat;
+                                apasat => {
+                                    taste.focus();
+                                    root.selectat = i;
+                                    root.clic-rand(i);
+                                }
+                                deschide => {
+                                    root.selectat = i;
+                                    root.deschide-randul(i);
+                                }
+                                deschide-tab-nou => {
+                                    root.selectat = i;
+                                    root.deschide-in-tab-nou(i);
+                                }
                             }
                         }
-                        Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
-                    }
-                    Rectangle {
-                    vertical-stretch: 1;
-                    tabel := ListView {
-                        for r[i] in root.randuri: RandTabel {
-                            r: r;
-                            cu-baza: root.mai-multe-baze;
-                            arata-linii: root.arata-linii;
-                            arata-tab-nou: root.arata-tab-nou;
-                            arata-scor: root.arata-scor;
-                            arata-difera: root.arata-difera;
-                            arata-folosit: root.arata-folosit;
-                            arata-impact: root.arata-impact;
-                            arata-modificat: root.arata-modificat;
-                            selectat: i == root.selectat;
-                            apasat => {
-                                taste.focus();
-                                root.selectat = i;
-                                root.clic-rand(i);
-                            }
-                            deschide => {
-                                root.selectat = i;
-                                root.deschide-randul(i);
-                            }
-                            deschide-tab-nou => {
-                                root.selectat = i;
-                                root.deschide-in-tab-nou(i);
-                            }
+                        BaraDerulare {
+                            x: parent.width - self.width;
+                            height: parent.height;
+                            pozitie <=> tabel.content-y;
+                            continut: tabel.content-height;
+                            vizibil: tabel.visible-height;
                         }
-                    }
-                    BaraDerulare {
-                        x: parent.width - self.width;
-                        height: parent.height;
-                        pozitie <=> tabel.content-y;
-                        continut: tabel.content-height;
-                        vizibil: tabel.visible-height;
-                    }
-                    }
-                    if root.randuri.length == 0: Text {
-                        text: Texte.niciun-obiect;
-                        font-family: Tema.font-ui;
-                        font-size: 13px;
-                        color: Tema.text-secundar;
-                        horizontal-alignment: center;
+                        }
+                        if root.randuri.length == 0: Text {
+                            text: Texte.niciun-obiect;
+                            font-family: Tema.font-ui;
+                            font-size: 13px;
+                            color: Tema.text-secundar;
+                            horizontal-alignment: center;
+                        }
                     }
                 }
 
@@ -1659,214 +1635,220 @@ export component FereastraLista inherits Rectangle {
                 }
 
                 // detaliile obiectului selectat
-                if root.detalii-deschise: Card {
+                // umbra ca la zona tabelului; cardul ramane rotunjit si taiat
+                // in contur, fiindca codul ajunge pana in colturile de jos
+                if root.detalii-deschise: Rectangle {
                     width: root.latime-panou;
-                    clip: true;
-                    property <RandListaUi> sel: root.randuri[root.selectat];
-                    // ce lista de dependente se vede: 0 „Folosit de", 1 „Foloseste";
-                    // fila aleasa, sau cealalta daca cea aleasa e goala
-                    property <int> dep-arata: root.dep-tab == 0 && root.folosit-de-numar == 0 && root.foloseste-numar > 0 ? 1
-                        : root.dep-tab == 1 && root.foloseste-numar == 0 && root.folosit-de-numar > 0 ? 0 : root.dep-tab;
-                    VerticalLayout {
-                        // Reorganizat (Mihai, 2026-11-25: „debusolanta si
-                        // ingramadita, codul abia il observ"): sus doar ce e
-                        // strict necesar, pe randuri scurte si fixe; codul ia
-                        // tot restul inaltimii. Nimic din partea de sus nu
-                        // mai creste cu datele (dependentele au derulare
-                        // proprie), deci codul are mereu acelasi loc.
-                        sus-panou := VerticalLayout {
-                            vertical-stretch: 0;
-                            padding: 14px;
-                            padding-bottom: 10px;
-                            spacing: 8px;
-                            // 1. numele (intreg la hover)
-                            Rectangle {
-                                height: 22px;
+                    UmbraZona { x: 7px; y: parent.height - 1px; width: parent.width - 14px; }
+                    Card {
+                        width: root.latime-panou;
+                        clip: true;
+                        property <RandListaUi> sel: root.randuri[root.selectat];
+                        // ce lista de dependente se vede: 0 „Folosit de", 1 „Foloseste";
+                        // fila aleasa, sau cealalta daca cea aleasa e goala
+                        property <int> dep-arata: root.dep-tab == 0 && root.folosit-de-numar == 0 && root.foloseste-numar > 0 ? 1
+                            : root.dep-tab == 1 && root.foloseste-numar == 0 && root.folosit-de-numar > 0 ? 0 : root.dep-tab;
+                        VerticalLayout {
+                            // Reorganizat (Mihai, 2026-11-25: „debusolanta si
+                            // ingramadita, codul abia il observ"): sus doar ce e
+                            // strict necesar, pe randuri scurte si fixe; codul ia
+                            // tot restul inaltimii. Nimic din partea de sus nu
+                            // mai creste cu datele (dependentele au derulare
+                            // proprie), deci codul are mereu acelasi loc.
+                            sus-panou := VerticalLayout {
+                                vertical-stretch: 0;
+                                padding: 14px;
+                                padding-bottom: 10px;
+                                spacing: 8px;
+                                // 1. numele (intreg la hover)
+                                Rectangle {
+                                    height: 22px;
+                                    HorizontalLayout {
+                                        Text { text: root.obiect-schema == "" ? "" : root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 15px; color: Tema.text-tert; vertical-alignment: center; }
+                                        Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 15px; font-weight: 600; color: Tema.text; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                                    }
+                                    ZonaSfat { sfat: root.obiect-schema + "." + root.obiect-nume; }
+                                }
+                                // 2. un singur rand de context: tip · similar · linii
                                 HorizontalLayout {
-                                    Text { text: root.obiect-schema == "" ? "" : root.obiect-schema + "."; font-family: Tema.font-mono; font-size: 15px; color: Tema.text-tert; vertical-alignment: center; }
-                                    Text { text: root.obiect-nume; font-family: Tema.font-mono; font-size: 15px; font-weight: 600; color: Tema.text; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
-                                }
-                                ZonaSfat { sfat: root.obiect-schema + "." + root.obiect-nume; }
-                            }
-                            // 2. un singur rand de context: tip · similar · linii
-                            HorizontalLayout {
-                                height: 18px;
-                                spacing: 10px;
-                                Text { text: sel.tip; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
-                                Text { text: "·"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
-                                Text { text: Texte.detalii-similaritate + " " + (sel.scor-text == "" ? "–" : sel.scor-text); font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
-                                Text { text: "·"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
-                                if root.linii-adaugate < 0: Text { text: "–"; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
-                                if root.linii-adaugate >= 0: NumarLinii { text: "+" + root.linii-adaugate; culoare: Tema.add-text; sfat: Texte.sfat-linii-adaugate; }
-                                if root.linii-sterse >= 0: NumarLinii { text: "−" + root.linii-sterse; culoare: Tema.del-text; sfat: Texte.sfat-linii-sterse; }
-                                if root.linii-modificate >= 0: NumarLinii { text: "~" + root.linii-modificate; culoare: Tema.mod-text; sfat: Texte.sfat-linii-modificate; }
-                                if root.linii-mutate > 0: NumarLinii { text: "⇅" + root.linii-mutate; culoare: Tema.text-secundar; sfat: Texte.sfat-linii-mutate; }
-                                Rectangle { horizontal-stretch: 1; }
-                            }
-                            // 3. pastilele mici: starea, impactul (motivele la
-                            // hover), deploy-ul — fiecare cu ce inseamna
-                            HorizontalLayout {
-                                height: 20px;
-                                spacing: 6px;
-                                alignment: start;
-                                Pastila {
-                                    mic: true;
-                                    text: sel.omis ? Texte.omis : sel.revizuit ? Texte.revizuit : Texte.nerevizuit;
-                                    fel: sel.omis ? 3 : sel.revizuit ? 0 : 1;
-                                    sfat: sel.omis ? Texte.sfat-omis : sel.revizuit ? Texte.sfat-revizuit : Texte.sfat-nerevizuit;
-                                }
-                                if root.impact-nivel >= 0: Pastila {
-                                    mic: true;
-                                    text: Texte.detalii-impact + ": " + (root.impact-nivel == 0 ? Texte.impact-scazut : root.impact-nivel == 1 ? Texte.impact-mediu : Texte.impact-ridicat);
-                                    fel: root.impact-nivel == 0 ? 0 : root.impact-nivel == 1 ? 1 : 2;
-                                    sfat: (root.impact-nivel == 0 ? Texte.sfat-impact-scazut : root.impact-nivel == 1 ? Texte.sfat-impact-mediu : Texte.sfat-impact-ridicat) + (root.impact-motive != "" ? " (" + root.impact-motive + ")" : "");
-                                }
-                                Pastila {
-                                    mic: true;
-                                    text: Texte.deploy + ": " + (sel.stare == 2 ? Texte.extra-nu-se-deployeaza : sel.deploy == 1 ? Texte.pregatit : sel.deploy == 2 ? Texte.trimis : sel.deploy == 3 ? Texte.versiune-noua : sel.deploy == 4 ? Texte.omis : Texte.neintrodus);
-                                    fel: sel.deploy == 2 ? 0 : sel.deploy == 1 || sel.deploy == 3 ? 1 : 3;
-                                    sfat: sel.stare == 2 ? Texte.extra-fara-deploy : sel.deploy == 1 ? Texte.sfat-deploy-pregatit : sel.deploy == 2 ? Texte.sfat-deploy-trimis : sel.deploy == 3 ? Texte.sfat-deploy-versiune : sel.deploy == 4 ? Texte.omis : Texte.sfat-deploy-neintrodus;
-                                }
-                            }
-                            // 4. actiunile
-                            HorizontalLayout {
-                                spacing: 6px;
-                                alignment: start;
-                                Buton {
-                                    inalt: 28px;
-                                    text: root.obiect-revizuit ? Texte.revizuit-bifat : Texte.revizuit;
-                                    apasat => { root.comuta-revizuit(root.selectat); }
-                                }
-                                Buton { inalt: 28px; text: root.obiect-in-plan ? Texte.in-plan-bifat : Texte.in-plan; apasat => { root.adauga-in-plan(); } }
-                                Buton { inalt: 28px; text: sel.omis ? Texte.omis-bifat : Texte.omite; apasat => { root.comuta-omis(); } }
-                                ButonPrincipal { text: Texte.deschide; apasat => { root.deschide-obiectul(); } }
-                                Buton { inalt: 28px; text: Texte.tab-nou; apasat => { root.deschide-in-tab-nou(-1); } }
-                            }
-                            // 5. dependentele: doua file, iar lista aleasa intreaga,
-                            // rupta pe latime, cu derulare si bara proprii (Mihai,
-                            // 2026-11-25: „vreau sa vad toata lista")
-                            HorizontalLayout {
-                                height: 24px;
-                                spacing: 6px;
-                                alignment: start;
-                                FilaDependente {
-                                    text: Texte.coloana-folosit-de;
-                                    numar: root.folosit-de-numar;
-                                    activ: dep-arata == 0;
-                                    apasat => { root.dep-tab = 0; }
-                                }
-                                FilaDependente {
-                                    text: Texte.detalii-foloseste;
-                                    numar: root.foloseste-numar;
-                                    activ: dep-arata == 1;
-                                    apasat => { root.dep-tab = 1; }
-                                }
-                            }
-                            TextDependente {
-                                text: dep-arata == 0 ? root.folosit-de-text : root.foloseste-text;
-                                numar: dep-arata == 0 ? root.folosit-de-numar : root.foloseste-numar;
-                            }
-                            // 6. nota, pe un rand; se salveaza pe masura ce scrii
-                            Rectangle {
-                                height: 30px;
-                                border-radius: 7px;
-                                border-width: 1px;
-                                border-color: camp-nota.has-focus ? Tema.accent : Tema.linie;
-                                background: Tema.fundal;
-                                clip: true;
-                                camp-nota := TextInput {
-                                    x: 10px;
-                                    width: parent.width - 20px;
-                                    height: parent.height;
-                                    text <=> root.nota;
-                                    font-family: Tema.font-ui;
-                                    font-size: 12.5px;
-                                    color: Tema.text;
-                                    single-line: true;
-                                    vertical-alignment: center;
-                                    edited => { root.nota-editata(root.nota-baza, root.nota-id, self.text); }
-                                }
-                                if root.nota == "" && !camp-nota.has-focus: Text {
-                                    x: 10px;
-                                    height: parent.height;
-                                    text: Texte.nota-indiciu;
-                                    font-family: Tema.font-ui;
-                                    font-size: 12.5px;
-                                    color: Tema.text-tert;
-                                    vertical-alignment: center;
-                                }
-                            }
-                            if root.ce-difera != "": Rectangle {
-                                height: 16px;
-                                Text { width: parent.width; text: root.ce-difera; font-family: Tema.font-ui; font-size: 11.5px; color: Tema.text-tert; overflow: elide; vertical-alignment: center; }
-                                ZonaSfat { sfat: root.ce-difera; }
-                            }
-                        }
-                        Rectangle { height: 1px; background: Tema.linie; }
-                        Rectangle {
-                            vertical-stretch: 1;
-                            background: Tema.cod-fundal;
-                            previz := ListView {
-                                for r in root.previzualizare: Rectangle {
                                     height: 18px;
-                                    if r.fel == 1: Rectangle {
-                                        background: Tema.fundal;
-                                        Text {
-                                            x: 37px;
-                                            text: r.pliere;
-                                            font-family: Tema.font-ui;
-                                            font-size: 10.5px;
-                                            color: Tema.text-tert;
-                                            vertical-alignment: center;
-                                            height: parent.height;
-                                        }
+                                    spacing: 10px;
+                                    Text { text: sel.tip; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
+                                    Text { text: "·"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                                    Text { text: Texte.detalii-similaritate + " " + (sel.scor-text == "" ? "–" : sel.scor-text); font-family: Tema.font-ui; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; }
+                                    Text { text: "·"; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                                    if root.linii-adaugate < 0: Text { text: "–"; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; }
+                                    if root.linii-adaugate >= 0: NumarLinii { text: "+" + root.linii-adaugate; culoare: Tema.add-text; sfat: Texte.sfat-linii-adaugate; }
+                                    if root.linii-sterse >= 0: NumarLinii { text: "−" + root.linii-sterse; culoare: Tema.del-text; sfat: Texte.sfat-linii-sterse; }
+                                    if root.linii-modificate >= 0: NumarLinii { text: "~" + root.linii-modificate; culoare: Tema.mod-text; sfat: Texte.sfat-linii-modificate; }
+                                    if root.linii-mutate > 0: NumarLinii { text: "⇅" + root.linii-mutate; culoare: Tema.text-secundar; sfat: Texte.sfat-linii-mutate; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                                // 3. pastilele mici: starea, impactul (motivele la
+                                // hover), deploy-ul — fiecare cu ce inseamna
+                                HorizontalLayout {
+                                    height: 20px;
+                                    spacing: 6px;
+                                    alignment: start;
+                                    Pastila {
+                                        mic: true;
+                                        text: sel.omis ? Texte.omis : sel.revizuit ? Texte.revizuit : Texte.nerevizuit;
+                                        fel: sel.omis ? 3 : sel.revizuit ? 0 : 1;
+                                        sfat: sel.omis ? Texte.sfat-omis : sel.revizuit ? Texte.sfat-revizuit : Texte.sfat-nerevizuit;
                                     }
-                                    if r.fel == 0: Rectangle {
-                                        Jumatate {
-                                            x: 0px;
-                                            width: parent.width / 2;
-                                            nr: r.st-nr;
-                                            bucati: r.st;
-                                            stare: r.stare;
-                                            fara-linie: r.continuare ? r.st-lipsa : r.st-nr == "";
-                                            margine: true;
-                                            tigla: root.tigla-hasura;
-                                            marime: 12px;
-                                            jgheab-numere: 34px;
+                                    if root.impact-nivel >= 0: Pastila {
+                                        mic: true;
+                                        text: Texte.detalii-impact + ": " + (root.impact-nivel == 0 ? Texte.impact-scazut : root.impact-nivel == 1 ? Texte.impact-mediu : Texte.impact-ridicat);
+                                        fel: root.impact-nivel == 0 ? 0 : root.impact-nivel == 1 ? 1 : 2;
+                                        sfat: (root.impact-nivel == 0 ? Texte.sfat-impact-scazut : root.impact-nivel == 1 ? Texte.sfat-impact-mediu : Texte.sfat-impact-ridicat) + (root.impact-motive != "" ? " (" + root.impact-motive + ")" : "");
+                                    }
+                                    Pastila {
+                                        mic: true;
+                                        text: Texte.deploy + ": " + (sel.stare == 2 ? Texte.extra-nu-se-deployeaza : sel.deploy == 1 ? Texte.pregatit : sel.deploy == 2 ? Texte.trimis : sel.deploy == 3 ? Texte.versiune-noua : sel.deploy == 4 ? Texte.omis : Texte.neintrodus);
+                                        fel: sel.deploy == 2 ? 0 : sel.deploy == 1 || sel.deploy == 3 ? 1 : 3;
+                                        sfat: sel.stare == 2 ? Texte.extra-fara-deploy : sel.deploy == 1 ? Texte.sfat-deploy-pregatit : sel.deploy == 2 ? Texte.sfat-deploy-trimis : sel.deploy == 3 ? Texte.sfat-deploy-versiune : sel.deploy == 4 ? Texte.omis : Texte.sfat-deploy-neintrodus;
+                                    }
+                                }
+                                // 4. actiunile
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    alignment: start;
+                                    Buton {
+                                        inalt: 28px;
+                                        text: root.obiect-revizuit ? Texte.revizuit-bifat : Texte.revizuit;
+                                        apasat => { root.comuta-revizuit(root.selectat); }
+                                    }
+                                    Buton { inalt: 28px; text: root.obiect-in-plan ? Texte.in-plan-bifat : Texte.in-plan; apasat => { root.adauga-in-plan(); } }
+                                    Buton { inalt: 28px; text: sel.omis ? Texte.omis-bifat : Texte.omite; apasat => { root.comuta-omis(); } }
+                                    ButonPrincipal { text: Texte.deschide; apasat => { root.deschide-obiectul(); } }
+                                    Buton { inalt: 28px; text: Texte.tab-nou; apasat => { root.deschide-in-tab-nou(-1); } }
+                                }
+                                // 5. dependentele: doua file, iar lista aleasa intreaga,
+                                // rupta pe latime, cu derulare si bara proprii (Mihai,
+                                // 2026-11-25: „vreau sa vad toata lista")
+                                HorizontalLayout {
+                                    height: 24px;
+                                    spacing: 6px;
+                                    alignment: start;
+                                    FilaDependente {
+                                        text: Texte.coloana-folosit-de;
+                                        numar: root.folosit-de-numar;
+                                        activ: dep-arata == 0;
+                                        apasat => { root.dep-tab = 0; }
+                                    }
+                                    FilaDependente {
+                                        text: Texte.detalii-foloseste;
+                                        numar: root.foloseste-numar;
+                                        activ: dep-arata == 1;
+                                        apasat => { root.dep-tab = 1; }
+                                    }
+                                }
+                                TextDependente {
+                                    text: dep-arata == 0 ? root.folosit-de-text : root.foloseste-text;
+                                    numar: dep-arata == 0 ? root.folosit-de-numar : root.foloseste-numar;
+                                }
+                                // 6. nota, pe un rand; se salveaza pe masura ce scrii
+                                Rectangle {
+                                    height: 30px;
+                                    border-radius: 7px;
+                                    border-width: 1px;
+                                    border-color: camp-nota.has-focus ? Tema.accent : Tema.linie;
+                                    background: Tema.fundal;
+                                    clip: true;
+                                    camp-nota := TextInput {
+                                        x: 10px;
+                                        width: parent.width - 20px;
+                                        height: parent.height;
+                                        text <=> root.nota;
+                                        font-family: Tema.font-ui;
+                                        font-size: 12.5px;
+                                        color: Tema.text;
+                                        single-line: true;
+                                        vertical-alignment: center;
+                                        edited => { root.nota-editata(root.nota-baza, root.nota-id, self.text); }
+                                    }
+                                    if root.nota == "" && !camp-nota.has-focus: Text {
+                                        x: 10px;
+                                        height: parent.height;
+                                        text: Texte.nota-indiciu;
+                                        font-family: Tema.font-ui;
+                                        font-size: 12.5px;
+                                        color: Tema.text-tert;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                if root.ce-difera != "": Rectangle {
+                                    height: 16px;
+                                    Text { width: parent.width; text: root.ce-difera; font-family: Tema.font-ui; font-size: 11.5px; color: Tema.text-tert; overflow: elide; vertical-alignment: center; }
+                                    ZonaSfat { sfat: root.ce-difera; }
+                                }
+                            }
+                            Rectangle { height: 1px; background: Tema.linie; }
+                            Rectangle {
+                                vertical-stretch: 1;
+                                background: Tema.cod-fundal;
+                                previz := ListView {
+                                    for r in root.previzualizare: Rectangle {
+                                        height: 18px;
+                                        if r.fel == 1: Rectangle {
+                                            background: Tema.fundal;
+                                            Text {
+                                                x: 37px;
+                                                text: r.pliere;
+                                                font-family: Tema.font-ui;
+                                                font-size: 10.5px;
+                                                color: Tema.text-tert;
+                                                vertical-alignment: center;
+                                                height: parent.height;
+                                            }
                                         }
-                                        Jumatate {
-                                            x: parent.width / 2;
-                                            width: parent.width / 2;
-                                            nr: r.dr-nr;
-                                            bucati: r.dr;
-                                            stare: r.stare;
-                                            fara-linie: r.continuare ? r.dr-lipsa : r.dr-nr == "";
-                                            tigla: root.tigla-hasura;
-                                            marime: 12px;
-                                            jgheab-numere: 34px;
+                                        if r.fel == 0: Rectangle {
+                                            Jumatate {
+                                                x: 0px;
+                                                width: parent.width / 2;
+                                                nr: r.st-nr;
+                                                bucati: r.st;
+                                                stare: r.stare;
+                                                fara-linie: r.continuare ? r.st-lipsa : r.st-nr == "";
+                                                margine: true;
+                                                tigla: root.tigla-hasura;
+                                                marime: 12px;
+                                                jgheab-numere: 34px;
+                                            }
+                                            Jumatate {
+                                                x: parent.width / 2;
+                                                width: parent.width / 2;
+                                                nr: r.dr-nr;
+                                                bucati: r.dr;
+                                                stare: r.stare;
+                                                fara-linie: r.continuare ? r.dr-lipsa : r.dr-nr == "";
+                                                tigla: root.tigla-hasura;
+                                                marime: 12px;
+                                                jgheab-numere: 34px;
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            BaraDerulare {
-                                x: parent.width - self.width;
-                                height: parent.height;
-                                pozitie <=> previz.content-y;
-                                continut: previz.content-height;
-                                vizibil: previz.visible-height;
-                            }
-                            if root.previzualizare.length > 0: Rectangle {
-                                x: previz.visible-width / 2;
-                                width: 1px;
-                                background: Tema.linie;
-                            }
-                            if root.previzualizare.length == 0: Text {
-                                x: 18px;
-                                y: 14px;
-                                text: Texte.alege-un-obiect;
-                                font-family: Tema.font-ui;
-                                font-size: 12.5px;
-                                color: Tema.text-secundar;
+                                BaraDerulare {
+                                    x: parent.width - self.width;
+                                    height: parent.height;
+                                    pozitie <=> previz.content-y;
+                                    continut: previz.content-height;
+                                    vizibil: previz.visible-height;
+                                }
+                                if root.previzualizare.length > 0: Rectangle {
+                                    x: previz.visible-width / 2;
+                                    width: 1px;
+                                    background: Tema.linie;
+                                }
+                                if root.previzualizare.length == 0: Text {
+                                    x: 18px;
+                                    y: 14px;
+                                    text: Texte.alege-un-obiect;
+                                    font-family: Tema.font-ui;
+                                    font-size: 12.5px;
+                                    color: Tema.text-secundar;
+                                }
                             }
                         }
                     }

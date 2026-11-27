@@ -151,7 +151,6 @@ fn main() {
         lista,
     );
     gmotion_fereastra::incarca_detalii(&ui, &app.panou_detalii().pentru_fereastra(limba));
-    gmotion_fereastra::incarca_fundal(&ui).expect("fundalul se decodeaza");
     if let Some((sursa, tinta, setari)) = app.texte_obiect() {
         incarca_previzualizare(&ui, sursa, tinta, &setari);
     }
