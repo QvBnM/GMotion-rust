@@ -1090,7 +1090,7 @@ export component FereastraLista inherits Rectangle {
     // fundalul neutru, despartite de lista printr-o linie (Mihai, 2026-11-27)
     Image {
         x: 0;
-        y: separator-sus.absolute-position.y - root.absolute-position.y + separator-sus.height;
+        y: root.y-separator + separator-sus.height;
         width: root.width;
         height: Math.max(0px, root.height - self.y);
         source: root.fundal-harta;
@@ -1099,6 +1099,24 @@ export component FereastraLista inherits Rectangle {
         // fara opacitate si fara netezire, ca derularea sa nu plateasca ~9 ms
         // pe cadru pentru un decor (2026-11-25)
         image-rendering: pixelated;
+    }
+    // zona de sus: o banda ridicata (`suprafata`), inchisa jos de o linie
+    // plina si de o umbra scurta peste lista, ca sa se desparta clar de ea
+    // (Mihai, 2026-11-27). Banda e fixa: nu se redeseneaza la derulare.
+    property <length> y-separator: separator-sus.absolute-position.y - root.absolute-position.y;
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.y-separator;
+        background: Tema.suprafata;
+    }
+    Rectangle {
+        x: 0;
+        y: root.y-separator + separator-sus.height;
+        width: root.width;
+        height: 10px;
+        background: @linear-gradient(180deg, Tema.intunecat ? #00000066 : #0f11151f 0%, #00000000 100%);
     }
     taste := FocusScope {
         key-pressed(e) => {
@@ -1142,6 +1160,7 @@ export component FereastraLista inherits Rectangle {
         VerticalLayout {
             // ---- antetul: semnul si bazele; tema si limba in dreapta
             Antet {
+                fond: Tema.suprafata;
                 sursa: root.sursa-baza;
                 tinta: root.tinta-baza;
                 VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
@@ -1449,7 +1468,7 @@ export component FereastraLista inherits Rectangle {
                 }
             }
             Rectangle { height: 10px; }
-            separator-sus := Rectangle { height: 1px; background: Tema.linie; }
+            separator-sus := Rectangle { height: 2px; background: Tema.linie; }
 
             // ---- tabelul si previzualizarea
             HorizontalLayout {

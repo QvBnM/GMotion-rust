@@ -794,8 +794,10 @@ export component Antet inherits Rectangle {
     in property <string> loc;
     in property <string> sursa;
     in property <string> tinta;
+    // lista il pune pe banda ridicata a zonei de sus (2026-11-27)
+    in property <brush> fond: Tema.fundal;
     height: 60px;
-    background: Tema.fundal;
+    background: root.fond;
     HorizontalLayout {
         padding-left: 24px;
         padding-right: 16px;
