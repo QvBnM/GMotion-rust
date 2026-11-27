@@ -55,8 +55,8 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
 
 .brand-lockup{
   --word-size:clamp(2.4rem,5.2vw,4.1rem);
-  --globe-size:clamp(104px,13vw,168px);
-  --lockup-gap:clamp(.9rem,2vw,1.9rem);
+  --globe-size:clamp(116px,14.2vw,186px);
+  --lockup-gap:clamp(1.7rem,3.4vw,3.2rem);
   --font-g:Geist,sans-serif;--font-motion:Geist,sans-serif;
   --g-weight:600;--motion-weight:600;--g-scale:1.04;--g-y-offset:-.02em;
   --motion-tracking:-.045em;--m-tracking:-.05em;
@@ -76,7 +76,7 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
 .brand-lockup[data-font-style="2"] .code-bracket{opacity:1;max-width:1.2em;margin:0 .06em}
 
 .globe-slot{position:relative;width:var(--globe-size);height:var(--globe-size);flex-shrink:0;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.22) rotate(-28deg);pointer-events:auto;cursor:pointer;border-radius:50%;will-change:transform,opacity}
-#globe-canvas{width:128%;height:128%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+#globe-canvas{width:168%;height:168%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
 
 .motion-wordmark{display:inline-flex;align-items:baseline;font-family:var(--font-motion);font-weight:var(--motion-weight);font-size:var(--word-size);letter-spacing:var(--motion-tracking);line-height:1;position:relative;filter:drop-shadow(0 10px 28px rgba(6,182,212,.22)) drop-shadow(0 4px 12px rgba(0,0,0,.75))}
 :root.luminos .motion-wordmark{filter:drop-shadow(0 8px 20px rgba(6,182,212,.16))}
@@ -85,7 +85,7 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
 .motion-char.cap-m{letter-spacing:var(--m-tracking);background:linear-gradient(160deg,#ffffff 25%,#e0f2fe 65%,#38bdf8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 :root.luminos .motion-char.cap-m{background:linear-gradient(160deg,#0f1115 25%,#1e3a4f 65%,#0e7490 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
 
-.tagline{position:absolute;bottom:clamp(-2.6rem,-4.4vh,-1.9rem);left:50%;transform:translateX(-50%) translateY(10px);font-family:'JetBrains Mono',GeistMono,monospace;font-size:clamp(.6rem,.82vw,.76rem);font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--t3);white-space:nowrap;opacity:0;will-change:transform,opacity}
+.tagline{position:absolute;bottom:clamp(-4.2rem,-6.4vh,-3.2rem);left:50%;transform:translateX(-50%) translateY(10px);font-family:'JetBrains Mono',GeistMono,monospace;font-size:clamp(.6rem,.82vw,.76rem);font-weight:600;letter-spacing:.24em;text-transform:uppercase;color:var(--t3);white-space:nowrap;opacity:0;will-change:transform,opacity}
 .tagline span.amber{color:var(--accent)}
 .tagline span.cyan{color:#22d3ee}
 :root.luminos .tagline span.cyan{color:#0e7490}
@@ -154,7 +154,7 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
 <div class="dreapta">
   <canvas id="bg-canvas"></canvas>
   <div class="scena">
-    <div id="brand-lockup" class="brand-lockup" data-font-style="0">
+    <div id="brand-lockup" class="brand-lockup" data-font-style="2">
       <div class="g-glyph-wrapper" aria-hidden="true">
         <span class="code-bracket">&lt;</span><span class="g-glyph">g</span>
       </div>
@@ -175,15 +175,16 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
 </div>
 
 <nav class="unelte-macheta" aria-label="doar macheta">
-  <button class="font-pill active" type="button" data-style="0">0. Geist (din aplicatie)</button>
+  <button class="font-pill" type="button" data-style="0">0. Geist (din aplicatie)</button>
   <button class="font-pill" type="button" data-style="1">1. Syne + Jakarta</button>
-  <button class="font-pill" type="button" data-style="2">2. Outfit + Mono</button>
+  <button class="font-pill active" type="button" data-style="2">2. Outfit + Mono</button>
   <button class="font-pill" type="button" data-style="3">3. Sora + Inter</button>
   <button class="font-pill" type="button" data-style="4">4. Montserrat + Grotesk</button>
   <button class="font-pill" type="button" id="replay-btn">Reia intrarea</button>
   <button class="font-pill" type="button" id="tema-btn">Tema</button>
 </nav>
 
+<script src="glob-hex.js"></script>
 <script>
 /* Panoul marcii: fundal cu benzi aurii-turcoaz, praf, si nucleul 3D din prisme
    hexagonale. Portat din propunerea lui Mihai (2026-11-27), adaptat la
@@ -200,8 +201,7 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
     brandLockup.classList.remove('is-playing');
     void brandLockup.offsetWidth;
     brandLockup.classList.add('is-playing');
-    shockwaves.push({ startTime: performance.now() * 0.001, strength: 1.0 });
-    introStartTime = performance.now() * 0.001;
+    glob.puls();
   }
   document.getElementById('replay-btn').addEventListener('click', reiaIntrarea);
   document.getElementById('tema-btn').addEventListener('click', () => {
@@ -211,8 +211,7 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
     brandLockup.setAttribute('data-font-style', pill.getAttribute('data-style'));
     fontPills.forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
-    shockwaves.push({ startTime: performance.now() * 0.001, strength: 0.65 });
-    spinSpeedBoost = 0.75;
+    glob.puls();
   }));
 
   // ---- fundalul: benzi + praf ------------------------------------------
@@ -320,246 +319,12 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
     bgCtx.restore();
   }
 
-  // ---- nucleul 3D din prisme hexagonale -------------------------------
-  const globeCanvas = document.getElementById('globe-canvas');
-  const gCtx = globeCanvas.getContext('2d');
-  let globeSize = 300;
-  let isGlobeHovered = false, targetMouseX = 0, targetMouseY = 0, smoothMouseX = 0, smoothMouseY = 0;
-  let spinSpeedBoost = 0, hoverDisperseSmooth = 0;
-  let introStartTime = performance.now() * 0.001, accumulatedSpinY = 0;
+  // ---- globul: forma din glob-hex.js ----------------------------------
+  // ?glob=diamant (implicit) | sfera | sticla | cerc
+  const varianta = new URLSearchParams(location.search).get('glob') || 'emisfere';
   let lastFrameTime = performance.now() * 0.001;
-  const shockwaves = [];
-
-  globeSlot.addEventListener('mouseenter', () => { isGlobeHovered = true; });
-  globeSlot.addEventListener('mouseleave', () => { isGlobeHovered = false; targetMouseX = 0; targetMouseY = 0; });
-  window.addEventListener('mousemove', (e) => {
-    const r = globeSlot.getBoundingClientRect();
-    const dx = (e.clientX - (r.left + r.width * 0.5)) / Math.max(r.width * 1.45, 190);
-    const dy = (e.clientY - (r.top + r.height * 0.5)) / Math.max(r.height * 1.45, 190);
-    targetMouseX = Math.max(-1, Math.min(1, dx));
-    targetMouseY = Math.max(-1, Math.min(1, dy));
-  });
-  globeSlot.addEventListener('click', (e) => {
-    e.stopPropagation();
-    shockwaves.push({ startTime: performance.now() * 0.001, strength: 1.0 });
-    spinSpeedBoost = 1.45;
-  });
-
-  function resizeGlobeCanvas() {
-    const r = globeSlot.getBoundingClientRect();
-    globeSize = Math.max(200, Math.round(r.width * 1.28));
-    globeCanvas.width = Math.floor(globeSize * dpr);
-    globeCanvas.height = Math.floor(globeSize * dpr);
-    gCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-
-  function createSeededRng(seed) {
-    let s = seed >>> 0;
-    return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-  }
-
-  function createHexPrismCluster() {
-    const rng = createSeededRng(20261127);
-    const prisms = [];
-    const sqlLabels = ['SELECT', 'JOIN', 'WHERE', 'ALTER', 'MERGE', 'dbo.', '01011001', '10110', '01101110', '1100101'];
-    const coreCount = 74;
-    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    for (let i = 0; i < coreCount; i++) {
-      const yUnit = 1 - (i / (coreCount - 1)) * 2;
-      const theta = goldenAngle * i + (rng() - 0.5) * 0.24;
-      const jitterY = Math.max(-0.98, Math.min(0.98, yUnit + (rng() - 0.5) * 0.14));
-      const rXY = Math.sqrt(Math.max(0, 1 - jitterY * jitterY));
-      const shellTier = i % 3;
-      const radialDist = shellTier === 0 ? 0.42 + rng() * 0.18 : shellTier === 1 ? 0.64 + rng() * 0.20 : 0.80 + rng() * 0.20;
-      const hexRadius = shellTier === 2 ? 0.145 + rng() * 0.065 : shellTier === 1 ? 0.115 + rng() * 0.055 : 0.082 + rng() * 0.042;
-      const extrudeDepth = shellTier === 2 ? 0.18 + rng() * 0.13 : shellTier === 1 ? 0.14 + rng() * 0.11 : 0.10 + rng() * 0.08;
-      const telemetryText = sqlLabels[(i * 3 + Math.floor(rng() * 4)) % sqlLabels.length];
-      prisms.push({
-        isSatellite: false, dir: { x: Math.cos(theta) * rXY, y: jitterY, z: Math.sin(theta) * rXY },
-        baseRadius: radialDist, explodeOffset: 0.65 + rng() * 0.85, hexRadius, extrudeDepth,
-        selfSpinSpeed: (rng() - 0.5) * 0.7, phase: rng() * Math.PI * 2, driftAmp: 0.025 + rng() * 0.035,
-        hasTelemetry: (i % 6 === 0) || (i % 11 === 2), telemetryText, isBinary: /^[01]+$/.test(telemetryText)
-      });
-    }
-    for (let s = 0; s < 46; s++) {
-      const u = rng() * 2 - 1, az = rng() * Math.PI * 2;
-      const radXZ = Math.sqrt(Math.max(0, 1 - u * u));
-      const isTrailMember = s < 18, trailIndex = s % 3;
-      const radialDist = isTrailMember ? 1.14 + trailIndex * 0.11 + rng() * 0.05 : 1.12 + rng() * 0.34;
-      const hexRadius = isTrailMember ? 0.052 + (2 - trailIndex) * 0.012 : 0.042 + rng() * 0.048;
-      const telemetryText = sqlLabels[(s + 2) % sqlLabels.length];
-      prisms.push({
-        isSatellite: true, dir: { x: Math.cos(az) * radXZ, y: u, z: Math.sin(az) * radXZ },
-        baseRadius: radialDist, explodeOffset: 0.9 + rng() * 1.15, hexRadius,
-        extrudeDepth: hexRadius * (0.95 + rng() * 0.75),
-        selfSpinSpeed: (rng() - 0.5) * 1.45, phase: rng() * Math.PI * 2, driftAmp: 0.045 + rng() * 0.055,
-        hasTelemetry: s % 5 === 0, telemetryText, isBinary: /^[01]+$/.test(telemetryText)
-      });
-    }
-    return prisms;
-  }
-  const hexPrisms = createHexPrismCluster();
-
-  function rotate3D(x, y, z, rotY, rotX) {
-    const cy = Math.cos(rotY), sy = Math.sin(rotY);
-    const x1 = x * cy - z * sy, z1 = x * sy + z * cy;
-    const cx = Math.cos(rotX), sx = Math.sin(rotX);
-    return { x: x1, y: y * cx - z1 * sx, z: y * sx + z1 * cx };
-  }
-
-  function buildRadialBasis(nx, ny, nz, localSpin) {
-    const nLen = Math.hypot(nx, ny, nz) || 1;
-    const n = { x: nx / nLen, y: ny / nLen, z: nz / nLen };
-    const ref = Math.abs(n.y) < 0.85 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
-    let rx = ref.y * n.z - ref.z * n.y, ry = ref.z * n.x - ref.x * n.z, rz = ref.x * n.y - ref.y * n.x;
-    const rLen = Math.hypot(rx, ry, rz) || 1; rx /= rLen; ry /= rLen; rz /= rLen;
-    let ux = n.y * rz - n.z * ry, uy = n.z * rx - n.x * rz, uz = n.x * ry - n.y * rx;
-    if (localSpin !== 0) {
-      const c = Math.cos(localSpin), s = Math.sin(localSpin);
-      const rrx = rx * c + ux * s, rry = ry * c + uy * s, rrz = rz * c + uz * s;
-      const uux = -rx * s + ux * c, uuy = -ry * s + uy * c, uuz = -rz * s + uz * c;
-      rx = rrx; ry = rry; rz = rrz; ux = uux; uy = uuy; uz = uuz;
-    }
-    return { right: { x: rx, y: ry, z: rz }, up: { x: ux, y: uy, z: uz }, normal: n };
-  }
-
-  function getFacetFillColor(fn, worldX, depthAlpha, isTopCap) {
-    const lx = -0.52, ly = -0.68, lz = 0.52, lLen = Math.hypot(lx, ly, lz);
-    const ndotl = Math.max(0, fn.x * (lx / lLen) + fn.y * (ly / lLen) + fn.z * (lz / lLen));
-    const cyanMix = (Math.max(-1, Math.min(1, worldX * 1.15)) + 1) * 0.5;
-    const base = luminos()
-      ? (isTopCap ? (196 + ndotl * 56) : (124 + ndotl * 98))
-      : (isTopCap ? (168 + ndotl * 78) : (78 + ndotl * 118));
-    const r = Math.min(255, Math.round(base + (1 - cyanMix) * 16 - cyanMix * 10));
-    const g = Math.min(255, Math.round(base + (1 - cyanMix) * 8 + cyanMix * 12));
-    const b = Math.min(255, Math.round(base + cyanMix * 24 - (1 - cyanMix) * 10));
-    return `rgba(${r}, ${g}, ${b}, ${depthAlpha.toFixed(3)})`;
-  }
-
-  function renderHexGlobe(timeSec, dt) {
-    gCtx.clearRect(0, 0, globeSize, globeSize);
-    smoothMouseX += (targetMouseX - smoothMouseX) * 0.08;
-    smoothMouseY += (targetMouseY - smoothMouseY) * 0.08;
-    spinSpeedBoost *= 0.94;
-    accumulatedSpinY += dt * (0.28 + (isGlobeHovered ? 0.34 : 0) + spinSpeedBoost);
-    const introElapsed = Math.max(0, timeSec - introStartTime);
-    const assembleEase = 1 - Math.pow(1 - Math.min(1, introElapsed / 1.15), 3);
-    const explosionAmount = (1 - assembleEase) * 0.95;
-    hoverDisperseSmooth += ((isGlobeHovered ? 0.16 : 0) - hoverDisperseSmooth) * 0.07;
-
-    const cx = globeSize * 0.5, cy = globeSize * 0.5, baseRadius = globeSize * 0.275;
-    const rotY = accumulatedSpinY + smoothMouseX * 0.52;
-    const rotX = 0.24 + smoothMouseY * 0.42 + Math.sin(timeSec * 0.5) * 0.04;
-
-    gCtx.save();
-    const aura = gCtx.createRadialGradient(cx, cy, baseRadius * 0.1, cx, cy, baseRadius * 1.65);
-    aura.addColorStop(0.0, luminos() ? 'rgba(90, 120, 160, 0.12)' : 'rgba(148, 185, 224, 0.18)');
-    aura.addColorStop(0.45, 'rgba(34, 211, 238, 0.08)');
-    aura.addColorStop(0.75, 'rgba(251, 191, 36, 0.05)');
-    aura.addColorStop(1.0, 'rgba(5, 8, 17, 0)');
-    gCtx.fillStyle = aura;
-    gCtx.beginPath(); gCtx.arc(cx, cy, baseRadius * 1.65, 0, Math.PI * 2); gCtx.fill();
-    gCtx.restore();
-
-    const polygons = [], telemetryRenderList = [];
-    for (const pr of hexPrisms) {
-      const breath = Math.sin(timeSec * 1.55 + pr.phase) * pr.driftAmp;
-      let shockPush = 0;
-      for (const sw of shockwaves) {
-        const age = timeSec - sw.startTime;
-        if (age >= 0 && age <= 1.0) {
-          const envelope = Math.sin(age * Math.PI) * (1 - age);
-          const proximity = Math.max(0, 1 - Math.abs(pr.baseRadius - age * 1.5) * 1.4);
-          shockPush += envelope * proximity * (pr.isSatellite ? 0.36 : 0.22) * (sw.strength || 1);
-        }
-      }
-      const hoverPush = hoverDisperseSmooth * (pr.isSatellite ? 1.25 : 0.42);
-      const radialFactor = pr.baseRadius + breath + explosionAmount * pr.explodeOffset + shockPush + hoverPush;
-      const c0 = { x: pr.dir.x * radialFactor, y: pr.dir.y * radialFactor, z: pr.dir.z * radialFactor };
-      const basis = buildRadialBasis(pr.dir.x, pr.dir.y, pr.dir.z, pr.selfSpinSpeed * (timeSec * 0.45 + explosionAmount * 1.6));
-      const rHex = pr.hexRadius, hDepth = pr.extrudeDepth;
-      const basePts3D = [], topPts3D = [];
-      for (let v = 0; v < 6; v++) {
-        const ang = (v / 6) * Math.PI * 2 + Math.PI / 6;
-        const ca = Math.cos(ang) * rHex, sa = Math.sin(ang) * rHex;
-        const ox = basis.right.x * ca + basis.up.x * sa;
-        const oy = basis.right.y * ca + basis.up.y * sa;
-        const oz = basis.right.z * ca + basis.up.z * sa;
-        basePts3D.push(rotate3D(c0.x + ox - basis.normal.x * hDepth * 0.35, c0.y + oy - basis.normal.y * hDepth * 0.35, c0.z + oz - basis.normal.z * hDepth * 0.35, rotY, rotX));
-        topPts3D.push(rotate3D(c0.x + ox + basis.normal.x * hDepth * 0.65, c0.y + oy + basis.normal.y * hDepth * 0.65, c0.z + oz + basis.normal.z * hDepth * 0.65, rotY, rotX));
-      }
-      const topCenter3D = rotate3D(c0.x + basis.normal.x * hDepth * 0.65, c0.y + basis.normal.y * hDepth * 0.65, c0.z + basis.normal.z * hDepth * 0.65, rotY, rotX);
-      const topNormal3D = rotate3D(basis.normal.x, basis.normal.y, basis.normal.z, rotY, rotX);
-      const projectPt = (p3) => {
-        const persp = 1 / (1 - p3.z * 0.24);
-        return { x: cx + p3.x * baseRadius * persp, y: cy + p3.y * baseRadius * persp, z: p3.z };
-      };
-      const topProj = topPts3D.map(projectPt), baseProj = basePts3D.map(projectPt);
-      for (let v = 0; v < 6; v++) {
-        const w = (v + 1) % 6;
-        const b0 = basePts3D[v], b1 = basePts3D[w], t1 = topPts3D[w], t0 = topPts3D[v];
-        const eA = { x: b1.x - b0.x, y: b1.y - b0.y, z: b1.z - b0.z };
-        const eB = { x: t0.x - b0.x, y: t0.y - b0.y, z: t0.z - b0.z };
-        let fnx = eA.y * eB.z - eA.z * eB.y, fny = eA.z * eB.x - eA.x * eB.z, fnz = eA.x * eB.y - eA.y * eB.x;
-        const fnLen = Math.hypot(fnx, fny, fnz) || 1; fnx /= fnLen; fny /= fnLen; fnz /= fnLen;
-        const sx = (b0.x + b1.x + t1.x + t0.x) * 0.25 - topCenter3D.x;
-        const sy = (b0.y + b1.y + t1.y + t0.y) * 0.25 - topCenter3D.y;
-        const sz = (b0.z + b1.z + t1.z + t0.z) * 0.25 - topCenter3D.z;
-        if (fnx * sx + fny * sy + fnz * sz < 0) { fnx = -fnx; fny = -fny; fnz = -fnz; }
-        if (fnz <= -0.08) continue;
-        const avgZ = (b0.z + b1.z + t1.z + t0.z) * 0.25;
-        const depthAlpha = Math.max(0.28, Math.min(0.98, 0.58 + avgZ * 0.42));
-        polygons.push({
-          pts: [baseProj[v], baseProj[w], topProj[w], topProj[v]], avgZ,
-          fill: getFacetFillColor({ x: fnx, y: fny, z: fnz }, topCenter3D.x, depthAlpha, false),
-          stroke: `rgba(15, 23, 42, ${(0.22 + Math.max(0, avgZ) * 0.25).toFixed(2)})`
-        });
-      }
-      if (topNormal3D.z > -0.15) {
-        const depthAlpha = Math.max(0.35, Math.min(1.0, 0.65 + topCenter3D.z * 0.38));
-        polygons.push({
-          pts: topProj, avgZ: topCenter3D.z + 0.015,
-          fill: getFacetFillColor(topNormal3D, topCenter3D.x, depthAlpha, true),
-          stroke: `rgba(255, 255, 255, ${(0.18 + Math.max(0, topCenter3D.z) * 0.32).toFixed(2)})`
-        });
-      }
-      if (pr.hasTelemetry && topCenter3D.z > 0.28 && topNormal3D.z > 0.25) {
-        const capCenterProj = projectPt(topCenter3D);
-        const rScreen = Math.hypot(topProj[0].x - capCenterProj.x, topProj[0].y - capCenterProj.y);
-        if (rScreen >= 13) {
-          telemetryRenderList.push({ x: capCenterProj.x, y: capCenterProj.y, z: topCenter3D.z, radius: rScreen, text: pr.telemetryText, worldX: topCenter3D.x });
-        }
-      }
-    }
-    for (let w = shockwaves.length - 1; w >= 0; w--) {
-      if (timeSec - shockwaves[w].startTime > 1.0) shockwaves.splice(w, 1);
-    }
-    polygons.sort((a, b) => a.avgZ - b.avgZ);
-    gCtx.save();
-    gCtx.lineJoin = 'round';
-    for (const poly of polygons) {
-      gCtx.beginPath();
-      poly.pts.forEach((pt, k) => k === 0 ? gCtx.moveTo(pt.x, pt.y) : gCtx.lineTo(pt.x, pt.y));
-      gCtx.closePath();
-      gCtx.fillStyle = poly.fill; gCtx.fill();
-      gCtx.lineWidth = 0.65; gCtx.strokeStyle = poly.stroke; gCtx.stroke();
-    }
-    gCtx.textAlign = 'center'; gCtx.textBaseline = 'middle';
-    for (const item of telemetryRenderList) {
-      const visAlpha = Math.min(0.88, Math.max(0.25, (item.z - 0.28) * 1.35));
-      const maxTextWidth = item.radius * 1.55;
-      let fontPx = Math.max(6.5, Math.min(9.5, item.radius * 0.34));
-      gCtx.font = `700 ${fontPx.toFixed(1)}px "JetBrains Mono", GeistMono, monospace`;
-      const measured = gCtx.measureText(item.text).width;
-      if (measured > maxTextWidth && measured > 0) {
-        fontPx = Math.max(5.8, fontPx * (maxTextWidth / measured));
-        gCtx.font = `700 ${fontPx.toFixed(1)}px "JetBrains Mono", GeistMono, monospace`;
-      }
-      gCtx.fillStyle = item.worldX < 0.05 ? `rgba(146, 64, 14, ${visAlpha.toFixed(2)})` : `rgba(12, 74, 110, ${visAlpha.toFixed(2)})`;
-      gCtx.fillText(item.text, item.x, item.y);
-    }
-    gCtx.restore();
-  }
+  const glob = GlobHex.creeaza(document.getElementById('globe-canvas'), { varianta, luminos: luminos() });
+  function resizeGlobeCanvas() { glob.dimensiune(); }
 
   function handleResize() { resizeBgCanvas(); resizeGlobeCanvas(); }
   window.addEventListener('resize', handleResize);
@@ -568,14 +333,14 @@ body{width:1440px;height:900px;background:var(--fundal);color:var(--text);font:1
     const timeSec = now * 0.001;
     const dt = Math.min(0.05, Math.max(0.001, timeSec - lastFrameTime));
     lastFrameTime = timeSec;
+    glob.stare.luminos = luminos();
     renderBackground(timeSec);
-    renderHexGlobe(timeSec, dt);
+    glob.deseneaza(timeSec, dt);
     requestAnimationFrame(animate);
   }
 
   window.addEventListener('load', () => {
     initParticles(); handleResize();
-    introStartTime = performance.now() * 0.001;
     reiaIntrarea();
     requestAnimationFrame(animate);
   });

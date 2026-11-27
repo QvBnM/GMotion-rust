@@ -1,0 +1,101 @@
+<!doctype html><html lang="ro" class=""><head><meta charset="utf-8">
+<title>GMotion - forme de glob pentru panoul marcii</title>
+<style>
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-400.ttf);font-weight:400}
+@font-face{font-family:Geist;src:url(../../../rust/fereastra/fonturi/Geist-600.ttf);font-weight:600}
+@font-face{font-family:GeistMono;src:url(../../../rust/fereastra/fonturi/GeistMono-400.ttf);font-weight:400}
+:root{--fundal:#0d1120;--suprafata:#151a2e;--linie:#2a3255;--slaba:#1e2542;--text:#eef1ff;--t2:#a3acd0;--t3:#8a93b8;--accent:#ffb547}
+:root.luminos{--fundal:#f4f5f8;--suprafata:#ffffff;--linie:#e3e6ec;--slaba:#eef0f3;--text:#0f1115;--t2:#4f5561;--t3:#5f6572;--accent:#f5a524}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;min-height:900px;background:var(--fundal);color:var(--text);font:13px Geist,sans-serif;user-select:none;padding:26px 28px 86px}
+h1{font-size:19px;font-weight:600;letter-spacing:-.3px}
+.sub{margin-top:6px;color:var(--t2);font-size:12.6px;max-width:980px;line-height:1.5}
+.grila{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cutie{border:1px solid var(--linie);border-radius:14px;background:radial-gradient(circle at 50% 46%,#0a1122 0%,#070c19 62%,#050811 100%);overflow:hidden;position:relative}
+:root.luminos .cutie{background:radial-gradient(circle at 50% 46%,#ffffff 0%,#f2f4f9 62%,#e9ecf3 100%)}
+.cap{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:10px;padding:12px 15px;z-index:2}
+.cap b{font-size:14px;font-weight:600}
+.cap .nr{font:11px GeistMono;color:var(--accent);border:1px solid var(--linie);border-radius:5px;padding:1px 6px}
+.cap .fete{margin-left:auto;font:11px GeistMono;color:var(--t3)}
+.panza{width:100%;height:330px;display:block;cursor:pointer}
+.nota{padding:0 15px 13px;color:var(--t2);font-size:12.2px;line-height:1.5;position:relative;z-index:2}
+.nota em{font-style:normal;color:var(--text)}
+.bara{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:5px;border-radius:9999px;border:1px solid var(--linie);background:rgba(10,17,34,.78);backdrop-filter:blur(12px)}
+:root.luminos .bara{background:rgba(255,255,255,.82)}
+.bara button{padding:5px 12px;border-radius:9999px;border:1px solid transparent;background:transparent;color:var(--t2);font:600 11.5px Geist,sans-serif;cursor:pointer}
+.bara button:hover{color:var(--text);background:rgba(125,145,190,.14)}
+</style></head><body>
+
+<h1>Forme de glob pentru panoul marcii</h1>
+<div class="sub">Patru forme, acelasi motor: fete in spatiu model, rotatie, lumina de sus-stanga, sortare pe adancime. Mouse-ul le inclina, clicul le pulseaza. Numarul de fete conteaza: in aplicatie desenarea e software (fara placa video), deci forma cu 19 fete si cea cu 162 nu costa la fel.</div>
+
+<div class="grila">
+  <div class="cutie" style="grid-column:1/3">
+    <div class="cap"><div class="nr">0</div><b>Sfera taiata in diagonala: Before / After</b><div class="fete" id="f0"></div></div>
+    <canvas class="panza" id="g0" style="height:420px"></canvas>
+    <div class="nota"><em>Aceeasi sfera hexagonala, taiata in diagonala si desfacuta:</em> cupola chihlimbar e Before, cea turcoaz e After, iar marginea taieturii e aprinsa, ca in imaginea de referinta. O unda trece prin sfera dinspre Before spre After - compararea insasi. Jumatatile respira (se apropie si se departeaza); clic = puls.</div>
+  </div>
+  <div class="cutie">
+    <div class="cap"><div class="nr">1</div><b>Diamant hexagonal</b><div class="fete" id="f1"></div></div>
+    <canvas class="panza" id="g1"></canvas>
+    <div class="nota"><em>Taietura de bijuterie, sectiune hexagonala:</em> masa sus, coroana, branta pe ecuator, pavilionul in varf. Cea mai citibila la dimensiune mica si cea mai ieftina.</div>
+  </div>
+  <div class="cutie">
+    <div class="cap"><div class="nr">2</div><b>Sfera hexagonala, plina</b><div class="fete" id="f2"></div></div>
+    <canvas class="panza" id="g2"></canvas>
+    <div class="nota"><em>Cerc acoperit cu placi hexagonale</em> (dualul unui icosaedru subdivizat: hexagoane peste tot, cinci laturi doar in cele 12 colturi). Pare o minge taiata in fatete.</div>
+  </div>
+  <div class="cutie">
+    <div class="cap"><div class="nr">3</div><b>Sfera hexagonala, de sticla</b><div class="fete" id="f3"></div></div>
+    <canvas class="panza" id="g3"></canvas>
+    <div class="nota"><em>Aceeasi sfera, translucida:</em> se vad si placile din spate, muchiile aprinse. Mai aproape de un diamant, dar cu de doua ori mai multe fete desenate.</div>
+  </div>
+  <div class="cutie">
+    <div class="cap"><div class="nr">4</div><b>Cerc de hexagoane, cu diamant</b><div class="fete" id="f4"></div></div>
+    <canvas class="panza" id="g4"></canvas>
+    <div class="nota"><em>Un disc bombat din placi hexagonale</em>, cu diamantul mic in mijloc. Citeste ca un „cerc hexagonal", nu ca o sfera.</div>
+  </div>
+</div>
+
+<div class="bara">
+  <button type="button" id="tema">Tema</button>
+  <button type="button" id="puls">Puls</button>
+  <button type="button" id="stop">Opreste / porneste rotatia</button>
+</div>
+
+<script src="glob-hex.js"></script>
+<script>
+(function () {
+  'use strict';
+  const luminos = () => document.documentElement.classList.contains('luminos');
+  const variante = [
+    ['g0', 'f0', { varianta: 'emisfere' }],
+    ['g1', 'f1', { varianta: 'diamant' }],
+    ['g2', 'f2', { varianta: 'sfera' }],
+    ['g3', 'f3', { varianta: 'sticla' }],
+    ['g4', 'f4', { varianta: 'cerc' }]
+  ];
+  const globuri = variante.map(([id, idf, o]) => {
+    const g = GlobHex.creeaza(document.getElementById(id), o);
+    document.getElementById(idf).textContent = g.numarFete + ' fete';
+    return g;
+  });
+  document.getElementById('tema').addEventListener('click', () => {
+    document.documentElement.classList.toggle('luminos');
+    globuri.forEach(g => { g.stare.luminos = luminos(); });
+  });
+  document.getElementById('puls').addEventListener('click', () => globuri.forEach(g => g.puls()));
+  let merge = true;
+  document.getElementById('stop').addEventListener('click', () => { merge = !merge; });
+  let ultimul = performance.now() * 0.001;
+  function cadru(now) {
+    const t = now * 0.001;
+    const dt = merge ? Math.min(0.05, Math.max(0.001, t - ultimul)) : 0;
+    ultimul = t;
+    globuri.forEach(g => g.deseneaza(t, dt));
+    requestAnimationFrame(cadru);
+  }
+  window.addEventListener('load', () => { globuri.forEach(g => g.dimensiune()); requestAnimationFrame(cadru); });
+})();
+</script>
+</body></html>
