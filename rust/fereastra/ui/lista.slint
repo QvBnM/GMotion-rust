@@ -1086,11 +1086,13 @@ export component FereastraLista inherits Rectangle {
     // fundalul: instantaneul hartii, estompat si stins, ca accentul sa ramana
     // pe text si pe panoul din fata (Mihai, 2026-11-25)
     in property <image> fundal-harta;
+    // doar sub zona de sus: antetul, starile, cautarea si filtrele raman pe
+    // fundalul neutru, despartite de lista printr-o linie (Mihai, 2026-11-27)
     Image {
         x: 0;
-        y: 0;
+        y: separator-sus.absolute-position.y - root.absolute-position.y + separator-sus.height;
         width: root.width;
-        height: root.height;
+        height: Math.max(0px, root.height - self.y);
         source: root.fundal-harta;
         image-fit: cover;
         // opaca si amestecata deja cu fundalul (`harta::amesteca_pe_fundal`):
@@ -1446,7 +1448,8 @@ export component FereastraLista inherits Rectangle {
                     }
                 }
             }
-            Rectangle { height: 6px; }
+            Rectangle { height: 10px; }
+            separator-sus := Rectangle { height: 1px; background: Tema.linie; }
 
             // ---- tabelul si previzualizarea
             HorizontalLayout {
