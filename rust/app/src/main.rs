@@ -664,12 +664,6 @@ fn ruleaza() -> Result<(), String> {
                 );
             }
             bucati.marcheaza("lista");
-            // o data pe mod: dupa prima decodare e doar o copiere de handle
-            if let Err(e) = gmotion_fereastra::incarca_fundal(&l_ui) {
-                tracing::warn!(target: "gmotion::app", eroare = %e, "fundalul cu unde nu se decodeaza");
-            }
-            e_ui.set_fundal_decor(l_ui.get_fundal_decor());
-            bucati.marcheaza("fundal");
             l_ui.set_mesaj_csv(bara.into());
             l_ui.set_recompara_ruleaza(progres.is_some());
             if let Some((text, fractie)) = progres {

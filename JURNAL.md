@@ -2641,3 +2641,34 @@ ori mai fina) si se aduna ca lumina, cu luminozitate proprie pe fir si de-a
 lungul lui; lumina difuza (bloom) pe trei raze si o curba moale in loc de
 taiere; particule de marimi diferite, o parte defocalizate; sigla mai stinsa,
 cu un halou slab. Generatorul nu mai cere decat numpy si Pillow.
+
+
+---
+
+## 2026-11-27 — Fara fundal decorativ: zone delimitate, cu margini si umbre
+
+**Context.** Dupa harta estompata, doua seturi procedurale, undele cu sigla
+(si varianta „mai naturala"), variante plate 2D si abstracte minimaliste,
+Mihai: „renunt la orice ramane fundal, fa doar niste margini cu umbre si
+delimitare per zona, ecrane".
+
+**Decizia.** Fundalul cu unde iese cu totul (imaginile, `incarca_fundal`,
+`pixeli_fundal`; `image` revine doar in dev-dependencies la `fereastra`).
+Generatorul si imaginile pentru un viitor ecran de pornire raman in
+`cercetare/fundal-unde/`. In loc: banda de sus a fiecarui ecran (`Antet`,
+bara editorului) pe `suprafata`, cu linie si umbra scurta (`UmbraJos`); zonele
+de continut (tabelul listei, panoul de detalii, cele doua carduri din deploy,
+partile conectarii, sesiunile) delimitate: contur, colturi de 14 px, umbra
+sub ele; bara de jos a editorului pe `suprafata`.
+
+**Cum, si de ce asa.** Prima varianta (cardul obisnuit, cu `drop-shadow`)
+ducea derularea listei de la ~4 la ~10 ms pe cadru (`masura_ui`, 12.000 de
+obiecte, 1920x1080, desenare completa). Masurat pe rand: fondul rotunjit de
+marimea listei ~+1,5 ms, umbra cu blur ~+2 ms, taierea in contur rotunjit
+inca ceva; un fond drept si un contur rotunjit fara fond, aproape nimic.
+`Zona` face deci fondul din doua dreptunghiuri drepte in cruce plus patru
+colturi mici rotunjite, conturul ca chenar fara fond si umbra ca gradient:
+derularea ~4,0-4,6 ms (fata de 3,5-4,1 ms fara zone; masuratorile variaza
+cu ~1 ms intre rulari, s-a luat minimul din patru). Panoul de detalii ramane
+`Card` (codul ajunge in colturile de jos, deci trebuie taiat in contur), cu
+umbra-gradient sub el.

@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat, ButonInchide } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat, ButonInchide, UmbraJos } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -486,25 +486,6 @@ export component EditorDiferente inherits Rectangle {
         root.editeaza-textul-final();
     }
 
-    // fundalul: undele si sigla, stinse (cercetare/fundal-unde, Mihai,
-    // 2026-11-27). Imaginea e opaca si amestecata deja cu fundalul temei, iar
-    // se deseneaza la marimea ei, centrata si taiata, fara scalare: copiere
-    // simpla la fiecare cadru, fara amestec si fara netezire. Marginile ei se
-    // topesc in fundal, deci pe un ecran mai mare decat ea nu se vede cusatura.
-    in property <image> fundal-decor;
-    Rectangle {
-        width: root.width;
-        height: root.height;
-        clip: true;
-        Image {
-            width: parent.width;
-            height: parent.height;
-            source: root.fundal-decor;
-            image-fit: preserve;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-    }
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
@@ -1873,8 +1854,11 @@ export component EditorDiferente inherits Rectangle {
             y: 0;
             width: root.width;
             height: root.sus;
-            background: Tema.fundal;
-            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie-slaba; }
+            // banda ridicata, ca antetul celorlalte ecrane: linie plina si
+            // umbra scurta peste panza (Mihai, 2026-11-27)
+            background: Tema.suprafata;
+            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+            UmbraJos { x: 0; y: parent.height; width: parent.width; }
             HorizontalLayout {
                 padding-left: 18px;
                 padding-right: 14px;
@@ -1927,8 +1911,8 @@ export component EditorDiferente inherits Rectangle {
             y: root.height - root.jos;
             width: root.width;
             height: root.jos;
-            background: Tema.fundal;
-            Rectangle { height: 1px; y: 0; background: Tema.linie-slaba; }
+            background: Tema.suprafata;
+            Rectangle { height: 1px; y: 0; background: Tema.linie; }
             HorizontalLayout {
                 padding-left: 16px;
                 padding-right: 16px;

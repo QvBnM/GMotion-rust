@@ -2601,51 +2601,6 @@ pub fn incarca_harta(ui: &FereastraLista, selectat: Option<usize>) {
     ui.set_harta_inaltime(total);
 }
 
-/// Fundalul listei si al editorului: undele si sigla gmotion, stinse,
-/// pentru modul de acum. Imaginile sunt PNG-uri incluse in binar, generate de
-/// `cercetare/fundal-unde/genereaza.py`; se decodeaza o data pe mod si se
-/// pastreaza. O imagine care nu se decodeaza lasa fundalul simplu si intoarce
-/// eroarea (aplicatia o scrie in jurnal); nu opreste fereastra.
-pub fn incarca_fundal(ui: &FereastraLista) -> Result<(), String> {
-    thread_local! {
-        static DECODATE: std::cell::RefCell<Vec<(Mod, Image)>> = const { std::cell::RefCell::new(Vec::new()) };
-    }
-    let m = mod_curent(ui);
-    if let Some(img) =
-        DECODATE.with_borrow(|d| d.iter().find(|(x, _)| *x == m).map(|(_, i)| i.clone()))
-    {
-        ui.set_fundal_decor(img);
-        return Ok(());
-    }
-    match pixeli_fundal(m) {
-        Ok((w, h, px)) => {
-            let buf = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&px, w, h);
-            let img = Image::from_rgb8(buf);
-            DECODATE.with_borrow_mut(|d| d.push((m, img.clone())));
-            ui.set_fundal_decor(img);
-            Ok(())
-        }
-        Err(e) => {
-            ui.set_fundal_decor(Image::default());
-            Err(e)
-        }
-    }
-}
-
-/// Pixelii (RGB, opaci) fundalului cu unde pentru `m`: latime, inaltime,
-/// octetii pe randuri. Separat de `incarca_fundal` ca sa se poata testa fara
-/// fereastra.
-pub fn pixeli_fundal(m: Mod) -> Result<(u32, u32, Vec<u8>), String> {
-    let octeti: &[u8] = match m {
-        Mod::Intunecat => include_bytes!("../imagini/fundal-intunecat.png"),
-        Mod::Luminos => include_bytes!("../imagini/fundal-luminos.png"),
-    };
-    let img = image::load_from_memory_with_format(octeti, image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?
-        .to_rgb8();
-    Ok((img.width(), img.height(), img.into_raw()))
-}
-
 /// O imagine Slint din pixelii pictati de `harta`.
 fn imagine((w, h, px): (u32, u32, Vec<[u8; 4]>)) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(w, h);
@@ -3215,48 +3170,6 @@ mod teste {
         assert!(!ui.get_arata_ajutorul());
         tasta(Key::Return.into());
         assert_eq!(deschideri.get(), 1, "fara dialog, Enter deschide");
-    }
-
-    /// Fundalul cu unde: amandoua imaginile incluse se decodeaza, au marimea
-    /// pentru care e asezat (1920x900, centrat sub zona de sus) si marginile
-    /// lor sunt exact culoarea de fundal a temei — altfel, pe un ecran mai
-    /// mare decat imaginea, s-ar vedea cusatura. Daca pica dupa o schimbare de
-    /// paleta: ruleaza din nou `cercetare/fundal-unde/genereaza.py`.
-    #[test]
-    fn fundalul_cu_unde_se_decodeaza_si_se_topeste_in_tema() {
-        for m in [Mod::Intunecat, Mod::Luminos] {
-            let (w, h, px) = pixeli_fundal(m).expect("PNG-ul inclus se decodeaza");
-            assert_eq!((w, h, px.len()), (1920, 900, 1920 * 900 * 3), "{m:?}");
-            let f = m.paleta().fundal;
-            let fundal = [(f >> 16) as u8, (f >> 8) as u8, f as u8];
-            for (x, y) in [
-                (0, 0),
-                (w - 1, 0),
-                (0, h - 1),
-                (w - 1, h - 1),
-                (w / 2, 0),
-                (0, h / 2),
-            ] {
-                let i = ((y * w + x) * 3) as usize;
-                assert_eq!(px[i..i + 3], fundal, "{m:?}: marginea ({x}, {y})");
-            }
-            // si are ceva desenat: undele si sigla
-            assert!(
-                px.chunks(3).any(|p| p != fundal),
-                "{m:?}: imaginea nu e goala"
-            );
-        }
-    }
-
-    /// `incarca_fundal` pune imaginea pe fereastra, la marimea ei.
-    #[test]
-    fn incarca_fundal_pune_imaginea() {
-        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
-        let _ = slint::platform::set_platform(Box::new(Platforma(w.clone())));
-        let ui = FereastraLista::new().expect("fereastra de test");
-        incarca_fundal(&ui).expect("fundalul se incarca");
-        let m = ui.get_fundal_decor().size();
-        assert_eq!((m.width, m.height), (1920, 900));
     }
 
     /// Clicul pe rand, dublu clicul, X-ul, Esc, `o` si nota ajung la

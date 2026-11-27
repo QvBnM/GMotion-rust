@@ -82,12 +82,6 @@ fn main() {
         );
         let l = t.elapsed().as_millis();
         let t = Instant::now();
-        // MASURA_FARA_FUNDAL=1: fara fundalul cu unde, ca sa se vada cat costa
-        if std::env::var("MASURA_FARA_FUNDAL").is_err() {
-            gmotion_fereastra::incarca_fundal(&ui).expect("fundalul se decodeaza");
-        }
-        let f = t.elapsed().as_millis();
-        let t = Instant::now();
         match app.texte_obiect() {
             Some((x, y, setari)) => gmotion_fereastra::incarca_previzualizare(&ui, x, y, &setari),
             None => gmotion_fereastra::goleste_previzualizarea(&ui),
@@ -105,7 +99,7 @@ fn main() {
         w.draw_if_needed(|_| {});
         let dr = t.elapsed().as_millis();
         println!(
-            "{eticheta}: total {} ms (lista {l}, fundal {f}, previz {pz}, panou {pd}, cadru {dr})",
+            "{eticheta}: total {} ms (lista {l}, previz {pz}, panou {pd}, cadru {dr})",
             t0.elapsed().as_millis()
         );
     };
@@ -217,10 +211,6 @@ fn main() {
         let app = s.app.as_mut().unwrap();
         if let Some(p) = app.lista().selectat() {
             app.asigura_detalii(p, p + 1);
-        }
-        if std::env::var("MASURA_FARA_FUNDAL").is_err() {
-            gmotion_fereastra::incarca_fundal(&ui).expect("fundalul se decodeaza");
-            e_ui.set_fundal_decor(ui.get_fundal_decor());
         }
         let (Some(o), Some(model)) = (app.obiect().cloned(), app.model_editor()) else {
             return t.elapsed().as_secs_f64() * 1000.0;

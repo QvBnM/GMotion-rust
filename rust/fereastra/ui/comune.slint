@@ -790,12 +790,23 @@ export component EticRol inherits HorizontalLayout {
     }
 }
 
+// Umbra scurta sub o banda (antet, bara de sus): un gradient de 10 px peste
+// ce e dedesubt. Nu `drop-shadow`: un gradient fix nu se recalculeaza si nu
+// se amesteca decat pe fasia lui (2026-11-27).
+export component UmbraJos inherits Rectangle {
+    height: 10px;
+    background: @linear-gradient(180deg, Tema.intunecat ? #00000059 : #0f11151c 0%, #00000000 100%);
+}
+
 export component Antet inherits Rectangle {
     in property <string> loc;
     in property <string> sursa;
     in property <string> tinta;
-    // lista il pune pe banda ridicata a zonei de sus (2026-11-27)
-    in property <brush> fond: Tema.fundal;
+    // banda ridicata pe toate ecranele (Mihai, 2026-11-27: „margini cu umbre
+    // si delimitare per zona"); `umbra: false` cand banda continua dedesubt
+    // (lista: starile si filtrele stau pe aceeasi banda)
+    in property <brush> fond: Tema.suprafata;
+    in property <bool> umbra: true;
     height: 60px;
     background: root.fond;
     HorizontalLayout {
@@ -820,6 +831,7 @@ export component Antet inherits Rectangle {
         @children
     }
     Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
+    if root.umbra: UmbraJos { x: 0; y: parent.height; width: parent.width; }
 }
 
 // Card: suprafata ridicata, colturi de 14 px.
@@ -828,6 +840,43 @@ export component Card inherits Rectangle {
     border-radius: 14px;
     border-width: 1px;
     border-color: Tema.linie;
+}
+
+// Umbra de sub o zona rotunjita: gradient scurt sub marginea de jos, putin
+// mai ingust decat zona, ca sa nu iasa din colturi. Se pune ca frate, dupa
+// zona, in acelasi parinte fara layout.
+export component UmbraZona inherits Rectangle {
+    height: 7px;
+    background: @linear-gradient(180deg, Tema.intunecat ? #00000059 : #0f111514 0%, #00000000 100%);
+}
+
+// O zona de continut delimitata (Mihai, 2026-11-27: „margini cu umbre si
+// delimitare per zona"): suprafata ridicata, colturi de 14 px, contur si o
+// umbra sub ea. **Fara `drop-shadow` si fara un dreptunghi rotunjit mare
+// plin**: in software-renderer un fond rotunjit de marimea listei costa
+// ~1,5 ms la fiecare cadru de derulare, iar umbra cu blur inca ~2 ms
+// (`masura_ui`, 1920x1080). Aici fondul e o cruce de dreptunghiuri drepte,
+// colturile sunt patru patrate mici rotunjite, conturul un chenar fara fond,
+// iar umbra un gradient — acelasi aspect, cost ca al unui fond simplu.
+// Copiii se taie in dreptunghiul zonei (`clip`), nu in conturul rotunjit.
+export component Zona inherits Rectangle {
+    in property <length> raza: 14px;
+    UmbraZona { x: root.raza / 2; y: root.height - 1px; width: root.width - root.raza; }
+    Rectangle { x: 0; y: root.raza; width: root.width; height: root.height - 2 * root.raza; background: Tema.suprafata; }
+    Rectangle { x: root.raza; y: 0; width: root.width - 2 * root.raza; height: root.height; background: Tema.suprafata; }
+    Rectangle { x: 0; y: 0; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
+    Rectangle { x: root.width - 2 * root.raza; y: 0; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
+    Rectangle { x: 0; y: root.height - 2 * root.raza; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
+    Rectangle { x: root.width - 2 * root.raza; y: root.height - 2 * root.raza; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
+    Rectangle {
+        x: 1px;
+        y: 1px;
+        width: root.width - 2px;
+        height: root.height - 2px;
+        clip: true;
+        @children
+    }
+    Rectangle { border-radius: root.raza; border-width: 1px; border-color: Tema.linie; }
 }
 
 // --- randurile unui diff: aceleasi in editor si in previzualizarea din lista

@@ -11,7 +11,7 @@
 // ecran, in `src/scara.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Antet, ButonTema, Card, Ajutor, Despre, Rotitor, BaraDerulare, ZonaSfat } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Antet, ButonTema, Card, Zona, Ajutor, Despre, Rotitor, BaraDerulare, ZonaSfat } from "comune.slint";
 
 // Un server gasit in retea, cu etichetele din raspunsul SSRP.
 export struct ServerGasitUi {
@@ -403,7 +403,7 @@ component ListaBaze inherits Rectangle {
 }
 
 // O parte (martorul sau modificata): sus conexiunea, dedesubt bazele.
-component PanouParte inherits Card {
+component PanouParte inherits Zona {
     in property <ParteUi> p;
     in property <bool> fara-servere;
     // doar la modificata: bifa „Aceeasi conexiune"
@@ -909,7 +909,7 @@ export component FereastraConectare inherits Rectangle {
                 }
 
                 // tabul Sesiuni: toate comparatiile recente, in locul cardurilor
-                if root.tab == 1: Card {
+                if root.tab == 1: Zona {
                     vertical-stretch: 3;
                     min-height: 300px;
                     VerticalLayout {

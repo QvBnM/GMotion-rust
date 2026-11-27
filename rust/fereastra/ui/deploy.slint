@@ -8,7 +8,7 @@
 // (`deploy::StareDeploy::poate_scrie`), al doilea din `model_deploy::rezumat`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, Antet, ButonTema, Card, BaraDerulare, ButonInchide } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, Antet, ButonTema, Card, Zona, BaraDerulare, ButonInchide } from "comune.slint";
 
 export struct PasDeployUi {
     nr: string,
@@ -141,105 +141,110 @@ export component FereastraDeploy inherits Rectangle {
                 spacing: 28px;
 
                 // ---- stanga: ce pleaca, in ordinea din script
-                VerticalLayout {
+                // intr-o zona, ca opririle din dreapta (Mihai, 2026-11-27)
+                Zona {
                     horizontal-stretch: 1;
-                    spacing: 4px;
-                    HorizontalLayout {
-                        spacing: 16px;
-                        alignment: start;
-                        Text { text: root.numar; font-family: Tema.font-ui; font-size: 84px; font-weight: 600; color: Tema.text; letter-spacing: -4px; vertical-alignment: bottom; }
-                        VerticalLayout {
-                            alignment: end;
-                            padding-bottom: 14px;
-                            spacing: 2px;
-                            Text { text: Texte.pleaca-spre + root.tinta; font-family: Tema.font-ui; font-size: 22px; font-weight: 300; color: Tema.text; letter-spacing: -0.5px; }
-                            Text { text: root.rezumat + Texte.in-ordinea-din-script; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; }
+                    VerticalLayout {
+                        padding: 24px;
+                        padding-top: 12px;
+                        spacing: 4px;
+                        HorizontalLayout {
+                            spacing: 16px;
+                            alignment: start;
+                            Text { text: root.numar; font-family: Tema.font-ui; font-size: 84px; font-weight: 600; color: Tema.text; letter-spacing: -4px; vertical-alignment: bottom; }
+                            VerticalLayout {
+                                alignment: end;
+                                padding-bottom: 14px;
+                                spacing: 2px;
+                                Text { text: Texte.pleaca-spre + root.tinta; font-family: Tema.font-ui; font-size: 22px; font-weight: 300; color: Tema.text; letter-spacing: -0.5px; }
+                                Text { text: root.rezumat + Texte.in-ordinea-din-script; font-family: Tema.font-ui; font-size: 13px; color: Tema.text-secundar; }
+                            }
                         }
-                    }
-                    if root.sarite != "": Text { text: root.sarite; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.mod-text; }
-                    Rectangle { height: 14px; }
-                    Rectangle {
-                    vertical-stretch: 1;
-                    lista-pasi := ListView {
-                        for p[i] in root.pasi: Rectangle {
-                            height: 52px;
-                            // sina care leaga pasii, cu nodul numerotat
-                            Rectangle {
-                                x: 15px;
-                                width: 2px;
-                                y: i == 0 ? parent.height / 2 : 0;
-                                height: i == 0 || i == root.pasi.length - 1 ? parent.height / 2 : parent.height;
-                                background: Tema.linie;
-                                visible: root.pasi.length > 1;
-                            }
-                            Rectangle {
-                                x: 0;
-                                width: 32px;
-                                height: 32px;
-                                border-radius: 16px;
-                                background: Tema.suprafata;
-                                border-width: 1.5px;
-                                border-color: p.creeaza ? Tema.add-bara : Tema.mod-bara;
-                                Text { text: p.nr; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
-                            }
-                            Rectangle {
-                                x: 48px;
-                                width: parent.width - 48px;
-                                height: 44px;
-                                border-radius: 10px;
-                                background: rand.has-hover ? Tema.suprafata : transparent;
-                                HorizontalLayout {
-                                    padding-left: 12px;
-                                    padding-right: 8px;
-                                    spacing: 12px;
-                                    VerticalLayout {
-                                        alignment: center;
-                                        Rectangle {
-                                            width: 62px;
-                                            height: 22px;
-                                            border-radius: 6px;
-                                            background: p.creeaza ? Tema.add-fundal : Tema.mod-fundal;
-                                            Text { text: p.creeaza ? "CREATE" : "ALTER"; /* text-permis: cuvinte SQL */ font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
-                                        }
-                                    }
-                                    HorizontalLayout {
-                                        horizontal-stretch: 1;
-                                        alignment: start;
-                                        Text { text: p.schema + "."; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
-                                        Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
-                                    }
-                                    if root.mai-multe-baze: Text { width: 150px; text: p.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
-                                    // tipul cedeaza locul numelui cand ecranul e ingust: la 1024 px
-                                    // numele pasilor deveneau identice (auditul 2026-11-23)
-                                    if root.width > 1200px: Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
-                                    VerticalLayout {
-                                        alignment: center;
-                                        // vizibil si fara hover (slab): un control
-                                        // ascuns nu se descopera (V15)
-                                        ButonInchide {
-                                            latura: 26px;
-                                            cruce: 9px;
-                                            opacity: rand.has-hover ? 1 : 0.45;
-                                            apasat => { root.scoate-din-plan(p.baza, p.id); }
-                                        }
-                                    }
+                        if root.sarite != "": Text { text: root.sarite; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.mod-text; }
+                        Rectangle { height: 14px; }
+                        Rectangle {
+                        vertical-stretch: 1;
+                        lista-pasi := ListView {
+                            for p[i] in root.pasi: Rectangle {
+                                height: 52px;
+                                // sina care leaga pasii, cu nodul numerotat
+                                Rectangle {
+                                    x: 15px;
+                                    width: 2px;
+                                    y: i == 0 ? parent.height / 2 : 0;
+                                    height: i == 0 || i == root.pasi.length - 1 ? parent.height / 2 : parent.height;
+                                    background: Tema.linie;
+                                    visible: root.pasi.length > 1;
                                 }
-                                rand := TouchArea { }
+                                Rectangle {
+                                    x: 0;
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 16px;
+                                    background: Tema.suprafata;
+                                    border-width: 1.5px;
+                                    border-color: p.creeaza ? Tema.add-bara : Tema.mod-bara;
+                                    Text { text: p.nr; font-family: Tema.font-mono; font-size: 12px; color: Tema.text; }
+                                }
+                                Rectangle {
+                                    x: 48px;
+                                    width: parent.width - 48px;
+                                    height: 44px;
+                                    border-radius: 10px;
+                                    background: rand.has-hover ? Tema.suprafata : transparent;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 8px;
+                                        spacing: 12px;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 62px;
+                                                height: 22px;
+                                                border-radius: 6px;
+                                                background: p.creeaza ? Tema.add-fundal : Tema.mod-fundal;
+                                                Text { text: p.creeaza ? "CREATE" : "ALTER"; /* text-permis: cuvinte SQL */ font-family: Tema.font-mono; font-size: 11px; font-weight: 500; color: p.creeaza ? Tema.add-text : Tema.mod-text; }
+                                            }
+                                        }
+                                        HorizontalLayout {
+                                            horizontal-stretch: 1;
+                                            alignment: start;
+                                            Text { text: p.schema + "."; font-family: Tema.font-mono; font-size: 13px; color: Tema.text-tert; vertical-alignment: center; }
+                                            Text { text: p.nume; font-family: Tema.font-mono; font-size: 13px; color: Tema.text; vertical-alignment: center; overflow: elide; }
+                                        }
+                                        if root.mai-multe-baze: Text { width: 150px; text: p.baza; font-family: Tema.font-mono; font-size: 12px; color: Tema.text-secundar; vertical-alignment: center; overflow: elide; }
+                                        // tipul cedeaza locul numelui cand ecranul e ingust: la 1024 px
+                                        // numele pasilor deveneau identice (auditul 2026-11-23)
+                                        if root.width > 1200px: Text { width: 120px; text: p.tip; font-family: Tema.font-ui; font-size: 12.5px; color: Tema.text-secundar; vertical-alignment: center; }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            // vizibil si fara hover (slab): un control
+                                            // ascuns nu se descopera (V15)
+                                            ButonInchide {
+                                                latura: 26px;
+                                                cruce: 9px;
+                                                opacity: rand.has-hover ? 1 : 0.45;
+                                                apasat => { root.scoate-din-plan(p.baza, p.id); }
+                                            }
+                                        }
+                                    }
+                                    rand := TouchArea { }
+                                }
                             }
                         }
-                    }
-                    BaraDerulare {
-                        x: parent.width - self.width;
-                        height: parent.height;
-                        pozitie <=> lista-pasi.content-y;
-                        continut: lista-pasi.content-height;
-                        vizibil: lista-pasi.visible-height;
-                    }
+                        BaraDerulare {
+                            x: parent.width - self.width;
+                            height: parent.height;
+                            pozitie <=> lista-pasi.content-y;
+                            continut: lista-pasi.content-height;
+                            vizibil: lista-pasi.visible-height;
+                        }
+                        }
                     }
                 }
 
                 // ---- dreapta: cele trei opriri si scrierea
-                Card {
+                Zona {
                     width: 440px;
                     VerticalLayout {
                         padding: 24px;
