@@ -66,6 +66,15 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
+**2026-11-27, aspectul listei.** Fundalul e acum undele cu sigla, stinse
+(`cercetare/fundal-unde/`), doar sub zona de sus, care sta pe o banda ridicata.
+De la Mihai: „da" pe capturi in aplicatia lui. **Ecranul de pornire animat**
+(proba `cercetare/fundal-unde/pornire.gif`, cadrul `pornire-1366x768.png`,
+generatorul `genereaza.py`) il deschide Mihai intr-o alta sesiune: animatia
+ruleaza o data la pornire, se sare cu orice tasta sau clic; costul pe cadru
+se masoara cand se face.
+
+
 **2026-11-25, etapa 33 — de probat de Mihai pe Windows**
 (`unelte\porneste.bat --fps`, baza reala de ~12.000):
 
@@ -419,6 +428,11 @@ au primit raspuns pe 2026-11-19: vezi `JURNAL.md`.
 ## Capcane active
 
 Lucruri care te-ar face sa gresesti chiar acum, daca nu le stii:
+
+- **Fundalul cu unde e o imagine generata, nu cod.** O schimbare de paleta
+  (`fundal` in `jetoane.rs`) cere `python3 -I cercetare/fundal-unde/genereaza.py`,
+  altfel marginile imaginii nu mai sunt culoarea fundalului si apare cusatura
+  (testul `fundalul_cu_unde_se_decodeaza_si_se_topeste_in_tema` cade).
 
 - **Monitorul de cadre sta pe filtrul de evenimente winit** al ferestrei
   (`on_winit_window_event`, functia `unstable-winit-030`, deci `slint` e

@@ -2601,74 +2601,49 @@ pub fn incarca_harta(ui: &FereastraLista, selectat: Option<usize>) {
     ui.set_harta_inaltime(total);
 }
 
-/// Fundalul listei si al editorului: instantaneul hartii pe randurile de
-/// acum, estompat. Se reface doar cand s-a schimbat ceva din ce se vede pe
-/// harta (stari, revizuiri, modul); altfel ramane imaginea de dinainte.
-pub fn incarca_fundal_harta(ui: &FereastraLista, lista: &model_lista::Lista) {
-    use model_lista::Stare;
-    type Cheie = (usize, u64, bool);
+/// Fundalul listei si al editorului: undele si sigla gmotion, stinse,
+/// pentru modul de acum. Imaginile sunt PNG-uri incluse in binar, generate de
+/// `cercetare/fundal-unde/genereaza.py`; se decodeaza o data pe mod si se
+/// pastreaza. O imagine care nu se decodeaza lasa fundalul simplu si intoarce
+/// eroarea (aplicatia o scrie in jurnal); nu opreste fereastra.
+pub fn incarca_fundal(ui: &FereastraLista) -> Result<(), String> {
     thread_local! {
-        static ULTIMA: std::cell::RefCell<Option<Cheie>> = const { std::cell::RefCell::new(None) };
-    }
-    // din modelul Rust, nu din randurile Slint: citirea a 28.000 de
-    // `RandListaUi` (de doua ori) era jumatate din cost (2026-11-25)
-    let cod = |s: Stare| match s {
-        Stare::Modificat => 0,
-        Stare::DoarSursa => 1,
-        Stare::DoarBaza => 2,
-        Stare::Identic => 3,
-        Stare::Criptat => 4,
-    };
-    // toata compararea, nu doar ce trece de filtre: e decor, iar asa nu se
-    // reface la fiecare clic pe un filtru (~25-50 ms pe 28.000 de randuri)
-    let toate: Vec<usize> = (0..lista.obiecte().len()).collect();
-    let vizibile = &toate;
-    let mut amprenta: u64 = 1469598103934665603;
-    for &i in vizibile {
-        let o = &lista.obiecte()[i];
-        // fara `revizuit`: estompat, nu se vede, iar refacerea costa la
-        // fiecare bifa
-        for b in [cod(o.stare) as u64, o.tip.len() as u64] {
-            amprenta = (amprenta ^ b).wrapping_mul(1099511628211);
-        }
+        static DECODATE: std::cell::RefCell<Vec<(Mod, Image)>> = const { std::cell::RefCell::new(Vec::new()) };
     }
     let m = mod_curent(ui);
-    let cheie = (vizibile.len(), amprenta, m == Mod::Intunecat);
-    if ULTIMA.with_borrow(|u| *u == Some(cheie)) {
-        return;
+    if let Some(img) =
+        DECODATE.with_borrow(|d| d.iter().find(|(x, _)| *x == m).map(|(_, i)| i.clone()))
+    {
+        ui.set_fundal_decor(img);
+        return Ok(());
     }
-    let mut pe_tip: Vec<(String, Vec<harta::Celula>)> = Vec::new();
-    for (rand, &i) in vizibile.iter().enumerate() {
-        let o = &lista.obiecte()[i];
-        let c = harta::Celula {
-            rand,
-            stare: cod(o.stare),
-            revizuit: o.revizuit,
-        };
-        match pe_tip
-            .iter_mut()
-            .find(|(t, _)| t.as_str() == o.tip.as_str())
-        {
-            Some((_, v)) => v.push(c),
-            None => pe_tip.push((o.tip.clone(), vec![c])),
+    match pixeli_fundal(m) {
+        Ok((w, h, px)) => {
+            let buf = SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&px, w, h);
+            let img = Image::from_rgb8(buf);
+            DECODATE.with_borrow_mut(|d| d.push((m, img.clone())));
+            ui.set_fundal_decor(img);
+            Ok(())
+        }
+        Err(e) => {
+            ui.set_fundal_decor(Image::default());
+            Err(e)
         }
     }
-    pe_tip.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
-    // la jumatate de rezolutie: e estompata si scalata pe tot ecranul oricum,
-    // iar la 1200x760 refacerea (la fiecare schimbare de filtru) tinea firul
-    // ~50 ms pe 12.000 de obiecte (masura_ui, 2026-11-25)
-    let (latime, inaltime) = (600u32, 380u32);
-    let (grupuri, _) = harta::aseaza(pe_tip, latime as f32, inaltime as f32);
-    let (w, h, px) = harta::instantaneu_estompat(&grupuri, m.paleta(), latime, inaltime, 3);
-    // amestecata aici, o data, cu fundalul ecranului si opacitatea ei: o
-    // imagine cu transparenta, scalata pe tot ecranul, costa la fiecare cadru
-    // de derulare ~9 ms din ~13 (masura_ui, 1920x1080, 2026-11-25); opaca si
-    // desenata `pixelated`, ~1 ms. Fiind estompata, scalarea fara netezire nu
-    // se vede.
-    let opacitate = if m == Mod::Intunecat { 0.30 } else { 0.22 };
-    let px = harta::amesteca_pe_fundal(&px, m.paleta().fundal, opacitate);
-    ui.set_fundal_harta(imagine((w, h, px)));
-    ULTIMA.with_borrow_mut(|u| *u = Some(cheie));
+}
+
+/// Pixelii (RGB, opaci) fundalului cu unde pentru `m`: latime, inaltime,
+/// octetii pe randuri. Separat de `incarca_fundal` ca sa se poata testa fara
+/// fereastra.
+pub fn pixeli_fundal(m: Mod) -> Result<(u32, u32, Vec<u8>), String> {
+    let octeti: &[u8] = match m {
+        Mod::Intunecat => include_bytes!("../imagini/fundal-intunecat.png"),
+        Mod::Luminos => include_bytes!("../imagini/fundal-luminos.png"),
+    };
+    let img = image::load_from_memory_with_format(octeti, image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?
+        .to_rgb8();
+    Ok((img.width(), img.height(), img.into_raw()))
 }
 
 /// O imagine Slint din pixelii pictati de `harta`.
@@ -3240,6 +3215,48 @@ mod teste {
         assert!(!ui.get_arata_ajutorul());
         tasta(Key::Return.into());
         assert_eq!(deschideri.get(), 1, "fara dialog, Enter deschide");
+    }
+
+    /// Fundalul cu unde: amandoua imaginile incluse se decodeaza, au marimea
+    /// pentru care e asezat (1920x900, centrat sub zona de sus) si marginile
+    /// lor sunt exact culoarea de fundal a temei — altfel, pe un ecran mai
+    /// mare decat imaginea, s-ar vedea cusatura. Daca pica dupa o schimbare de
+    /// paleta: ruleaza din nou `cercetare/fundal-unde/genereaza.py`.
+    #[test]
+    fn fundalul_cu_unde_se_decodeaza_si_se_topeste_in_tema() {
+        for m in [Mod::Intunecat, Mod::Luminos] {
+            let (w, h, px) = pixeli_fundal(m).expect("PNG-ul inclus se decodeaza");
+            assert_eq!((w, h, px.len()), (1920, 900, 1920 * 900 * 3), "{m:?}");
+            let f = m.paleta().fundal;
+            let fundal = [(f >> 16) as u8, (f >> 8) as u8, f as u8];
+            for (x, y) in [
+                (0, 0),
+                (w - 1, 0),
+                (0, h - 1),
+                (w - 1, h - 1),
+                (w / 2, 0),
+                (0, h / 2),
+            ] {
+                let i = ((y * w + x) * 3) as usize;
+                assert_eq!(px[i..i + 3], fundal, "{m:?}: marginea ({x}, {y})");
+            }
+            // si are ceva desenat: undele si sigla
+            assert!(
+                px.chunks(3).any(|p| p != fundal),
+                "{m:?}: imaginea nu e goala"
+            );
+        }
+    }
+
+    /// `incarca_fundal` pune imaginea pe fereastra, la marimea ei.
+    #[test]
+    fn incarca_fundal_pune_imaginea() {
+        let w = MinimalSoftwareWindow::new(RepaintBufferType::NewBuffer);
+        let _ = slint::platform::set_platform(Box::new(Platforma(w.clone())));
+        let ui = FereastraLista::new().expect("fereastra de test");
+        incarca_fundal(&ui).expect("fundalul se incarca");
+        let m = ui.get_fundal_decor().size();
+        assert_eq!((m.width, m.height), (1920, 900));
     }
 
     /// Clicul pe rand, dublu clicul, X-ul, Esc, `o` si nota ajung la

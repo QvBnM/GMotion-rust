@@ -2595,3 +2595,41 @@ de una ramane umplutura, iar antetul obiectului ramane cum era. (3) Umplutura
 se aliniaza cu `SequenceMatcher` pe liniile fara spatii la capete. Paritatea
 (`conformitate.rs`, `paritate.py`, `calitate.rs`) nu s-a schimbat pe cazurile
 existente; obiectul e fixture in `rust/core/tests/date/`.
+
+---
+
+## 2026-11-27 — Fundalul: undele si sigla, in locul hartii estompate
+
+**Context.** Mihai nu voia harta estompata sub lista. Au fost probate doua
+seturi de fundaluri procedurale (discrete, apoi mai vizibile), toate respinse,
+apoi o imagine adusa de el: panglici de fire subtiri, de la portocaliu la
+turcoaz, particule, si sigla „g•motion" in mijloc. Cererea: sa fie pe fundal,
+sa nu blocheze vizual, zona de sus (antet, stari, filtre) neutra si delimitata.
+
+**Decizia.** Fundalul listei si al editorului e o imagine fixa, generata o
+data de `cercetare/fundal-unde/genereaza.py` (determinist) la 1920x900, cate
+una pe tema, **stinsa** (undele la ~45-55%, sigla la 35%), opaca si amestecata
+deja cu culoarea de fundal a temei. Se deseneaza la marimea ei, centrata si
+taiata (`image-fit: preserve`), deci fara scalare si fara amestec la cadru —
+mai ieftin decat harta (scalata `pixelated`). Marginile se topesc in fundal:
+pe un ecran mai mare decat imaginea nu se vede cusatura (testul
+`fundalul_cu_unde_se_decodeaza_si_se_topeste_in_tema`). Harta estompata
+(`incarca_fundal_harta`, `harta::{instantaneu_estompat, amesteca_pe_fundal}`)
+a iesit cu totul.
+
+**Alternative cantarite.** (a) Undele generate in Rust, la rularea
+aplicatiei, la marimea ferestrei: o rasterizare de fire subtiri si a siglei
+(font) in `fereastra`, mult cod pentru un decor, si refacere la fiecare
+redimensionare. (b) `@image-url` in `.slint`: fara dependinta, dar Slint
+include imaginea **decodata** in binar pentru software-renderer (~5 MB pe
+tema, fata de ~400 KB PNG). (c) Imagine mica, scalata cu netezire: firele
+subtiri se rup sau costa la fiecare cadru.
+
+**Dependinta.** `image` (doar `png`) trece din dev-dependencies in
+dependencies la `fereastra`: decodeaza cele doua PNG-uri incluse. Era deja
+compilata in spatiul de lucru (capturile), deci nu aduce cod nou in arbore.
+
+**Pastrat pentru mai tarziu.** Ecranul de pornire cu animatia (undele se
+deseneaza, apare sigla, apoi se stinge spre aplicatie) — proba in
+`cercetare/fundal-unde/pornire.gif` si cadrul plin `pornire-1366x768.png`.
+Mihai il pune intr-o alta sesiune; aici nu s-a facut nimic din el.

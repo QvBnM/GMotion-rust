@@ -14,7 +14,7 @@ lipsea.
 
 | Simptom | Cauza probabila | Fisier |
 |---|---|---|
-| Derularea sacadeaza / monitorul `--fps` arata cadre lungi | ceva desenat pe tot ecranul la fiecare cadru (fundalul hartii), sau randuri refacute in masa | `rust/fereastra/src/lib.rs` (`incarca_fundal_harta`, `incarca_lista`); masura: `rust/app/examples/masura_ui.rs` |
+| Derularea sacadeaza / monitorul `--fps` arata cadre lungi | ceva desenat pe tot ecranul la fiecare cadru (fundalul cu unde: trebuie sa ramana opac si nescalat), sau randuri refacute in masa | `rust/fereastra/src/lib.rs` (`incarca_fundal`, `incarca_lista`); masura: `rust/app/examples/masura_ui.rs` |
 | Cifrele monitorului de cadre par absurde | statistica pe ferestre de o secunda; momentele vin din filtrul winit | `rust/app/src/cadre.rs`, `porneste_monitorul_cadre` in `rust/app/src/main.rs` |
 | Cadre desenate in repaus | ceva cu `animation-tick()` sau un `Timer` care schimba o proprietate cat se vede | `rust/fereastra/ui/*.slint` (`Rotitor`, cursorul campului de editare) |
 | Clic in editor lent (`redesenare lenta`) | coloana / arborele refacute in masa, sau ecranul listei refacut din editor | `incarca_coloana_lista` in `rust/fereastra/src/lib.rs`, redesenarea din `rust/app/src/main.rs` (`redesenare pe bucati` la `debug`) |

@@ -486,20 +486,24 @@ export component EditorDiferente inherits Rectangle {
         root.editeaza-textul-final();
     }
 
-    // fundalul: instantaneul hartii, estompat si stins, ca accentul sa ramana
-    // pe text si pe panoul din fata (Mihai, 2026-11-25)
-    in property <image> fundal-harta;
-    Image {
-        x: 0;
-        y: 0;
+    // fundalul: undele si sigla, stinse (cercetare/fundal-unde, Mihai,
+    // 2026-11-27). Imaginea e opaca si amestecata deja cu fundalul temei, iar
+    // se deseneaza la marimea ei, centrata si taiata, fara scalare: copiere
+    // simpla la fiecare cadru, fara amestec si fara netezire. Marginile ei se
+    // topesc in fundal, deci pe un ecran mai mare decat ea nu se vede cusatura.
+    in property <image> fundal-decor;
+    Rectangle {
         width: root.width;
         height: root.height;
-        source: root.fundal-harta;
-        image-fit: cover;
-        // opaca si amestecata deja cu fundalul (`harta::amesteca_pe_fundal`):
-        // fara opacitate si fara netezire, ca derularea sa nu plateasca ~9 ms
-        // pe cadru pentru un decor (2026-11-25)
-        image-rendering: pixelated;
+        clip: true;
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: root.fundal-decor;
+            image-fit: preserve;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
     }
     taste := FocusScope {
         key-pressed(e) => {

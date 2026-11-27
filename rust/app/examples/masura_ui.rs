@@ -82,9 +82,9 @@ fn main() {
         );
         let l = t.elapsed().as_millis();
         let t = Instant::now();
-        // MASURA_FARA_FUNDAL=1: fara fundalul hartii, ca sa se vada cat costa
+        // MASURA_FARA_FUNDAL=1: fara fundalul cu unde, ca sa se vada cat costa
         if std::env::var("MASURA_FARA_FUNDAL").is_err() {
-            gmotion_fereastra::incarca_fundal_harta(&ui, app.lista());
+            gmotion_fereastra::incarca_fundal(&ui).expect("fundalul se decodeaza");
         }
         let f = t.elapsed().as_millis();
         let t = Instant::now();
@@ -219,8 +219,8 @@ fn main() {
             app.asigura_detalii(p, p + 1);
         }
         if std::env::var("MASURA_FARA_FUNDAL").is_err() {
-            gmotion_fereastra::incarca_fundal_harta(&ui, app.lista());
-            e_ui.set_fundal_harta(ui.get_fundal_harta());
+            gmotion_fereastra::incarca_fundal(&ui).expect("fundalul se decodeaza");
+            e_ui.set_fundal_decor(ui.get_fundal_decor());
         }
         let (Some(o), Some(model)) = (app.obiect().cloned(), app.model_editor()) else {
             return t.elapsed().as_secs_f64() * 1000.0;
