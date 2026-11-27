@@ -405,6 +405,27 @@ export component Chevron inherits Path {
     fill: transparent;
 }
 
+// Stilul „sculptat" (Mihai, 2026-11-27): tot ecranul e un singur material
+// (`Tema.suprafata`), iar zonele de continut sunt sapate in el — mai adanci,
+// cu umbra interioara egala pe toate laturile si o muchie fina.
+export global Sapat {
+    out property <color> adanc: Tema.intunecat ? #0e1222 : #eef0f5;
+    out property <color> umbra: Tema.intunecat ? #00000070 : #0f11151c;
+    out property <color> muchie: Tema.intunecat ? #070a14 : #d3d8e2;
+}
+export component Interior inherits Rectangle {
+    in property <length> raza: 14px;
+    // umbra interioara egala pe toate laturile, ca de la o lumina din fata
+    // (Mihai, 2026-11-27): inele concentrice rotunjite, din ce in ce mai
+    // stinse spre interior, deci si colturile sunt umbrite la fel
+    Rectangle { x: 0px; y: 0px; width: root.width - 0px; height: root.height - 0px; border-radius: Math.max(0px, root.raza - 0px); border-width: 2px; border-color: Sapat.umbra.transparentize(0.0); }
+    Rectangle { x: 2px; y: 2px; width: root.width - 4px; height: root.height - 4px; border-radius: Math.max(0px, root.raza - 2px); border-width: 2px; border-color: Sapat.umbra.transparentize(0.35); }
+    Rectangle { x: 4px; y: 4px; width: root.width - 8px; height: root.height - 8px; border-radius: Math.max(0px, root.raza - 4px); border-width: 2px; border-color: Sapat.umbra.transparentize(0.6); }
+    Rectangle { x: 6px; y: 6px; width: root.width - 12px; height: root.height - 12px; border-radius: Math.max(0px, root.raza - 6px); border-width: 2px; border-color: Sapat.umbra.transparentize(0.78); }
+    Rectangle { x: 8px; y: 8px; width: root.width - 16px; height: root.height - 16px; border-radius: Math.max(0px, root.raza - 8px); border-width: 2px; border-color: Sapat.umbra.transparentize(0.9); }
+    Rectangle { border-radius: root.raza; border-width: 1px; border-color: Sapat.muchie; }
+}
+
 // Buton secundar: pe `strat`, contur de 1 px, colturi de 8 px.
 export component Buton inherits Rectangle {
     in property <string> text;
@@ -790,23 +811,13 @@ export component EticRol inherits HorizontalLayout {
     }
 }
 
-// Umbra scurta sub o banda (antet, bara de sus): un gradient de 10 px peste
-// ce e dedesubt. Nu `drop-shadow`: un gradient fix nu se recalculeaza si nu
-// se amesteca decat pe fasia lui (2026-11-27).
-export component UmbraJos inherits Rectangle {
-    height: 10px;
-    background: @linear-gradient(180deg, Tema.intunecat ? #00000059 : #0f11151c 0%, #00000000 100%);
-}
-
 export component Antet inherits Rectangle {
     in property <string> loc;
     in property <string> sursa;
     in property <string> tinta;
-    // banda ridicata pe toate ecranele (Mihai, 2026-11-27: „margini cu umbre
-    // si delimitare per zona"); `umbra: false` cand banda continua dedesubt
-    // (lista: starile si filtrele stau pe aceeasi banda)
+    // acelasi material ca ecranul (Mihai, 2026-11-27: „sculptat"); jos, o
+    // muchie fina, fara umbra
     in property <brush> fond: Tema.suprafata;
-    in property <bool> umbra: true;
     height: 60px;
     background: root.fond;
     HorizontalLayout {
@@ -830,53 +841,35 @@ export component Antet inherits Rectangle {
         Rectangle { horizontal-stretch: 1; }
         @children
     }
-    Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
-    if root.umbra: UmbraJos { x: 0; y: parent.height; width: parent.width; }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Sapat.muchie; }
 }
 
 // Card: suprafata ridicata, colturi de 14 px.
 export component Card inherits Rectangle {
-    background: Tema.suprafata;
+    background: Sapat.adanc;
     border-radius: 14px;
-    border-width: 1px;
-    border-color: Tema.linie;
+    @children
+    Interior { raza: 14px; }
 }
 
-// Umbra de sub o zona rotunjita: gradient scurt sub marginea de jos, putin
-// mai ingust decat zona, ca sa nu iasa din colturi. Se pune ca frate, dupa
-// zona, in acelasi parinte fara layout.
-export component UmbraZona inherits Rectangle {
-    height: 7px;
-    background: @linear-gradient(180deg, Tema.intunecat ? #00000059 : #0f111514 0%, #00000000 100%);
-}
-
-// O zona de continut delimitata (Mihai, 2026-11-27: „margini cu umbre si
-// delimitare per zona"): suprafata ridicata, colturi de 14 px, contur si o
-// umbra sub ea. **Fara `drop-shadow` si fara un dreptunghi rotunjit mare
-// plin**: in software-renderer un fond rotunjit de marimea listei costa
-// ~1,5 ms la fiecare cadru de derulare, iar umbra cu blur inca ~2 ms
-// (`masura_ui`, 1920x1080). Aici fondul e o cruce de dreptunghiuri drepte,
-// colturile sunt patru patrate mici rotunjite, conturul un chenar fara fond,
-// iar umbra un gradient — acelasi aspect, cost ca al unui fond simplu.
-// Copiii se taie in dreptunghiul zonei (`clip`), nu in conturul rotunjit.
+// O zona de continut, sapata in material (Mihai, 2026-11-27): fond mai
+// adanc, colturi de 14 px, umbra interioara (`Interior`). **Fara
+// `drop-shadow` si fara un dreptunghi rotunjit mare plin**: in
+// software-renderer un fond rotunjit de marimea listei costa ~1,5 ms la
+// fiecare cadru de derulare, iar umbra cu blur inca ~2 ms (`masura_ui`,
+// 1920x1080). Aici fondul e o cruce de dreptunghiuri drepte plus patru
+// colturi mici rotunjite, iar umbra niste contururi fara fond. Copiii se
+// taie in dreptunghiul zonei (`clip`), nu in conturul rotunjit.
 export component Zona inherits Rectangle {
     in property <length> raza: 14px;
-    UmbraZona { x: root.raza / 2; y: root.height - 1px; width: root.width - root.raza; }
-    Rectangle { x: 0; y: root.raza; width: root.width; height: root.height - 2 * root.raza; background: Tema.suprafata; }
-    Rectangle { x: root.raza; y: 0; width: root.width - 2 * root.raza; height: root.height; background: Tema.suprafata; }
-    Rectangle { x: 0; y: 0; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
-    Rectangle { x: root.width - 2 * root.raza; y: 0; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
-    Rectangle { x: 0; y: root.height - 2 * root.raza; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
-    Rectangle { x: root.width - 2 * root.raza; y: root.height - 2 * root.raza; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Tema.suprafata; }
-    Rectangle {
-        x: 1px;
-        y: 1px;
-        width: root.width - 2px;
-        height: root.height - 2px;
-        clip: true;
-        @children
-    }
-    Rectangle { border-radius: root.raza; border-width: 1px; border-color: Tema.linie; }
+    Rectangle { x: 0; y: root.raza; width: root.width; height: root.height - 2 * root.raza; background: Sapat.adanc; }
+    Rectangle { x: root.raza; y: 0; width: root.width - 2 * root.raza; height: root.height; background: Sapat.adanc; }
+    Rectangle { x: 0; y: 0; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Sapat.adanc; }
+    Rectangle { x: root.width - 2 * root.raza; y: 0; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Sapat.adanc; }
+    Rectangle { x: 0; y: root.height - 2 * root.raza; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Sapat.adanc; }
+    Rectangle { x: root.width - 2 * root.raza; y: root.height - 2 * root.raza; width: 2 * root.raza; height: self.width; border-radius: root.raza; background: Sapat.adanc; }
+    Rectangle { x: 1px; y: 1px; width: root.width - 2px; height: root.height - 2px; clip: true; @children }
+    Interior { raza: root.raza; }
 }
 
 // --- randurile unui diff: aceleasi in editor si in previzualizarea din lista

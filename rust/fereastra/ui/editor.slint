@@ -20,7 +20,7 @@ export struct TabUi {
     previzualizare: bool,
     editat: bool,
 }
-import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat, ButonInchide, UmbraJos } from "comune.slint";
+import { Texte, Tema, ButonLimba, Semn, ButonTema, Bucati, Jumatate, RandUi, MarcajUi, LiniePrevizualizareUi, CampText, PastilaBloc, Chenar, LinieUi, BucatiEditare, BaraDerulare, EticRol, ZonaSfat, ButonInchide, Sapat } from "comune.slint";
 
 // Insula care pluteste peste panza.
 component Tasta inherits Rectangle {
@@ -224,7 +224,7 @@ export component EditorDiferente inherits Rectangle {
     out property <string> titlu: "gmotion — " + root.obiect-nume; // text-permis: marca
     preferred-width: 1440px;
     preferred-height: 900px;
-    background: Tema.fundal;
+    background: Tema.suprafata;
 
     // obiectul
     in property <string> obiect-schema;
@@ -1854,11 +1854,10 @@ export component EditorDiferente inherits Rectangle {
             y: 0;
             width: root.width;
             height: root.sus;
-            // banda ridicata, ca antetul celorlalte ecrane: linie plina si
-            // umbra scurta peste panza (Mihai, 2026-11-27)
+            // acelasi material ca restul ecranului, cu o muchie fina dedesubt
+            // (Mihai, 2026-11-27: „sculptat")
             background: Tema.suprafata;
-            Rectangle { y: parent.height - 1px; height: 1px; background: Tema.linie; }
-            UmbraJos { x: 0; y: parent.height; width: parent.width; }
+            Rectangle { y: parent.height - 1px; height: 1px; background: Sapat.muchie; }
             HorizontalLayout {
                 padding-left: 18px;
                 padding-right: 14px;
@@ -1912,7 +1911,7 @@ export component EditorDiferente inherits Rectangle {
             width: root.width;
             height: root.jos;
             background: Tema.suprafata;
-            Rectangle { height: 1px; y: 0; background: Tema.linie; }
+            Rectangle { height: 1px; y: 0; background: Sapat.muchie; }
             HorizontalLayout {
                 padding-left: 16px;
                 padding-right: 16px;

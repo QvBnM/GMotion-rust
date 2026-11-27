@@ -692,7 +692,7 @@ export component FereastraConectare inherits Rectangle {
     // cele doua carduri, unul langa altul, cu campurile lor (C-S6)
     min-width: 860px;
     min-height: 560px;
-    background: Tema.fundal;
+    background: Tema.suprafata;
 
     in property <ParteUi> sursa;
     in property <ParteUi> baza;
@@ -1027,13 +1027,10 @@ export component FereastraConectare inherits Rectangle {
                         Text { text: Texte.ce-face-aplicatia; font-family: Tema.font-ui; font-size: 12px; color: Tema.text-tert; vertical-alignment: center; horizontal-stretch: 1; }
                         Legatura { height: 22px; text: Texte.sterge-log; marime: 12.5px; apasat => { root.sterge-jurnalul(); } }
                     }
-                    Rectangle {
+                    // jurnalul, sapat ca celelalte zone (Mihai, 2026-11-27)
+                    Zona {
                         vertical-stretch: 1;
-                        border-radius: 8px;
-                        border-width: 1px;
-                        border-color: Tema.linie;
-                        background: Tema.cod-fundal;
-                        clip: true;
+                        raza: 8px;
                         VerticalLayout {
                             padding-left: 16px;
                             padding-right: 16px;

@@ -10,7 +10,7 @@
 // clicul pe harta, din `src/harta.rs`.
 
 import { ListView } from "std-widgets.slint";
-import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Zona, UmbraZona, UmbraJos, Semn, Chevron, Jumatate, RandUi, Ajutor, Despre, CampText, ZonaSfat, Sfat, BaraDerulare } from "comune.slint";
+import { Texte, Tema, ButonLimba, Buton, ButonPrincipal, Bifa, Antet, ButonTema, Card, Zona, Sapat, Semn, Chevron, Jumatate, RandUi, Ajutor, Despre, CampText, ZonaSfat, Sfat, BaraDerulare } from "comune.slint";
 
 export struct RandListaUi {
     // coloana din editor (etapa 16): un rand cu `antet` nevid e capul unui
@@ -809,7 +809,7 @@ export component FereastraLista inherits Rectangle {
     // sub atat, randul filtrelor nu mai incape nici singur
     min-width: 760px;
     preferred-height: 900px;
-    background: Tema.fundal;
+    background: Tema.suprafata;
 
     in property <string> sursa-baza;
     in property <string> tinta-baza;
@@ -1083,8 +1083,8 @@ export component FereastraLista inherits Rectangle {
         }
     }
 
-    // zona de sus: o banda ridicata (`suprafata`), inchisa jos de o linie
-    // plina si de o umbra scurta peste lista, ca sa se desparta clar de ea
+    // zona de sus: acelasi material ca restul ecranului (`suprafata`),
+    // despartita de lista printr-o muchie fina
     // (Mihai, 2026-11-27). Banda e fixa: nu se redeseneaza la derulare.
     property <length> y-separator: separator-sus.absolute-position.y - root.absolute-position.y;
     Rectangle {
@@ -1094,7 +1094,6 @@ export component FereastraLista inherits Rectangle {
         height: root.y-separator;
         background: Tema.suprafata;
     }
-    UmbraJos { x: 0; y: root.y-separator + separator-sus.height; width: root.width; }
     taste := FocusScope {
         key-pressed(e) => {
             if (e.text == Key.F11) { root.ecran-complet(); return accept; }
@@ -1137,7 +1136,6 @@ export component FereastraLista inherits Rectangle {
         VerticalLayout {
             // ---- antetul: semnul si bazele; tema si limba in dreapta
             Antet {
-                umbra: false;
                 sursa: root.sursa-baza;
                 tinta: root.tinta-baza;
                 VerticalLayout { alignment: center; ButonTema { alege(i) => { root.alege-tema(i); } } }
@@ -1445,7 +1443,8 @@ export component FereastraLista inherits Rectangle {
                 }
             }
             Rectangle { height: 10px; }
-            separator-sus := Rectangle { height: 2px; background: Tema.linie; }
+            // santul dintre zona de sus si lista: o muchie, fara directie
+            separator-sus := Rectangle { height: 1px; background: Sapat.muchie; }
 
             // ---- tabelul si previzualizarea
             HorizontalLayout {
@@ -1639,7 +1638,6 @@ export component FereastraLista inherits Rectangle {
                 // in contur, fiindca codul ajunge pana in colturile de jos
                 if root.detalii-deschise: Rectangle {
                     width: root.latime-panou;
-                    UmbraZona { x: 7px; y: parent.height - 1px; width: parent.width - 14px; }
                     Card {
                         width: root.latime-panou;
                         clip: true;

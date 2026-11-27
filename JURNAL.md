@@ -2672,3 +2672,14 @@ derularea ~4,0-4,6 ms (fata de 3,5-4,1 ms fara zone; masuratorile variaza
 cu ~1 ms intre rulari, s-a luat minimul din patru). Panoul de detalii ramane
 `Card` (codul ajunge in colturile de jos, deci trebuie taiat in contur), cu
 umbra-gradient sub el.
+
+
+**Aceeasi zi, mai tarziu: „sculptat".** Mihai a cerut o schita „sa para ca e
+sculptat in el", apoi „umbra centrata pe mijloc, nu dintr-o laterala", apoi
+„asa sa fie peste tot, un pic mai deschis". Deci: ecranul intreg pe
+`Tema.suprafata`, fara umbre peste benzi (doar o muchie fina); zonele
+sapate — fond `Sapat.adanc`, umbra interioara facuta din cinci contururi
+rotunjite concentrice, din ce in ce mai stinse (lumina din fata, colturile
+umbrite la fel ca laturile), fara muchii de lumina. Derularea listei:
+~4,5-5 ms pe cadru (fata de 3,5-4,1 ms fara zone); trei inele in loc de
+cinci nu s-au deosebit masurabil, deci au ramas cinci.

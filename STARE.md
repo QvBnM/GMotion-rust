@@ -66,13 +66,13 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**2026-11-27, aspectul.** Fara fundal decorativ (Mihai a renuntat la el):
-fiecare ecran are banda de sus ridicata, cu linie si umbra, iar zonele de
-continut (tabelul listei, panoul de detalii, deploy, conectarea) sunt
-delimitate, cu contur si umbra. De la Mihai: „da" pe capturi in aplicatia
-lui. **Ecranul de pornire animat** il deschide Mihai intr-o alta sesiune:
-tot ce trebuie e in `cercetare/fundal-unde/` (generatorul, cadrul plin,
-proba GIF); animatia ruleaza o data la pornire si se sare cu orice tasta.
+**2026-11-27, aspectul.** Fara fundal decorativ. Stilul e „sculptat": tot
+ecranul e un singur material, iar zonele de continut sunt sapate in el, cu
+umbra interioara egala pe toate laturile (`Zona` / `Card` in `comune.slint`).
+De la Mihai: „da" pe capturi in aplicatia lui. **Ecranul de pornire animat**
+il deschide Mihai intr-o alta sesiune: tot ce trebuie e in
+`cercetare/fundal-unde/` (generatorul, cadrul plin, proba GIF); animatia
+ruleaza o data la pornire si se sare cu orice tasta.
 
 **2026-11-25, etapa 33 — de probat de Mihai pe Windows**
 (`unelte\porneste.bat --fps`, baza reala de ~12.000):
