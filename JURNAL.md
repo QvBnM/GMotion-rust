@@ -2608,7 +2608,7 @@ sa nu blocheze vizual, zona de sus (antet, stari, filtre) neutra si delimitata.
 
 **Decizia.** Fundalul listei si al editorului e o imagine fixa, generata o
 data de `cercetare/fundal-unde/genereaza.py` (determinist) la 1920x900, cate
-una pe tema, **stinsa** (undele la ~45-55%, sigla la 35%), opaca si amestecata
+una pe tema, **stinsa** (undele la ~45-55%, sigla la 16-22%), opaca si amestecata
 deja cu culoarea de fundal a temei. Se deseneaza la marimea ei, centrata si
 taiata (`image-fit: preserve`), deci fara scalare si fara amestec la cadru —
 mai ieftin decat harta (scalata `pixelated`). Marginile se topesc in fundal:
@@ -2633,3 +2633,11 @@ compilata in spatiul de lucru (capturile), deci nu aduce cod nou in arbore.
 deseneaza, apare sigla, apoi se stinge spre aplicatie) — proba in
 `cercetare/fundal-unde/pornire.gif` si cadrul plin `pornire-1366x768.png`.
 Mihai il pune intr-o alta sesiune; aici nu s-a facut nimic din el.
+
+**A doua trecere, aceeasi zi.** „Arata putin cam sintetic": firele erau
+linii PIL suprapuse (zimti, moire), particulele puncte egale, petele discuri
+plate. Acum firele se deseneaza cu antialiere (puncte dese pe o grila de 3x3
+ori mai fina) si se aduna ca lumina, cu luminozitate proprie pe fir si de-a
+lungul lui; lumina difuza (bloom) pe trei raze si o curba moale in loc de
+taiere; particule de marimi diferite, o parte defocalizate; sigla mai stinsa,
+cu un halou slab. Generatorul nu mai cere decat numpy si Pillow.
