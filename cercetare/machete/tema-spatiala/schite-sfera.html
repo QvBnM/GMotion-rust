@@ -1,0 +1,435 @@
+<title>Schite sfera goMotion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Foaie de schite: coloana unica de carduri „creion", fiecare cu un desen SVG
+     si adnotari scrise de mana. Lumina = hartie de calc; intuneric = cerul din intro. */
+  :root {
+    --fundal: #f1efe8;
+    --foaie: #fbfaf6;
+    --linie: #cdc8ba;
+    --creion: #3a3a3c;
+    --text: #22232a;
+    --slab: #6d6e78;
+    --before: #b4761a;
+    --after: #0e7490;
+    --hartie-grid: rgba(58,58,60,0.055);
+    --f-titlu: 'Outfit', system-ui, sans-serif;
+    --f-mana: 'Architects Daughter', 'Comic Sans MS', cursive;
+    --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fundal: #070c18;
+      --foaie: #0d1322;
+      --linie: #273055;
+      --creion: #c3cbe6;
+      --text: #e9edfb;
+      --slab: #8e97b8;
+      --before: #fbbf24;
+      --after: #22d3ee;
+      --hartie-grid: rgba(195,203,230,0.05);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fundal: #070c18;
+    --foaie: #0d1322;
+    --linie: #273055;
+    --creion: #c3cbe6;
+    --text: #e9edfb;
+    --slab: #8e97b8;
+    --before: #fbbf24;
+    --after: #22d3ee;
+    --hartie-grid: rgba(195,203,230,0.05);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fundal);
+    color: var(--text);
+    font: 400 15px/1.6 var(--f-titlu);
+    background-image:
+      linear-gradient(var(--hartie-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--hartie-grid) 1px, transparent 1px);
+    background-size: 26px 26px, 26px 26px;
+  }
+  .lat {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 2.4rem 4rem;
+  }
+
+  /* --- antet --- */
+  header { display: flex; flex-direction: column; gap: 1rem; }
+  .marca { display: flex; align-items: center; gap: .3rem; }
+  .marca .g, .marca .w {
+    font: 700 clamp(30px, 5.4vw, 46px)/1 var(--f-titlu);
+    letter-spacing: -.03em;
+  }
+  .marca .g { font-family: var(--f-mono); font-weight: 600; }
+  .marca .par { font: 600 clamp(18px,3vw,26px)/1 var(--f-mono); color: var(--after); opacity: .75; }
+  .marca svg { display: block; }
+  h1 {
+    font: 600 clamp(22px, 3.4vw, 31px)/1.2 var(--f-titlu);
+    margin: 0; text-wrap: balance; letter-spacing: -.02em;
+  }
+  .sub { color: var(--slab); max-width: 62ch; margin: 0; }
+  .stamp {
+    font: 400 13px/1.4 var(--f-mana);
+    color: var(--slab);
+    border: 1px dashed var(--linie);
+    border-radius: 3px;
+    padding: .25rem .6rem;
+    align-self: flex-start;
+    transform: rotate(-1.2deg);
+  }
+
+  h2 {
+    font: 600 18px/1.3 var(--f-titlu);
+    margin: 3.2rem 0 1rem;
+    letter-spacing: .01em;
+    display: flex; align-items: center; gap: .7rem;
+  }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--linie); }
+
+  /* --- tabelul de corespondenta --- */
+  .harta { border: 1px solid var(--linie); border-radius: 4px; background: var(--foaie); overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; }
+  th, td { text-align: left; padding: .62rem .9rem; border-bottom: 1px solid var(--linie); vertical-align: top; }
+  th { font: 600 11.5px/1.3 var(--f-mono); letter-spacing: .09em; text-transform: uppercase; color: var(--slab); }
+  tr:last-child td { border-bottom: 0; }
+  td.el { font-family: var(--f-mono); font-size: 13px; white-space: nowrap; }
+  td.dat { font-size: 14px; }
+  .pct { font-variant-numeric: tabular-nums; }
+
+  /* --- cardurile de schita --- */
+  .schite { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .card {
+    border: 1px solid var(--linie);
+    border-radius: 5px;
+    background: var(--foaie);
+    padding: 1rem 1.1rem 1.15rem;
+    display: flex; flex-direction: column; gap: .75rem;
+    min-width: 0;
+  }
+  .card > svg { width: 100%; height: auto; display: block; }
+  .cap { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .cap b { font: 600 16.5px/1.25 var(--f-titlu); }
+  .eticheta {
+    font: 600 10px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase;
+    border: 1px solid var(--linie); border-radius: 3px; padding: .25rem .4rem; color: var(--slab);
+    margin-left: auto; white-space: nowrap;
+  }
+  .eticheta.acum { color: var(--before); border-color: var(--before); }
+  .card p { margin: 0; font-size: 14.2px; color: var(--text); }
+  .card p.de-ce { color: var(--slab); font-size: 13.6px; }
+  .cost {
+    font: 400 13px/1.45 var(--f-mana);
+    color: var(--slab);
+    border-top: 1px dashed var(--linie);
+    padding-top: .6rem;
+    margin-top: auto;
+  }
+  .cost b { font-family: var(--f-mono); font-size: 11.5px; font-weight: 600; color: var(--creion); }
+
+  /* --- liste --- */
+  ol.pasi, ul.lista { margin: 0; padding-left: 1.2rem; display: grid; gap: .55rem; }
+  ol.pasi li, ul.lista li { font-size: 14.6px; }
+  ol.pasi li b, ul.lista li b { font-weight: 600; }
+  code {
+    font: 400 12.6px var(--f-mono);
+    background: color-mix(in srgb, var(--creion) 9%, transparent);
+    padding: .1rem .3rem; border-radius: 3px;
+  }
+  .doua { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .drum { border: 1px solid var(--linie); border-left: 3px solid var(--before); border-radius: 4px; background: var(--foaie); padding: .95rem 1.05rem; min-width: 0; }
+  .drum:last-child { border-left-color: var(--after); }
+  .drum h3 { margin: 0 0 .4rem; font: 600 15.5px var(--f-titlu); }
+  .drum p { margin: 0 0 .5rem; font-size: 14px; color: var(--slab); }
+  footer { margin-top: 3rem; border-top: 1px solid var(--linie); padding-top: 1rem; color: var(--slab); font-size: 13.4px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .puls { animation: puls 3.6s ease-in-out infinite; transform-origin: center; }
+    @keyframes puls { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
+  }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="3" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.1" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- sfera taiata in diagonala: cupola Before (sus-stanga), cupola After (jos-dreapta) -->
+    <symbol id="sfera" viewBox="0 0 100 100">
+      <g transform="rotate(-21 50 50)">
+        <path d="M6 48 A44 44 0 0 1 94 48" fill="none" stroke="var(--before)" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M6 56 A44 44 0 0 0 94 56" fill="none" stroke="var(--after)" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M14 42 L34 42 M44 40 L62 40 M72 42 L86 42" stroke="var(--before)" stroke-width="1.5" opacity=".6" stroke-linecap="round"/>
+        <path d="M14 62 L30 62 M40 64 L58 64 M68 62 L86 62" stroke="var(--after)" stroke-width="1.5" opacity=".6" stroke-linecap="round"/>
+        <line x1="10" y1="52" x2="90" y2="52" stroke="var(--creion)" stroke-width="1" stroke-dasharray="3 4" opacity=".55"/>
+        <circle class="puls" cx="50" cy="52" r="7" fill="none" stroke="var(--before)" stroke-width="2"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="lat">
+<header>
+  <div class="marca">
+    <span class="par">&lt;</span><span class="g">g</span>
+    <svg width="42" height="42" viewBox="0 0 100 100" aria-hidden="true"><use href="#sfera"/></svg>
+    <span class="w">Motion</span><span class="par">/&gt;</span>
+  </div>
+  <h1>Ce construim in jurul sferei</h1>
+  <p class="sub">Opt schite, in creion. Ideea care le leaga: sfera nu ramane decor de pornire. Fiecare parametru al ei primeste un echivalent in date, asa ca aceeasi imagine spune tot timpul ceva adevarat despre Before si After. Dupa ce alegi dintre ele, le facem randate la 1440x900, langa aplicatie.</p>
+  <span class="stamp">schite de lucru &middot; 2026-11-28 &middot; nimic din ele nu e in cod inca</span>
+</header>
+
+<h2>Corespondenta: ce vede ochiul, ce spune baza</h2>
+<p class="sub" style="margin-bottom:1rem">Asta e miezul propunerii. Daca tabelul de mai jos e aprobat, toate schitele devin varianta aceleiasi idei, si nicio animatie nu mai e gratuita.</p>
+<div class="harta">
+  <table>
+    <thead><tr><th>Element din sfera</th><th>Ce arata, din date</th><th>Sursa</th></tr></thead>
+    <tbody>
+      <tr><td class="el">fisura mediana</td><td class="dat">cat de departe sunt bazele: inchisa = identice, larga = multe diferente</td><td class="dat"><code>modificate / total</code></td></tr>
+      <tr><td class="el">cupola chihlimbar</td><td class="dat">Before (starea de dinainte)</td><td class="dat">partea stanga din conectare</td></tr>
+      <tr><td class="el">cupola turcoaz</td><td class="dat">After (starea de dupa)</td><td class="dat">partea dreapta</td></tr>
+      <tr><td class="el">celulele aprinse</td><td class="dat">obiectele modificate; celulele stinse, cele identice</td><td class="dat">lista de obiecte</td></tr>
+      <tr><td class="el">scannerul</td><td class="dat">compararea in curs; pozitia lui = <span class="pct">%</span> citit</td><td class="dat">progresul citirii</td></tr>
+      <tr><td class="el">nucleul aprins</td><td class="dat">deploy scris cu succes, o singura data, la final</td><td class="dat">rezultatul scrierii</td></tr>
+      <tr><td class="el">fragmentele aruncate</td><td class="dat">obiecte care au cazut la garda sau la verificare</td><td class="dat">garda de deploy</td></tr>
+      <tr><td class="el">steaua cazatoare</td><td class="dat">un eveniment care s-a terminat cat nu te uitai</td><td class="dat">firul de lucru</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Schitele</h2>
+<div class="schite">
+
+  <!-- 1 -->
+  <div class="card">
+    <div class="cap"><b>Pornirea</b><span class="eticheta acum">deja hotarat</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita ecranului de pornire: sfera mare in centru, pe tot ecranul">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <use href="#sfera" x="130" y="42" width="100" height="100"/>
+        <path d="M118 162 h124" stroke="var(--creion)" stroke-width="7" opacity=".3" stroke-linecap="round"/>
+        <path d="M96 178 h168" stroke="var(--creion)" stroke-width="3" opacity=".18" stroke-linecap="round"/>
+      </g>
+      <text x="180" y="36" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">o data la pornire</text>
+      <text x="180" y="199" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--slab)">orice tasta sare peste</text>
+    </svg>
+    <p>Intrarea pe care o ai deja: literele, sfera, tagline-ul. Ruleaza o data si se sare cu orice tasta.</p>
+    <p class="de-ce">Singura schita pe care o avem deja hotarata (e in <code>STARE.md</code>). Restul se agata de ea.</p>
+    <div class="cost"><b>COST:</b> cadre pregenerate, o imagine pe cadru. Fara date, fara mouse.</div>
+  </div>
+
+  <!-- 2 -->
+  <div class="card">
+    <div class="cap"><b>Meniul radial</b><span class="eticheta">propunere</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita meniu radial: sfera in centru, patru casete in jurul ei">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <use href="#sfera" x="148" y="70" width="64" height="64"/>
+        <rect x="42" y="34" width="106" height="44" rx="3" fill="none" stroke="var(--before)" stroke-width="1.8"/>
+        <rect x="212" y="34" width="106" height="44" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <rect x="42" y="128" width="106" height="44" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <rect x="212" y="128" width="106" height="44" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <path d="M148 60 L160 86 M212 60 L200 86 M148 146 L160 120 M212 146 L200 120" stroke="var(--creion)" stroke-width="1" opacity=".4"/>
+      </g>
+      <text x="95" y="60" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--before)">COMPARARE</text>
+      <text x="265" y="60" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--slab)">KIT SQL</text>
+      <text x="95" y="154" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--slab)">ANALIZA</text>
+      <text x="265" y="154" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--slab)">CONFIGURARE</text>
+    </svg>
+    <p>Cele patru categorii in jurul sferei. Cea activa e aprinsa; „in curand" e punctat. Hover pe o categorie aprinde partea din sfera care ii corespunde.</p>
+    <p class="de-ce">Cel mai firesc loc pentru sfera dupa pornire, dar inseamna un clic in plus la fiecare deschidere a aplicatiei.</p>
+    <div class="cost"><b>COST:</b> sfera mica (64 px), cadre pregenerate. Hover-ul cere 4 seturi de cadre, sau atenuare pe culoare.</div>
+  </div>
+
+  <!-- 3 -->
+  <div class="card">
+    <div class="cap"><b>Meniul split, cu sfera vie</b><span class="eticheta">propunere</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita meniu split: stanga lista de categorii, dreapta sfera si banda de stare">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <line x1="178" y1="8" x2="178" y2="202" stroke="var(--linie)"/>
+        <rect x="26" y="34" width="134" height="30" rx="3" fill="none" stroke="var(--before)" stroke-width="1.8"/>
+        <rect x="26" y="72" width="134" height="30" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <rect x="26" y="110" width="134" height="30" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <rect x="26" y="148" width="134" height="30" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <use href="#sfera" x="233" y="44" width="72" height="72"/>
+        <rect x="196" y="140" width="138" height="42" rx="3" fill="none" stroke="var(--linie)"/>
+        <path d="M206 152 h80 M206 162 h108 M206 172 h64" stroke="var(--creion)" stroke-width="1.6" opacity=".35" stroke-linecap="round"/>
+      </g>
+      <text x="269" y="132" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">ultima comparare, vie</text>
+      <text x="265" y="196" text-anchor="middle" font-family="var(--f-mono)" font-size="8.5" fill="var(--slab)">server &middot; jurnal &middot; ultimul deploy</text>
+    </svg>
+    <p>Stanga: cele patru directii, ca randuri. Dreapta: sfera desenata cu cifrele ultimei comparari, plus banda de stare si comanda <code>cli</code> echivalenta.</p>
+    <p class="de-ce">Varianta pe care o recomand din analiza de dinainte, acum cu sfera in locul prezentarii. Ecranul porneste lucrul, nu prezinta produsul.</p>
+    <div class="cost"><b>COST:</b> sfera trebuie sa reflecte date, deci desenata in Rust. Se masoara cu <b>--fps</b>.</div>
+  </div>
+
+  <!-- 4 -->
+  <div class="card">
+    <div class="cap"><b>Sfera din antet</b><span class="eticheta">propunere</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita: sfera mica in antetul aplicatiei, cu trei stari ale fisurii">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="34" rx="3" fill="none" stroke="var(--linie)"/>
+        <use href="#sfera" x="18" y="14" width="22" height="22"/>
+        <path d="M48 25 h44" stroke="var(--creion)" stroke-width="5" opacity=".3" stroke-linecap="round"/>
+        <rect x="258" y="15" width="38" height="20" rx="3" fill="none" stroke="var(--linie)"/>
+        <rect x="302" y="15" width="38" height="20" rx="3" fill="none" stroke="var(--linie)"/>
+        <rect x="8" y="52" width="344" height="150" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 5"/>
+        <use href="#sfera" x="44" y="104" width="46" height="46"/>
+        <use href="#sfera" x="152" y="104" width="46" height="46"/>
+        <use href="#sfera" x="260" y="104" width="46" height="46"/>
+      </g>
+      <text x="180" y="76" text-anchor="middle" font-family="var(--f-mana)" font-size="12.5" fill="var(--slab)">aceeasi sfera, trei stari ale fisurii</text>
+      <text x="67" y="166" text-anchor="middle" font-family="var(--f-mono)" font-size="8.5" fill="var(--slab)">0 diferente</text>
+      <text x="175" y="166" text-anchor="middle" font-family="var(--f-mono)" font-size="8.5" fill="var(--slab)">cateva</text>
+      <text x="283" y="166" text-anchor="middle" font-family="var(--f-mono)" font-size="8.5" fill="var(--slab)">multe</text>
+      <text x="180" y="190" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">cat de departe sunt bazele, fara sa citesti o cifra</text>
+    </svg>
+    <p>Dupa meniu, sfera se micsoreaza la ~22 px si ramane in antet, pe toate ecranele. Fisura ei spune cat de departe sunt bazele, fara sa citesti o cifra.</p>
+    <p class="de-ce">Aici sfera inceteaza sa fie ecran de pornire si devine instrument. Cea mai ieftina si cea mai utila dintre schite.</p>
+    <div class="cost"><b>COST:</b> mic. Opt stari discrete ale fisurii, opt imagini coapte la compilare. Zero desenare pe cadru.</div>
+  </div>
+
+  <!-- 5 -->
+  <div class="card">
+    <div class="cap"><b>Scannerul = progresul adevarat</b><span class="eticheta">propunere</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita: sfera cu linia de scanare la mijloc, in locul barei de progres">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <use href="#sfera" x="130" y="40" width="100" height="100"/>
+        <line x1="112" y1="96" x2="248" y2="96" stroke="var(--after)" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M100 96 l10 -5 v10 z" fill="var(--after)"/>
+        <rect x="96" y="158" width="168" height="12" rx="6" fill="none" stroke="var(--linie)"/>
+        <rect x="98" y="160" width="104" height="8" rx="4" fill="var(--creion)" opacity=".25"/>
+      </g>
+      <text x="268" y="100" font-family="var(--f-mono)" font-size="9" fill="var(--after)">61%</text>
+      <text x="180" y="150" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">linia urca pe masura ce se citeste</text>
+      <text x="180" y="186" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">bara de dedesubt poate dispara</text>
+    </svg>
+    <p>Compararea dureaza secunde pe o baza mare. Scannerul care exista deja in intro devine progresul: pozitia lui pe sfera = procentul citit, iar celulele deja trecute rama aprinse.</p>
+    <p class="de-ce">Un progres care arata cat a mai ramas, in loc de o bara care se umple si o animatie care se intampla pe lange ea.</p>
+    <div class="cost"><b>COST:</b> mediu. Doua imagini (sfera stinsa + masca scannerului) si o linie desenata peste. Nu cere rasterizare completa.</div>
+  </div>
+
+  <!-- 6 -->
+  <div class="card">
+    <div class="cap"><b>Celulele = obiectele</b><span class="eticheta">de cantarit</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita: hover pe o celula hexagonala arata numele obiectului real">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <use href="#sfera" x="52" y="54" width="104" height="104"/>
+        <polygon points="128,84 138,78 148,84 148,96 138,102 128,96" fill="none" stroke="var(--before)" stroke-width="2"/>
+        <path d="M150 88 L196 72 h8" stroke="var(--before)" stroke-width="1.2" fill="none"/>
+        <rect x="204" y="58" width="130" height="28" rx="3" fill="none" stroke="var(--before)" stroke-width="1.4"/>
+        <rect x="204" y="106" width="130" height="68" rx="3" fill="none" stroke="var(--linie)" stroke-dasharray="4 4"/>
+        <path d="M214 122 h86 M214 134 h104 M214 146 h70 M214 158 h94" stroke="var(--creion)" stroke-width="1.4" opacity=".3" stroke-linecap="round"/>
+      </g>
+      <text x="269" y="76" text-anchor="middle" font-family="var(--f-mono)" font-size="8.5" fill="var(--before)">dbo.usp_SyncInventory</text>
+      <text x="269" y="100" text-anchor="middle" font-family="var(--f-mana)" font-size="11.5" fill="var(--slab)">clic = sari in lista, pe el</text>
+      <text x="104" y="178" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">92 celule, obiecte adevarate</text>
+    </svg>
+    <p>HUD-ul de inspectie exista deja in intro, cu nume inventate. Il umplem cu obiectele adevarate ale comparatiei: hover = numele si operatia, clic = sari pe randul lui in lista.</p>
+    <p class="de-ce">Frumos, dar sfera are 92 de celule si o baza reala are 12.000 de obiecte. Ori arata doar cele mai schimbate 92, ori devine o minciuna.</p>
+    <div class="cost"><b>COST:</b> mare. Cere rasterizare in Rust, mouse pe sfera si o regula de alegere a celor 92. Candidat pentru mai tarziu.</div>
+  </div>
+
+  <!-- 7 -->
+  <div class="card">
+    <div class="cap"><b>Lovitura = deploy scris</b><span class="eticheta">propunere</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita: aprinderea nucleului la deploy reusit, fragmente la obiecte respinse">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <use href="#sfera" x="96" y="38" width="96" height="96"/>
+        <circle cx="144" cy="86" r="30" fill="none" stroke="var(--before)" stroke-width="1.2" opacity=".6"/>
+        <circle cx="144" cy="86" r="42" fill="none" stroke="var(--before)" stroke-width="1" opacity=".35"/>
+        <path d="M144 38 v-14 M144 148 v14 M96 86 h-14 M192 86 h14" stroke="var(--before)" stroke-width="1.4" stroke-linecap="round"/>
+        <polygon points="226,72 232,68 238,72 238,80 232,84 226,80" fill="none" stroke="var(--slab)" stroke-width="1.4"/>
+        <polygon points="252,96 258,92 264,96 264,104 258,108 252,104" fill="none" stroke="var(--slab)" stroke-width="1.4"/>
+        <rect x="88" y="162" width="184" height="26" rx="3" fill="none" stroke="var(--linie)"/>
+      </g>
+      <text x="180" y="179" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--slab)">41 obiecte scrise &middot; 2 respinse de garda</text>
+      <text x="290" y="88" text-anchor="middle" font-family="var(--f-mana)" font-size="11.5" fill="var(--slab)">ce n-a intrat,</text>
+      <text x="290" y="102" text-anchor="middle" font-family="var(--f-mana)" font-size="11.5" fill="var(--slab)">pleaca din sfera</text>
+    </svg>
+    <p>Aprinderea nucleului se intampla o singura data: cand deploy-ul s-a scris. Fragmentele care pleaca din fisura sunt exact obiectele care au cazut la garda, si se pot numara pe ecran.</p>
+    <p class="de-ce">Momentul cel mai incarcat al aplicatiei primeste un semn pe masura, iar semnul inseamna ceva. O animatie care se declanseaza singura, la temporizator, ar strica tocmai asta.</p>
+    <div class="cost"><b>COST:</b> mediu. Cadre pregenerate pentru aprindere; numarul fragmentelor se ia din rezultat, nu la intamplare.</div>
+  </div>
+
+  <!-- 8 -->
+  <div class="card">
+    <div class="cap"><b>Steaua = eveniment, nu ceas</b><span class="eticheta">propunere</span></div>
+    <svg viewBox="0 0 360 210" role="img" aria-label="Schita: steaua cazatoare loveste sfera cand o lucrare de fundal s-a terminat">
+      <g filter="url(#rough)">
+        <rect x="8" y="8" width="344" height="194" rx="4" fill="none" stroke="var(--linie)"/>
+        <path d="M34 36 L188 92" stroke="var(--before)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M34 36 L74 50" stroke="var(--before)" stroke-width="4" stroke-linecap="round" opacity=".35"/>
+        <use href="#sfera" x="172" y="70" width="74" height="74"/>
+        <rect x="80" y="160" width="200" height="26" rx="3" fill="none" stroke="var(--linie)"/>
+      </g>
+      <text x="180" y="177" text-anchor="middle" font-family="var(--f-mono)" font-size="9" fill="var(--slab)">compararea s-a terminat &middot; 318 modificate</text>
+      <text x="108" y="118" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">o stea = o lucrare terminata</text>
+      <text x="108" y="134" text-anchor="middle" font-family="var(--f-mana)" font-size="12" fill="var(--slab)">cat nu te uitai la ecran</text>
+    </svg>
+    <p>In intro steaua cade pe temporizator. In aplicatie cade doar cand ceva s-a terminat pe firul de fundal: compararea, citirea unei baze, scrierea unui script. Lovitura duce ochiul exact la banda care spune ce s-a intamplat.</p>
+    <p class="de-ce">Rezolva o problema reala: lucrarile lungi se termina cat te uiti in alta parte, si acum nu exista nimic care sa te cheme inapoi.</p>
+    <div class="cost"><b>COST:</b> mic, daca sfera e in antet: steaua e o dunga desenata pe un strat de deasupra, 0,6 s, apoi dispare.</div>
+  </div>
+</div>
+
+<h2>Cum intra in Slint, concret</h2>
+<p class="sub" style="margin-bottom:1.1rem">Macheta ruleaza in browser pe canvas. Aplicatia nu are canvas si deseneaza software, pentru RDP si servere fara placa video. Deci fiecare schita de mai sus pica pe unul din doua drumuri, si drumul decide ce se poate si cat costa.</p>
+<div class="doua">
+  <div class="drum">
+    <h3>(a) Cadre coapte inainte</h3>
+    <p>Generatorul scrie imaginile o data, la compilare; aplicatia le ruleaza in bucla sau alege una dupa stare.</p>
+    <ul class="lista">
+      <li>Pret zero pe cadru, intra orice forma, orice numar de fete.</li>
+      <li>Fara mouse, fara stari continue: doar ce a fost copt.</li>
+      <li>Acopera schitele <b>1</b>, <b>2</b>, <b>4</b>, <b>7</b>, <b>8</b>.</li>
+    </ul>
+  </div>
+  <div class="drum">
+    <h3>(b) Rasterizare in Rust</h3>
+    <p>Sfera se deseneaza pe fiecare cadru intr-un <code>SharedPixelBuffer</code>, din cifrele comparatiei.</p>
+    <ul class="lista">
+      <li>Pastreaza rotatia dupa mouse, fisura continua, celulele legate de obiecte.</li>
+      <li>Cere o dependinta noua (intrare in <code>JURNAL.md</code>) si se masoara cu <code>--fps</code>.</li>
+      <li>Necesar pentru <b>3</b>, <b>5</b> partial, si <b>6</b> in intregime.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Ce propun sa facem, in ordinea asta</h2>
+<ol class="pasi">
+  <li><b>Aprobi tabelul de corespondenta</b> (sus). Fara el, orice animatie urmatoare e decor si se discuta la infinit.</li>
+  <li><b>Schita 4, sfera din antet</b> — cea mai ieftina si singura care se vede tot timpul. Drum (a), opt imagini coapte. Daca asta merge, marca e prezenta in aplicatie fara niciun cost.</li>
+  <li><b>Schita 3, meniul split</b> — ecranul de pornire cerut, cu sfera in locul prezentarii produsului. Aici se decide si drumul (b).</li>
+  <li><b>Schitele 5, 7, 8</b> — legate de momente reale: comparare, deploy, lucrare terminata.</li>
+  <li><b>Schita 6</b> ultima, sau niciodata: are nevoie de o regula onesta de alegere a celor 92 de celule dintre 12.000 de obiecte.</li>
+</ol>
+
+<h2>Ce raspuns imi trebuie de la tine</h2>
+<ul class="lista">
+  <li>Tabelul de corespondenta: bun asa, sau schimbi un rand?</li>
+  <li>Ordinea de mai sus: pornim de la <b>4</b> (ieftin, mereu vizibil) sau de la <b>3</b> (ecranul de pornire, mai spectaculos, mai scump)?</li>
+  <li>Sfera din antet o vrei si pe ecranul editorului, unde desenarea e deja partea grea, sau doar in lista si conectare?</li>
+  <li>Numele categoriei 2 ramane deschis din analiza de ieri: „Kit SQL pe baza" fata de „Deploy", care e deja pasul final al comparatiei.</li>
+</ul>
+
+<footer>Schite, nu machete randate. Dupa ce alegi, le desenez la 1440x900 in ambele teme si le pun langa capturile aplicatiei, cum cere regula de etapa.</footer>
+</div>

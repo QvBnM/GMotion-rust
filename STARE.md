@@ -6,7 +6,8 @@
 >
 > Ordinea de pornire e in `CLAUDE.md`, sectiunea 0.
 
-**Actualizat:** 2026-11-25 · commit `da2f02a` + etapa 33 · branch `claude/clever-cerf-hjk2qh`
+**Actualizat:** 2026-11-28 · etapa 34 deschisa · branch `claude/admiring-mccarthy-o6s86e`
+(acelasi commit cu `claude/clever-cerf-hjk2qh`: branch-urile nu diverg)
 **Poarta:** verde aici (peste 825 de teste; `core` pe wasm32, tot codul si pe windows-msvc; paritate Python/Rust)
 
 > **Cele doua branch-uri sunt unite.** `claude/dreamy-ritchie-jdnfct` a intrat
@@ -66,13 +67,34 @@ unelte\porneste.bat --previzualizare # instantaneul sintetic, fara server
 
 ## Urmatorul pas concret
 
-**2026-11-27, aspectul.** Fara fundal decorativ. Stilul e „sculptat": tot
-ecranul e un singur material, iar zonele de continut sunt sapate in el, cu
-umbra interioara egala pe toate laturile (`Zona` / `Card` in `comune.slint`).
-De la Mihai: „da" pe capturi in aplicatia lui. **Ecranul de pornire animat**
-il deschide Mihai intr-o alta sesiune: tot ce trebuie e in
-`cercetare/fundal-unde/` (generatorul, cadrul plin, proba GIF); animatia
-ruleaza o data la pornire si se sare cu orice tasta.
+**2026-11-28, etapa 34 — tema spatiala, pregatita, nepornita.** Nu poate
+porni pana nu se incheie etapa 33, care asteapta probele lui Mihai pe Windows
+(lista din sectiunea urmatoare). Mihai a
+aprobat: pornirea si meniul pe tema spatiala (cer cu praf stelar, sfera
+hexagonala taiata in diagonala pe post de litera „o"), iar de la conectare
+incolo materialul sculptat de azi. Machetele si prototipul rulabil sunt in
+`cercetare/machete/tema-spatiala/`; decizia, cu alternativele cantarite, in
+`JURNAL.md` la 2026-11-28; criteriile, in `etape/34-tema-spatiala.md`.
+
+**Primul pas al etapei e o masuratoare, nu cod de desen:** `masura_ui` da
+costul pe cadru al cerului in trei variante (imagine coapta statica, imagine
+coapta cu deriva, desenat integral), si cifra decide varianta. Al doilea
+lucru nedecis e sfera: cadre pregenerate (ieftin, fara mouse) sau
+rasterizare in Rust intr-un `SharedPixelBuffer` (cu mouse, dependinta noua).
+
+Nimic din `rust/` nu e inca atins de etapa asta.
+
+**Deci urmatorul pas concret, azi, e tot etapa 33:** probele de mai jos, pe
+Windows. Cand vin cifrele si se inchide 33, etapa 34 trece pe `ACTIVA` si
+incepe cu masuratoarea.
+
+**2026-11-27, aspectul, in continuare valabil pe ecranele de lucru.** Fara
+fundal decorativ acolo. Stilul e „sculptat": tot ecranul e un singur
+material, iar zonele de continut sunt sapate in el, cu umbra interioara egala
+pe toate laturile (`Zona` / `Card` in `comune.slint`). De la Mihai: „da" pe
+capturi in aplicatia lui. Materialul vechi cu unde ramane in
+`cercetare/fundal-unde/`; ecranul de pornire se face acum din macheta
+spatiala, nu din el.
 
 **2026-11-25, etapa 33 — de probat de Mihai pe Windows**
 (`unelte\porneste.bat --fps`, baza reala de ~12.000):

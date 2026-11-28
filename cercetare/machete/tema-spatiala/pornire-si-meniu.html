@@ -1,0 +1,945 @@
+<title>Pornire si meniul goMotion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Trei stari, un singur fundal: praful ramane vizibil tot timpul, iar
+     suprafetele sunt translucide peste el.
+       intrare  -> lockup in centru, bara de incarcare
+       meniu    -> alegerile stanga, marca vie dreapta (side by side)
+       ecran    -> ecranul dedicat categoriei alese, singur pe scena
+     Lockup-ul e acelasi obiect in toate trei: se muta, nu se redeseneaza. */
+  :root {
+    --text: #eef1ff;
+    --t2: #a3acd0;
+    --t3: #7d87ab;
+    --linie: rgba(120,140,200,.22);
+    --linie-slaba: rgba(120,140,200,.12);
+    --sticla: rgba(13,19,36,.52);
+    --sticla-tare: rgba(10,15,30,.74);
+    --before: #fbbf24;
+    --after: #22d3ee;
+    --pe-accent: #1a1200;
+    --ok: #3ddc97;
+    --f-ui: 'Outfit', system-ui, -apple-system, sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(circle at 50% 46%, #0a1122 0%, #060b18 58%, #050811 100%);
+    color: var(--text);
+    font: 400 14px/1.55 var(--f-ui);
+    overflow: hidden; user-select: none; -webkit-font-smoothing: antialiased;
+  }
+  #scena { position: relative; height: 100%; width: 100%; }
+  #praf {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; transition: opacity 1.1s ease-out;
+  }
+  #praf.pe { opacity: 1; }
+
+  /* ---------- straturile ---------- */
+  .strat {
+    position: absolute; inset: 0;
+    opacity: 0; pointer-events: none;
+    transition: opacity .5s ease-out;
+    padding: clamp(18px, 3vh, 34px) max(20px, env(safe-area-inset-right, 0px))
+             calc(clamp(18px, 3vh, 34px) + env(safe-area-inset-bottom, 0px))
+             max(20px, env(safe-area-inset-left, 0px));
+  }
+  .strat.pe { opacity: 1; pointer-events: auto; }
+
+  /* ---------- lockup ---------- */
+  #strat-marca { position: absolute; inset: 0; z-index: 30; pointer-events: none; display: grid; place-items: center; }
+  #coloana-intrare { display: flex; flex-direction: column; align-items: center; gap: clamp(18px, 2.6vh, 28px); }
+  #lockup {
+    --word: clamp(2.5rem, 6.2vw, 5.2rem);
+    display: flex; flex-direction: column; align-items: center; gap: .55em;
+    transform-origin: center center;
+    transition: transform .9s cubic-bezier(.2,.9,.2,1);
+    will-change: transform;
+  }
+  #rand-marca { display: inline-flex; align-items: center; gap: calc(var(--word) * .06); }
+  #rand-marca .par {
+    font: 600 calc(var(--word) * .54)/1 var(--f-mono);
+    color: rgba(34,211,238,.72); text-shadow: 0 0 14px rgba(34,211,238,.4);
+    transform: translateY(-.06em);
+  }
+  #glifa-g {
+    display: inline-flex; align-items: center;
+    opacity: 0; transform: translateX(26px) scale(.86); filter: blur(5px);
+    transition: opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1), filter .8s;
+  }
+  #glifa-g.pe { opacity: 1; transform: none; filter: none; }
+  #glifa-g .g {
+    font: 800 calc(var(--word) * .98)/1 var(--f-mono);
+    background: linear-gradient(145deg, #fff 24%, #fde68a 50%, #fbbf24 70%, #22d3ee 93%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    padding: .16em .04em .30em; margin: -.16em 0 -.30em;
+  }
+  #cuib-sfera {
+    position: relative; flex: none;
+    width: calc(var(--word) * .68); height: calc(var(--word) * .68);
+    top: calc(var(--word) * .06);
+    opacity: 0; transform: scale(.2) rotate(-28deg);
+    transition: opacity 1s cubic-bezier(.16,1,.3,1), transform 1s cubic-bezier(.16,1,.3,1);
+  }
+  #cuib-sfera.pe { opacity: 1; transform: none; }
+  #sfera { position: absolute; top: 50%; left: 50%; width: 196%; height: 196%; transform: translate(-50%,-50%); }
+  #cuvant { display: inline-flex; align-items: baseline; font: 700 var(--word)/1 var(--f-ui); letter-spacing: -.03em; }
+  #cuvant span {
+    display: inline-block; padding: .16em 0 .30em; margin: -.16em 0 -.30em;
+    background: linear-gradient(175deg, #fff 22%, #f1f5f9 60%, #bae6fd 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    opacity: 0; transform: translateY(14px) translateX(-12px) scale(.93); filter: blur(5px);
+    transition: opacity .62s cubic-bezier(.16,1,.3,1), transform .62s cubic-bezier(.16,1,.3,1), filter .62s;
+  }
+  #cuvant span.pe { opacity: 1; transform: none; filter: none; }
+  #tagline {
+    font: 600 calc(var(--word) * .158)/1 var(--f-mono);
+    letter-spacing: .26em; text-transform: uppercase; color: rgba(148,163,184,.8);
+    white-space: nowrap; opacity: 0; transition: opacity .6s ease-out;
+  }
+  #tagline.pe { opacity: 1; }
+  #tagline .a { color: var(--before); } #tagline .c { color: var(--after); }
+
+  /* ---------- bara de incarcare ---------- */
+  #incarcare { width: min(360px, 70vw); display: grid; gap: .55rem; justify-items: center; opacity: 0; transition: opacity .5s ease-out; }
+  #incarcare.pe { opacity: 1; }
+  #sina { width: 100%; height: 2px; background: rgba(120,140,200,.18); border-radius: 2px; overflow: hidden; }
+  #umple { height: 100%; width: 0%; background: linear-gradient(90deg, var(--before), #fff 55%, var(--after)); box-shadow: 0 0 12px rgba(251,191,36,.5); }
+  #stare-incarcare { font: 600 10.5px/1 var(--f-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--t3); display: flex; gap: .8rem; align-items: baseline; }
+  #stare-incarcare b { color: var(--before); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- meniul: side by side ---------- */
+  #meniu { z-index: 20; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(20px, 4vw, 56px); align-items: center; }
+  #alegeri { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-width: 540px; justify-self: end; width: 100%; }
+  .titlu-grup { font: 600 10px/1 var(--f-mono); letter-spacing: .24em; text-transform: uppercase; color: var(--t3); margin-bottom: 4px; }
+  .alegere {
+    display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
+    padding: 14px 16px; border-radius: 11px; min-width: 0;
+    border: 1px solid var(--linie-slaba); background: var(--sticla);
+    color: inherit; font: inherit;
+    opacity: 0; transform: translateX(-14px);
+    transition: opacity .45s ease-out, transform .45s cubic-bezier(.2,.9,.2,1),
+                border-color .16s, background .16s;
+  }
+  .alegere.intrat { opacity: 1; transform: none; }
+  .alegere:hover { border-color: rgba(120,140,200,.4); background: rgba(22,32,60,.62); }
+  .alegere:focus-visible, .alegere.tinta { outline: 2px solid var(--after); outline-offset: 2px; }
+  .alegere.acum { border-color: rgba(251,191,36,.45); box-shadow: inset 3px 0 0 var(--before); }
+  .tasta {
+    width: 26px; height: 26px; flex: none; border-radius: 7px;
+    border: 1px solid var(--linie); display: grid; place-items: center;
+    font: 600 11px/1 var(--f-mono); color: var(--t3);
+  }
+  .alegere.acum .tasta { background: var(--before); border-color: var(--before); color: var(--pe-accent); }
+  .text-al { min-width: 0; display: grid; gap: 2px; }
+  .text-al b { font: 600 16px/1.2 var(--f-ui); }
+  .text-al span { font: 400 12px/1.35 var(--f-mono); color: var(--t3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .insigna { margin-left: auto; flex: none; font: 600 9px/1 var(--f-mono); letter-spacing: .14em; color: var(--t3); border: 1px solid var(--linie); border-radius: 4px; padding: 4px 5px; }
+  .insigna.viu { color: var(--before); border-color: rgba(251,191,36,.45); }
+
+  #marca-dreapta { display: flex; flex-direction: column; align-items: center; gap: 26px; min-width: 0; }
+  #slot-meniu { width: min(430px, 40vw); height: clamp(84px, 12vh, 132px); flex: none; }
+  #banda-stare { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; font: 400 11.5px/1 var(--f-mono); color: var(--t3); }
+  #banda-stare i { font-style: normal; display: inline-flex; align-items: center; gap: 7px; }
+  .bec { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 7px rgba(61,220,151,.6); }
+  .bec.cald { background: var(--before); box-shadow: 0 0 7px rgba(251,191,36,.6); }
+  #taste-meniu { position: absolute; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); text-align: center; font: 400 10.5px/1 var(--f-mono); letter-spacing: .16em; color: var(--t3); }
+
+  /* ---------- ecranul dedicat ---------- */
+  #ecran { z-index: 22; display: flex; flex-direction: column; gap: 18px; }
+  #antet-ecran { display: flex; align-items: center; gap: 14px; flex: none; min-height: 40px; }
+  #slot-antet { width: 132px; height: 24px; flex: none; }
+  #inapoi {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    background: var(--sticla); border: 1px solid var(--linie-slaba); border-radius: 8px;
+    color: var(--t2); font: 400 12px/1 var(--f-mono); padding: 8px 11px;
+  }
+  #inapoi:hover { color: #fff; border-color: rgba(120,140,200,.42); }
+  #inapoi:focus-visible { outline: 2px solid var(--after); outline-offset: 2px; }
+  #titlu-ecran { font: 600 18px/1 var(--f-ui); margin: 0 0 0 4px; letter-spacing: -.01em; }
+  .chip { font: 600 9.5px/1 var(--f-mono); letter-spacing: .14em; padding: 5px 7px; border-radius: 5px; border: 1px solid var(--linie); color: var(--t2); }
+  .chip.b { color: var(--before); border-color: rgba(251,191,36,.4); }
+  .chip.a { color: var(--after); border-color: rgba(34,211,238,.4); }
+  #corp-ecran { flex: 1; min-height: 0; overflow: auto; display: grid; gap: 16px; align-content: start; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .zona { border: 1px solid var(--linie-slaba); border-radius: 11px; background: var(--sticla); padding: 15px 17px 16px; min-width: 0; }
+  .zona.lata { grid-column: 1 / -1; }
+  .zona h2 { font: 600 11px/1 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--t3); margin: 0 0 12px; }
+  .perechi { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .parte { border: 1px solid var(--linie-slaba); border-radius: 9px; padding: 12px 13px; min-width: 0; background: rgba(8,13,26,.4); }
+  .parte.b { border-top: 2px solid var(--before); } .parte.a { border-top: 2px solid var(--after); }
+  .parte h3 { margin: 0 0 10px; font: 600 10.5px/1 var(--f-mono); letter-spacing: .18em; }
+  .parte.b h3 { color: var(--before); } .parte.a h3 { color: var(--after); }
+  .camp { display: grid; gap: 4px; margin-bottom: 9px; }
+  .camp:last-child { margin-bottom: 0; }
+  .camp label { font: 400 9.5px/1 var(--f-mono); letter-spacing: .12em; color: var(--t3); }
+  .camp .val { border: 1px solid var(--linie-slaba); border-radius: 6px; background: rgba(5,9,20,.6); padding: 8px 10px; font: 400 12px/1.2 var(--f-mono); color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rand-recent { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--linie-slaba); min-width: 0; }
+  .rand-recent:last-child { border-bottom: 0; }
+  .rand-recent .cale { font: 400 12px/1.3 var(--f-mono); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rand-recent .nr { flex: none; font: 600 10.5px/1 var(--f-mono); color: var(--before); font-variant-numeric: tabular-nums; }
+  .rand-recent .cand { margin-left: auto; flex: none; font: 400 10.5px/1 var(--f-mono); color: var(--t3); }
+  pre.cmd { margin: 0; padding: 11px 13px; border-radius: 8px; background: rgba(5,9,20,.66); border: 1px solid var(--linie-slaba); overflow-x: auto; font: 400 11.5px/1.65 var(--f-mono); color: var(--t2); }
+  pre.cmd b { color: var(--after); font-weight: 400; }
+  .buton-mare { height: 40px; padding: 0 20px; border: 0; border-radius: 9px; cursor: pointer; background: var(--before); color: var(--pe-accent); font: 600 14px/1 var(--f-ui); display: inline-flex; align-items: center; gap: 9px; }
+  .buton-mare span { font: 400 11px/1 var(--f-mono); opacity: .7; }
+  .buton-mare:focus-visible { outline: 2px solid var(--after); outline-offset: 3px; }
+  .ramuri { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+  .ramuri li { display: flex; align-items: center; gap: 10px; font: 400 12.5px/1.4 var(--f-mono); color: var(--t2); }
+  .ramuri li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--t3); flex: none; }
+  .ramuri li s { margin-left: auto; text-decoration: none; font-size: 9.5px; letter-spacing: .14em; color: var(--t3); border: 1px solid var(--linie); border-radius: 4px; padding: 3px 5px; }
+  .explic { margin: 0 0 14px; font-size: 13.5px; color: var(--t2); max-width: 62ch; }
+
+  /* ---------- unelte ale machetei ---------- */
+  #unelte { position: absolute; z-index: 40; right: 14px; bottom: 14px; display: flex; gap: 8px; padding-right: env(safe-area-inset-right, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  #unelte button { font: 400 11px/1 var(--f-mono); color: var(--t2); cursor: pointer; background: var(--sticla-tare); border: 1px solid var(--linie); border-radius: 6px; padding: 7px 9px; }
+  #unelte button:hover { color: #fff; }
+  #sari { position: absolute; z-index: 40; left: 0; right: 0; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); text-align: center; font: 400 10.5px/1 var(--f-mono); letter-spacing: .14em; color: var(--t3); opacity: 0; transition: opacity .4s; }
+  #sari.pe { opacity: 1; }
+
+  @media (max-width: 900px) {
+    #meniu { grid-template-columns: 1fr; align-content: center; gap: 26px; }
+    #alegeri { justify-self: center; max-width: 480px; }
+    #marca-dreapta { order: -1; }
+    #slot-meniu { width: min(360px, 76vw); height: 92px; }
+  }
+  @media (max-width: 560px) {
+    .alegere { padding: 11px 12px; gap: 11px; }
+    .text-al span { display: none; }
+    #banda-stare { font-size: 10.5px; gap: 12px; }
+    #corp-ecran { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #praf, #glifa-g, #cuib-sfera, #cuvant span, #incarcare, #tagline, .strat, .alegere, #lockup { transition-duration: 1ms !important; }
+  }
+</style>
+
+<div id="scena">
+  <canvas id="praf" aria-hidden="true"></canvas>
+
+  <!-- ---------------- meniul: alegerile stanga, marca dreapta ---------------- -->
+  <section class="strat" id="meniu" aria-hidden="true">
+    <div id="alegeri">
+      <div class="titlu-grup">Ce facem</div>
+      <button class="alegere acum" type="button" data-ecran="comparare">
+        <span class="tasta">1</span>
+        <span class="text-al"><b>Comparare obiecte</b><span>before fata de after</span></span>
+        <span class="insigna viu">ACUM</span>
+      </button>
+      <button class="alegere" type="button" data-ecran="kit">
+        <span class="tasta">2</span>
+        <span class="text-al"><b>Kit SQL pe baza</b><span>un script de livrare, pus pe baza</span></span>
+        <span class="insigna">IN CURAND</span>
+      </button>
+      <button class="alegere" type="button" data-ecran="analiza">
+        <span class="tasta">3</span>
+        <span class="text-al"><b>Analiza initiala</b><span>ce s-a personalizat intr-o baza</span></span>
+        <span class="insigna">IN CURAND</span>
+      </button>
+      <button class="alegere" type="button" data-ecran="config">
+        <span class="tasta">4</span>
+        <span class="text-al"><b>Configurare</b><span>conexiuni, aspect, jurnal</span></span>
+        <span class="insigna">IN CURAND</span>
+      </button>
+    </div>
+
+    <div id="marca-dreapta">
+      <div id="slot-meniu" aria-hidden="true"></div>
+      <div id="banda-stare">
+        <i><span class="bec"></span>SRV-DEV, 38 ms</i>
+        <i><span class="bec"></span>jurnal 2,1 MB</i>
+        <i><span class="bec cald"></span>ultimul deploy: 41 / 2</i>
+      </div>
+    </div>
+
+    <div id="taste-meniu">1&ndash;4 ALEGE &nbsp;&middot;&nbsp; ENTER DESCHIDE &nbsp;&middot;&nbsp; ESC INCHIDE</div>
+  </section>
+
+  <!-- ---------------- ecranul dedicat ---------------- -->
+  <section class="strat" id="ecran" aria-hidden="true">
+    <div id="antet-ecran">
+      <button id="inapoi" type="button">&larr; Meniu <span style="opacity:.6">Esc</span></button>
+      <div id="slot-antet" aria-hidden="true"></div>
+      <h1 id="titlu-ecran">Comparare obiecte</h1>
+      <span class="chip b" id="chip-b">BEFORE</span>
+      <span class="chip a" id="chip-a">AFTER</span>
+    </div>
+    <div id="corp-ecran"></div>
+  </section>
+
+  <!-- ---------------- lockup: acelasi obiect in toate starile ---------------- -->
+  <div id="strat-marca">
+    <div id="coloana-intrare">
+      <div id="lockup">
+        <div id="rand-marca">
+          <span class="par" aria-hidden="true">&lt;</span>
+          <span id="glifa-g" aria-hidden="true"><span class="g">g</span></span>
+          <span id="cuib-sfera"><canvas id="sfera"></canvas></span>
+          <span id="cuvant" aria-label="goMotion"></span>
+          <span class="par" aria-hidden="true">/&gt;</span>
+        </div>
+        <div id="tagline" aria-hidden="true"><span class="a">BEFORE</span> // <span class="c">T-SQL DIFF ENGINE</span> // <span class="c">AFTER</span></div>
+      </div>
+
+      <div id="incarcare" aria-hidden="true">
+        <div id="sina"><div id="umple"></div></div>
+        <div id="stare-incarcare"><span id="pas-text">pornesc</span><b id="pas-pct">0%</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sari" aria-hidden="true">ORICE TASTA SARE PESTE</div>
+  <div id="unelte">
+    <button id="btn-reia" type="button">Reia intrarea</button>
+    <button id="btn-meniu" type="button">Sari la meniu</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var REDUS = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var lockup  = document.getElementById('lockup');
+  var cuvant  = document.getElementById('cuvant');
+  var glifa   = document.getElementById('glifa-g');
+  var cuib    = document.getElementById('cuib-sfera');
+  var tagline = document.getElementById('tagline');
+  var incarc  = document.getElementById('incarcare');
+  var umple   = document.getElementById('umple');
+  var pasText = document.getElementById('pas-text');
+  var pasPct  = document.getElementById('pas-pct');
+  var sariEl  = document.getElementById('sari');
+  var meniu   = document.getElementById('meniu');
+  var ecran   = document.getElementById('ecran');
+  var corpEc  = document.getElementById('corp-ecran');
+  var titluEc = document.getElementById('titlu-ecran');
+  var chipB   = document.getElementById('chip-b');
+  var chipA   = document.getElementById('chip-a');
+  var slotMen = document.getElementById('slot-meniu');
+  var slotAnt = document.getElementById('slot-antet');
+  var prafCv  = document.getElementById('praf');
+  var sferaCv = document.getElementById('sfera');
+  var alegeri = Array.prototype.slice.call(document.querySelectorAll('.alegere'));
+
+  'Motion'.split('').forEach(function (ch, i) {
+    var s = document.createElement('span');
+    s.textContent = ch;
+    s.style.transitionDelay = (i * 0.055) + 's';
+    cuvant.appendChild(s);
+  });
+  var litere = Array.prototype.slice.call(cuvant.querySelectorAll('span'));
+
+  var PASI = [
+    { p: 0.18, t: 'citesc configurarea' },
+    { p: 0.44, t: 'pornesc motorul de comparare' },
+    { p: 0.68, t: 'deschid sesiunile salvate' },
+    { p: 0.88, t: 'caut servere' },
+    { p: 1.00, t: 'gata' }
+  ];
+
+  // ---------------------------------------------------------------- ecranele
+  var ECRANE = {
+    comparare: {
+      titlu: 'Comparare obiecte', roluri: true,
+      corp:
+        '<div class="zona lata" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">' +
+          '<button class="buton-mare" type="button">Conecteaza <span>Enter</span></button>' +
+          '<span style="font-size:13px;color:var(--t2)">sau reia o comparare de mai jos</span>' +
+        '</div>' +
+        '<div class="zona lata"><h2>Conectare</h2><div class="perechi">' +
+          '<div class="parte b"><h3>BEFORE</h3>' +
+            '<div class="camp"><label>SERVER</label><div class="val">SRV-DEV</div></div>' +
+            '<div class="camp"><label>BAZA</label><div class="val">ERP_TEST</div></div></div>' +
+          '<div class="parte a"><h3>AFTER</h3>' +
+            '<div class="camp"><label>SERVER</label><div class="val">SRV-DEV</div></div>' +
+            '<div class="camp"><label>BAZA</label><div class="val">ERP_PROD</div></div></div>' +
+        '</div></div>' +
+        '<div class="zona"><h2>Comparari recente</h2>' +
+          '<div class="rand-recent"><span class="cale">ERP_TEST &rarr; ERP_PROD</span><span class="nr">318</span><span class="cand">acum 2 ore</span></div>' +
+          '<div class="rand-recent"><span class="cale">ERP_TEST &rarr; ERP_UAT</span><span class="nr">41</span><span class="cand">ieri</span></div>' +
+          '<div class="rand-recent"><span class="cale">instantaneu-2026-11-26.json</span><span class="nr">7</span><span class="cand">2 zile</span></div>' +
+        '</div>' +
+        '<div class="zona"><h2>Aceeasi treaba, din cli</h2>' +
+          '<pre class="cmd">gmotion <b>compara</b> \\\n  --referinta SRV-DEV/ERP_TEST \\\n  --tinta SRV-DEV/ERP_PROD \\\n  --json rezultate.json</pre>' +
+        '</div>'
+    },
+    kit: {
+      titlu: 'Kit SQL pe baza', roluri: false,
+      corp:
+        '<div class="zona lata"><h2>In curand</h2>' +
+          '<p class="explic">Un script de livrare (CREATE / ALTER / DROP / INSERT) citit si impartit in obiecte, apoi pus fata in fata cu baza de destinatie: ce exista deja, ce se aduce nou, ce se schimba.</p>' +
+          '<ul class="ramuri">' +
+            '<li>Un fisier sau un folder de kit<s>SOON</s></li>' +
+            '<li>Lista obiectelor din script, cu operatia lor<s>SOON</s></li>' +
+            '<li>Datele din INSERT, separat de obiecte<s>SOON</s></li>' +
+          '</ul>' +
+        '</div>'
+    },
+    analiza: {
+      titlu: 'Analiza initiala', roluri: false,
+      corp:
+        '<div class="zona lata"><h2>In curand</h2>' +
+          '<p class="explic">Ce s-a personalizat intr-o baza de ERP, inainte de un upgrade sau de o implementare: obiectele proprii fata de standard, tranzactiile folosite, exemple de date de unde pleaca personalizarea.</p>' +
+          '<ul class="ramuri">' +
+            '<li>Personalizari fata de baza standard<s>SOON</s></li>' +
+            '<li>Tranzactii si tabele atinse<s>SOON</s></li>' +
+            '<li>Navigare prin date, cu exemple<s>SOON</s></li>' +
+          '</ul>' +
+        '</div>'
+    },
+    config: {
+      titlu: 'Configurare', roluri: false,
+      corp:
+        '<div class="zona lata"><h2>In curand</h2>' +
+          '<p class="explic">Conexiunile tinute minte, tema si limba, cat se asteapta la conectare, unde se scrie jurnalul si cat se pastreaza.</p>' +
+          '<ul class="ramuri">' +
+            '<li>Conexiuni si acreditari<s>SOON</s></li>' +
+            '<li>Aspect: tema, limba, scara<s>SOON</s></li>' +
+            '<li>Jurnal si fisiere de lucru<s>SOON</s></li>' +
+          '</ul>' +
+        '</div>'
+    }
+  };
+
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cronometre = [];
+  var stare = 'intrare';        // 'intrare' | 'meniu' | 'ecran'
+  var ales = 0;
+  var t0 = performance.now() * 0.001;
+  var lovituraLa = -99;
+  var progres = 0;
+
+  function dupa(ms, fn) { cronometre.push(setTimeout(fn, REDUS ? 1 : ms)); }
+  function curata() { cronometre.forEach(clearTimeout); cronometre = []; }
+
+  // ---------------------------------------------------------------- sfera
+  var CELULE = (function () {
+    var n = 92, v = [], aur = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < n; i++) {
+      var y = 1 - (i / (n - 1)) * 2;
+      var r = Math.sqrt(Math.max(0, 1 - y * y));
+      var th = aur * i;
+      v.push({
+        x: Math.cos(th) * r, y: y, z: Math.sin(th) * r,
+        faza: i * 1.618, viteza: 1.3 + (i % 5) * 0.26,
+        greutate: (i * 37 + 13) % 19 === 0 ? 0.14 : ((i % 4) === 1 ? 0.8 : 0.46)
+      });
+    }
+    return v;
+  })();
+
+  function roteste(x, y, z, ry, rx, rz) {
+    var cy = Math.cos(ry), sy = Math.sin(ry);
+    var x1 = x * cy - z * sy, z1 = x * sy + z * cy;
+    var cx = Math.cos(rx), sx = Math.sin(rx);
+    var y2 = y * cx - z1 * sx, z2 = y * sx + z1 * cx;
+    var cz = Math.cos(rz), sz = Math.sin(rz);
+    return { x: x1 * cz - y2 * sz, y: x1 * sz + y2 * cz, z: z2 };
+  }
+
+  function masoaraSfera() {
+    var r = cuib.getBoundingClientRect();
+    var d = Math.max(60, Math.round((r.width || 60) * 1.96));
+    sferaCv.width = Math.floor(d * dpr);
+    sferaCv.height = Math.floor(d * dpr);
+  }
+
+  function deseneazaSfera(t) {
+    var g = sferaCv.getContext('2d');
+    var L = sferaCv.width / dpr;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, L, L);
+    var cx = L * 0.5, cy = L * 0.5;
+
+    var sufluIntrare = Math.exp(-(t - t0) * 2.6) * 0.3;
+    var age = t - lovituraLa, aprindere = 0, caldura = 0, sufluLov = 0;
+    if (age >= 0 && age < 2.6) {
+      aprindere = age < 0.1 ? Math.pow(age / 0.1, 0.55) : Math.pow(Math.max(0, 1 - (age - 0.1) / 1.3), 1.7);
+      caldura = age < 0.1 ? age / 0.1 : (age < 0.9 ? 1 : Math.pow(Math.max(0, 1 - (age - 0.9) / 1.7), 1.4));
+      if (age < 0.9) sufluLov = Math.sin((age / 0.9) * Math.PI) * 0.3;
+    }
+    var fisura = 0.092 + Math.sin(t * 1.5) * 0.016 + sufluIntrare + sufluLov;
+    var R = L * 0.255 * (1 + caldura * 0.12);
+    var ry = t * 0.3, rx = 0.17 + Math.sin(t * 0.42) * 0.025, rz = -0.366;
+
+    var halo = g.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.3);
+    halo.addColorStop(0, caldura > 0.3 ? 'rgba(255,150,40,' + (0.3 * caldura).toFixed(3) + ')' : 'rgba(245,158,11,0.12)');
+    halo.addColorStop(0.55, 'rgba(6,182,212,0.06)');
+    halo.addColorStop(1, 'rgba(5,8,17,0)');
+    g.fillStyle = halo; g.beginPath(); g.arc(cx, cy, R * 1.3, 0, 6.2832); g.fill();
+
+    var coreR = R * (0.46 + aprindere * 0.8) * (0.94 + 0.06 * Math.sin(t * 2.1));
+    var core = g.createRadialGradient(cx - coreR * 0.2, cy - coreR * 0.24, coreR * 0.04, cx, cy, coreR);
+    if (aprindere > 0.04) {
+      core.addColorStop(0, 'rgba(255,255,252,1)');
+      core.addColorStop(0.16, 'rgba(255,246,206,0.95)');
+      core.addColorStop(0.4, 'rgba(255,196,70,0.85)');
+      core.addColorStop(0.72, 'rgba(252,122,16,0.45)');
+      core.addColorStop(1, 'rgba(120,20,0,0)');
+    } else {
+      core.addColorStop(0, 'rgba(255,251,236,0.9)');
+      core.addColorStop(0.2, 'rgba(255,206,108,0.8)');
+      core.addColorStop(0.5, 'rgba(249,134,26,0.56)');
+      core.addColorStop(1, 'rgba(124,30,0,0)');
+    }
+    g.fillStyle = core; g.beginPath(); g.arc(cx, cy, coreR, 0, 6.2832); g.fill();
+
+    var proiectate = [];
+    for (var i = 0; i < CELULE.length; i++) {
+      var c = CELULE[i];
+      var sus = c.y <= 0;
+      var p = roteste(c.x, c.y + (sus ? -fisura : fisura), c.z, ry, rx, rz);
+      var persp = 1 / (1 - p.z * 0.24);
+      proiectate.push({ x: cx + p.x * R * persp, y: cy + p.y * R * persp, z: p.z, persp: persp, sus: sus, c: c });
+    }
+    proiectate.sort(function (a, b) { return a.z - b.z; });
+
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (var k = 0; k < proiectate.length; k++) {
+      var o = proiectate[k];
+      var fata = o.z >= 0;
+      var adanc = fata ? (0.45 + o.z * 0.55) : (0.16 + (o.z + 1) * 0.15);
+      var licar = 0.72 + 0.28 * Math.sin(t * o.c.viteza + o.c.faza);
+      var rc = R * 0.115 * o.persp;
+      var alfa = Math.min(0.95, (o.c.greutate * licar * 0.9 + aprindere * 0.4) * adanc);
+      if (alfa < 0.02) continue;
+      var baza = o.sus ? [245, 158, 11] : [34, 199, 235];
+      var cr = Math.round(baza[0] + (255 - baza[0]) * caldura * 0.75);
+      var cg = Math.round(baza[1] + (190 - baza[1]) * caldura * 0.7);
+      var cb = Math.round(baza[2] + (90 - baza[2]) * caldura * 0.6);
+      g.beginPath();
+      for (var h = 0; h < 6; h++) {
+        var a = (h / 6) * 6.2832 + 0.26;
+        var px = o.x + Math.cos(a) * rc, py = o.y + Math.sin(a) * rc;
+        if (h === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.closePath();
+      g.fillStyle = 'rgba(' + cr + ',' + cg + ',' + cb + ',' + alfa.toFixed(3) + ')';
+      g.fill();
+      g.strokeStyle = 'rgba(' + Math.min(255, cr + 20) + ',' + Math.min(255, cg + 40) + ',' + Math.min(255, cb + 30) + ',' + (alfa * 0.9).toFixed(3) + ')';
+      g.lineWidth = fata ? 0.8 : 0.45;
+      g.stroke();
+    }
+    g.restore();
+
+    var polX = -Math.sin(rz) * Math.cos(rx), polY = Math.cos(rz) * Math.cos(rx);
+    var len = Math.hypot(polX, polY) || 1;
+    var ux = polX / len, uy = polY / len, ang = Math.atan2(uy, ux);
+    var off = R * fisura * len;
+    var cald = aprindere > 0.1 ? '255,250,225' : (caldura > 0.05 ? '255,226,150' : '253,224,71');
+    var rece = aprindere > 0.1 ? '255,236,180' : (caldura > 0.05 ? '255,186,90' : '103,232,249');
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
+    [[cx - ux * off, cy - uy * off, ang + Math.PI / 2, ang + Math.PI * 1.5, cald],
+     [cx + ux * off, cy + uy * off, ang - Math.PI / 2, ang + Math.PI / 2, rece]
+    ].forEach(function (h) {
+      g.strokeStyle = 'rgba(' + h[4] + ',0.16)';
+      g.lineWidth = Math.max(1.6, R * 0.062);
+      g.beginPath(); g.arc(h[0], h[1], R * 1.015, h[2], h[3]); g.stroke();
+      g.strokeStyle = 'rgba(' + h[4] + ',0.88)';
+      g.lineWidth = Math.max(0.9, R * 0.034);
+      g.beginPath(); g.arc(h[0], h[1], R * 1.015, h[2], h[3]); g.stroke();
+    });
+    g.restore();
+
+    if (stare === 'intrare' && progres > 0 && progres < 1) {
+      var yS = cy + (-1.1 + progres * 2.2) * R;
+      var jum = Math.sqrt(Math.max(0, Math.pow(R * 1.08, 2) - Math.pow(yS - cy, 2)));
+      if (jum > 4) {
+        g.save(); g.globalCompositeOperation = 'lighter';
+        var lg = g.createLinearGradient(cx - jum, yS, cx + jum, yS);
+        lg.addColorStop(0, 'rgba(251,191,36,0)');
+        lg.addColorStop(0.3, 'rgba(251,191,36,0.7)');
+        lg.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+        lg.addColorStop(0.7, 'rgba(34,211,238,0.7)');
+        lg.addColorStop(1, 'rgba(34,211,238,0)');
+        g.strokeStyle = lg; g.lineWidth = 1.8;
+        g.beginPath(); g.moveTo(cx - jum, yS); g.lineTo(cx + jum, yS); g.stroke();
+        g.restore();
+      }
+    }
+
+    if (aprindere > 0.01) {
+      g.save(); g.globalCompositeOperation = 'lighter';
+      var cr2 = R * (1.05 + aprindere * 1.7);
+      var cg2 = g.createRadialGradient(cx, cy, R * 0.08, cx, cy, cr2);
+      cg2.addColorStop(0, 'rgba(255,255,250,' + (0.4 * aprindere).toFixed(3) + ')');
+      cg2.addColorStop(0.4, 'rgba(255,164,46,' + (0.18 * aprindere).toFixed(3) + ')');
+      cg2.addColorStop(1, 'rgba(150,36,0,0)');
+      g.fillStyle = cg2; g.beginPath(); g.arc(cx, cy, cr2, 0, 6.2832); g.fill();
+      g.restore();
+    }
+  }
+
+  // ---------------------------------------------------------------- praf
+  // Trei straturi: campul departat (zeci de mii de graunte coapte o data
+  // intr-o textura care se tileaza si deriva incet), boabele animate si
+  // cateva motes mari cu halo. Plus steaua cazatoare, care loveste sfera.
+  var boabe = [], latP = 0, inaltP = 0;
+  var CULORI = [
+    [255,198,92],[253,216,84],[251,191,36],[255,231,170],
+    [255,255,255],[206,246,255],[150,240,252],[88,226,248],[34,205,235]
+  ];
+  var samanta = 20261127;
+  function rnd() { samanta = (samanta * 1664525 + 1013904223) >>> 0; return samanta / 4294967296; }
+  var TAU = Math.PI * 2;
+  var BENZI = [
+    { y0: 0.278, amp: 0.064, lat: 0.21, p1: 0.4, p2: 2.1, p3: 4.4, c1: 1.1, c2: 3.7, c3: 0.3 },
+    { y0: 0.731, amp: 0.070, lat: 0.23, p1: 2.7, p2: 0.6, p3: 1.9, c1: 2.4, c2: 5.1, c3: 2.8 }
+  ];
+  // curba benzii e suma de armonice intregi, deci periodica: textura coapta se
+  // tileaza orizontal fara cusatura
+  function yBanda(b, t) {
+    return b.y0 + (Math.sin(TAU * t + b.p1) * 0.62 + Math.sin(TAU * 2 * t + b.p2) * 0.25
+                 + Math.sin(TAU * 3 * t + b.p3) * 0.13) * b.amp;
+  }
+  function ghem(b, t) {
+    var v = Math.sin(TAU * 3 * t + b.c1) * 0.46 + Math.sin(TAU * 7 * t + b.c2) * 0.33
+          + Math.sin(TAU * 13 * t + b.c3) * 0.21;
+    return Math.pow(v * 0.5 + 0.5, 1.75);
+  }
+  function curmezis() {
+    var u = rnd(), g = (rnd() + rnd() + rnd() + rnd() - 2) * 0.5;
+    return u < 0.8 ? g * 0.42 : g * 1.35;
+  }
+  function culoare(t) {
+    return Math.max(0, Math.min(CULORI.length - 1, Math.round(t * (CULORI.length - 1) + (rnd() - 0.5) * 2)));
+  }
+  function rgba(ci, a) { var c = CULORI[ci]; return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a.toFixed(3) + ')'; }
+
+  var INCLINARE = -0.112;
+  var camp = null, campW = 0, campH = 0;
+  function coaceCampul(W, H) {
+    campW = Math.max(900, Math.round(W * 1.15));
+    campH = Math.max(420, Math.round(H * 1.30));
+    var c = document.createElement('canvas');
+    c.width = campW; c.height = campH;
+    var x = c.getContext('2d');
+    samanta = 20261127;
+    var n = Math.round(campW * 13);
+    for (var i = 0; i < n; i++) {
+      var b = BENZI[i % 2], t = rnd();
+      if (rnd() > ghem(b, t) * 0.92 + 0.08) continue;
+      var peste = curmezis();
+      var y = (yBanda(b, t) + peste * b.lat * 0.33) * campH;
+      if (y < -4 || y > campH + 4) continue;
+      var a = (0.05 + 0.95 * Math.pow(rnd(), 3.4)) * Math.exp(-peste * peste * 2.6);
+      if (a < 0.02) continue;
+      x.fillStyle = rgba(culoare(t), a);
+      var sz = rnd() < 0.12 ? 2 : 1;
+      x.fillRect(Math.round(rnd() * campW), Math.round(y), sz, sz);
+    }
+    // praf ambiental prin tot cadrul, cu petice de densitate
+    var amb = Math.round(campW * 7.5);
+    for (var j = 0; j < amb; j++) {
+      var ux = rnd(), uy = rnd();
+      var petic = 0.34 + 0.66 * Math.pow(
+        (Math.sin(ux * TAU * 1.7 + 0.9) * 0.4 + Math.sin(uy * TAU * 1.3 + 2.2) * 0.33
+       + Math.sin((ux + uy) * TAU * 2.9 + 4.1) * 0.27) * 0.5 + 0.5, 1.9);
+      if (rnd() > petic) continue;
+      var aa = (0.04 + 0.96 * Math.pow(rnd(), 4.6)) * 0.72;
+      if (aa < 0.02) continue;
+      x.fillStyle = rgba(culoare(ux), aa);
+      x.fillRect(Math.round(ux * campW), Math.round(uy * campH), rnd() < 0.07 ? 2 : 1, 1);
+    }
+    camp = c;
+  }
+
+  function masoaraPraf() {
+    latP = window.innerWidth; inaltP = window.innerHeight;
+    prafCv.width = Math.floor(latP * dpr); prafCv.height = Math.floor(inaltP * dpr);
+    prafCv.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+    coaceCampul(latP, inaltP);
+    var tinta = Math.round(Math.min(1800, Math.max(520, latP * 1.1)));
+    boabe.length = 0;
+    for (var i = 0; i < tinta; i++) {
+      boabe.push({
+        x: Math.random(), y: Math.random(),
+        vx: 0.002 + Math.random() * 0.008,
+        fy: 0.05 + Math.random() * 0.3, phy: Math.random() * 6.28, ay: 0.004 + Math.random() * 0.014,
+        tw: Math.random() * 6.28, tws: 0.2 + Math.random() * 1.5,
+        baza: 0.08 + 0.62 * Math.pow(Math.random(), 2.1),
+        mare: Math.random() < 0.06, cald: Math.random() < 0.5
+      });
+    }
+  }
+
+  // ------------------------------------------------------ steaua cazatoare
+  // Fiecare stea tinteste litera "o". Una care trece si nu face nimic se
+  // citeste ca o defectiune, nu ca varietate.
+  var stea = null, urmatoarea = 1e9, impactLa = -99;
+  function pozitiaSferei() {
+    var r = cuib.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: Math.max(8, r.width / 2) };
+  }
+  function nasteStea(t, tinta) {
+    var dinStanga = Math.random() < 0.5;
+    stea = {
+      sx: dinStanga ? -0.16 * latP : 1.16 * latP,
+      sy: inaltP * (-0.15 + Math.random() * 0.42),
+      tx: tinta.x, ty: tinta.y,
+      t0: t, dur: 0.95 + Math.random() * 0.5
+    };
+  }
+  function deseneazaStea(t) {
+    var g = prafCv.getContext('2d');
+    var tinta = pozitiaSferei();
+    if (!stea && t >= urmatoarea) {
+      if (tinta.r < 9) { urmatoarea = t + 0.5; } else { nasteStea(t, tinta); }
+    }
+    if (stea) {
+      var k = (t - stea.t0) / stea.dur;
+      if (k >= 1) {
+        impactLa = t; lovituraLa = t;            // steaua aprinde nucleul
+        stea = null; urmatoarea = t + 6 + Math.random() * 7;
+      } else {
+        var e = k * 0.72 + k * k * 0.28;
+        var x = stea.sx + (stea.tx - stea.sx) * e, y = stea.sy + (stea.ty - stea.sy) * e;
+        var dx = stea.tx - stea.sx, dy = stea.ty - stea.sy;
+        var L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+        var coada = L * (0.17 + 0.05 * Math.sin(t * 9));
+        var a = Math.min(1, k * 9);
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        var lg = g.createLinearGradient(x - ux * coada, y - uy * coada, x, y);
+        lg.addColorStop(0, 'rgba(255,236,190,0)');
+        lg.addColorStop(0.5, 'rgba(255,226,150,' + (0.26 * a).toFixed(3) + ')');
+        lg.addColorStop(1, 'rgba(255,255,255,' + (0.95 * a).toFixed(3) + ')');
+        g.strokeStyle = lg; g.lineCap = 'round'; g.lineWidth = 2.4;
+        g.beginPath(); g.moveTo(x - ux * coada, y - uy * coada); g.lineTo(x, y); g.stroke();
+        var cap = g.createRadialGradient(x, y, 0, x, y, 14);
+        cap.addColorStop(0, 'rgba(255,255,255,' + (0.9 * a).toFixed(3) + ')');
+        cap.addColorStop(1, 'rgba(255,220,150,0)');
+        g.fillStyle = cap; g.beginPath(); g.arc(x, y, 14, 0, TAU); g.fill();
+        g.restore();
+      }
+    }
+    // blitul de impact, in jurul literei
+    var varsta = t - impactLa;
+    if (varsta >= 0 && varsta < 0.75) {
+      var kk = varsta / 0.75;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = 'rgba(255,238,200,' + (0.65 * (1 - kk)).toFixed(3) + ')';
+      g.lineWidth = 2.6 * (1 - kk);
+      g.beginPath(); g.arc(tinta.x, tinta.y, tinta.r * (1 + kk * 3.4), 0, TAU); g.stroke();
+      var fg = g.createRadialGradient(tinta.x, tinta.y, 0, tinta.x, tinta.y, tinta.r * 2.8);
+      fg.addColorStop(0, 'rgba(255,246,214,' + (0.5 * Math.pow(1 - kk, 2)).toFixed(3) + ')');
+      fg.addColorStop(1, 'rgba(255,200,120,0)');
+      g.fillStyle = fg; g.beginPath(); g.arc(tinta.x, tinta.y, tinta.r * 2.8, 0, TAU); g.fill();
+      g.restore();
+    }
+  }
+  function deseneazaPraf(t) {
+    var g = prafCv.getContext('2d');
+    g.clearRect(0, 0, latP, inaltP);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    var n1 = g.createRadialGradient(latP * 0.17, inaltP * 0.82, 10, latP * 0.17, inaltP * 0.82, Math.max(latP, inaltP) * 0.55);
+    n1.addColorStop(0, 'rgba(245,158,11,0.06)'); n1.addColorStop(1, 'rgba(5,8,17,0)');
+    g.fillStyle = n1; g.fillRect(0, 0, latP, inaltP);
+    var n2 = g.createRadialGradient(latP * 0.84, inaltP * 0.18, 10, latP * 0.84, inaltP * 0.18, Math.max(latP, inaltP) * 0.55);
+    n2.addColorStop(0, 'rgba(34,211,238,0.06)'); n2.addColorStop(1, 'rgba(5,8,17,0)');
+    g.fillStyle = n2; g.fillRect(0, 0, latP, inaltP);
+
+    // campul departat: trei dale, ca sa acopere coltii cand deriva
+    if (camp) {
+      g.save();
+      g.translate(latP / 2, inaltP / 2);
+      g.rotate(INCLINARE);
+      g.translate(-campW / 2, -campH / 2);
+      var off = (t * 2.6) % campW; if (off < 0) off += campW;
+      g.globalAlpha = 0.95;
+      g.drawImage(camp, -off - campW, 0);
+      g.drawImage(camp, -off, 0);
+      g.drawImage(camp, campW - off, 0);
+      g.globalAlpha = 1;
+      g.restore();
+    }
+
+    for (var i = 0; i < boabe.length; i++) {
+      var p = boabe[i];
+      var px = p.x + t * p.vx; px -= Math.floor(px);
+      var py = p.y + Math.sin(t * p.fy + p.phy) * p.ay;
+      var tw = 0.38 + 0.62 * Math.sin(t * p.tws + p.tw);
+      var a = p.baza * tw;
+      if (a < 0.025) continue;
+      var X = px * latP, Y = py * inaltP;
+      g.fillStyle = p.cald ? 'rgba(255,214,130,' + a.toFixed(3) + ')' : 'rgba(170,236,252,' + a.toFixed(3) + ')';
+      if (p.mare) { g.beginPath(); g.arc(X, Y, 2.4 * (0.8 + 0.4 * tw), 0, 6.2832); g.fill(); }
+      else { g.fillRect(X | 0, Y | 0, 1, 1); }
+    }
+    g.restore();
+    deseneazaStea(t);
+  }
+
+  // ------------------------------------------------- mutarea lockup-ului
+  // Masura netransformata se ia o singura data: citita in fiecare cadru, ar
+  // reporni tranzitia la nesfarsit si lockup-ul ar ramane inghetat pe loc.
+  var baza = null;
+  function masoaraBaza() {
+    var tr = lockup.style.transition, tf = lockup.style.transform;
+    lockup.style.transition = 'none';
+    lockup.style.transform = 'none';
+    baza = lockup.getBoundingClientRect();
+    lockup.style.transform = tf;
+    void lockup.offsetWidth;
+    lockup.style.transition = tr;
+  }
+  // Straturile doar se sting si se aprind (fara translatie), deci locul
+  // fiecarui slot e acelasi si cand stratul lui e invizibil.
+  function asaza(slot) {
+    if (!slot) { lockup.style.transform = 'none'; return; }
+    if (!baza || !baza.width) masoaraBaza();
+    var b = slot.getBoundingClientRect();
+    if (!baza.width || !b.width) return;
+    var k = Math.min(b.width / baza.width, b.height / baza.height);
+    var dx = (b.left + b.width / 2) - (baza.left + baza.width / 2);
+    var dy = (b.top + b.height / 2) - (baza.top + baza.height / 2);
+    lockup.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + k.toFixed(4) + ')';
+  }
+
+  // ---------------------------------------------------------------- regia
+  function alege(i) {
+    ales = Math.max(0, Math.min(alegeri.length - 1, i));
+    alegeri.forEach(function (el, j) { el.classList.toggle('tinta', j === ales); });
+    alegeri[ales].focus({ preventScroll: true });
+  }
+
+  function laMeniu() {
+    if (stare === 'meniu') return;
+    var dinIntrare = stare === 'intrare';
+    curata();
+    stare = 'meniu';
+    progres = 1;
+    umple.style.width = '100%';
+    incarc.classList.remove('pe');
+    sariEl.classList.remove('pe');
+    ecran.classList.remove('pe'); ecran.setAttribute('aria-hidden', 'true');
+    tagline.classList.add('pe');
+    if (dinIntrare) lovituraLa = performance.now() * 0.001;
+
+    dupa(dinIntrare ? 240 : 0, function () {
+      meniu.classList.add('pe'); meniu.setAttribute('aria-hidden', 'false');
+      masoaraBaza();
+      requestAnimationFrame(function () { asaza(slotMen); });
+      alegeri.forEach(function (el, i) {
+        el.classList.remove('intrat');
+        dupa(dinIntrare ? 320 + i * 85 : i * 55, function () { el.classList.add('intrat'); });
+      });
+        dupa(dinIntrare ? 700 : 160, function () { alege(ales); });
+      urmatoarea = performance.now() * 0.001 + (dinIntrare ? 4.5 : 2.5);
+    });
+  }
+
+  function laEcran(cheie) {
+    var e = ECRANE[cheie];
+    if (!e) return;
+    curata();
+    stare = 'ecran';
+    titluEc.textContent = e.titlu;
+    corpEc.innerHTML = e.corp;
+    corpEc.scrollTop = 0;
+    chipB.hidden = !e.roluri; chipA.hidden = !e.roluri;
+    meniu.classList.remove('pe'); meniu.setAttribute('aria-hidden', 'true');
+    ecran.classList.add('pe'); ecran.setAttribute('aria-hidden', 'false');
+    tagline.classList.remove('pe');      // la 132 px, tagline-ul ar fi o pata
+    asaza(slotAnt);
+    document.getElementById('inapoi').focus({ preventScroll: true });
+  }
+
+  function joacaIntrarea() {
+    curata();
+    stare = 'intrare';
+    progres = 0; lovituraLa = -99; ales = 0;
+    stea = null; impactLa = -99; urmatoarea = 1e9;
+    t0 = performance.now() * 0.001;
+
+    meniu.classList.remove('pe'); meniu.setAttribute('aria-hidden', 'true');
+    ecran.classList.remove('pe'); ecran.setAttribute('aria-hidden', 'true');
+    alegeri.forEach(function (el) { el.classList.remove('intrat', 'tinta'); });
+
+    lockup.style.transition = 'none';
+    lockup.style.transform = 'none';
+    void lockup.offsetWidth;
+    lockup.style.transition = '';
+    baza = null;
+
+    glifa.classList.remove('pe');
+    cuib.classList.remove('pe');
+    litere.forEach(function (l) { l.classList.remove('pe'); });
+    tagline.classList.remove('pe');
+    incarc.classList.remove('pe');
+    umple.style.transition = 'none'; umple.style.width = '0%';
+    void umple.offsetWidth;
+    umple.style.transition = 'width .5s cubic-bezier(.4,.9,.3,1)';
+    pasText.textContent = 'pornesc'; pasPct.textContent = '0%';
+
+    prafCv.classList.add('pe');
+    dupa(220,  function () { cuib.classList.add('pe'); });
+    dupa(700,  function () { glifa.classList.add('pe'); });
+    dupa(830,  function () { litere.forEach(function (l) { l.classList.add('pe'); }); });
+    dupa(1450, function () { tagline.classList.add('pe'); });
+    dupa(1600, function () { incarc.classList.add('pe'); sariEl.classList.add('pe'); });
+    PASI.forEach(function (pas, i) {
+      dupa(1750 + i * 420, function () {
+        progres = pas.p;
+        umple.style.width = (pas.p * 100) + '%';
+        pasText.textContent = pas.t;
+        pasPct.textContent = Math.round(pas.p * 100) + '%';
+      });
+    });
+    dupa(1750 + PASI.length * 420 + 320, laMeniu);
+  }
+
+  // ---------------------------------------------------------------- bucla
+  function cadru(ms) {
+    var t = ms * 0.001;
+    deseneazaPraf(t);
+    deseneazaSfera(t);
+    requestAnimationFrame(cadru);
+  }
+
+  function masoara() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    masoaraPraf(); masoaraSfera();
+    if (stare !== 'intrare') { masoaraBaza(); asaza(stare === 'meniu' ? slotMen : slotAnt); }
+  }
+
+  // ---------------------------------------------------------------- intrari
+  window.addEventListener('resize', masoara);
+  alegeri.forEach(function (el, i) {
+    el.addEventListener('click', function () { ales = i; laEcran(el.dataset.ecran); });
+    el.addEventListener('mouseenter', function () { if (stare === 'meniu') alege(i); });
+  });
+  document.getElementById('inapoi').addEventListener('click', laMeniu);
+  document.getElementById('btn-reia').addEventListener('click', joacaIntrarea);
+  document.getElementById('btn-meniu').addEventListener('click', laMeniu);
+  document.getElementById('scena').addEventListener('click', function (e) {
+    if (stare === 'intrare' && !e.target.closest('#unelte')) laMeniu();
+  });
+  window.addEventListener('keydown', function (e) {
+    if (stare === 'intrare') { e.preventDefault(); laMeniu(); return; }
+    if (stare === 'ecran') { if (e.key === 'Escape') { e.preventDefault(); laMeniu(); } return; }
+    if (e.key >= '1' && e.key <= '4') { e.preventDefault(); alege(+e.key - 1); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); alege(ales + 1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); alege(ales - 1); return; }
+    if (e.key === 'Enter') { e.preventDefault(); laEcran(alegeri[ales].dataset.ecran); }
+  });
+
+  masoara();
+  joacaIntrarea();
+  requestAnimationFrame(cadru);
+  window.goMotion = { reia: joacaIntrarea, meniu: laMeniu, ecran: laEcran };
+})();
+</script>

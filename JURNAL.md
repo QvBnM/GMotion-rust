@@ -2683,3 +2683,59 @@ rotunjite concentrice, din ce in ce mai stinse (lumina din fata, colturile
 umbrite la fel ca laturile), fara muchii de lumina. Derularea listei:
 ~4,5-5 ms pe cadru (fata de 3,5-4,1 ms fara zone); trei inele in loc de
 cinci nu s-au deosebit masurabil, deci au ramas cinci.
+
+---
+
+## 2026-11-28 — Tema spatiala pe pornire si meniu; „fara fundal decorativ" se ingusteaza
+
+**Context.** Mihai a facut intr-o alta sesiune o pagina de intrare `goMotion`:
+cer cu praf stelar, sigla cu sfera hexagonala taiata in diagonala pe post de
+litera „o", stea cazatoare care loveste sfera. I-a placut si a cerut sa
+construim in jurul ei. Au urmat, in sesiunea asta: opt schite de idei, un
+prototip rulabil al fluxului (intrare -> meniu -> ecran dedicat) si o
+comparatie cap la cap a aceluiasi ecran in cele doua materiale. Toate in
+`cercetare/machete/tema-spatiala/`.
+
+**Decizia (Mihai, 2026-11-28): mergem pe tema spatiala, dar taiata.** Cerul cu
+praf si suprafetele de sticla tin **pana apare prima data din baza**:
+
+| Ecran | Material |
+|---|---|
+| pornire | spatial |
+| meniu | spatial |
+| conectare, lista, editor, deploy | sculptat, ca azi |
+
+**Ce se schimba fata de 2026-11-27.** Decizia „fara fundal decorativ" nu se
+anuleaza, se ingusteaza la **ecranele de lucru**. Motivul e acelasi cu cel de
+atunci, masurat: un fond rotunjit de marimea listei costa ~1,5 ms pe cadru si
+o umbra cu blur ~2 ms, la 1920x1080, in desenare completa; sticla peste un
+fundal care se misca se repicteaza integral, la fiecare cadru, pe un ecran
+care se si deruleaza. Meniul nu are nimic din toate astea: nicio data pe
+ecran, nicio derulare, stai doua secunde si pleci. Acolo decorul nu
+concureaza cu nimic, iar marca are singurul loc in care poate fi mare.
+
+**Alternativele cantarite.** (1) Spatial peste tot — respins pe cost si
+pentru ca pe lista cerul concureaza cu datele pentru atentie. (2) Sculptat
+peste tot, inclusiv meniul — macheta exista (`cosmic-fata-de-sculptat.html`),
+arata curat, dar sfera devine o iconita si ecranul de pornire nu mai spune
+nimic despre produs. (3) Taietura de mai sus — aleasa.
+
+**Tema luminoasa.** Pornirea si meniul raman intunecate intotdeauna, si nu
+asculta de comutatorul de tema. Un cer pe fundal deschis ar fi a doua
+specificatie de intretinut pentru doua ecrane pe care nu se lucreaza.
+Comutatorul isi pastreaza efectul de la conectare incolo.
+
+**Ce ramane de masurat inainte de a promite ceva.** Cat costa cerul animat in
+Slint, cu `--fps` si `masura_ui`. Daca trece de cateva milisecunde pe cadru,
+cerul devine imagine coapta si se misca doar sfera. Sfera insasi are doua
+drumuri — cadre pregenerate (ieftin, fara mouse) sau rasterizare in Rust
+intr-un `SharedPixelBuffer` (cu mouse, dependinta noua, intrare proprie in
+jurnal). Nu e decis; se decide cu cifra pe masa, in etapa 34.
+
+**Si o idee care tine toate animatiile legate de adevar.** Fiecare parametru
+al sferei primeste un echivalent in date: fisura = cat de departe sunt bazele,
+celulele aprinse = obiectele modificate, scannerul = procentul citit la
+comparare, nucleul aprins = deploy scris, fragmentele = obiecte respinse de
+garda, steaua = o lucrare terminata cat nu te uitai. Tabelul intreg e in
+`schite-sfera.html`. Fara el, orice animatie urmatoare e decor si se discuta
+la infinit.

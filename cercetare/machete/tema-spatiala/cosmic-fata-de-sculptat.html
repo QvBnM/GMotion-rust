@@ -1,0 +1,416 @@
+<title>Cosmic fata de sculptat</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Patru machete, doua ecrane x doua stiluri, la 1440x900 fiecare, scalate in
+     pagina. Stilurile difera doar prin material: aceleasi culori, aceeasi
+     asezare, acelasi continut. */
+  :root {
+    --pag: #f3f4f8;
+    --card: #ffffff;
+    --bord: #dfe3ec;
+    --txt: #15171f;
+    --t2: #5a6072;
+    --t3: #7b8197;
+    --acc: #b4761a;
+    --rece: #0e7490;
+    --f-ui: 'Outfit', system-ui, sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --pag: #0a0e18; --card: #11172a; --bord: #222c47;
+      --txt: #e9edfb; --t2: #a3acd0; --t3: #7d87ab;
+      --acc: #fbbf24; --rece: #22d3ee; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --pag: #0a0e18; --card: #11172a; --bord: #222c47;
+    --txt: #e9edfb; --t2: #a3acd0; --t3: #7d87ab;
+    --acc: #fbbf24; --rece: #22d3ee; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--pag); color: var(--txt); font: 400 15px/1.6 var(--f-ui); }
+  .lat {
+    max-width: 1180px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 2.2rem 4rem;
+  }
+  h1 { font: 600 clamp(22px,3.3vw,30px)/1.2 var(--f-ui); margin: 0 0 .5rem; letter-spacing: -.02em; text-wrap: balance; }
+  .intro { color: var(--t2); max-width: 66ch; margin: 0; }
+  h2 { font: 600 17px/1.3 var(--f-ui); margin: 2.6rem 0 .3rem; display: flex; gap: .7rem; align-items: center; }
+  h2::after { content: ""; flex: 1; height: 1px; background: var(--bord); }
+  .ce { color: var(--t3); font: 400 13.5px/1.5 var(--f-ui); margin: 0 0 1rem; max-width: 70ch; }
+
+  .pereche { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .panou { min-width: 0; display: flex; flex-direction: column; gap: .7rem; }
+  .eticheta-panou { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .eticheta-panou b { font: 600 15px/1 var(--f-ui); }
+  .marcaj { font: 600 9.5px/1 var(--f-mono); letter-spacing: .14em; border: 1px solid var(--bord); border-radius: 4px; padding: 4px 6px; color: var(--t3); }
+  .marcaj.azi { color: var(--rece); border-color: color-mix(in srgb, var(--rece) 45%, transparent); }
+  .marcaj.nou { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 45%, transparent); }
+  .rama { position: relative; width: 100%; aspect-ratio: 1440 / 900; overflow: hidden; border: 1px solid var(--bord); border-radius: 9px; background: #06090f; }
+  .scena { position: absolute; top: 0; left: 0; width: 1440px; height: 900px; transform-origin: top left; }
+  .nota { font: 400 13px/1.5 var(--f-ui); color: var(--t2); margin: 0; }
+  .nota b { color: var(--txt); font-weight: 600; }
+
+  /* =========================== machetele ============================ */
+  .pagina { width: 1440px; height: 900px; position: relative; overflow: hidden; font-family: var(--f-ui); }
+
+  /* --- cosmic --- */
+  .mod-cosmic .pagina {
+    background-color: #060b18;
+    /* stelele deasupra, degradeul dedesubt: altfel degradeul le acopera */
+    background-image: var(--stele), radial-gradient(circle at 50% 46%, #0d1528 0%, #070d1c 58%, #050811 100%);
+    background-size: cover, cover;
+    color: #eef1ff;
+  }
+  .mod-cosmic .zona { background: rgba(13,19,36,.52); border: 1px solid rgba(120,140,200,.16); border-radius: 12px; }
+  .mod-cosmic .bara { background: rgba(10,15,30,.5); border-bottom: 1px solid rgba(120,140,200,.14); }
+  .mod-cosmic .lin { border-color: rgba(120,140,200,.12); }
+  .mod-cosmic .t2 { color: #a3acd0; } .mod-cosmic .t3 { color: #7d87ab; }
+  .mod-cosmic .rand:nth-child(even) { background: rgba(255,255,255,.012); }
+  .mod-cosmic .rand.sel { background: rgba(251,191,36,.1); box-shadow: inset 3px 0 0 #fbbf24; }
+
+  /* --- sculptat: un singur material, zonele sapate in el --- */
+  .mod-sculptat .pagina { background: #0f1422; color: #e8ebf5; }
+  .mod-sculptat .zona {
+    background: #121829; border: 1px solid #252d44; border-radius: 6px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.55), inset 0 -1px 0 rgba(255,255,255,.035);
+  }
+  .mod-sculptat .bara { background: #131a2b; border-bottom: 1px solid #252d44; box-shadow: inset 0 -1px 0 rgba(255,255,255,.03); }
+  .mod-sculptat .lin { border-color: #222a40; }
+  .mod-sculptat .t2 { color: #9aa3bd; } .mod-sculptat .t3 { color: #79819b; }
+  .mod-sculptat .rand:nth-child(even) { background: rgba(255,255,255,.018); }
+  .mod-sculptat .rand.sel { background: #1b2238; box-shadow: inset 3px 0 0 #e0a63c; }
+
+  /* --- comun --- */
+  .pagina .zona { padding: 18px 20px; }
+  .mono { font-family: var(--f-mono); }
+
+  /* meniu */
+  .m-grid { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1.05fr; gap: 56px; align-items: center; padding: 46px 60px; }
+  .m-stanga { justify-self: end; width: 100%; max-width: 540px; display: flex; flex-direction: column; gap: 11px; }
+  .m-titlu { font: 600 11px/1 var(--f-mono); letter-spacing: .24em; color: #7d87ab; margin-bottom: 4px; }
+  .m-rand { display: flex; align-items: center; gap: 15px; padding: 16px 18px; border-radius: 11px; }
+  .mod-sculptat .m-rand { border-radius: 6px; }
+  .m-rand.viu { box-shadow: inset 3px 0 0 var(--acc-m); }
+  .mod-cosmic .m-rand.viu { border-color: rgba(251,191,36,.45); --acc-m: #fbbf24; }
+  .mod-sculptat .m-rand.viu { border-color: #4a3a18; --acc-m: #e0a63c; background: #161d30; }
+  .m-tasta { width: 28px; height: 28px; flex: none; border-radius: 7px; display: grid; place-items: center; font: 600 11.5px/1 var(--f-mono); }
+  .mod-cosmic .m-tasta { border: 1px solid rgba(120,140,200,.24); color: #7d87ab; }
+  .mod-sculptat .m-tasta { border: 1px solid #2a3350; color: #79819b; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); border-radius: 5px; }
+  .m-rand.viu .m-tasta { background: var(--acc-m); border-color: var(--acc-m); color: #1a1200; }
+  .m-text b { display: block; font: 600 17px/1.2 var(--f-ui); }
+  .m-text span { font: 400 12.5px/1.3 var(--f-mono); }
+  .m-ins { margin-left: auto; font: 600 9.5px/1 var(--f-mono); letter-spacing: .14em; border: 1px solid currentColor; border-radius: 4px; padding: 4px 6px; opacity: .75; }
+  .m-dreapta { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+  .m-stare { display: flex; gap: 20px; font: 400 12px/1 var(--f-mono); }
+  .m-stare i { font-style: normal; display: inline-flex; gap: 7px; align-items: center; }
+  .bec { width: 6px; height: 6px; border-radius: 50%; background: #3ddc97; }
+  .bec.cald { background: #fbbf24; }
+  .m-taste { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; font: 400 11px/1 var(--f-mono); letter-spacing: .16em; }
+
+  /* lockup */
+  .lk { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .lk-rand { display: flex; align-items: center; gap: 5px; }
+  .lk-par { font: 600 40px/1 var(--f-mono); }
+  .lk-g { font: 800 74px/1 var(--f-mono); padding: 0 2px; }
+  .lk-w { font: 700 76px/1 var(--f-ui); letter-spacing: -.03em; }
+  .lk-sf { width: 52px; height: 52px; display: block; }
+  .lk-tag { font: 600 12px/1 var(--f-mono); letter-spacing: .26em; }
+  .mod-cosmic .lk-par { color: rgba(34,211,238,.72); }
+  .mod-cosmic .lk-g { background: linear-gradient(145deg,#fff 24%,#fde68a 50%,#fbbf24 70%,#22d3ee 93%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+  .mod-cosmic .lk-w { background: linear-gradient(175deg,#fff 22%,#f1f5f9 60%,#bae6fd 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+  .mod-cosmic .lk-tag { color: rgba(148,163,184,.8); }
+  .mod-sculptat .lk-par { color: #2a7f93; }
+  .mod-sculptat .lk-g { color: #e0a63c; }
+  .mod-sculptat .lk-w { color: #e8ebf5; }
+  .mod-sculptat .lk-tag { color: #79819b; }
+  .lk.mic .lk-par { font-size: 15px; } .lk.mic .lk-g { font-size: 26px; }
+  .lk.mic .lk-w { font-size: 27px; } .lk.mic .lk-sf { width: 19px; height: 19px; }
+
+  /* lista */
+  .l-bara { height: 62px; display: flex; align-items: center; gap: 14px; padding: 0 24px; }
+  .l-bara h3 { font: 600 18px/1 var(--f-ui); margin: 0; }
+  .chip { font: 600 10px/1 var(--f-mono); letter-spacing: .14em; padding: 5px 7px; border-radius: 5px; border: 1px solid currentColor; }
+  .chip.b { color: var(--acc-b); } .chip.a { color: var(--acc-a); }
+  .mod-cosmic { --acc-b: #fbbf24; --acc-a: #22d3ee; }
+  .mod-sculptat { --acc-b: #e0a63c; --acc-a: #2a9fb8; }
+  .l-cauta { margin-left: auto; width: 260px; height: 32px; border-radius: 7px; display: flex; align-items: center; padding: 0 11px; font: 400 12px/1 var(--f-mono); }
+  .mod-cosmic .l-cauta { background: rgba(5,9,20,.5); border: 1px solid rgba(120,140,200,.16); }
+  .mod-sculptat .l-cauta { background: #0c1220; border: 1px solid #252d44; box-shadow: inset 0 2px 4px rgba(0,0,0,.5); border-radius: 5px; }
+  .l-corp { position: absolute; top: 62px; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr 380px; gap: 18px; padding: 18px 24px 24px; }
+  .l-tabel { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+  .l-filtre { display: flex; gap: 9px; padding: 13px 16px; border-bottom: 1px solid; }
+  .pil { font: 400 11.5px/1 var(--f-mono); padding: 6px 9px; border-radius: 6px; border: 1px solid; }
+  .mod-cosmic .pil { border-color: rgba(120,140,200,.2); color: #a3acd0; }
+  .mod-sculptat .pil { border-color: #2a3350; color: #9aa3bd; border-radius: 4px; box-shadow: inset 0 1px 2px rgba(0,0,0,.4); }
+  .pil.on { color: #1a1200; }
+  .mod-cosmic .pil.on { background: #fbbf24; border-color: #fbbf24; }
+  .mod-sculptat .pil.on { background: #e0a63c; border-color: #e0a63c; }
+  .l-cap, .rand { display: grid; grid-template-columns: 1fr 92px 64px 74px 62px 62px; align-items: center; gap: 10px; padding: 0 16px; height: 36px; font: 400 12.5px/1 var(--f-mono); }
+  .l-cap { height: 32px; font-size: 10px; letter-spacing: .14em; border-bottom: 1px solid; }
+  .rand { border-bottom: 1px solid; }
+  .rand .nume { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .imp { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+  .imp.v { background: #3ddc97; } .imp.g { background: #fbbf24; border-radius: 2px; transform: rotate(45deg); } .imp.r { background: #f05252; border-radius: 2px; }
+  .bif { width: 13px; height: 13px; border-radius: 3px; border: 1px solid currentColor; display: inline-block; }
+  .l-panou { display: flex; flex-direction: column; gap: 13px; }
+  .l-panou h4 { margin: 0; font: 600 10.5px/1 var(--f-mono); letter-spacing: .16em; }
+  .l-cod { flex: 1; border-radius: 7px; padding: 13px; font: 400 11.5px/1.75 var(--f-mono); overflow: hidden; }
+  .mod-cosmic .l-cod { background: rgba(5,9,20,.55); border: 1px solid rgba(120,140,200,.12); }
+  .mod-sculptat .l-cod { background: #0b1120; border: 1px solid #222a40; border-radius: 5px; box-shadow: inset 0 2px 6px rgba(0,0,0,.55); }
+  .kw { color: #c084fc; } .st { color: #86efac; } .cm { color: #6b7694; }
+  .add { color: #3ddc97; } .del { color: #f87171; }
+
+  /* taietura propusa */
+  .flux { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-top: 1rem; }
+  .pas { border: 1px solid var(--bord); border-radius: 9px; padding: 14px 16px; background: var(--card); min-width: 0; }
+  .pas.k { border-top: 3px solid var(--acc); }
+  .pas.s { border-top: 3px solid var(--rece); }
+  .pas b { display: block; font: 600 15px/1.3 var(--f-ui); margin-bottom: .25rem; }
+  .pas span { font: 400 13px/1.5 var(--f-ui); color: var(--t2); }
+  .pas i { display: block; margin-top: .5rem; font: 600 9.5px/1 var(--f-mono); letter-spacing: .14em; color: var(--t3); }
+  ul.lista { margin: 1rem 0 0; padding-left: 1.2rem; display: grid; gap: .5rem; }
+  ul.lista li { font-size: 14.5px; }
+  code { font: 400 12.6px var(--f-mono); background: color-mix(in srgb, var(--txt) 9%, transparent); padding: .1rem .3rem; border-radius: 3px; }
+  footer { margin-top: 2.6rem; border-top: 1px solid var(--bord); padding-top: 1rem; color: var(--t3); font-size: 13px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="sf-k" viewBox="0 0 100 100">
+    <g transform="rotate(-21 50 50)">
+      <circle cx="50" cy="52" r="20" fill="#f59e0b" opacity=".32"/>
+      <circle cx="50" cy="52" r="11" fill="#fde68a" opacity=".85"/>
+      <path d="M6 48 A44 44 0 0 1 94 48" fill="none" stroke="#fde047" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M6 56 A44 44 0 0 0 94 56" fill="none" stroke="#67e8f9" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M16 40 h18 M42 38 h18 M70 40 h14" stroke="#fbbf24" stroke-width="2" opacity=".7" stroke-linecap="round"/>
+      <path d="M16 64 h16 M40 66 h18 M66 64 h18" stroke="#22d3ee" stroke-width="2" opacity=".7" stroke-linecap="round"/>
+    </g>
+  </symbol>
+  <symbol id="sf-s" viewBox="0 0 100 100">
+    <g transform="rotate(-21 50 50)">
+      <circle cx="50" cy="52" r="12" fill="#3a2f18"/>
+      <path d="M6 48 A44 44 0 0 1 94 48" fill="none" stroke="#e0a63c" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M6 56 A44 44 0 0 0 94 56" fill="none" stroke="#2a9fb8" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M16 40 h18 M42 38 h18 M70 40 h14" stroke="#8a6a28" stroke-width="2" stroke-linecap="round"/>
+      <path d="M16 64 h16 M40 66 h18 M66 64 h18" stroke="#1e6b7d" stroke-width="2" stroke-linecap="round"/>
+    </g>
+  </symbol>
+</defs></svg>
+
+<div class="lat">
+  <h1>Cosmic fata de sculptat</h1>
+  <p class="intro">Aceleasi doua ecrane, acelasi continut, aceeasi asezare. Difera doar materialul: stanga, cerul cu praf si suprafete de sticla; dreapta, stilul de azi din aplicatie, unde tot ecranul e un singur material si zonele sunt sapate in el. Comparatia e pusa in ambele sensuri, ca sa se vada si cum ar arata meniul sculptat, si cum ar arata lista in cosmic.</p>
+
+  <h2>Meniul</h2>
+  <p class="ce">Nicio data pe ecran, stai doua secunde si pleci. Aici atmosfera nu te incurca, iar cerul e singurul loc in care marca poate fi mare.</p>
+  <div class="pereche">
+    <div class="panou">
+      <div class="eticheta-panou"><b>Meniu, cosmic</b><span class="marcaj nou">PROPUS</span></div>
+      <div class="rama"><div class="scena mod-cosmic" data-ecran="meniu" data-mod="cosmic"></div></div>
+      <p class="nota">Marca are loc sa respire si spune ce face programul inainte de orice cuvant. <b>Cost:</b> cerul se deseneaza la fiecare cadru, sau se coace intr-o imagine si atunci e aproape gratis, fiindca meniul nu se deruleaza.</p>
+    </div>
+    <div class="panou">
+      <div class="eticheta-panou"><b>Meniu, sculptat</b><span class="marcaj azi">STILUL DE AZI</span></div>
+      <div class="rama"><div class="scena mod-sculptat" data-ecran="meniu" data-mod="sculptat"></div></div>
+      <p class="nota">Acelasi meniu in materialul aplicatiei: fara cer, zonele sapate, marca pe culoare plina. <b>Cost:</b> zero. Dar ecranul nu mai spune nimic despre produs, iar sfera devine doar o iconita.</p>
+    </div>
+  </div>
+
+  <h2>Lista de obiecte</h2>
+  <p class="ce">Ecranul pe care se lucreaza: 12.000 de obiecte, derulare, filtre, panou de cod. Aici fiecare milisecunda pe cadru se simte.</p>
+  <div class="pereche">
+    <div class="panou">
+      <div class="eticheta-panou"><b>Lista, cosmic</b><span class="marcaj nou">NERECOMANDAT</span></div>
+      <div class="rama"><div class="scena mod-cosmic" data-ecran="lista" data-mod="cosmic"></div></div>
+      <p class="nota">Cerul trece pe sub randuri si pe sub cod. Arata bine intr-o captura, dar la derulare concureaza cu datele pentru atentie, iar sticla peste un fundal care se misca se repicteaza integral. <b>Cost:</b> cel mai mare dintre toate patru.</p>
+    </div>
+    <div class="panou">
+      <div class="eticheta-panou"><b>Lista, sculptat</b><span class="marcaj azi">STILUL DE AZI</span></div>
+      <div class="rama"><div class="scena mod-sculptat" data-ecran="lista" data-mod="sculptat"></div></div>
+      <p class="nota">Ce exista acum, dupa etapa 33: un material, zone sapate, contrast pus pe cifre si pe stare. <b>Cost:</b> masurat si acceptat, randurile se refac doar cand li se schimba amprenta.</p>
+    </div>
+  </div>
+
+  <h2>Taietura propusa</h2>
+  <p class="ce">Cosmicul tine pana in clipa in care apare prima data din baza. De acolo incolo, materialul aplicatiei.</p>
+  <div class="flux">
+    <div class="pas k"><b>Pornire</b><span>Marca intra, bara de incarcare, steaua loveste sfera.</span><i>COSMIC</i></div>
+    <div class="pas k"><b>Meniu</b><span>Alegerile stanga, marca vie dreapta. Nicio data pe ecran.</span><i>COSMIC</i></div>
+    <div class="pas s"><b>Conectare</b><span>Before / After, serverele, bazele. Apare prima data reala.</span><i>SCULPTAT</i></div>
+    <div class="pas s"><b>Lista, editor, deploy</b><span>Ecranele de lucru, neschimbate fata de azi.</span><i>SCULPTAT</i></div>
+  </div>
+
+  <h2>Ce trebuie hotarat ca sa mearga</h2>
+  <ul class="lista">
+    <li><b>Regula din <code>CLAUDE.md</code> se rescrie.</b> „Fara fundal decorativ" (2026-11-27) devine „fara fundal decorativ pe ecranele de lucru". Schimbarea intra in acelasi commit cu codul, nu dupa.</li>
+    <li><b>Tema luminoasa a meniului.</b> Ori meniul ramane intunecat intotdeauna, ca un ecran de intampinare care nu asculta de comutator, ori cerul are o varianta pe fundal deschis. Prima e mai ieftina si mai onesta.</li>
+    <li><b>Trecerea dintre cele doua materiale.</b> Cand se deschide conectarea, cerul se stinge: fie in tranzitia de 180 ms care exista deja intre ecrane, fie mai lent, ca o cortina. De ales.</li>
+    <li><b>Masurarea.</b> Inainte sa promitem cerul animat, se masoara cu <code>--fps</code> si <code>masura_ui</code>. Daca trece de cateva milisecunde pe cadru, cerul devine imagine coapta si se misca doar sfera.</li>
+  </ul>
+
+  <footer>Machete, nu capturi din aplicatie. Stilul sculptat e redesenat aici dupa ecranele de azi; cand ajungem la bifa de etapa, comparatia se face cu capturi adevarate, la aceeasi rezolutie.</footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- campul de stele, copt o data si folosit ca fundal in machetele cosmice
+  function coaceStele(W, H) {
+    var c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    var x = c.getContext('2d');
+    var s = 20261128;
+    function rnd() { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }
+    var TAU = Math.PI * 2;
+    var CUL = [[255,198,92],[253,216,84],[251,191,36],[255,231,170],[255,255,255],[206,246,255],[150,240,252],[88,226,248]];
+    var BENZI = [{ y0: .3, amp: .06, lat: .2, p1: .4, p2: 2.1 }, { y0: .74, amp: .07, lat: .22, p1: 2.7, p2: .6 }];
+    function yB(b, t) { return b.y0 + (Math.sin(TAU * t + b.p1) * .62 + Math.sin(TAU * 2 * t + b.p2) * .3) * b.amp; }
+    for (var i = 0; i < W * 9; i++) {
+      var b = BENZI[i % 2], t = rnd();
+      var g = (rnd() + rnd() + rnd() + rnd() - 2) * .5;
+      var peste = rnd() < .8 ? g * .42 : g * 1.35;
+      var y = (yB(b, t) + peste * b.lat * .33) * H;
+      if (y < 0 || y > H) continue;
+      var a = (.05 + .95 * Math.pow(rnd(), 3.4)) * Math.exp(-peste * peste * 2.6);
+      if (a < .03) continue;
+      var k = CUL[(Math.round(t * 7 + (rnd() - .5) * 2) + 8) % 8];
+      x.fillStyle = 'rgba(' + k[0] + ',' + k[1] + ',' + k[2] + ',' + a.toFixed(3) + ')';
+      x.fillRect(rnd() * W | 0, y | 0, rnd() < .12 ? 2 : 1, 1);
+    }
+    for (var j = 0; j < W * 5; j++) {
+      var ux = rnd(), uy = rnd();
+      var petic = .34 + .66 * Math.pow((Math.sin(ux * TAU * 1.7 + .9) * .4 + Math.sin(uy * TAU * 1.3 + 2.2) * .33) * .5 + .5, 1.9);
+      if (rnd() > petic) continue;
+      var aa = (.04 + .96 * Math.pow(rnd(), 4.4)) * .7;
+      if (aa < .03) continue;
+      var kk = CUL[(Math.round(ux * 7) + 8) % 8];
+      x.fillStyle = 'rgba(' + kk[0] + ',' + kk[1] + ',' + kk[2] + ',' + aa.toFixed(3) + ')';
+      x.fillRect(ux * W | 0, uy * H | 0, 1, 1);
+    }
+    return c.toDataURL('image/png');
+  }
+  document.documentElement.style.setProperty('--stele', 'url(' + coaceStele(1440, 900) + ')');
+
+  // ---- machetele
+  function lockup(mod, mic) {
+    var sf = mod === 'cosmic' ? 'sf-k' : 'sf-s';
+    return '<div class="lk' + (mic ? ' mic' : '') + '">' +
+      '<div class="lk-rand">' +
+        '<span class="lk-par">&lt;</span><span class="lk-g">g</span>' +
+        '<svg class="lk-sf" viewBox="0 0 100 100"><use href="#' + sf + '"/></svg>' +
+        '<span class="lk-w">Motion</span><span class="lk-par">/&gt;</span>' +
+      '</div>' +
+      (mic ? '' : '<div class="lk-tag">BEFORE // T-SQL DIFF ENGINE // AFTER</div>') +
+    '</div>';
+  }
+
+  var CATEGORII = [
+    ['1', 'Comparare obiecte', 'before fata de after', 'ACUM', true],
+    ['2', 'Kit SQL pe baza', 'un script de livrare, pus pe baza', 'IN CURAND', false],
+    ['3', 'Analiza initiala', 'ce s-a personalizat intr-o baza', 'IN CURAND', false],
+    ['4', 'Configurare', 'conexiuni, aspect, jurnal', 'IN CURAND', false]
+  ];
+
+  function ecranMeniu(mod) {
+    var randuri = CATEGORII.map(function (c) {
+      return '<div class="zona m-rand' + (c[4] ? ' viu' : '') + '">' +
+        '<span class="m-tasta">' + c[0] + '</span>' +
+        '<span class="m-text"><b>' + c[1] + '</b><span class="t3">' + c[2] + '</span></span>' +
+        '<span class="m-ins t3">' + c[3] + '</span></div>';
+    }).join('');
+    return '<div class="pagina"><div class="m-grid">' +
+      '<div class="m-stanga"><div class="m-titlu">CE FACEM</div>' + randuri + '</div>' +
+      '<div class="m-dreapta">' + lockup(mod, false) +
+        '<div class="m-stare t3">' +
+          '<i><span class="bec"></span>SRV-DEV, 38 ms</i>' +
+          '<i><span class="bec"></span>jurnal 2,1 MB</i>' +
+          '<i><span class="bec cald"></span>ultimul deploy: 41 / 2</i>' +
+        '</div>' +
+      '</div>' +
+      '<div class="m-taste t3">1&ndash;4 ALEGE &middot; ENTER DESCHIDE &middot; ESC INCHIDE</div>' +
+    '</div></div>';
+  }
+
+  var OBIECTE = [
+    ['dbo.usp_SyncInventory', 'PROC', 'r', '94%', 1, 1],
+    ['dbo.vw_LedgerBalance', 'VIEW', 'g', '88%', 1, 1],
+    ['dbo.FactInvoices', 'TABLE', 'g', '96%', 0, 1],
+    ['dbo.usp_PostJournal', 'PROC', 'v', '99%', 1, 0],
+    ['dbo.fn_CalcVat', 'FUNC', 'v', '97%', 0, 0],
+    ['dbo.trg_AuditLog', 'TRIG', 'r', '71%', 0, 1],
+    ['dbo.DimProducts', 'TABLE', 'v', '99%', 1, 0],
+    ['dbo.usp_ClosePeriod', 'PROC', 'g', '83%', 0, 0],
+    ['dbo.vw_OpenOrders', 'VIEW', 'v', '98%', 0, 0],
+    ['dbo.usp_RebuildIdx', 'PROC', 'g', '90%', 0, 1]
+  ];
+
+  function ecranLista(mod) {
+    var randuri = OBIECTE.map(function (o, i) {
+      return '<div class="rand lin' + (i === 0 ? ' sel' : '') + '">' +
+        '<span class="nume">' + o[0] + '</span>' +
+        '<span class="t3">' + o[1] + '</span>' +
+        '<span><i class="imp ' + o[2] + '"></i></span>' +
+        '<span class="num">' + o[3] + '</span>' +
+        '<span class="t3">' + (o[4] ? '&#10003;' : '<i class="bif"></i>') + '</span>' +
+        '<span class="t3">' + (o[5] ? '&#9679;' : '&#9675;') + '</span>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="pagina">' +
+      '<div class="bara l-bara">' + lockup(mod, true) +
+        '<h3>Comparare obiecte</h3>' +
+        '<span class="chip b">BEFORE</span><span class="chip a">AFTER</span>' +
+        '<div class="l-cauta t3">Cauta obiect&hellip;</div>' +
+      '</div>' +
+      '<div class="l-corp">' +
+        '<div class="zona l-tabel">' +
+          '<div class="l-filtre lin"><span class="pil on">Modificate 318</span><span class="pil">Doar in Before</span>' +
+            '<span class="pil">Doar in After</span><span class="pil">Identice</span><span class="pil">Any operation</span></div>' +
+          '<div class="l-cap lin t3"><span>OBIECT</span><span>TIP</span><span>IMPACT</span>' +
+            '<span class="num">SIMILAR</span><span>REVIZUIT</span><span>DEPLOY</span></div>' +
+          randuri +
+        '</div>' +
+        '<div class="zona l-panou">' +
+          '<h4 class="t3">DBO.USP_SYNCINVENTORY</h4>' +
+          '<div class="l-cod">' +
+            '<span class="cm">-- before fata de after</span><br>' +
+            '<span class="kw">ALTER</span> <span class="kw">PROCEDURE</span> dbo.usp_SyncInventory<br>' +
+            '&nbsp;&nbsp;@Depozit <span class="kw">int</span>,<br>' +
+            '<span class="add">+ @DataRef date = NULL</span><br>' +
+            '<span class="kw">AS</span><br>' +
+            '<span class="kw">BEGIN</span><br>' +
+            '&nbsp;&nbsp;<span class="del">- SELECT * FROM Stoc</span><br>' +
+            '&nbsp;&nbsp;<span class="add">+ SELECT Cod, Cant FROM Stoc</span><br>' +
+            '&nbsp;&nbsp;<span class="kw">WHERE</span> Depozit = @Depozit<br>' +
+            '<span class="kw">END</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  var scene = Array.prototype.slice.call(document.querySelectorAll('.scena'));
+  scene.forEach(function (el) {
+    el.innerHTML = el.dataset.ecran === 'meniu' ? ecranMeniu(el.dataset.mod) : ecranLista(el.dataset.mod);
+  });
+
+  function scaleaza() {
+    scene.forEach(function (el) {
+      var r = el.parentElement.getBoundingClientRect();
+      if (!r.width) return;
+      el.style.transform = 'scale(' + (r.width / 1440) + ')';
+    });
+  }
+  scaleaza();
+  window.addEventListener('resize', scaleaza);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scaleaza);
+})();
+</script>
